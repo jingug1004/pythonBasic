@@ -244,4 +244,197 @@ for file in files:
         print('FILE: %s' %file)
 print()
 # -------------------------------------------
+
+from time import localtime, strftime
+
+logfile = 'test.log'
+
+def writelog(logfile, log):
+    time_stamp = strftime('%Y-%m-%d %X\t', localtime())
+    log = time_stamp + log + '\n'
+
+    with open(logfile, 'a', encoding='UTF8') as f:
+        f.writelines(log)
+
+writelog(logfile, '2번째 로깅 문장입니다.')
+print()
+# -------------------------------------------
+
+from time import localtime
+
+t = localtime()
+start_day = '%d-01-01' % t.tm_year
+elapsed_day = t.tm_yday
+
+print('오늘은 [%s]이후 [%d]일째 되는 날입니다.' % (start_day, elapsed_day))
+print()
+# -------------------------------------------
+
+from time import localtime
+
+weekdays = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
+
+t = localtime()
+today = '%d-%d-%d' % (t.tm_year, t.tm_mon, t.tm_mday)
+week = weekdays[t.tm_wday]
+
+print('[%s] 오늘은 [%s]입니다.' % (today, week))
+print()
+# -------------------------------------------
+
+from datetime import datetime
+
+start = datetime.now()
+print('1에서 백만까지 더합니다.')
+ret = 0
+for i in range(10):
+    ret += i
+print('1에서 백만까지 더한 결과: %d' % ret)
+end = datetime.now()
+elapsed = end - start
+print('총 계산 시간: ', end='');
+print(elapsed)
+elapsed_ms = int(elapsed.total_seconds() * 1000)
+print('총 계산 시간: %dms' % elapsed_ms)
+print()
+# -------------------------------------------
+
+"""
+num = input('아무 숫자를 입력하세요: ')
+
+if num.isdigit():
+    num = num[::-1]
+    ret = ''
+    for i, c in enumerate(num):
+        i += 1
+        if i != len(num) and i % 3 == 0:
+            ret += (c + ',')
+        else:
+            ret += c
+    ret = ret[::-1]
+    print(ret)
+else:
+    print('입력한 내용 [%s]: 숫자가 아닙니다.' % num)
+print()
+"""
+# -------------------------------------------
+
+"""
+text = input('문장을 입력하세요: ')
+
+ret = ''
+for i in range(len(text)):
+    if i != len(text) - 1:
+        ret += text[i + 1]
+    else:
+        ret += text[0]
+print(ret)
+print()
+"""
+# -------------------------------------------
+
+url = 'http://news.naver.com/main/read.nhn?mode=LSD&mid=shm&sid1=105&oid=028&aid=0002334601'
+
+tmp = url.split('/')
+domain = tmp[2]
+print(domain)
+print()
+# -------------------------------------------
+
+url = 'http://news.naver.com/main/read.nhn?mode=LSD&mid=shm&sid1=105&oid=028&aid=0002334601'
+
+tmp = url.split('?')
+queries = tmp[1].split('&')
+for query in queries:
+    print(query)
+print()
+# -------------------------------------------
+
+mystack = []
+
+
+def putdata(data):
+    global mystack
+    mystack.append(data)
+
+
+def popdata():
+    global mystack
+    if len(mystack) == 0:
+        return None
+    return mystack.pop()
+
+
+putdata('데이터1')
+putdata([3, 4, 5, 6])
+putdata(12345)
+
+print('<스택상태>: ', end='');
+print(mystack)
+
+ret = popdata()
+while ret != None:
+    print('스택에서 데이터 추출:', end='');
+    print(ret)
+    print('<스택상태>: ', end='');
+    print(mystack)
+    ret = popdata()
+print()
+# -------------------------------------------
+
+def getTextFreq(filename):
+    with open(filename, 'r') as f:
+        text = f.read()
+        fa = {}
+        for c in text:
+            if c in fa:
+                fa[c] += 1
+            else:
+                fa[c] = 1
+    return fa
+
+ret = getTextFreq('mydata.txt')
+ret = sorted(ret.items(), key=lambda x: x[1], reverse=True)
+for c, freq in ret:
+    if c == '\n':
+        continue
+    print('[%c] -> [%d]회 나타남' % (c, freq))
+print()
+# -------------------------------------------
+
+with open('mydata.txt', 'r') as f:
+    data = f.read()
+    tmp = data.split()
+    print('단어수: [%d]' % len(tmp))
+print()
+# -------------------------------------------
+
+def countWord(filename, word):
+    with open(filename, 'r') as f:
+        text = f.read()
+        text = text.lower()
+        pos = text.find(word)
+        count = 0
+        while pos != -1:
+            count += 1
+            pos = text.find(word, pos + 1)
+    return count
+
+word = input('mydata.txt에서 개수를 구할 단어를 입력하세요: ')
+word = word.lower()
+ret = countWord('mydata.txt', word)
+print('[%s]의 개수: %d' % (word, ret))
+print()
+# -------------------------------------------
+
+
+
+print()
+# -------------------------------------------
+
+
+
+
+print()
+# -------------------------------------------
 # 파이썬 200제 활용
