@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbee_money_account(계좌 거래내역 업로드)">
+	<query id="tbee_money_account_fe001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	'0'	AS CHK,
+					TMA.MJR_BK_ACT,					--주계좌번호
+					TMA.SEQ,						--일련번호
+					TMA.NM,							--성명
+					TMA.TR_DT,						--거래일자
+					TMA.TR_TIME,					--시간
+					TMA.ADAY,						--요일
+					TMA.IO_GUBUN,					--입출금구분
+					TMA.BK_ACT,						--본인계좌번호
+					TMA.TR_AMT,						--금액
+					TMA.AGENCY,						--취급점
+					TMA.TERMINAL,					--단말
+					TMA.JEOGYO						--적요
+			FROM	TBEE_MONEY_ACCOUNT	TMA
+			WHERE   1 = 1	
+			--AND     TMA.MJR_BK_ACT = ?
+			AND		TMA.TR_DT >= NVL(?, '19000101')
+			AND		TMA.TR_DT <= NVL(?, '99990101')
+        ]]>
+    </query>
+    <query id="tbee_money_account_fe002" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TMA.MJR_BK_ACT,											--주계좌번호
+					TMA.MJR_NM,												--주거래자성명
+					TMA.BK_NM,												--주거래은행
+					TMN.NM,													--성명
+					TMN.TR_DT,												--거래일자
+					TMN.TR_TIME,											--시간
+					TMN.ADAY,												--요일
+					TMN.IO_GUBUN,											--입출금구분
+					TMN.BK_ACT,												--본인계좌번호
+					DECODE(TMN.IO_GUBUN, '1', TMN.TR_AMT)	AS TR_AMT_IN,	--입금액
+					DECODE(TMN.IO_GUBUN, '2', TMN.TR_AMT)	AS TR_AMT_OUT, 	--출금
+					TMN.TR_AMT,												--금액
+					TMN.AGENCY,												--취급점
+					TMN.TERMINAL,											--단말
+					TMN.JEOGYO												--적요
+			FROM	TBEE_MAIN_ACCOUNT	TMA
+			INNER JOIN
+					TBEE_MONEY_ACCOUNT	TMN
+			ON		TMA.MJR_BK_ACT = TMN.MJR_BK_ACT
+			WHERE	(TMA.MJR_BK_ACT LIKE ? || '%' OR ? IS NULL)
+			AND		(TMA.MJR_NM LIKE ? || '%' OR ? IS NULL)
+			AND		TMN.TR_DT >= NVL(?, '19000101')
+			AND		TMN.TR_DT <= NVL(?, '99990101')
+			AND		(
+					? = '1'
+					OR
+					? = '2' AND TMN.ADAY IN ('수', '목')
+					OR
+					? = '3' AND TMN.ADAY IN ('금', '토', '일')
+					)
+			AND		(TMN.TR_AMT >= ? OR ? IS NULL)
+			ORDER BY TMA.MJR_NM, TMA.MJR_BK_ACT
+        ]]>
+    </query>
+    <query id="tbee_money_account_fe003" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TMA.MJR_BK_ACT,														--주계좌번호
+					TMA.BK_NM,															--주거래은행
+					TMN.NM,
+					COUNT(TMN.SEQ)										AS TR_AMT_CNT,	--입출금횟수
+					TMN.BK_ACT,															--본인계좌번호
+					SUM(NVL(DECODE(TMN.IO_GUBUN, '1', TMN.TR_AMT), 0))	AS TR_AMT_IN,	--입금액합계
+					SUM(NVL(DECODE(TMN.IO_GUBUN, '2', TMN.TR_AMT), 0))	AS TR_AMT_OUT,	--출금액합계
+					SUM(NVL(TMN.TR_AMT, 0))								AS TR_AMT_SUM	--입출금합계
+			FROM	TBEE_MAIN_ACCOUNT	TMA
+			INNER JOIN
+					TBEE_MONEY_ACCOUNT	TMN
+			ON		TMA.MJR_BK_ACT = TMN.MJR_BK_ACT
+			WHERE	TMA.MJR_BK_ACT = ?
+			AND		TMA.MJR_NM = ?
+			AND		TMN.TR_DT >= ?
+			AND		TMN.TR_DT <= ?
+			GROUP BY TMA.MJR_BK_ACT, TMA.BK_NM, TMN.NM, TMN.BK_ACT
+			ORDER BY TMN.NM, TMN.BK_ACT
+        ]]>
+    </query>
+    <query id="tbee_money_account_fe004" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TMA.MJR_BK_ACT,														--주계좌번호
+					TMA.BK_NM,															--주거래은행명
+					TMA.MJR_NM,															--성명
+					MIN(TR_DT)											AS TR_DT_FROM,	--기간(FROM)
+					MAX(TR_DT)											AS TR_DT_TO,	--기간(TO)
+					SUM(NVL(DECODE(TMN.IO_GUBUN, '1', TMN.TR_AMT), 0))	AS TR_AMT_IN,	--입금액합계
+					SUM(NVL(DECODE(TMN.IO_GUBUN, '2', TMN.TR_AMT), 0))	AS TR_AMT_OUT,	--출금액합계
+					SUM(NVL(TMN.TR_AMT, 0))								AS TR_AMT_SUM,	--입출금합계
+					COUNT(DECODE(TMN.IO_GUBUN, '1', 1))					AS IN_CNT,		--입금횟수
+					COUNT(DECODE(TMN.IO_GUBUN, '2', 1))					AS OUT_CNT,		--출금횟수
+					COUNT(TMN.SEQ)										AS TOTAL_CNT	--입출금횟수
+			FROM	TBEE_MAIN_ACCOUNT	TMA
+			INNER JOIN
+					TBEE_MONEY_ACCOUNT	TMN
+			ON		TMA.MJR_BK_ACT = TMN.MJR_BK_ACT
+			WHERE	TMN.TR_DT >= ?
+			AND		TMN.TR_DT <= ?
+			AND		(
+					? = '1'
+					OR
+					? = '2' AND TMN.ADAY IN ('수', '목')
+					OR
+					? = '3' AND TMN.ADAY IN ('금', '토', '일')
+					)
+			GROUP BY TMA.MJR_BK_ACT, TMA.BK_NM, TMA.MJR_NM
+			ORDER BY TMA.MJR_NM
+        ]]>
+    </query>
+    <query id="tbee_money_account_ie001" desc="저장" fetchSize="10">
+        <![CDATA[
+        	BEGIN
+	        	MERGE INTO TBEE_MAIN_ACCOUNT TMA
+	            USING   DUAL
+	            ON		(
+	            		TMA.MJR_BK_ACT	= ?			--주계좌번호
+	                    )
+	            WHEN NOT MATCHED THEN
+					INSERT
+						(	 
+					        MJR_BK_ACT,				--주계좌번호
+					        MJR_NM,					--성명
+							BK_NM,					--은행명
+							INST_ID,				--작성자ID
+							INST_DTM				--작성일시
+						)
+						VALUES
+						(
+					        ?,						--주계좌번호
+					        ?,						--성명
+							?,						--은행명
+							?,						--작성자ID
+					        SYSDATE					--작성일시
+						);
+				INSERT 
+					INTO	TBEE_MONEY_ACCOUNT
+					(
+						MJR_BK_ACT,					--주계좌번호
+						SEQ,						--일련번호
+						BK_ACT,						--본인계좌번호
+						NM,							--성명
+						TR_DT,						--거래일자
+						TR_AMT,						--금액
+						TR_TIME,					--시간
+						ADAY,						--요일
+						IO_GUBUN,					--입출금구분
+						AGENCY,						--취급점
+						TERMINAL,					--단말
+						JEOGYO,						--적요
+						INST_ID,					--작성자ID
+						INST_DTM					--작성일시
+					)
+					SELECT
+						?,							--주계좌번호
+						NVL(MAX(SEQ), 0) + 1,		--일련번호
+						?,							--본인계좌번호
+						?,							--성명
+						?,							--거래일자
+						?,							--입금액
+						?,							--시간
+						TO_CHAR(TO_DATE(?), 'dy'),	--요일
+						?,							--입출금구분
+						?,							--취급점
+						?,							--단말
+						?,							--적요
+						?,							--작성자ID
+						SYSDATE						--작성일시
+					FROM	TBEE_MONEY_ACCOUNT
+					WHERE	MJR_BK_ACT	= ?;
+			END;
+        ]]>
+    </query> 
+    <query id="tbee_money_account_ie002" desc="저장" fetchSize="10">
+        <![CDATA[
+			INSERT 
+				INTO TBEE_MONEY_ACCOUNT
+				(
+					MJR_BK_ACT,					--주계좌번호
+					SEQ,						--일련번호
+					BK_ACT,						--본인계좌번호
+					NM,							--성명
+					TR_DT,						--거래일자
+					TR_AMT,						--금액
+					TR_TIME,					--시간
+					ADAY,						--요일
+					IO_GUBUN,					--입출금구분
+					AGENCY,						--취급점
+					TERMINAL,					--단말
+					JEOGYO,						--적요
+					INST_ID,					--작성자ID
+					INST_DTM					--작성일시
+				)
+			SELECT
+					?,							--주계좌번호
+					NVL(MAX(SEQ), 0) + 1,		--일련번호
+					?,							--본인계좌번호
+					?,							--성명
+					?,							--거래일자
+					?,							--입금액
+					?,							--시간
+					TO_CHAR(TO_DATE(?), 'dy'),	--요일
+					?,							--입출금구분
+					?,							--취급점
+					?,							--단
+					?,							--적요
+					?,							--작성자ID
+					SYSDATE						--작성일시
+			FROM	TBEE_MONEY_ACCOUNT
+			WHERE	MJR_BK_ACT	= ?
+        ]]>
+    </query> 
+    <query id="tbee_money_account_ue001" desc="저장" fetchSize="10">
+        <![CDATA[
+			UPDATE	TBEE_MONEY_ACCOUNT SET
+					BK_ACT		= ?,			--본인계좌번호
+					NM			= ?,			--성명
+					TR_DT		= ?,			--거래일자
+					TR_AMT		= ?,			--금액
+					TR_TIME		= ?,			--시간
+					ADAY		= ?,			--요일
+					IO_GUBUN	= ?,			--입출금구분
+					AGENCY		= ?,			--취급점
+					TERMINAL	= ?,			--단말
+					JEOGYO		= ?,			--적요
+					UPDT_ID		= ?,			--작성자ID
+					UPDT_DTM	= SYSDATE		--작성일시
+			WHERE	MJR_BK_ACT	= ?				--주계좌번호
+			AND		SEQ			= ?				--일련번호
+        ]]>
+    </query>
+    <query id="tbee_money_account_de001" desc="저장" fetchSize="10">
+        <![CDATA[
+			DELETE	
+			FROM	TBEE_MONEY_ACCOUNT
+			WHERE	MJR_BK_ACT	= ?				--주계좌번호
+			AND		SEQ			= ?				--일련번호
+        ]]>
+    </query>  
+</queryMap>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_trng_sche(훈련일정관리)">
+    <query id="tbeb_trng_sche_fb001" desc="훈련년도 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* tbeb_trng_sche_fb001 */
+			       TRNG_YEAR       -- 훈련년도
+			FROM   TBEB_TRNG_SCHE
+			GROUP BY TRNG_YEAR
+			ORDER BY TRNG_YEAR DESC
+        ]]>
+    </query> 
+    
+    <query id="tbeb_trng_sche_fb002" desc="훈련일정 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_trng_sche_fb002 */
+			         '0' AS CHK
+			       , TRNG_YEAR
+			       , STR_DT
+			       , TO_CHAR(TO_DATE(STR_DT,'YYYYMMDD'),'DY') AS STR_DAY
+			       , END_DT
+			       , TO_CHAR(TO_DATE(END_DT,'YYYYMMDD'),'DY') AS END_DAY
+			       , TRNG_DD_NUM
+			       , RMK
+			FROM   TBEB_TRNG_SCHE
+			WHERE  TRNG_YEAR = ?
+			ORDER BY STR_DT, TRNG_DD_NUM DESC
+        ]]>
+    </query> 
+    
+    <query id="tbeb_trng_sche_mb001" desc="훈련일정 저장" fetchSize="10">
+        <![CDATA[
+			MERGE /* tbeb_trng_sche_mb001 */
+			      INTO TBEB_TRNG_SCHE DST
+			USING (
+			         SELECT   SUBSTR(?,1,4) AS TRNG_YEAR
+			                , ? AS STR_DT
+			                , ? AS END_DT
+			                , ? AS TRNG_DD_NUM
+			                , ? AS RMK
+			                , ? AS USER_ID
+			         FROM DUAL
+			       ) SRC
+			    ON (     DST.TRNG_YEAR   = SRC.TRNG_YEAR
+			         AND DST.STR_DT      = SRC.STR_DT
+			         AND DST.TRNG_DD_NUM = SRC.TRNG_DD_NUM
+			       )
+		    WHEN MATCHED THEN
+		           UPDATE SET
+		                 DST.END_DT   = SRC.END_DT
+		                ,DST.RMK      = SRC.RMK
+		                ,DST.UPDT_ID  = SRC.USER_ID
+		                ,DST.UPDT_DTM = SYSDATE
+		    WHEN NOT MATCHED THEN
+		           INSERT (
+		                   TRNG_YEAR
+		                  ,STR_DT
+		                  ,END_DT
+		                  ,TRNG_DD_NUM
+		                  ,RMK
+		                  ,INST_ID
+		                  ,INST_DTM
+		                  ) VALUES (
+		                   SRC.TRNG_YEAR
+		                  ,SRC.STR_DT
+		                  ,SRC.END_DT
+		                  ,SRC.TRNG_DD_NUM
+		                  ,SRC.RMK
+		                  ,SRC.USER_ID
+		                  ,SYSDATE
+		                  )		                  
+        ]]>
+    </query>
+    <query id="tbeb_trng_sche_db001" desc="훈련일정 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  /* tbeb_trng_sche_db001 */
+			FROM   TBEB_TRNG_SCHE
+			WHERE  TRNG_YEAR   = ?                -- 훈련년도
+			AND    STR_DT      = ?                -- 훈련시작일자
+			AND    TRNG_DD_NUM = ?                -- 훈련일수
+        ]]>
+    </query> 
+</queryMap>

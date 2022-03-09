@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM1080(PC파일 1차검증 결과)">
+    <query id="rsm1080_s01" desc="SDLPT SDLDT 검증결과" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1080_s01 */
+				   A.MEET_CD,	 -- 개최지 코드
+				   DECODE(A.MEET_CD,'001','경륜','003','경정','002','창원교차','004','부산교차','부산교차') AS MEET_DESC, -- 개최지명
+			       A.STND_YEAR, -- 기준년도
+			       A.RACE_NO,	-- 경주번호
+			       A.MEET_CD||A.RACE_NO AS MEET_RACE_NO, --검색용 KEY
+			       DIV_TOTAL,	-- 지점합계
+				   POOL_TOTAL,	-- 승식별 합계
+				   REFUND_DT,	-- 지점별 환불액
+				   REFUND_PT,	-- 승식별 환불액
+				   MYCAT_DIV,	-- 마이켓(DT)
+				   MYCAT_REFUND,	-- 마이켓환불액(DT)
+				   CHOCHA,		-- 교차매출액				  
+		           0 AS MYCAT_REAL_AMT,
+		           0 AS MYCAT_REAL_REFUND,
+				   0 AS SATLIT_AMT,
+		           0 AS SATLIT_REFUND,
+		           0 AS SATLIT_AMT_CHOCHA,
+		           0 AS SATLIT_AMT_GREEN,
+				   CASE 
+				      WHEN DIV_TOTAL=POOL_TOTAL THEN '001'
+				      ELSE '002'
+				   END AS TF,	-- 일치 여부 코드
+				   CASE 
+				      WHEN DIV_TOTAL=POOL_TOTAL  THEN '일치'
+				      ELSE '불일치'
+				   END AS TF_DESC -- 일치 여부 설명
+				FROM(
+				    SELECT B.MEET_CD, B.STND_YEAR,A.RACE_NO ,SUM(DIV_TOTAL) AS DIV_TOTAL,SUM(REFUND) AS REFUND_DT,
+				           SUM(DECODE(COMM_NO, '06', DIV_TOTAL, 0)) AS MYCAT_DIV,
+                           SUM(DECODE(COMM_NO, '06', REFUND, 0)) AS MYCAT_REFUND,
+                           SUM(DECODE(SELL_CD, '01', 0, '03',0,DIV_TOTAL)) AS CHOCHA                           
+				    FROM TBES_SDL_DT A, -- 지점
+			            (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+			             FROM VW_SDL_INFO
+			             WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+			            ) B   -- 경주일 정보,                                                                                    
+			    	 WHERE 1 = 1
+			    	     AND A.MEET_CD = B.MEET_CD                                                                          
+			    	     AND A.STND_YEAR = B.STND_YEAR                                                                      
+			    	     AND A.TMS = B.TMS                                                                                  
+			    	     AND A.DAY_ORD = B.DAY_ORD
+			    	-- 경륜,경정,교차,지점별 쿼리 분기
+			    	GROUP BY B.MEET_CD, B.STND_YEAR,A.RACE_NO
+			       ) A,	-- 4:RACE_NO '11'
+				  (
+				    SELECT B.MEET_CD, B.STND_YEAR,A.RACE_NO, SUM(POOL_TOTAL) AS POOL_TOTAL,SUM(REFUND) AS REFUND_PT
+				    FROM TBES_SDL_PT A, -- 승식
+			            (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+			             FROM VW_SDL_INFO
+			             WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+			            ) B   -- 경주일 정보,                                                                                    
+			    	 WHERE 1 = 1        
+			    	     AND A.MEET_CD = B.MEET_CD                                                                          
+			    	     AND A.STND_YEAR = B.STND_YEAR                                                                      
+			    	     AND A.TMS = B.TMS                                                                                  
+			    	     AND A.DAY_ORD = B.DAY_ORD
+			    	-- 경륜,경정,교차,지점별 쿼리 분기
+			    	GROUP BY B.MEET_CD, B.STND_YEAR, A.RACE_NO
+			     ) B	-- 9:RACE_NO '11'
+			WHERE 1=1			     
+			AND A.MEET_CD = B.MEET_CD                                                                          
+			AND A.STND_YEAR = B.STND_YEAR                                                                      
+			AND A.RACE_NO= B.RACE_NO
+			ORDER BY A.MEET_CD DESC, A.RACE_NO ASC
+        ]]>
+
+    </query>   
+    <query id="rsm1080_s02" desc="MyCat Satlit 검증결과 " fetchSize="10">
+        <![CDATA[
+		    SELECT /* rsm1080_s02 */
+		           A.MEET_CD,
+		           A.RACE_NO,
+		           A.MEET_CD||A.RACE_NO AS MEET_RACE_NO, --검색용 KEY
+			       SUM(TOTAL_AMT - REFUND)*100 AS SATLIT_AMT,
+		           SUM(CASE WHEN A.COMM_NO = '06' THEN TOTAL_AMT - REFUND ELSE 0 END)*100 AS SATLIT_AMT_GREEN
+		    FROM  TBJI_PC_SATLIT A,
+		          (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+		             FROM VW_SDL_INFO
+		             WHERE RACE_DAY = ? --FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+		           ) B   -- 경주일 정보,                                                                                    
+	    	 WHERE 1 = 1			    	     	     
+	    	     AND A.MEET_CD = B.MEET_CD                                                                          
+	    	     AND A.STND_YEAR = B.STND_YEAR                                                                      
+	    	     AND A.TMS = B.TMS                                                                                  
+	    	     AND A.DAY_ORD = B.DAY_ORD  
+		    GROUP BY A.MEET_CD, A.RACE_NO
+		    ORDER BY MEET_CD DESC, RACE_NO 
+        ]]>
+
+    </query>    
+    
+    
+    <query id="rsm1080_s03" desc="경주일정보" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1080_s03 */
+		         DISTINCT DECODE(MEET_CD,'003','003','001') MEET_CD, -- 경륜, 경정 구분코드
+                 DECODE(MEET_CD,'003','경정','경륜') MEET_DESC, -- 경륜, 경정 구분 표현
+                 STND_YEAR,
+        		  TMS,
+				  DAY_ORD,	-- 일차
+				  DAY_ORD||'일차' AS DAY_DESC,	-- 일차 표현
+				  MAX(DAY_ORD) OVER() AS MAX_DAY_ORD, -- 최근 일차
+				  RACE_DAY,
+				  SUBSTR(RACE_DAY,5,2) AS RACE_MM,
+				  SUBSTR(RACE_DAY,7,2) AS RACE_DD
+			  FROM VW_SDL_INFO A
+			 WHERE 1=1
+			   AND (MEET_CD = ? 
+				       OR MEET_CD = DECODE(?,'001','002')  
+				       OR MEET_CD = DECODE(?,'001','004')
+				     )                                                                          
+	    	   AND A.STND_YEAR 	= ? -- 1:STND_YEAR '2011'                                                                      
+	    	   AND A.TMS 		= ? -- 2:TMS '2'
+	    	   AND A.DAY_ORD 	= ? -- 3:DAY_ORD '2'         		 
+        ]]>
+    </query>   
+    
+    
+    <query id="rsm1080_s04" desc="년도별 최근 회차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1080_s04 */
+			        B.TMS,					-- 회차
+			        B.TMS||'회' AS TMS_DESC,	-- 회차 표현
+				    NVL(MAX(B.TMS) OVER(),0) AS MAX_TMS -- 최근 회차
+			FROM VW_SDL_INFO B
+			WHERE 1=1
+			  AND B.MEET_CD = ? 
+			  AND B.STND_YEAR = ?
+			GROUP BY B.TMS			  
+			ORDER BY B.TMS DESC			  
+        ]]>
+    </query>   
+    
+    <query id="rsm1080_s05" desc="년도별 최근 회차별 최근 일차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1080_s05 */
+				  B.DAY_ORD,	-- 일차
+				  B.DAY_ORD||'일차' AS DAY_DESC,	-- 일차 표현
+				  MAX(B.DAY_ORD) OVER() AS MAX_DAY_ORD, -- 최근 일차
+				  RACE_DAY
+			  FROM VW_SDL_INFO B
+			 WHERE 1=1
+			   AND B.MEET_CD = ?                                                                
+	    	   AND B.STND_YEAR 	= ? -- 1:STND_YEAR '2011'                                                                      
+	    	   AND B.TMS 		= ? -- 2:TMS '2'
+	    	 GROUP BY B.DAY_ORD, RACE_DAY
+	    	 ORDER BY B.DAY_ORD 
+        ]]>
+    </query>
+    
+    <query id="rsm1080_s06" desc="MyCat 매출자료 " fetchSize="10">
+        <![CDATA[
+		    SELECT /* rsm1080_s06 */
+		           A.MEET_CD,
+		           A.RACE_NO,
+		           A.MEET_CD||A.RACE_NO AS MEET_RACE_NO, --검색용 KEY
+			       SUM(TOTAL_AMT) AS MYCAT_AMT, 
+		           SUM(REFUND) AS MYCAT_REFUND                           
+		    FROM   VW_MYCAT_SALES A
+		    WHERE  RACE_DAY = ?
+		    GROUP BY A.MEET_CD, A.RACE_NO
+		    ORDER BY MEET_CD DESC, RACE_NO 
+        ]]>
+    </query>   
+
+</queryMap>

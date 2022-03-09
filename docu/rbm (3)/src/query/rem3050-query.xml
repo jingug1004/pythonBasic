@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem3050(체류인원 현황)">
+    <query id="rem3050_s01" desc="체류인원  현황  조회" fetchSize="10">
+      <![CDATA[
+			WITH STAY_MANA AS( /*rem3050_s01*/
+			           SELECT     
+			               TMS,  
+			               SUM(ENT_PRSN_NUM) - SUM(LEAV_PRSN_NUM) TOT_PRSN_NUM,  
+			               SUM(DECODE(DNUM,'2',ENT_PRSN_NUM)) - SUM(DECODE(DNUM,'2',LEAV_PRSN_NUM)) MON_PRSN_NUM ,
+			               SUM(DECODE(DNUM,'3',ENT_PRSN_NUM)) - SUM(DECODE(DNUM,'3',LEAV_PRSN_NUM)) TUE_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'4',ENT_PRSN_NUM)) - SUM(DECODE(DNUM,'4',LEAV_PRSN_NUM)) WEN_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'5',ENT_PRSN_NUM)) - SUM(DECODE(DNUM,'5',LEAV_PRSN_NUM)) THU_PRSN_NUM ,  
+			               SUM(DECODE(DNUM,'6',ENT_PRSN_NUM)) - SUM(DECODE(DNUM,'6',LEAV_PRSN_NUM)) FRI_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'7',ENT_PRSN_NUM)) - SUM(DECODE(DNUM,'7',LEAV_PRSN_NUM)) SAT_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'1',ENT_PRSN_NUM)) - SUM(DECODE(DNUM,'1',LEAV_PRSN_NUM)) SUN_PRSN_NUM ,
+			               COUNT(DISTINCT DNUM) DAYCNT
+			           FROM ( SELECT TMS,
+			                         TO_CHAR(TO_DATE(RACE_DT),'D') DNUM,
+			                         SUM(CASE WHEN  BRNC_CD='27' AND OUT_ENT_PRSN_NUM>0 THEN OUT_ENT_PRSN_NUM
+			                           ELSE ENT_PRSN_NUM
+			                         END) ENT_PRSN_NUM,
+			                         SUM(CASE WHEN  BRNC_CD='27' AND OUT_ENT_PRSN_NUM>0 THEN OUT_LEAV_PRSN_NUM
+			                           ELSE LEAV_PRSN_NUM
+			                         END) LEAV_PRSN_NUM
+			               FROM TBRC_STAY_MANA A, VW_SDL_INFO B
+			               WHERE 
+			                    RACE_DT>= ?
+			                AND RACE_DT<= ?
+			                AND A.RACE_DT = B.race_day
+			                AND A.MEET_CD = ?
+			                AND A.MEET_CD = B.MEET_CD
+			                AND DECODE(?,'',1,BRNC_CD)  = DECODE(?,'',1,?) 
+			              GROUP BY TMS, TO_CHAR(TO_DATE(RACE_DT),'D')
+			          ) E
+			      GROUP BY TMS
+			   )                               
+			   SELECT  
+			     TMS
+			    ,A.TOT_PRSN_NUM                
+			    ,ROUND(DECODE(A.DAYCNT,0,0, A.TOT_PRSN_NUM/A.DAYCNT)) DAVG
+			    ,A.MON_PRSN_NUM
+			    ,A.TUE_PRSN_NUM
+			    ,A.WEN_PRSN_NUM
+			    ,A.THU_PRSN_NUM
+			    ,A.FRI_PRSN_NUM
+			    ,A.SAT_PRSN_NUM
+			    ,A.SUN_PRSN_NUM
+			   FROM STAY_MANA a
+			ORDER BY TMS
+        ]]>
+    </query> 
+   
+</queryMap>

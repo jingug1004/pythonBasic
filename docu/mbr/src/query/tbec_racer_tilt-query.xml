@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_tilt(출주선수틸트각등록)">
+    <query id="tbec_racer_tilt_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+                SELECT /*  tbec_racer_tilt_fc001 IWORK_SFR-008 경정 선수편성 메뉴 개선  정번8 까지 추가 수정.  */
+                    TOR.STND_YEAR
+                    ,TOR.MBR_CD
+                    ,TOR.TMS
+                    ,TOR.DAY_ORD
+                    ,TOR.RACE_NO
+                    ,TOR.RACE_REG_NO
+                    ,MAX(TOR.RACE_REG_NO) OVER(PARTITION BY TOR.RACE_NO) MAX_RACE_REG_NO
+                    ,TOR.RACER_NO
+                    ,TRM.NM_KOR 
+                    ,TRT.TILT_CD
+                    ,TRT.BOAT_ADD_WGHT_CD
+                    ,TRT.JACKET_ADD_WGHT_CD 
+                    ,ROUND(TRI.ENTRY_BODY_WGHT) ENTRY_BODY_WGHT 
+					,DECODE(SUBSTR(GET_DEC(TRD.RES_NO),7,1),1,'남',3,'남',2,'여',4,'여') RACER_SEX --성별
+                FROM TBEB_ORGAN TOR
+                    ,TBEC_RACER_MASTER TRM
+                    ,TBEC_RACER_TILT TRT
+                    ,TBEC_RACER_INTERVIEW TRI                    
+                    ,TBEC_RACER_DETAIL TRD
+                WHERE TOR.STND_YEAR 	= ?
+                    AND TOR.MBR_CD 		= ?
+                    AND TOR.TMS 		= ?
+                    AND TOR.DAY_ORD 	= NVL(?,TOR.DAY_ORD)
+                    AND TOR.RACE_NO 	= NVL(?,TOR.RACE_NO)                  
+                    AND TOR.RACER_NO 	= TRM.RACER_NO
+                    AND TOR.STND_YEAR 	= TRT.STND_YEAR(+)
+                    AND TOR.MBR_CD 		= TRT.MBR_CD(+)
+                    AND TOR.TMS 		= TRT.TMS(+)
+                    AND TOR.DAY_ORD 	= TRT.DAY_ORD(+)
+                    AND TOR.RACE_NO 	= TRT.RACE_NO(+)
+                    AND TOR.RACER_NO 	= TRT.RACER_NO(+)
+                    AND TOR.RACE_REG_NO	= TRT.RACE_REG_NO(+)
+                    AND TOR.STND_YEAR 	= TRI.STND_YEAR(+)
+                    AND TOR.MBR_CD 		= TRI.MBR_CD(+)
+                    AND TOR.TMS 		= TRI.TMS(+)
+                    AND TOR.RACER_NO 	= TRI.RACER_NO(+)                    
+                    AND TOR.RACER_NO    = TRD.RACER_NO(+)
+                ORDER BY TOR.RACE_NO, TOR.RACE_REG_NO
+        ]]>
+    </query>
+    <query id="tbec_racer_tilt_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBEC_RACER_TILT TRT
+            USING   DUAL
+            ON        (    TRT.STND_YEAR        = ? 	--기준년도
+                        AND TRT.MBR_CD         	= ?    	--경정장코드
+                        AND TRT.TMS            	= ?    	--회차
+                        AND TRT.DAY_ORD         = ?    	--일차
+                        AND TRT.RACE_NO    		= ?    	--경주번호
+                        AND TRT.RACE_REG_NO		= ?		--정번
+                    )
+			WHEN MATCHED THEN
+					UPDATE  SET
+					  RACER_NO        			= ?			-- 등록번호
+	                  , TILT_CD     			= ?			-- 틸트각
+	                  , BOAT_ADD_WGHT_CD        = ?			-- 보트부과량
+	                  , JACKET_ADD_WGHT_CD      = ?			-- 자켓부과량
+				      , UPDT_ID   				= ?         -- 수정자ID    
+				      , UPDT_DTM  				= SYSDATE   -- 수정일시    
+			WHEN NOT MATCHED THEN
+					INSERT (
+	                    STND_YEAR           -- 기준년도    
+	                  , MBR_CD              -- 경정장코드
+	                  , TMS                 -- 회차          
+	                  , DAY_ORD             -- 일차
+                      , RACE_NO             -- 경주번호                      
+	                  , RACE_REG_NO			-- 정번  	                  	
+                      , RACER_NO            -- 등록번호      
+                      , TILT_CD             -- 틸트각
+                      , BOAT_ADD_WGHT_CD    -- 보트부과량
+                      , JACKET_ADD_WGHT_CD  -- 자켓부과량
+				      , INST_ID          	-- 작성자ID    
+				      , INST_DTM         	-- 작성일시   
+				      , UPDT_ID          	-- 수정자ID    
+				      , UPDT_DTM         	-- 수정일시
+					) VALUES (	
+	                    ?               -- 기준년도    
+	                  , ?               -- 경정장코드
+	                  , ?               -- 회차
+	                  , ?               -- 일차
+                      , ?               -- 경주번호                      
+	                  , ?				-- 정번	                  
+	                  , ?               -- 등록번호
+                      , ?               -- 틸트각
+                      , ?               -- 보트부과량
+                      , ?               -- 자켓부과량
+				      , ?          		-- 작성자ID    
+				      , SYSDATE         -- 작성일시   
+				      , ?          		-- 수정자ID    
+				      , SYSDATE         -- 수정일시				
+					)
+        ]]>
+    </query> 
+</queryMap>

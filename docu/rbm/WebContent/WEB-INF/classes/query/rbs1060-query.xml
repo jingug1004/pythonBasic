@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS1060(사업별 집행내역)">
+    
+    
+    <query id="rbs1060_s01" desc="사업별 집행내역 조회" fetchSize="10">
+        <![CDATA[
+                   
+			SELECT   /* rbs1060_s01 */
+			         A.PREP_AMT_CD,  -- 시개금 코드
+			         A.ACC_BGN_CD,   -- 회계구분
+			         A.BUSI_NM,      -- 사업명          
+			         
+			         MAX(CONFIRM_AMT) CONFIRM_AMT,
+                     
+                     SUM(B.TRANS_AMT) NEXT_TRANS_AMT,
+                                
+			         NVL(SUM(B.EXEC_QUAR_1), 0) + NVL(SUM(B.EXEC_QUAR_2), 0) + NVL(SUM(B.EXEC_QUAR_3), 0) + NVL(SUM(B.EXEC_QUAR_4), 0) AS EXEC_QUAR_SUM, -- 소계 : 분기 합
+			         NVL(SUM(B.EXEC_QUAR_1), 0) AS EXEC_QUAR_1,  -- 당년도 1분기 집행금액
+			         NVL(SUM(B.EXEC_QUAR_2), 0) AS EXEC_QUAR_2,  -- 당년도 2분기 집행금액
+			         NVL(SUM(B.EXEC_QUAR_3), 0) AS EXEC_QUAR_3,  -- 당년도 3분기 집행금액
+			         NVL(SUM(B.EXEC_QUAR_4), 0) AS EXEC_QUAR_4,   -- 당년도 4분기 집행금액
+			         
+			         0 TOTAL_AMT
+			FROM     TBRE_BUSI_PLAN A, 
+			         (
+                        SELECT   B.PREP_AMT_CD,         
+                                 B.EXEC_DT,                  
+                                 DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '01'||C.BUSI_YEAR, B.EXEC_AMT, '02'||C.BUSI_YEAR, B.EXEC_AMT, '03'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_1,    
+                                 DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '04'||C.BUSI_YEAR, B.EXEC_AMT, '05'||C.BUSI_YEAR, B.EXEC_AMT, '06'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_2,  
+                                 DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '07'||C.BUSI_YEAR, B.EXEC_AMT, '08'||C.BUSI_YEAR, B.EXEC_AMT, '09'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_3,  
+                                 DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '10'||C.BUSI_YEAR, B.EXEC_AMT, '11'||C.BUSI_YEAR, B.EXEC_AMT, '12'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_4,  
+                                 
+                                 (CASE WHEN SUBSTR(B.EXEC_DT, 0, 4) > C.BUSI_YEAR THEN  B.EXEC_AMT ELSE 0 END) TRANS_AMT
+                        FROM     TBRE_BUSI_EXEC B
+                                ,TBRE_BUSI_PLAN C
+                        WHERE  B.PREP_AMT_CD = C.PREP_AMT_CD
+                        ORDER BY B.EXEC_DT
+			             --B.EXEC_DT BETWEEN ? AND ?  -- 1. 집행일자 시작, 2. 집행일자 종료                  
+			         )B
+			WHERE    A.PREP_AMT_CD = B.PREP_AMT_CD(+)                     
+			AND      A.ACC_BGN_CD LIKE '%' || NVL(?, A.ACC_BGN_CD) || '%'  -- 3. 회계구분  
+			AND      A.BUSI_YEAR = ?                                       -- 4. 사업년도  
+			AND      A.BUSI_NM LIKE '%' || NVL(?, A.BUSI_NM) || '%'        -- 5. 사업명
+			        
+			AND      NVL(A.TRANS_AMT, 0) > DECODE(?, '', -1                 , '001', -1, '002', 0) -- 6. 상태          
+			AND      NVL(A.TRANS_AMT, 0) = DECODE(?, '', NVL(A.TRANS_AMT, 0), '001',  0, '002', NVL(A.TRANS_AMT, 0) ) -- 001 인 경우 -- 7. 상태  
+			          
+			GROUP BY A.PREP_AMT_CD, A.ACC_BGN_CD, A.BUSI_NM         
+			ORDER BY A.PREP_AMT_CD, A.ACC_BGN_CD
+
+			
+        ]]>
+    </query>       
+
+	
+        
+</queryMap>

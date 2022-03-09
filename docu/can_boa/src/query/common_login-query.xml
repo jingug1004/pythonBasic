@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="LOGIN">
+    <query id="tbdm_user_login" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   /* tbdm_user_login */
+			         A.USER_ID     -- 사용자ID         
+			       , A.USER_NM     -- 사용자명         
+			       , A.PSWD        -- 비밀번호         
+			       , B.DUTY_GRP_CD -- 업무그룹코드     
+			       , A.DEPT_CD     -- 부서코드
+			       , A.DEPT_NM	   -- 부서이름
+			       , A.TEAM_CD	   -- 팀코드
+			       , A.TEAM_NM	   -- 팀이름
+			       , A.FLOC		   -- 직위코드
+			       , A.FGRADE	   -- 직위         
+			       , A.TEL_NO      -- 전화번호         
+			       , B.HP_NO       -- 휴대폰번호       
+			       , B.STR_DT      -- 유효기간 시작일자
+			       , B.END_DT      -- 유효기간 종료일자
+			       , B.INST_ID     -- 작성자ID         
+			       , B.INST_DTM    -- 작성일시         
+			       , B.UPDT_ID     -- 수정자ID         
+			       , B.UPDT_DTM    -- 수정일시       
+			       , '001' AS MBR_CD  
+			FROM   USRBM.TBRK_USER A, TBDM_USER B
+			WHERE  A.USER_ID = B.USER_ID
+			AND	   B.USER_ID = ?
+			AND	   B.STR_DT <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+			AND    B.END_DT >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ]]>
+    </query> 
+    
+    <query id="tbdm_nm_login" desc="조회" fetchSize="10">
+        <![CDATA[
+        WITH MN_LOGIN AS ( /* tbdm_nm_login */
+			SELECT   T1.MN_ID -- 메뉴아이디
+                   , T1.MN_NM          -- 메뉴명
+                   , T1.ORD_NO         -- 순서번호
+                   , T1.UP_MN_ID       -- 상위메뉴ID
+                   , T1.SCRN_ID        -- 화면ID
+                   , T1.URL            -- 메뉴URL
+                   , T1.RMK            -- 비고
+                   , SRCH_YN      -- 조회여부
+                   , INPT_YN      -- 입력여부
+                   , APRV_YN      -- 승인여부
+                   , LVL          -- 메뉴 레벨 
+                   , RN
+                   , T3.UP_MN_ID AS UP_UP_MN_ID
+            FROM     (
+                        SELECT 
+                                TM.* 
+                               ,LEVEL - 1 AS LVL
+                               ,ROWNUM AS RN          
+                        FROM   TBDM_MN TM
+                        START  WITH TM.MN_ID ='000000000'
+                        CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID
+                        ORDER SIBLINGS BY UP_MN_ID, ORD_NO 
+                     ) T1
+                   , (
+                        SELECT *
+                          FROM (
+		                        SELECT 
+		                                 TMA.MN_ID
+		                               , DECODE(TMA.SRCH_YN, 'Y', 'T', 'F') SRCH_YN      -- 조회여부
+		                               , DECODE(TMA.INPT_YN, 'Y', 'T', 'F') INPT_YN      -- 입력여부
+		                               , DECODE(TMA.APRV_YN, 'Y', 'T', 'F') APRV_YN		 -- 승인여부
+		                        FROM   TBDM_MN_AUTH_HIST TMA,
+				                        ( SELECT VU.USER_ID
+								           FROM    TBDM_AUTH_APLY_DEPT TAAD,
+								                   VWEA_USER VU
+								           WHERE   TAAD.USER_ID = VU.USER_ID
+								           AND     TAAD.TEAM_CD = VU.TEAM_CD ) A
+		                        WHERE  TMA.USER_ID = ?
+		                        AND    TMA.SRCH_YN = 'Y'
+		                		AND    TMA.USER_ID = A.USER_ID
+		                        AND    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN TMA.STR_DT_TM AND TMA.END_DT_TM
+		                       )
+		                  WHERE MN_ID NOT IN( SELECT MN_ID 
+                                         FROM TBDM_MN 
+                                        WHERE PERSONAL_DATA_MN = 'Y' 
+                                          AND MN_ID NOT IN (SELECT MN_ID 
+                                                              FROM TBDM_MN_AUTH_HIST 
+                                                             WHERE USER_ID = ?
+                                                               AND PERSONAL_YN = 'Y'  
+                                                               AND PERSONAL_AUTH_CHK='Y'
+                                                               AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM 
+                                                               AND PERSONAL_MN_IP LIKE '%' || ? || '%'
+                                                           )
+                                      )      
+		                        
+                      ) T2
+                    , TBDM_MN T3  
+            WHERE  T1.MN_ID    = T2.MN_ID(+)
+            AND    T1.UP_MN_ID = T3.MN_ID
+     		)
+     		SELECT *
+     		FROM   MN_LOGIN
+     		WHERE  MN_ID IN (
+     		         SELECT UP_MN_ID FROM MN_LOGIN WHERE SRCH_YN ='T' GROUP BY UP_MN_ID
+     		         UNION
+     		         SELECT UP_UP_MN_ID FROM MN_LOGIN WHERE SRCH_YN ='T' GROUP BY UP_UP_MN_ID
+     		         )
+     		OR     SRCH_YN IS NOT NULL
+     		ORDER BY RN
+        ]]>
+    </query>
+
+	<query id="tbdm_user_login_view" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   /* tbdm_user_login_view */
+			         A.USER_ID     -- 사용자ID         
+			       , A.USER_NM     -- 사용자명         
+			       , A.PSWD        -- 비밀번호         
+			       , B.DUTY_GRP_CD -- 업무그룹코드     
+			       , A.DEPT_CD     -- 부서코드
+			       , A.DEPT_NM	   -- 부서이름
+			       , A.TEAM_CD	   -- 팀코드
+			       , A.TEAM_NM	   -- 팀이름
+			       , A.FLOC		   -- 직위코드
+			       , A.FGRADE	   -- 직위         
+			       , A.TEL_NO      -- 전화번호         
+			       , A.HP_NO       -- 휴대폰번호       
+			       , B.STR_DT      -- 유효기간 시작일자
+			       , B.END_DT      -- 유효기간 종료일자
+			       , NULL CAN_CD
+			       , 'F' ISVALID
+			       , B.INST_ID     -- 작성자ID         
+			       , B.INST_DTM    -- 작성일시         
+			       , B.UPDT_ID     -- 수정자ID         
+			       , B.UPDT_DTM    -- 수정일시       
+			       , '001' AS MBR_CD    
+			       , NULL AS LOG_SEQ  
+			       , A.PSWD_CHK
+			       , A.LOGIN_DT 
+			FROM   USRBM.TBRK_USER A, TBDM_USER B
+			WHERE  A.USER_ID = B.USER_ID
+			AND	   B.USER_ID = NVL(?, B.USER_ID)
+			--AND	   B.STR_DT <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+			--AND    B.END_DT >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ]]>
+    </query>
+
+    <query id="last_login_time" desc="최종접속일시 조회" fetchSize="10">
+        <![CDATA[  
+			 SELECT /* last_login_time */
+			        LOGIN_DT, PC_IP
+             FROM (
+                    SELECT /* last_login_time */ LOG_SEQ,
+                           ROW_NUMBER() OVER(ORDER BY LOG_SEQ DESC) RN, 
+                           TO_CHAR(LOGIN_DT, 'YYYY-MM-DD HH24:MI') AS LOGIN_DT, 
+                           PC_IP
+                    FROM   TBDM_USER_TRACE
+                    WHERE  ENO = ?
+                   )
+             WHERE RN = 2                
+              ]]>
+    </query>    
+        
+    
+    <query id="user_trace_key" desc="사용자 접속정보용 SQ 조회" fetchSize="10">
+        <![CDATA[  
+			 SELECT  /* user_trace_key */
+			        SQ_TBDM_USER_TRACE.NEXTVAL AS LOG_SEQ
+			  FROM  DUAL
+              ]]>
+    </query>    
+        
+    <query id="user_trace_insert" desc="사용자 접속정보 저장" fetchSize="10">
+        <![CDATA[  
+			 INSERT  /* user_trace_insert */
+			         INTO TBDM_USER_TRACE (
+			      LOG_SEQ,
+			      ENO,
+			      PC_IP,
+			      OS_VER,
+			      LOGIN_DT)
+			  VALUES (
+			       ?,
+			       ?,
+			       ?,
+			       ?,
+			       SYSDATE
+			      )  
+              ]]>
+    </query>        
+    
+    <query id="user_trace_update" desc="사용자 접속정보 추가 저장" fetchSize="10">
+        <![CDATA[  
+			UPDATE TBDM_USER_TRACE /* user_trace_update */ 
+			SET    NAVI_PATH = NAVI_PATH ||'|'||?
+			WHERE  LOG_SEQ = ?
+              ]]>
+    </query>        
+    
+    <query id="user_trace_finish" desc="사용자 접속정보 추가 저장" fetchSize="10">
+        <![CDATA[  
+			UPDATE TBDM_USER_TRACE /* user_trace_finish */ 
+			SET    LOGOUT_DT = TO_DATE(?, 'YYYYMMDDHH24MISS')
+			WHERE  LOG_SEQ = ?
+			 AND   LOGOUT_DT IS NULL
+              ]]>
+    </query>        
+    
+    <query id="user_login_chk_save" desc="중복로그인 확인용 기록 저장" fetchSize="10">
+        <![CDATA[
+            MERGE /* user_login_chk_save */
+                  INTO  TBDM_LOGIN_DUP_CHK DST
+            USING (
+                   SELECT  ? AS USER_ID
+                          ,? AS SESSION_ID
+                   FROM    DUAL
+                   ) SRC
+            ON    (                      
+                            DST.USER_ID = SRC.USER_ID
+                   )
+            WHEN MATCHED THEN
+                UPDATE SET  
+                            DST.SESSION_ID    = SRC.SESSION_ID
+            WHEN NOT MATCHED THEN
+                INSERT (
+                              USER_ID
+                             ,SESSION_ID   
+                   ) VALUES (
+                              SRC.USER_ID
+                             ,SRC.SESSION_ID
+                   )
+        ]]>
+    </query>
+    
+	<query id="user_login_check" desc="중복로그인 확인용 기록 조회" fetchSize="10">
+		<![CDATA[
+			SELECT		SESSION_ID
+			FROM		TBDM_LOGIN_DUP_CHK
+			WHERE		USER_ID		= ?
+	  ]]>
+	</query>    
+	
+	
+    <query id="personal_access_insert" desc="개인정보 접속이력 저장" fetchSize="10">
+        <![CDATA[  
+			 INSERT  /* personal_access_insert */
+			         INTO TBDM_PSNL_ACCESS (
+			      LOG_SEQ,
+			      SEQ_NO,
+			      FORM_ID,
+			      ACCESS_DT,
+			      JOB_TYPE,
+			      ACTION,
+			      PARAM)
+			  VALUES (
+			       ?,
+			       (SELECT NVL(MAX(SEQ_NO),0)+1 FROM TBDM_PSNL_ACCESS WHERE LOG_SEQ = ?),
+			       ?,
+			       SYSDATE,
+			       ?,
+			       ?,
+			       ?
+			      )  
+              ]]>
+    </query>        
+
+    <query id="tbrk_user_loginchk_view" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT PSWD_CHK    
+				   , LOGIN_DT  
+			  FROM USRBM.TBRK_USER
+			 WHERE USER_ID = ?
+        ]]>
+    </query>  
+    
+    <query id="user_login_pswd_chk_save" desc="로그인 비밀번호 오류 수 저장" fetchSize="10">
+        <![CDATA[
+			UPDATE USRBM.TBRK_USER 
+			SET    PSWD_CHK	= (SELECT CASE WHEN PSWD_CHK IS NULL THEN '1' ELSE TO_CHAR(TO_NUMBER(PSWD_CHK)+1) END AS PSWD_CHK 
+			                     FROM USRBM.TBRK_USER 
+			                    WHERE USER_ID = ? ),
+			       LOGIN_DT = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')
+			WHERE  USER_ID = ?
+        ]]>
+    </query>
+    
+    <query id="user_login_pswd_reset_save" desc="로그인 비밀번호 오류 초기화" fetchSize="10">
+        <![CDATA[  
+			UPDATE USRBM.TBRK_USER 
+			SET    PSWD_CHK	= '0',
+			       LOGIN_DT = ''
+			WHERE  USER_ID = ?
+              ]]>
+    </query>  
+        
+    <query id="personal_mn_access_insert" desc="개인정보처리메뉴 접속이력 저장" fetchSize="10">
+        <![CDATA[  
+			 INSERT  /* personal_mn_access_insert */
+			         INTO TBDM_PERSONAL_MN_ACCESS (
+			      LOG_SEQ,
+			      SEQ_NO,
+			      FORM_ID,
+			      ACCESS_DT,
+			      JOB_TYPE,
+			      ACTION,
+			      PARAM,
+				  USER_IP,
+				  USER_ID
+			      )
+			  VALUES (
+			       ?,
+			       (SELECT NVL(MAX(SEQ_NO),0)+1 FROM TBDM_PERSONAL_MN_ACCESS WHERE LOG_SEQ = ?),
+			       ?,
+			       SYSDATE,
+			       ?,
+			       ?,
+			       ?,
+			       ?,
+			       ?
+			      )  
+              ]]>
+    </query>  
+        
+</queryMap>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5020(대회분류관 )">
+  <query id="rbs5020_s01" desc="대회분류 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5020_s01 */
+                   '0' AS CHK
+                   ,T.CONTEST_TYPE_SEQ			-- 대회분류연번
+		           ,T.GAME_CD					-- 종목코드
+		           ,C1.CD_NM AS GAME_NM			-- 종목명
+		           ,T.INTL_TYPE					-- 국제대회 여부
+		           ,T.CONTEST_TYPE_NM			-- 대회분류명
+		           ,T.RMK						-- 비고
+			FROM TBRS_CONTEST_TYPE T, TBRK_SPEC_CD C1
+			WHERE   T.GAME_CD = C1.CD
+			    AND C1.GRP_CD = '144'  
+			    AND T.GAME_CD LIKE ?||'%'
+			ORDER BY T.GAME_CD, T.CONTEST_TYPE_SEQ
+        ]]>
+    </query>       
+    
+    <query id="rbs5020_m01" desc="선수 기본정보 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5020_m01 */
+                  TBRS_CONTEST_TYPE DST
+           USING (
+                     SELECT   ? AS CONTEST_TYPE_SEQ
+                             ,? AS GAME_CD
+                             ,? AS INTL_TYPE
+                             ,? AS CONTEST_TYPE_NM
+                             ,? AS RMK
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.GAME_CD = SRC.GAME_CD
+                     AND DST.CONTEST_TYPE_SEQ = SRC.CONTEST_TYPE_SEQ
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.INTL_TYPE   	 	= SRC.INTL_TYPE
+                        ,DST.CONTEST_TYPE_NM 	= SRC.CONTEST_TYPE_NM
+                        ,DST.RMK   				= SRC.RMK
+                        ,DST.UPDT_ID 			= SRC.USER_ID
+                        ,DST.UPDT_DT 			= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  GAME_CD
+                , CONTEST_TYPE_SEQ
+                , CONTEST_TYPE_NM
+                , INTL_TYPE
+                , RMK
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.GAME_CD
+                , (SELECT NVL(MAX(CONTEST_TYPE_SEQ)+1,1) 
+                   FROM TBRS_CONTEST_TYPE 
+                   WHERE GAME_CD = ? --SRC.GAME_CD
+                   )
+                , SRC.CONTEST_TYPE_NM
+                , NVL(SRC.INTL_TYPE,'0')
+                , SRC.RMK
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5020_d01" desc="대회분류 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5020_d01 */
+            FROM TBRS_CONTEST_TYPE
+           WHERE GAME_CD = ?
+             AND CONTEST_TYPE_SEQ = ? 
+        ]]>
+    </query>    
+    
+</queryMap>

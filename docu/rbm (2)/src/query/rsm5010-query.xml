@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm5010(지급조서 입력)">
+    <query id="rsm5010_s01" desc="당첨지급내역 조회" fetchSize="10">
+      <![CDATA[
+SELECT /* rsm5010_s01 */    
+                 A.MEET_CD            --1.경륜장코드
+                ,A.SELL_CD            --2.운영처코드
+                ,A.TSN                --3.경주권번호
+                ,A.PAY_YEAR           --4.지급년도
+                ,A.DIV_NO             --5.투표소번호
+                
+                ,A.PERF_NO            --6.퍼포먼스번호
+                ,A.COMM_NO            --7.지점코드
+                ,A.REFUND             --8.환급금액
+                ,A.SELL_AMT           --9.판매금액
+                ,A.JIGEUP_AMT         --10.지급금액
+                
+                ,A.COST               --11.필요경비
+                ,A.GITA1              --12.소득세
+                ,A.GITA2              --13.주민세
+                ,A.GITA_PAY           --14.차인지급액
+                ,A.ETC                --15.기타
+                
+                ,A.PRINT_DT           --16.출력일자
+                ,B.CUST_NM            --17.고객이름
+                --,FC_DEC(A.CUST_SSN) AS CUST_SSN  --18.주민등록번호  --2014년도
+                ,NVL(FC_DEC(B.RES_NO), FC_DEC(A.CUST_SSN)) AS CUST_SSN  --18.주민등록번호  --2015.02.07 개선 입력자료를 우선으로..
+                ,B.CUST_ADDR          --19.고객주소
+                ,A.CUST_TEL           --20.고객전화번호
+                
+                ,B.FORE_NO            --21.외국인등록번호
+                ,A.JIGEUP_DT          --22.지급일자
+                ,A.ERR_CHK            --23.에러체크
+                ,(SELECT  USER_NM
+                    FROM  TBRK_USER --USER
+                   WHERE  1=1
+                     AND  USER_ID = A.INST_ID
+                 ) AS USER_NM                               --24.입력직원
+                ,TO_CHAR(A.INST_DT, 'yyyymmdd') AS USER_DT  --25.입력일자
+                , (
+                    SELECT
+                        CD_NM
+                    FROM TBRK_SPEC_CD
+                    WHERE GRP_CD = '075'
+                    AND CD = DECODE(A.MEET_CD, '001', '001', 
+                    DECODE(A.MEET_CD, '002', '002',
+                    DECODE(A.MEET_CD, '003', '003'),
+                    DECODE(A.MEET_CD, '004', '004','')))) AS COLLECT  --26.징수의무자
+                ,SUBSTR(FC_DEC(A.CUST_SSN),0,7) || '*******' AS CUST_SSN_V  --27.사용자에게 보여줄 주민번호값            
+                ,'' AS ECHK    --28.체크
+                ,C.FST_CFM_CD  --29.1차확정코드
+                ,C.SND_CFM_CD  --30.2차확정코드                
+                ,C.THR_CFM_CD  --31.3차확정코드
+                , (
+                    SELECT
+                        CD_NM
+                    FROM TBRK_SPEC_CD
+                    WHERE GRP_CD = '076'
+                    AND CD = DECODE(A.MEET_CD, '001', '001', 
+                    DECODE(A.MEET_CD, '002', '002',
+                    DECODE(A.MEET_CD, '003', '003'),
+                    DECODE(A.MEET_CD, '004', '004','')))) AS REPR --32.대표자명
+                , (
+                    SELECT
+                        CD_NM
+                    FROM TBRK_SPEC_CD
+                    WHERE GRP_CD = '077'
+                    AND CD = DECODE(A.MEET_CD, '001', '001', 
+                    DECODE(A.MEET_CD, '002', '002',
+                    DECODE(A.MEET_CD, '003', '003'),
+                    DECODE(A.MEET_CD, '004', '004','')))) AS COM_REG_NO --33.사업자등록번호
+                 , (
+                    SELECT
+                        CD_NM
+                    FROM TBRK_SPEC_CD
+                    WHERE GRP_CD = '078'
+                    AND CD = DECODE(A.MEET_CD, '001', '001', 
+                    DECODE(A.MEET_CD, '002', '002',
+                    DECODE(A.MEET_CD, '003', '003'),
+                    DECODE(A.MEET_CD, '004', '004','')))) AS CORP_REG_NO --34.법인등록번호
+                 , (
+                    SELECT
+                        CD_NM
+                    FROM TBRK_SPEC_CD
+                    WHERE GRP_CD = '079'
+                    AND CD = DECODE(A.MEET_CD, '001', '001', 
+                    DECODE(A.MEET_CD, '002', '002',
+                    DECODE(A.MEET_CD, '003', '003'),
+                    DECODE(A.MEET_CD, '004', '004','')))) AS LOC --35.소재지
+                 , (
+                    SELECT
+                        CD_NM
+                    FROM TBRK_SPEC_CD
+                    WHERE GRP_CD = '111'
+                    AND CD = DECODE(A.MEET_CD, '001', '001', 
+                    DECODE(A.MEET_CD, '002', '001',
+                    DECODE(A.MEET_CD, '003', '002'),
+                    DECODE(A.MEET_CD, '004', '001','')))) AS SEAL --36.직인
+                    
+                 ,(CASE 
+		                WHEN A.SELL_CD='01' AND A.COMM_NO <= '10' 
+		                        THEN '광명'
+		                WHEN A.SELL_CD='01' AND A.COMM_NO > '10'  
+		                        THEN (SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD ='018' AND CD = COMM_NO )
+		                WHEN A.SELL_CD='03' THEN '미사리'
+		                ELSE '' END) BRNC_NM
+		          , A.SELL_DT -- 판매일자
+			  FROM  TBJI_PC_TAX     A   --당첨지급내역
+			       ,TBRD_DETL_CNTNT B   --지급조서관리_상세내역
+			       ,TBRD_CFM_CNTNT  C   --지급조서관리_확정내역
+			      
+			 WHERE	1=1
+			   AND  A.MEET_CD  = B.MEET_CD (+)
+			   AND  A.SELL_CD  = B.SELL_CD (+)
+			   AND  A.TSN      = B.TSN_NO  (+)
+			   AND  A.PAY_YEAR = B.PAY_YEAR(+)
+			   AND  A.MEET_CD  = C.MEET_CD (+)
+               AND  A.SELL_CD  = C.SELL_CD (+)
+               AND  A.TSN      = C.TSN_NO  (+)
+               AND  A.PAY_YEAR = C.PAY_YEAR(+)
+               AND  A.PAY_YEAR = ?
+			   AND  A.MEET_CD  LIKE '%' || NVL(?, A.MEET_CD) || '%'
+			   AND  A.SELL_CD  LIKE '%' || NVL(?, A.SELL_CD) || '%'
+			   AND  REGEXP_LIKE (DECODE(?, '', '1',DECODE(A.SELL_CD,'03','98',A.COMM_NO)),DECODE(?,'','1',?) )
+			   AND  DECODE(?, '', '1', C.FST_CFM_CD) = DECODE(?, '', '1', ?)
+			   AND  A.SELL_CD NOT IN (?, ?)
+			   AND  DECODE(?, '', '1', C.SND_CFM_CD) = DECODE(?, '', '1', ?)
+        ]]>
+    </query>
+    
+    <query id="rsm5010_s02" desc="검색년도 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /*rsm5010_s02*/
+                A.START_YEAR - 1 + LEVEL AS STND_YEAR 
+               
+               
+              FROM
+		             (SELECT  
+		                     NVL(MIN(PAY_YEAR), TO_CHAR(SYSDATE, 'yyyy')) AS START_YEAR       
+		                    ,NVL(MAX(PAY_YEAR), TO_CHAR(SYSDATE, 'yyyy')) AS END_YEAR
+		               FROM  TBJI_PC_TAX --지급조서내역          
+		              WHERE  1=1) A
+             
+             WHERE  1=1
+        CONNECT BY  LEVEL <= (A.END_YEAR - START_YEAR + 1)
+          ORDER BY  STND_YEAR DESC
+        ]]>
+    </query>
+    
+    <query id="rsm5010_s03" desc="지급조서입력 전체 개수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /*rsm5010_s03*/
+                COUNT(*) AS CNT
+              FROM  TBJI_PC_TAX
+             WHERE  1=1
+               AND  PAY_YEAR = ?
+               --AND  COMM_NO  = ?
+               AND  REGEXP_LIKE (DECODE(?, '', '1',DECODE(SELL_CD,'03','98',COMM_NO)),DECODE(?,'','1',?) )
+               -- AND  REGEXP_LIKE (DECODE(?, '', '1',COMM_NO),DECODE(?,'','1',?) )
+               
+               AND  SELL_CD  NOT IN ('02', '04')
+        ]]>
+    </query>
+    
+    <query id="rsm5010_m01" desc="지급조서관리_상세내역 입력,수정" fetchSize="10">
+      <![CDATA[
+            MERGE INTO TBRD_DETL_CNTNT A  --지급조서관리_상세내역
+                    /* rsm5010_m01 */
+            USING
+                    (SELECT
+                             ? AS MEET_CD     --경륜장코드
+							,? AS SELL_CD     --운영처코드
+							,? AS TSN         --경주권번호
+							,? AS PAY_YEAR    --지급년도
+							,? AS CUST_SSN    --주민등록번호
+							
+							,? AS CUST_NM     --고객성명
+							,? AS CUST_ADDR   --고객주소
+							,? AS FORE_NO     --외국인등록번호
+							,? AS INST_ID     --작성자
+							,? AS UPDT_ID     --수정자
+    
+                       FROM    DUAL ) B
+                ON (
+                        A.MEET_CD  = B.MEET_CD    --경륜장코드
+                    AND A.SELL_CD  = B.SELL_CD    --운영처코드
+                    AND A.TSN_NO   = B.TSN        --경주권번호
+                    AND A.PAY_YEAR = B.PAY_YEAR   --지급년도
+            )
+            
+            WHEN MATCHED THEN
+                UPDATE SET 
+                     A.CUST_NM   = B.CUST_NM    --고객성명
+                    ,A.CUST_ADDR = B.CUST_ADDR  --고객주소
+                    ,A.RES_NO 	 = FC_ENC(B.CUST_SSN)   --주민번호 20150207 김일준 추가
+                    ,A.FORE_NO   = B.FORE_NO    --외국인등록번호
+                    ,A.UPDT_ID   = B.UPDT_ID    --수정자
+                    ,A.UPDT_DT   = SYSDATE      --수정일시
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+            
+                     A.MEET_CD      --경륜장코드
+					,A.SELL_CD      --운영처코드
+					,A.TSN_NO       --경주권번호
+					,A.PAY_YEAR     --지급년도
+					,A.RES_NO       --주민등록번호
+					
+					,A.CUST_NM      --고객성명
+					,A.CUST_ADDR    --고객주소
+					,A.FORE_NO      --외국인등록번호
+					,A.INST_ID      --작성자
+					,A.INST_DT      --작성일자
+					
+                ) VALUES (
+                     B.MEET_CD      --경륜장코드
+                    ,B.SELL_CD      --운영처코드
+                    ,B.TSN          --경주권번호
+                    ,B.PAY_YEAR     --지급년도
+                    ,FC_ENC(B.CUST_SSN) --주민등록번호
+                    
+                    ,B.CUST_NM      --고객성명
+                    ,B.CUST_ADDR    --고객주소
+                    ,B.FORE_NO      --외국인등록번호
+                    ,B.INST_ID      --작성자
+                    ,SYSDATE        --작성일자
+                )
+        ]]>
+    </query>
+    
+    <query id="rsm5010_m02" desc="지급조서관리_확정내역 입력,수정" fetchSize="10">
+      <![CDATA[
+            MERGE INTO TBRD_CFM_CNTNT A  --지급조서관리_확정내역
+                        /* rsm5010_m02 */
+            USING
+                    (SELECT
+                             ? AS MEET_CD     --경륜장코드
+                            ,? AS SELL_CD     --운영처코드
+                            ,? AS TSN         --경주권번호
+                            ,? AS PAY_YEAR    --지급년도
+                            ,? AS CUST_SSN    --주민등록번호
+                            
+                            ,? AS BRNC_CD     --지점코드
+							,? AS FST_CFM_CD  --1차확정코드
+							,? AS SND_CFM_CD  --2차확정코드
+							,? AS THR_CFM_CD  --3차확정코드
+                            ,? AS INST_ID     --작성자
+                            
+                            ,? AS UPDT_ID     --수정자
+    
+                       FROM    DUAL ) B
+                ON (
+                        A.MEET_CD  = B.MEET_CD    --경륜장코드
+                    AND A.SELL_CD  = B.SELL_CD    --운영처코드
+                    AND A.TSN_NO   = B.TSN        --경주권번호
+                    AND A.PAY_YEAR = B.PAY_YEAR   --지급년도
+            )
+            
+            WHEN MATCHED THEN
+                UPDATE SET 
+                     A.BRNC_CD    = B.BRNC_CD     --지점코드
+                    ,A.FST_CFM_CD = B.FST_CFM_CD  --1차확정코드
+                    ,A.SND_CFM_CD = B.SND_CFM_CD  --2차확정코드
+                    ,A.THR_CFM_CD = B.THR_CFM_CD  --3차확정코드
+                    ,A.UPDT_ID    = B.UPDT_ID     --수정자
+                    
+                    ,A.UPDT_DT    = SYSDATE       --수정일시
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+            
+                     A.MEET_CD      --경륜장코드
+                    ,A.SELL_CD      --운영처코드
+                    ,A.TSN_NO       --경주권번호
+                    ,A.PAY_YEAR     --지급년도
+                    ,A.RES_NO       --주민등록번호
+                    
+                    ,A.BRNC_CD      --지점코드
+					,A.FST_CFM_CD   --1차확정코드
+					,A.SND_CFM_CD   --2차확정코드
+					,A.THR_CFM_CD   --3차확정코드
+                    ,A.INST_ID      --작성자
+                    
+                    ,A.INST_DT      --작성일자
+                    
+                ) VALUES (
+                     B.MEET_CD      --경륜장코드
+                    ,B.SELL_CD      --운영처코드
+                    ,B.TSN          --경주권번호
+                    ,B.PAY_YEAR     --지급년도
+                    ,FC_ENC(B.CUST_SSN) --주민등록번호
+                    
+                    ,B.BRNC_CD      --지점코드
+                    ,B.FST_CFM_CD   --1차확정코드
+                    ,'002'          --2차확정코드
+                    ,'002'          --3차확정코드
+                    ,B.INST_ID      --작성자
+                    
+                    ,SYSDATE        --작성일자
+                )
+        ]]>
+    </query>
+    
+    <query id="rsm5010_u01" desc="지급조서관리_1차 확정취소" fetchSize="10">
+      <![CDATA[
+            
+			UPDATE TBRD_CFM_CNTNT SET
+                     FST_CFM_CD = '002'	--	(FST_CFM_CD) 1차확정코드                   
+                    ,UPDT_ID    = ?		--	(UPDT_ID     수정자                    
+                    ,UPDT_DT    = SYSDATE    --   	  수정일시
+            WHERE	MEET_CD  	= ?		--	(MEET_CD)    경륜장코드
+              AND 	SELL_CD  	= ?		-- 	(SELL_CD)    운영처코드
+              AND 	TSN_NO   	= ?		--	(TSN)        경주권번호
+              AND 	PAY_YEAR 	= ?		--	(PAY_YEAR)   지급년도
+           
+        ]]>
+    </query>
+     <query id="rsm5010_u02" desc="지급조서관리_2차 확정취소" fetchSize="10">
+      <![CDATA[
+            
+			UPDATE TBRD_CFM_CNTNT SET                    
+                     SND_CFM_CD = '002'	-- 	(SND_CFM_CD) 2차확정코드                    
+                    ,UPDT_ID    = ?	--	(UPDT_ID     수정자                    
+                    ,UPDT_DT    = SYSDATE     --  	  수정일시
+            WHERE	MEET_CD  	= ?	--	(MEET_CD)    경륜장코드
+              AND 	SELL_CD  	= ?	-- 	(SELL_CD)    운영처코드
+              AND 	TSN_NO   	= ?	--	(TSN)        경주권번호
+              AND 	PAY_YEAR 	= ?	--	(PAY_YEAR)   지급년도
+           
+        ]]>
+    </query>
+     <query id="rsm5010_u03" desc="지급조서관리_3차 확정취소" fetchSize="10">
+      <![CDATA[
+            
+			UPDATE TBRD_CFM_CNTNT SET                    
+                     THR_CFM_CD = '002'	--	(THR_CFM_CD) 3차확정코드
+                    ,UPDT_ID    = ?	--	(UPDT_ID     수정자                    
+                    ,UPDT_DT    = SYSDATE   --    	  수정일시
+            WHERE	MEET_CD  	= ?	--	(MEET_CD)    경륜장코드
+              AND 	SELL_CD  	= ?	-- 	(SELL_CD)    운영처코드
+              AND 	TSN_NO   	= ?	--	(TSN)        경주권번호
+              AND 	PAY_YEAR 	= ?	--	(PAY_YEAR)   지급년도
+           
+        ]]>
+    </query>
+    
+    
+    <query id="rsm5010_u04" desc="지급조서관리_영수증출력여부저장" fetchSize="10">
+      <![CDATA[
+            
+            UPDATE   /* rsm5010_u04 */
+                     TBJI_PC_TAX SET                    
+                     PRINT_DT = ? --  출력날자
+            WHERE    1 = 1
+              AND    PAY_YEAR    = ? --  (PAY_YEAR)   지급년도
+              AND    MEET_CD     = ? 
+              AND    SELL_CD     = ?
+              AND    TSN         = ? 
+           
+        ]]>
+    </query>
+    
+</queryMap>

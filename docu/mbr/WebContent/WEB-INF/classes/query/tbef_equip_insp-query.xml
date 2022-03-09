@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_equip_insp 확정검사 결과 관리  ">
+    <query id="tbef_equip_insp_ff001" desc="확정 검사 결과 조회 " fetchSize="50">
+        <![CDATA[
+          -- 확정 검사 결과 
+          SELECT
+			0 AS RACER_INSP_TARGET_CNT,
+			0 AS MOT_INSP_TARGET_CNT,
+			0 AS BOAT_INSP_TARGET_CNT,
+			0 AS RACER_INSP_CNT,
+			0 AS MOT_INSP_CNT,
+			0 AS BOAT_INSP_CNT,
+			0 AS RACER_NON_INSP_CNT,
+			0 AS MOT_NON_INSP_CNT,
+			0 AS BOAT_NON_INSP_CNT,
+			0 AS RACER_INSP_PASS_CNT,
+			0 AS MOT_INSP_PASS_CNT,
+			0 AS BOAT_INSP_PASS_CNT,
+			0 AS RACER_INSP_FAIL_CNT,
+			0 AS MOT_INSP_FAIL_CNT,
+			0 AS BOAT_INSP_FAIL_CNT,
+              T1.STND_YEAR,   -- 기준년도
+              T1.MBR_CD,    -- 경정장 코드 
+              T1.TMS,     -- 회차
+              T1.DAY_ORD,     --  일차
+              T1.RACE_DAY,    -- 경주일자
+              T1.DAY||'요일' AS DAY, -- 요일
+              T1.RACE_TMS_STAT_CD ,   -- 회차 진행 상태 코드
+              T2.CD_NM AS RACE_TMS_STAT_CD,    -- 회차 진행 상태 명
+              NVL(T1.ALTER_RACER_CNT, 0) AS ALTER_RACER_CNT,     -- 교체 선수 수
+              NVL(T1.ALTER_MOT_CNT, 0) AS ALTER_MOT_CNT,   -- 교체 모터 수
+              NVL(T1.ALTER_BOAT_CNT, 0) AS ALTER_BOAT_CNT,  -- 교체 보트 수
+              T1.INSP_RACER_RMK,  -- 선수 검사 비고
+              T1.INSP_MOT_RMK,    -- 모터 검사 비고
+              T1.INSP_BOAT_RMK,   -- 보트 검사 비고
+              T1.INSP_TOT_RMK,     -- 전체 비고
+              NVL(T1.INSP_PRS_STAT_CD, 'X') AS INSP_PRS_STAT_CD --진행상태 
+          FROM (
+              SELECT  TRDO.STND_YEAR, TRDO.MBR_CD, TRDO.TMS, TRDO.DAY_ORD, TRDO.RACE_DAY, TRDO.DAY,
+              (SELECT RACE_TMS_STAT_CD
+                  FROM TBEB_RACE_TMS  TRT
+                  WHERE  TRT.STND_YEAR= ? AND MBR_CD= ? AND TMS = ?
+              ) AS RACE_TMS_STAT_CD,
+              TEI.ALTER_RACER_CNT, TEI.ALTER_MOT_CNT, TEI.ALTER_BOAT_CNT,
+              TEI.INSP_RACER_RMK,TEI.INSP_MOT_RMK, TEI.INSP_BOAT_RMK,
+              TEI.INSP_TOT_RMK, TEI.INSP_PRS_STAT_CD
+              FROM (
+                  -- 경주 일차 조회
+                  SELECT
+                      STND_YEAR, MBR_CD, TMS, DECODE(?,0,0,DAY_ORD) AS DAY_ORD, 
+                      TO_CHAR(DECODE(?,0,TO_DATE(RACE_DAY, 'YYYYMMDD')-1, TO_DATE(RACE_DAY, 'YYYYMMDD')), 'YYYYMMDD') AS RACE_DAY,
+                      TO_CHAR(DECODE(?,0,TO_DATE(RACE_DAY, 'YYYYMMDD')-1, TO_DATE(RACE_DAY, 'YYYYMMDD')),'DY') AS DAY
+                  FROM TBEB_RACE_DAY_ORD
+                  WHERE STND_YEAR = ?
+                  AND MBR_CD = ?
+                  AND TMS = ?
+                  AND DAY_ORD= DECODE(?,0,1,?)
+              )TRDO, TBEF_EQUIP_INSP TEI
+              WHERE TRDO.STND_YEAR = TEI.STND_YEAR(+)
+              AND TRDO.MBR_CD = TEI.MBR_CD(+)
+              AND TRDO.TMS = TEI.TMS(+)
+              AND TRDO.DAY_ORD = TEI.DAY_ORD(+)
+          )T1, TBEA_SPEC_CD T2
+          WHERE T2.GRP_CD='E00106'
+          AND T1.RACE_TMS_STAT_CD = T2.CD
+        ]]>
+    </query> 
+    <query id="tbef_equip_insp_if001" desc="확정검사 결과 등록 " fetchSize="10">
+        <![CDATA[
+            -- 확정 검사 결과 등록 
+			INSERT INTO TBEF_EQUIP_INSP (
+			   STND_YEAR,	-- 기준년도 
+			   MBR_CD, 	-- 경정장 코드  
+			   TMS, 	-- 회차 
+			   DAY_ORD, 	-- 일차 
+			   INSP_PRS_STAT_CD, 	-- 확정검사 진행 상태 
+			   ALTER_RACER_CNT, 	-- 교체 선수 수  
+			   ALTER_MOT_CNT, 		-- 교체 모터  수 
+			   ALTER_BOAT_CNT, 	-- 교체 보트 수 
+			   INSP_RACER_RMK, 	-- 확정 검사 선수 비고 
+			   INSP_MOT_RMK, 	-- 확정검사 모터 비고 
+			   INSP_BOAT_RMK, 	-- 확정검사 보트  비고 
+			   INSP_TOT_RMK, 	-- 확정검사 전체 비고 
+			   INST_ID, 	-- 작성자 ID
+			   INST_DTM		--작성일시 
+			) 
+			VALUES ( 
+				?, 	-- 기준년도 
+				?, 	-- 경정장코드  
+				?, 	-- 회차 
+				?,	-- 일차 
+			    DECODE(?, 'X', '001', ?), 	-- 확정검사 진행 상태 
+			    ?, 	-- 교체 선수 수 
+			    ?,	-- 교체 모터 수 
+			    ?, 	-- 교체 보트 수 
+			    ?,	-- 확정검사 선수 비고 
+			    ?,	-- 확정검사 모터 비고 
+			    ?, 	-- 확정검사 보트 비고 
+			    ?, 	-- 확정검사 전체 비고 
+			    ?, 	-- 작성자ID
+			    SYSDATE	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    <query id="tbef_equip_insp_uf001" desc="확정 검사 결과 수정 " fetchSize="10">
+        <![CDATA[
+            -- 확정검사 결과 수정 
+			UPDATE TBEF_EQUIP_INSP
+			SET    INSP_PRS_STAT_CD   = DECODE(?, 'X', '001', ?), 	-- 확정검사 진행 상태 ,	-- 확정검사 진행 상태 
+			       ALTER_RACER_CNT = ?,	-- 교체 선수 수 	
+			       ALTER_MOT_CNT   = ?,	-- 교체 모터 수 
+			       ALTER_BOAT_CNT  = ?,	-- 교체 보트 수 
+			       INSP_RACER_RMK  = ?,	-- 확정검사 선수 비고 
+			       INSP_MOT_RMK    = ?,	-- 확정검사 모터 비고 
+			       INSP_BOAT_RMK   = ?,	-- 확정검사 보트 비고 
+			       INSP_TOT_RMK    = ?,	-- 확정검사 전체 비고 
+			       UPDT_ID         = ?,	-- 수정일자 
+			       UPDT_DTM        = SYSDATE	-- 수정일시 
+			WHERE  STND_YEAR       = ?	-- 기준년도 
+			AND	MBR_CD	= ? 	-- 경정장 코드  
+			AND TMS = ?	-- 회차 
+			AND DAY_ORD = ?	-- 일차 
+
+			       
+        ]]>
+    </query> 
+    <query id="tbef_equip_insp_df001" desc="삭제" fetchSize="10">
+        <![CDATA[
+            -- 확정 검사 결과 삭제 
+			DELETE 
+			FROM TBEF_EQUIP_INSP
+			WHERE  STND_YEAR       = ?	-- 기준년도 
+			AND	MBR_CD	= ? 	-- 경정장 코드  
+			AND TMS             = ?	-- 회차 
+			AND DAY_ORD         = ?	-- 일차 
+        ]]>
+    </query> 
+</queryMap>

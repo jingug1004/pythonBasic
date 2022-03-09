@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS1030(사업모니터링)">
+        
+    <query id="rbs1030_s01" desc="사업모니터링 조회" fetchSize="10">
+        <![CDATA[
+
+			SELECT   /* rbs1030_s01 */
+			         A.PREP_AMT_CD,   -- 시개금코드
+			         
+			         (
+			          SELECT   GROUP_NAME
+			          FROM     V_GROUP DEPT
+			          WHERE    GROUP_ID = A.DPRT_CD
+			         )  AS DPRT_NAME,  -- 부서명
+			               
+			         A.MNG_ID,		   -- 담당자 ID
+			               
+			         (
+			          SELECT   USER_NM
+			          FROM     TBRK_USER
+			          WHERE    USER_ID = A.MNG_ID 
+			         ) AS MNG_NAME,    -- 담당자 이름
+			         
+			         (
+					  SELECT   HP_NO
+			          FROM     TBRK_USER
+			          WHERE    USER_ID = A.MNG_ID 
+			         ) AS MNG_HP_NO,   -- 담당자 전화번호
+			                  
+			         A.ACC_BGN_CD,     -- 회계구분코드
+			         A.BUSI_NM,        -- 사업명
+			               
+			         NVL(B.EXEC_QUAR_1, 0) AS EXEC_QUAR_1,  -- 1/4 분기
+			         NVL(B.EXEC_QUAR_2, 0) AS EXEC_QUAR_2,  -- 2/4 분기
+			         NVL(B.EXEC_QUAR_3, 0) AS EXEC_QUAR_3,  -- 3/4 분기
+			         NVL(B.EXEC_QUAR_4, 0) AS EXEC_QUAR_4,  -- 4/4 분기
+			         NVL(A.QUAR_1, 0) AS QUAR_1,  -- 1/4 분기 계획			         
+			         NVL(A.QUAR_2, 0) AS QUAR_2,  -- 2/4 분기 계획
+			         NVL(A.QUAR_3, 0) AS QUAR_3,  -- 3/4 분기 계획
+			         NVL(A.QUAR_4, 0) AS QUAR_4,  -- 4/4 분기 계획 
+			         A.QUAR_1_DELAY_RSN,	-- 1/4분기  지연사유
+			         A.QUAR_2_DELAY_RSN,	-- 2/4분기  지연사유
+			         A.QUAR_3_DELAY_RSN,	-- 3/4분기  지연사유
+			         A.QUAR_4_DELAY_RSN,	-- 4/4분기  지연사유			          
+			         NVL(B.TRANS_AMT, 0) TRANS_AMT,  -- 이월
+        
+			         DECODE(TO_NUMBER(NVL(A.QUAR_1, 0) + NVL(A.QUAR_2, 0) + NVL(A.QUAR_3, 0) + NVL(A.QUAR_4, 0))    -- 분기 합
+			            - TO_NUMBER(NVL(B.EXEC_QUAR_1, 0) + NVL(B.EXEC_QUAR_2, 0) + NVL(B.EXEC_QUAR_3, 0) + NVL(B.EXEC_QUAR_4, 0))	 -- 실행분기 합
+			            , '0', '진행', '지연'	)  AS PROG_STAT_CD,  -- 진행상태코드
+			         
+			         A.INPT_END_CD,    -- 입력상태코드			                                
+			               
+			         '0' CHK   -- CHECKBOX 0, 1
+			               
+			FROM     TBRE_BUSI_PLAN A, 
+			         (
+			          SELECT   B.PREP_AMT_CD,
+			                   
+			                   SUM(EXEC_QUAR_1) AS EXEC_QUAR_1, 
+			                   SUM(EXEC_QUAR_2) AS EXEC_QUAR_2,
+			                   SUM(EXEC_QUAR_3) AS EXEC_QUAR_3,
+			                   SUM(EXEC_QUAR_4) AS EXEC_QUAR_4,
+			                   SUM(TRANS_AMT ) TRANS_AMT                        
+			
+			          FROM     (
+			                    SELECT   B.PREP_AMT_CD,         
+			                             B.EXEC_DT, 
+			                                     
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '01'||C.BUSI_YEAR, B.EXEC_AMT, '02'||C.BUSI_YEAR, B.EXEC_AMT, '03'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_1,    
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '04'||C.BUSI_YEAR, B.EXEC_AMT, '05'||C.BUSI_YEAR, B.EXEC_AMT, '06'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_2,  
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '07'||C.BUSI_YEAR, B.EXEC_AMT, '08'||C.BUSI_YEAR, B.EXEC_AMT, '09'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_3,  
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2)||SUBSTR(B.EXEC_DT, 0, 4), '10'||C.BUSI_YEAR, B.EXEC_AMT, '11'||C.BUSI_YEAR, B.EXEC_AMT, '12'||C.BUSI_YEAR, B.EXEC_AMT) AS EXEC_QUAR_4,  
+			                             
+			                             (CASE WHEN SUBSTR(B.EXEC_DT, 0, 4) > C.BUSI_YEAR THEN  B.EXEC_AMT ELSE 0 END) TRANS_AMT
+			                    FROM     TBRE_BUSI_EXEC B
+			                            ,TBRE_BUSI_PLAN C
+			                    WHERE  B.PREP_AMT_CD = C.PREP_AMT_CD
+			                    ORDER BY B.EXEC_DT
+			                   ) B
+			          GROUP BY B.PREP_AMT_CD   
+			         ) B
+			      
+			WHERE    A.BUSI_YEAR    = ?                                      -- 1. 사업년도      
+			AND      A.ACC_BGN_CD LIKE '%' || NVL(?, A.ACC_BGN_CD) || '%'    -- 2.회계구분
+			AND      A.PREP_AMT_CD = B.PREP_AMT_CD(+)     
+			            
+			ORDER BY A.PREP_AMT_CD
+						
+        ]]>
+    </query>       
+
+	
+    
+    <query id="rbs1030_u01" desc="입력마감" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rbs1030_u01 */
+			         TBRE_BUSI_PLAN
+			
+			SET      INPT_END_CD = '001',       -- 입력마감
+			
+			         UPDT_ID      = ?,         -- 1. 사용자 ID    
+			         UPDT_DT      = SYSDATE
+			        
+			WHERE    PREP_AMT_CD = ?           -- 2. 시개금코드
+
+        ]]>
+    </query>
+    
+
+    <query id="rbs1030_u02" desc="마감해지" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rbs1030_u02 */
+			         TBRE_BUSI_PLAN
+			
+			SET      INPT_END_CD = '002',       -- 마감해지
+			
+			         UPDT_ID      = ?,          -- 1. 사용자 ID    
+			         UPDT_DT      = SYSDATE
+			        
+			WHERE    PREP_AMT_CD = ?           -- 2. 시개금코드
+
+        ]]>
+    </query>
+    
+        
+</queryMap>

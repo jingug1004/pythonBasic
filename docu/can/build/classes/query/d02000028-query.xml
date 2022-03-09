@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_induce_dcsn_mngr(유도원배정)">
+
+    <query id="tbdb_induce_dcsn_fb001" desc="년도 조회" fetchSize="10">
+        <![CDATA[
+			SELECT TRIM(RMK) AS RACE_YY
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC		
+		]]>
+    </query>
+    
+    <query id="tbdb_induce_dcsn_fb002" desc="세부시행일정" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			       RACE_YY
+			      ,ROUND
+			      ,MAT_METH
+			      ,RACE_METH
+			      ,RACE_CNT
+			      ,RACE_DT
+			      ,AM_PM_GBN
+			      ,RACER_CNT
+			      ,SELT_ROUND
+			      ,'0' CHK
+			FROM  TBDB_DETL_RACE_SCHE 
+			WHERE RACE_YY = ?
+            AND ROUND     = ?
+		     ]]>
+    </query> 
+    
+    <query id="tbdb_induce_dcsn_fb003" desc="유도원 조회" fetchSize="10">
+        <![CDATA[
+			    SELECT
+			    	 ROWNUM AS NUM
+			   		,A.RACE_YY
+			   		,A.ROUND  
+			    	,TRIM(A.GBN)AS GBN
+					,B.GRD
+					,A.CAND_NO
+					,B.CAND_NM 
+					,0 AS CHK
+				FROM 
+					TBDB_CAND_ASSIGN A, TBDB_REC_TOT B
+				WHERE A.CAND_NO = B.CAND_NO
+					AND GBN IN(2,3)
+					AND DCSN_GBN = 0 
+					AND A.RACE_YY = ?					
+					AND A.ROUND = ? 
+		]]>
+ </query>
+ <query id="tbdb_induce_dcsn_fb004" desc="저장된 유도원 조회" fetchSize="10">
+        <![CDATA[
+ 				SELECT 
+					 A.RACE_YY
+					,A.ROUND
+					,A.RACE_NO
+					,A.CAND_NO
+					,B.CAND_NM 
+					,0 AS CHK
+				FROM TBDB_INDUCE_DCSN A , TBDB_REC_TOT B				
+				WHERE A.CAND_NO = B.CAND_NO
+					AND A.RACE_YY 		= ?     -- 기준년도
+      				AND A.ROUND		= ?		-- 회차    
+      			ORDER BY RACE_NO
+    		]]>
+ </query>  
+ 
+ <query id="tbdb_induce_dcsn_fb005" desc="경주번호" fetchSize="10">
+        <![CDATA[
+		    SELECT DISTINCT RACE_NO FROM TBDB_GROUP_ORG
+			WHERE RACE_YY = ?
+			AND ROUND = ?
+     		]]>
+ </query>
+ <query id="tbdb_induce_dcsn_ib001" desc="유도원 저장" fetchSize="10">
+        <![CDATA[
+		  	    MERGE INTO TBDB_INDUCE_DCSN TID
+				            USING   DUAL
+				            ON        (     TID.RACE_YY		= ?     -- 기준년도
+				            			AND TID.ROUND		= ?		-- 회차  
+				            			AND TID.RACE_NO 	= ?   	-- 경주번호 				
+				                      )
+				WHEN MATCHED THEN
+					 UPDATE SET CAND_NO 	= ?
+					 			,UPDT_ID 	= ?	
+								,UPDT_DTM	= SYSDATE
+				WHEN NOT MATCHED THEN
+				    INSERT(
+					RACE_YY
+				   ,ROUND
+				   ,RACE_NO
+				   ,CAND_NO
+				   ,INST_ID
+				   ,INST_DTM
+				 )VALUES(
+				  ?,?,?,?,?,SYSDATE
+				  )
+		]]>
+ </query> 
+  <query id="tbdb_induce_dcsn_db001" desc="유도원 삭제" fetchSize="10">
+        <![CDATA[
+ 		 DELETE FROM TBDB_INDUCE_DCSN 
+		 WHERE 
+		    RACE_YY 		= ?     -- 기준년도
+ 			AND ROUND		= ?		-- 회차  
+ 			AND RACE_NO    	= ?   	-- 경주번호 		
+   		]]>
+ </query>  
+</queryMap>

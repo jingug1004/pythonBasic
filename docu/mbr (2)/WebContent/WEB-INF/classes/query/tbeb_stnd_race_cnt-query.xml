@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_stnd_race_cnt(기준출주회수)">
+    <query id="tbeb_stnd_race_cnt_fb001" desc="기준출주회수조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			         STND_YEAR      -- 기준년도    
+			       , QURT_CD        -- 분기코드    
+			       , RACER_GRD_CD   -- 선수등급코드
+			       --, (3 - ROW_NUM) * 10 + 80 RACE_RT
+			       , RACE_RT
+			       , RACER_CNT      -- 선수수
+			       , STND_RACE_CNT  -- 기준출주회수
+			FROM   (
+						SELECT 
+						         ROWNUM ROW_NUM
+						       , STND_YEAR      -- 기준년도    
+						       , QURT_CD        -- 분기코드    
+						       , RACER_GRD_CD   -- 선수등급코드
+			                   , RACE_RT        -- 출전비율 
+						       , RACER_CNT      -- 선수수
+						       , STND_RACE_CNT  -- 기준출주회수
+						FROM   TBEB_STND_RACE_CNT
+						WHERE  STND_YEAR = ?
+						AND    QURT_CD   = ?
+			            ORDER BY RACER_GRD_CD
+			        )
+        ]]>
+    </query> 
+    <query id="tbeb_stnd_race_cnt_fb002" desc="기준출주회수조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* tbeb_stnd_race_cnt_fb002 */
+			         STND_YEAR      -- 기준년도    
+			       , QURT_CD        -- 분기코드    
+			       , RACER_GRD_CD   -- 선수등급코드
+			       --, (3 - ROW_NUM) * 10 + 80 RACE_RT
+			       , TO_NUMBER(RMK) RACE_RT
+			       , RACER_CNT      -- 선수수
+			       , STND_RACE_CNT  -- 기준출주회수
+			FROM   (
+			            SELECT 
+						         ROWNUM ROW_NUM
+			                   , ? STND_YEAR
+			                   , ? QURT_CD
+			                   , TSC.CD RACER_GRD_CD
+			                   , TSC.RMK 
+			                   , ( 
+			                       SELECT COUNT(*) 
+			                       FROM   TBEC_RACER_MASTER TPM
+			                       WHERE  TPM.RACER_GRD_CD = TSC.CD
+                                   AND    TPM.RACER_STAT_CD <> '003'
+			                     ) RACER_CNT
+			                   , '' STND_RACE_CNT
+			            FROM   TBEA_SPEC_CD TSC
+			            WHERE  GRP_CD = 'E00046'
+			            ORDER BY CD
+			        )
+        ]]>
+    </query> 
+    <query id="tbeb_stnd_race_cnt_fb003" desc="경주개최정보조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         ? STND_YEAR
+			       , ? QURT_CD
+			       , ( 
+			            SELECT
+			                   COUNT(*)
+			            FROM   TBEB_RACE_TMS
+			            WHERE  STND_YEAR = ?
+			            AND    QURT_CD   = ?
+			         ) TMS_CNT
+			       , (
+			            SELECT
+			                   MAX(DAY_ORD)
+			            FROM   TBEB_RACE_DAY_ORD
+			            WHERE  (STND_YEAR, TMS) IN ( 
+			                                         SELECT STND_YEAR, TMS 
+			                                         FROM   TBEB_RACE_TMS 
+			                                         WHERE  STND_YEAR = ? 
+			                                         AND    QURT_CD   = ? 
+			                                       )
+			          ) DAY_ORD_CNT
+			        , (
+			            SELECT
+			                   MAX(RACE_NO)
+			            FROM   TBEB_RACE
+			            WHERE  (STND_YEAR, TMS) IN ( 
+			                                         SELECT STND_YEAR, TMS 
+			                                         FROM   TBEB_RACE_TMS 
+			                                         WHERE  STND_YEAR = ? 
+			                                         AND    QURT_CD   = ? 
+			                                       )
+			          ) RACE_CNT
+			        , (
+			            SELECT
+			                   MAX(RACE_REG_NO)
+			            FROM   TBEB_ORGAN
+			            WHERE  (STND_YEAR, TMS) IN ( 
+			                                         SELECT STND_YEAR, TMS 
+			                                         FROM   TBEB_RACE_TMS 
+			                                         WHERE  STND_YEAR = ? 
+			                                         AND    QURT_CD   = ? 
+			                                       )
+			          ) RACE_REG_NO
+			        , 0 TOT_RACE_CNT
+			        , (
+			            SELECT
+			                   COUNT(*)
+			            FROM   TBEC_RACER_MASTER TPM
+			            WHERE  RACER_STAT_CD IN ('001', '002')
+			          ) RACER_CNT
+			FROM    DUAL
+        ]]>
+    </query> 
+    <query id="tbeb_stnd_race_cnt_ib001" desc="기준출주회수저장" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_STND_RACE_CNT
+			(
+			         STND_YEAR      -- 기준년도    
+			       , QURT_CD        -- 분기코드    
+			       , RACER_GRD_CD   -- 선수등급코드
+			       , RACER_CNT      -- 선수수
+			       , STND_RACE_CNT  -- 기준출주회수
+			       , RACE_RT        -- 출전비율
+			       , INST_ID        -- 작성자ID    
+			       , INST_DTM       -- 작성일시    
+			       , UPDT_ID        -- 수정자ID    
+			       , UPDT_DTM       -- 수정일시    
+			) VALUES (
+			         ?              -- 기준년도    
+			       , ?              -- 분기코드    
+			       , ?              -- 선수등급코드
+			       , ?              -- 선수수
+			       , ?              -- 기준출주회수
+			       , ?              -- 출전비율
+			       , ?              -- 작성자ID    
+			       , SYSDATE        -- 작성일시    
+			       , ?              -- 수정자ID    
+			       , SYSDATE        -- 수정일시    
+			)
+        ]]>
+    </query> 
+    <query id="tbeb_stnd_race_cnt_ub001" desc="기준출주회수수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_STND_RACE_CNT SET
+			         RACER_CNT     = ?       -- 선수수
+			       , STND_RACE_CNT = ?       -- 기준출주회수
+			       , UPDT_ID       = ?       -- 수정자ID    
+			       , UPDT_DTM      = SYSDATE -- 수정일시    
+			WHERE  STND_YEAR       = ?       -- 기준년도    
+			AND    QURT_CD         = ?       -- 분기코드    
+			AND    RACER_GRD_CD    = ?       -- 선수등급코드
+        ]]>
+    </query> 
+    <query id="tbeb_stnd_race_cnt_db001" desc="기준출주회수삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM  TBEB_STND_RACE_CNT
+			WHERE  STND_YEAR       = ?       -- 기준년도    
+			AND    QURT_CD         = ?       -- 분기코드    
+			AND    RACER_GRD_CD    = ?       -- 선수등급코드
+        ]]>
+    </query> 
+</queryMap>

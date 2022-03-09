@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM2070(지점별 목표/매출액)">
+    <query id="rsm2070_s01" desc="지점별 목표/매출액(비율)" fetchSize="10">
+        <![CDATA[
+        SELECT   /* rsm2070_s01 */                                                                                                              
+		         A.MEET_CD
+		       , A.BRNC_CD
+		       , A.BRNC_NM
+		       , A.CUR_TMS_AMT
+		       , A.PREV_TMS_AMT
+		       , A.PREV_YEAR_TMS_AMT
+		       , A.CUR_GOAL
+		       , A.CUR_YEAR_AMT  
+		       , ROUND(RATIO_TO_REPORT(CUR_TMS_AMT) OVER () * 100,1)  AS BRNC_RATIO  
+		       , DECODE(PREV_TMS_AMT,0,0,ROUND((CUR_TMS_AMT-PREV_TMS_AMT)/PREV_TMS_AMT * 100,1))  AS CUR_TMS_INC_RATIO  
+		       , DECODE(PREV_YEAR_TMS_AMT,0,0,ROUND((CUR_TMS_AMT-PREV_YEAR_TMS_AMT)/PREV_YEAR_TMS_AMT * 100,1))  AS CUR_TMS_YEAR_INC_RATIO  
+		       , DECODE(CUR_GOAL,0,0, ROUND(CUR_YEAR_AMT/CUR_GOAL * 100,1))  AS GOAL_ARCH_RATIO
+               , A.PRV_GOAL
+               , A.PRV_YEAR_CUM_AMT
+               , CASE WHEN PRV_GOAL = 0 THEN 0 ELSE ROUND(PRV_YEAR_CUM_AMT/PRV_GOAL * 100,1) END  AS PRV_GOAL_ARCH_RATIO  
+		FROM (
+				SELECT   A.MEET_CD
+				       , A.BRNC_CD
+				       , C.CD_NM AS BRNC_NM
+				       , C.ORD_NO
+				       , ROUND(SUM(CASE WHEN A.STND_YEAR = ? AND TMS = ? AND DAY_ORD LIKE ?||'%' THEN DIV_TOTAL ELSE 0 END)  /?) AS CUR_TMS_AMT
+				       , ROUND(SUM(CASE WHEN A.STND_YEAR = ? AND TMS = ?-1 AND DAY_ORD LIKE ?||'%' THEN DIV_TOTAL ELSE 0 END)/?) AS PREV_TMS_AMT       
+				       , ROUND(SUM(CASE WHEN A.STND_YEAR = ?-1 AND TMS = ? AND DAY_ORD LIKE ?||'%' THEN DIV_TOTAL ELSE 0 END)/?) AS PREV_YEAR_TMS_AMT
+				       , ROUND(NVL(DECODE(MEET_CD, '001', SALES_GOAL_CRA, '003', SALES_GOAL_MRA), 0) /?) AS CUR_GOAL
+				       , ROUND(SUM(CASE WHEN A.STND_YEAR = ? THEN A.DIV_TOTAL ELSE 0 END) /?) AS CUR_YEAR_AMT
+                       , ROUND(SUM(CASE WHEN A.STND_YEAR =  ?-1 AND TMS <= ? THEN A.DIV_TOTAL ELSE 0 END) / ?) AS PRV_YEAR_CUM_AMT
+                       , ROUND(NVL(DECODE(MEET_CD, '001', SALES_GOAL_PRV_CRA, '003', SALES_GOAL_PRV_MRA), 0) / ?) AS PRV_GOAL
+				FROM 
+		               (
+	                        SELECT
+		                              A.MEET_CD
+		                            , A.STND_YEAR
+		                            , A.TMS
+		                            , A.SELL_CD
+		                            , A.COMM_NO
+		                            , A.DIV_NO
+		                            , A.DAY_ORD
+		                            , CASE WHEN SELL_CD = DECODE( ?,'003','03','01') AND COMM_NO IN ('01','02','03','04','08')  THEN '01'
+		                                   WHEN MEET_CD = '003' AND SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08')  THEN '99'
+                                           WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN CD_NM2 
+		                                   WHEN SELL_CD IN ('02','04') THEN '29'
+		                                   ELSE COMM_NO                                     
+		                              END 
+		                              AS BRNC_CD                            
+		                            , SUM(DIV_TOTAL) DIV_TOTAL
+		                        FROM  (
+		                               SELECT A.MEET_CD, A.STND_YEAR, A.TMS, A.SELL_CD, A.COMM_NO, A.DIV_NO, A.DAY_ORD, A.DIV_TOTAL
+		                               FROM   TBES_SDL_DT A, VW_SDL_INFO B
+		                               WHERE  A.MEET_CD = B.MEET_CD
+		                               AND    A.STND_YEAR = B.STND_YEAR
+		                               AND    A.TMS = B.TMS
+		                               AND    A.DAY_ORD = B.DAY_ORD
+		                               AND    (B.RACE_DAY != TO_CHAR(SYSDATE, 'YYYYMMDD') OR A.COMM_NO != '06')
+		                               UNION ALL
+		                               SELECT MEET_CD, STND_YEAR, TMS, SELL_CD, COMM_NO, DIV_NO, DAY_ORD, NET_AMT AS DIV_TOTAL
+		                               FROM   TBES_MYCAT_SALES
+		                               WHERE  RACE_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                       AND     RACE_NO <= (SELECT MAX(RACE_NO) 
+                                                                  FROM TBES_SDL_DT 
+                                                                  WHERE  (MEET_CD, STND_YEAR, TMS, DAY_ORD) IN (
+                                                                          SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD 
+                                                                          FROM VW_SDL_INFO 
+                                                                          WHERE MEET_CD IN ('001','003') 
+                                                                          AND   RACE_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD'))
+                                                           )
+		                               ) A LEFT OUTER JOIN TBRK_SPEC_CD C -- 그린카드지점
+		                            ON  A.DIV_NO = C.CD
+		                            AND C.GRP_CD = '127'                                                                                 
+		                        WHERE 1 = 1                                                                                        
+		                        AND A.MEET_CD =  ?       				-- MEET_CD 경주 구분 코드                                                                       
+		                        AND A.STND_YEAR BETWEEN ?-1 AND ?
+		                        AND A.TMS <= ?
+		                        GROUP BY A.MEET_CD, A.STND_YEAR, A.TMS, A.SELL_CD, A.COMM_NO, A.DIV_NO, A.DAY_ORD, C.CD_NM2
+		                       
+		                  ) A, TBRK_SPEC_CD C,
+		                  (
+                            -- 목표액
+                            SELECT BRNC_CD
+                                  ,SUM(SALES_GOAL_CRA) AS SALES_GOAL_CRA
+                                  ,SUM(SALES_GOAL_MRA) AS SALES_GOAL_MRA
+                                  ,SUM(SALES_GOAL_PRV_CRA) AS SALES_GOAL_PRV_CRA
+                                  ,SUM(SALES_GOAL_PRV_MRA) AS SALES_GOAL_PRV_MRA
+                            FROM (
+				                    SELECT  DECODE(BRNC_CD,'00','01',BRNC_CD) AS BRNC_CD
+	                                       ,NVL(DECODE(STND_YEAR, ?, SALES_GOAL_CRA,0) * 1000000, 0) AS SALES_GOAL_CRA   --매출목표경륜
+	                                       ,NVL(DECODE(STND_YEAR, ?, SALES_GOAL_MRA,0) * 1000000, 0) AS SALES_GOAL_MRA   --매출목표경정
+	                                       ,NVL(DECODE(STND_YEAR, ?-1, SALES_GOAL_CRA,0) * 1000000, 0) AS SALES_GOAL_PRV_CRA   --매출목표경륜(전년도)
+	                                       ,NVL(DECODE(STND_YEAR, ?-1, SALES_GOAL_MRA,0) * 1000000, 0) AS SALES_GOAL_PRV_MRA   --매출목표경정(전년도)
+				                    FROM TBRA_COMM_DESC 				-- 지점 일반사항
+				                    WHERE STND_YEAR BETWEEN  ?-1 AND ?                            
+                                 )   
+                            GROUP BY BRNC_CD
+		                  ) G
+				WHERE 
+				      A.BRNC_CD = C.CD
+				  AND C.GRP_CD = '060'    
+				  AND A.BRNC_CD = G.BRNC_CD(+)              
+				GROUP BY  A.MEET_CD, A.BRNC_CD, C.CD_NM, G.SALES_GOAL_CRA, G.SALES_GOAL_MRA, C.ORD_NO, G.SALES_GOAL_PRV_CRA, G.SALES_GOAL_PRV_MRA
+		) A
+		WHERE CUR_YEAR_AMT > 0
+		ORDER BY A.ORD_NO
+
+        ]]>
+    </query>
+    
+    <query id="rsm2070_s02" desc="년도별 가까운 회차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2070_s02 */
+			        TMS,					-- 회차
+			        TMS||'회' AS TMS_DESC,	-- 회차 표현
+				    NVL(MAX(TMS) OVER(),0) AS MAX_TMS, -- 최근 회차
+				     MIN(RACE_DAY) RACE_STR_DAY,
+                    MAX(RACE_DAY) RACE_END_DAY
+			FROM VW_SDL_INFO
+			WHERE 1=1
+			  AND STND_YEAR = ?
+			  AND MEET_CD   = ?
+			GROUP BY TMS			  
+			ORDER BY TMS DESC			  
+        ]]>
+    </query>
+    
+
+    <query id="rsm2070_s03" desc="년도별 가까운 회차별 일차" fetchSize="10">
+        <![CDATA[
+	       SELECT /* rsm2070_s03 */
+				  DAY_ORD,	-- 일차
+				  DAY_ORD||'일차' AS DAY_DESC,	-- 일차 표현
+				  MAX(DAY_ORD) OVER() AS MAX_DAY_ORD, -- 최근 일차
+				  MAX(RACE_DAY) OVER() AS RACE_DAY -- 최근 날짜
+			  FROM VW_SDL_INFO A
+			 WHERE 1=1
+	    	   AND A.STND_YEAR 	= ? -- 1:STND_YEAR '2014'                                                                      
+			   AND MEET_CD      = ? -- 2:MEET_CD '001'                                                                       
+	    	   AND A.TMS 		= ? -- 3:TMS '12'
+	    	 GROUP BY DAY_ORD,RACE_DAY
+	    	 ORDER BY A.DAY_ORD
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2070_s04" desc="조회조건의 회차 리스트 조회" fetchSize="10">
+        <![CDATA[
+	       SELECT /* rsm2070_s04 */
+				  DAY_ORD,	-- 일차
+				  RACE_NO,	-- 경주
+				  DAY_ORD||'일차 '||RACE_NO||'경주' AS RACE_DESC
+			  FROM TBES_SDL_DT A
+			 WHERE 1=1
+	    	   AND A.STND_YEAR 	= ? 		-- 1:STND_YEAR '2014'                                                                      
+			   AND MEET_CD      = ? 		-- 2:MEET_CD '001'                                                                       
+	    	   AND A.TMS 		= ? 		-- 3:TMS '12'
+	    	   AND A.DAY_ORD 	LIKE ?||'%' -- 4:DAY_ORD '12'
+	    	 GROUP BY DAY_ORD, RACE_NO
+	    	 ORDER BY DAY_ORD, RACE_NO
+        ]]>
+    </query>
+    
+    
+    
+</queryMap>

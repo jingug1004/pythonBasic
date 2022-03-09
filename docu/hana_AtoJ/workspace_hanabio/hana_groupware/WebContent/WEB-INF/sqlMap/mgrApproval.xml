@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : mgrApproval.xml
+  * @메뉴명 : 관리자 문서목록
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="mgrApproval">
+
+	<select id="getMgrApprovalReportList" parameterType="hashmap" resultType="com.hanaph.gw.ea.mgrApproval.vo.MgrApprovalReportVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+			SELECT MASTER.APPROVAL_SEQ, MASTER.DOCU_SEQ, MASTER.SUBJECT, MASTER.MAKE_DT,
+                   MASTER.STATE, F_GW_GET_CD_NM(MASTER.STATE) STATE_NM,
+                   MASTER.REJECTION_REASON, MASTER.SECURITY_YN,
+                   MASTER.DECIDE_YN, MASTER.STEP_STATE, MASTER.CREATE_DT,
+                   MASTER.CREATE_NO, MASTER.MODIFY_DT, MASTER.MODIFY_NO, MASTER.DELETE_YN,
+                   TO_CHAR(MASTER.REQ_DT, 'YYYY-MM-DD') REQ_DT,
+                   F_GW_GET_CD_NM(DOCU.DOCU_CD) DOCU_NM, 
+                   DOCU.DOCU_CD, EMP.EMP_KO_NM,
+                   F_GW_GET_LAST_LINE_NM(MASTER.APPROVAL_SEQ) LAST_LINE_NM                   
+              FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+                   GW_EA_APPROVAL_MASTER MASTER,
+                   GW_EA_DOCU DOCU 
+             WHERE MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+               AND MASTER.CREATE_NO = EMP.EMP_NO
+               AND MASTER.DELETE_YN = 'N'
+               AND MASTER.STATE <![CDATA[<>]]> 'E02001'	
+		<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		 	   AND TO_CHAR(REQ_DT, 'YYYYMMDD') BETWEEN #{search_start_dt} AND #{search_end_dt}
+		</if>
+		<if test="search_docu_cd != null and search_docu_cd !=''">
+	 		   AND DOCU.DOCU_CD = #{search_docu_cd}
+	 	</if>
+		<if test="search_condition == 'SEQ' and search_text !='' and search_text != null">
+	 		   AND MASTER.APPROVAL_SEQ LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'SBJECT' and search_text !='' and search_text != null">
+	 		   AND MASTER.SUBJECT LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'NAME' and search_text !='' and search_text != null">
+	 		   AND EMP.EMP_KO_NM LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_state != null and search_state !=''">
+	 		   AND MASTER.STATE = #{search_state}
+	 	</if>
+	 		ORDER BY MASTER.REQ_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getMgrApprovalReportCount" parameterType="hashmap" resultType="int">
+		 SELECT COUNT(*)
+           FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+                GW_EA_APPROVAL_MASTER MASTER,
+                GW_EA_DOCU DOCU 
+          WHERE MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+            AND MASTER.CREATE_NO = EMP.EMP_NO
+            AND MASTER.DELETE_YN = 'N'
+            AND MASTER.STATE <![CDATA[<>]]> 'E02001'	
+		<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+	 	    AND TO_CHAR(REQ_DT, 'YYYYMMDD') BETWEEN #{search_start_dt} AND #{search_end_dt}
+		</if>
+		<if test="search_docu_cd != null and search_docu_cd !=''">
+ 		    AND DOCU.DOCU_CD = #{search_docu_cd}
+	 	</if>
+		<if test="search_condition == 'SEQ' and search_text !='' and search_text != null">
+ 		    AND MASTER.APPROVAL_SEQ LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'SBJECT' and search_text !='' and search_text != null">
+ 		    AND MASTER.SUBJECT LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'NAME' and search_text !='' and search_text != null">
+ 		    AND EMP.EMP_KO_NM LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_state != null and search_state !=''">
+ 		    AND MASTER.STATE = #{search_state}
+	 	</if>
+	</select> 
+</mapper>

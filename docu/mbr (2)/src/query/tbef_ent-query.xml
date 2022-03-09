@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_ent 입고등록 ">
+	<query id="tbef_ent_ff001" desc="주문서정보 조회 " fetchSize="50">
+        <![CDATA[
+            -- 주문서 조회  
+             SELECT
+            		ROWNUM AS NUM,          -- 순번
+            		STND_YEAR,              -- 년도
+            		MBR_CD,					-- 경정장
+            	    ORDER_SEQ,       		-- 일련번호
+			        PARTS_COM_CD,   		-- 주문업체
+			        COM_NM,					-- 업체명
+				    ORDER_DT,      			-- 주문일자
+				    ORDER_CON,				-- 내용
+				    ENT_STATE, 	   			-- 상태
+				    RMK		 	   			-- 비고
+			FROM(	    
+	            SELECT 
+	            	   A.STND_YEAR,              	-- 년도
+	            	   A.MBR_CD,					-- 경정장
+	            	   A.ORDER_SEQ,       			-- 일련번호
+				       A.PARTS_COM_CD,   			-- 주문업체
+				       E.COM_NM,					-- 업체명
+					   A.ORDER_DT,      			-- 주문일자
+					    A.ORDER_CON,		-- 내용
+					    A.ENT_STATE, 	   			-- 상태
+					    A.RMK		 	   			-- 비고
+				 FROM TBEF_ORDER A, TBEF_PARTS_COM E		 	  
+				 WHERE A.MBR_CD = ?
+				 AND   A.STND_YEAR = ?
+				 AND   A.ORDER_DT LIKE ?||'%'
+				 AND   A.PARTS_COM_CD LIKE ?||'%'
+				 AND   A.PARTS_COM_CD = E.PARTS_COM_CD			 
+				 ORDER BY A.MBR_CD, A.ORDER_DT DESC, A.ORDER_SEQ DESC
+				 )
+        ]]>
+    </query>
+         
+    <query id="tbef_ent_ff002" desc="입고내역 조회 " fetchSize="50">
+        <![CDATA[
+            -- 입고 내역 조회  
+             SELECT
+                    ROWNUM NUM,           -- 순번
+                   STND_YEAR,            -- 년도
+                   MBR_CD,                -- 경정장
+                   ORDER_SEQ,            -- 일련번호
+                   PARTS_CD,            -- 품번
+                   PARTS_TPE,    -- 부품 구분 
+                   PRICE_STND_YEAR,            -- 부품 이련번호 
+                   PARTS_ITEM_CD_NM,    -- 품명
+                   SPEC,                -- 규격
+                   ORDER_CNT,            -- 주문수량
+                   RMK,                    -- 비고
+                   MODULE_CODE,         -- 식별번호    
+                   UNIT_PRICE,          -- 단가    
+                   AMOUNT,                -- 금액    
+                   NVL(ENT_CNT,0) AS GI_ENT_CNT,    -- 입고수량,
+                   ENT_SEQ,
+                   '' AS ENT_CNT,
+                    NVL(ENT_CNT,0)  AS SUM_CNT    
+             FROM(       
+                 SELECT 
+                       A.STND_YEAR,
+                       A.MBR_CD,
+                       A.ORDER_SEQ,
+                       A.PARTS_CD,
+                       D.PARTS_TPE,
+                       A.PRICE_STND_YEAR,
+                       D.PARTS_ITEM_CD_NM,
+                       D.SPEC,
+                       A.ORDER_CNT,
+                       A.RMK,
+                       SUBSTR(D.MODULE_CODE,1,1) || '-'|| 
+                       DECODE(SUBSTR(D.MODULE_CODE,2,1),0,'',SUBSTR(D.MODULE_CODE,2,1)) || SUBSTR(D.MODULE_CODE,3,1) || '-'||
+                       DECODE(SUBSTR(D.MODULE_CODE,4,1),0,'',SUBSTR(D.MODULE_CODE,4,1)) || SUBSTR(D.MODULE_CODE,5,1) || '-'||
+                       DECODE(SUBSTR(D.MODULE_CODE,6,1),0,'',SUBSTR(D.MODULE_CODE,6,1)) || SUBSTR(D.MODULE_CODE,7,1) as MODULE_CODE,
+                       TPP.UNIT_PRICE,
+                       NVL(TPP.UNIT_PRICE,0) * NVL(A.ORDER_CNT,0) AS AMOUNT,
+                       SUM(C.ENT_CNT) ENT_CNT,
+                       MAX(C.ENT_SEQ) ENT_SEQ             
+                  FROM TBEF_ORDER_PARTS A, TBEF_ENT_PARTS C, TBEF_PARTS_MASTER D, TBEF_PARTS_PRICE TPP
+                  WHERE A.PARTS_CD = D.PARTS_CD
+                  AND A.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                  AND A.PARTS_CD = TPP.PARTS_CD 
+                  AND A.STND_YEAR = C.STND_YEAR(+)
+                  AND A.MBR_CD = C.MBR_CD(+)
+                  AND A.PARTS_CD = C.PARTS_CD(+)
+                  AND A.ORDER_SEQ = C.ORDER_SEQ(+)
+                  AND A.STND_YEAR = ?
+                  AND A.MBR_CD  = ?
+                  AND A.ORDER_SEQ = ?
+                  GROUP BY
+                       A.STND_YEAR,
+                       A.MBR_CD,
+                       A.ORDER_SEQ,
+                       A.PARTS_CD,
+                       D.PARTS_TPE,
+                       A.PRICE_STND_YEAR,
+                       D.PARTS_ITEM_CD_NM,
+                       D.SPEC,
+                       A.ORDER_CNT,
+                       A.RMK,
+                       SUBSTR(D.MODULE_CODE,1,1) || '-'|| 
+                       DECODE(SUBSTR(D.MODULE_CODE,2,1),0,'',SUBSTR(D.MODULE_CODE,2,1)) || SUBSTR(D.MODULE_CODE,3,1) || '-'||
+                       DECODE(SUBSTR(D.MODULE_CODE,4,1),0,'',SUBSTR(D.MODULE_CODE,4,1)) || SUBSTR(D.MODULE_CODE,5,1) || '-'||
+                       DECODE(SUBSTR(D.MODULE_CODE,6,1),0,'',SUBSTR(D.MODULE_CODE,6,1)) || SUBSTR(D.MODULE_CODE,7,1),
+                       TPP.UNIT_PRICE,
+                       NVL(TPP.UNIT_PRICE,0) * NVL(A.ORDER_CNT,0)
+                  ORDER BY A.STND_YEAR, A.MBR_CD, MODULE_CODE
+                  )
+        ]]>
+    </query>   
+    
+     <query id="tbef_ent_ff003" desc="주문일자 조회 " fetchSize="50">
+        <![CDATA[
+            -- 주문일자 조회  
+			 SELECT DISTINCT
+			 	   SUBSTR(ORDER_DT,1,4)||'-'||SUBSTR(ORDER_DT,5,2)||'-'||SUBSTR(ORDER_DT,7,2) AS ORDER_DT				-- 주문일자	
+			 FROM TBEF_ORDER
+		     WHERE STND_YEAR = ?
+		     AND   MBR_CD  = ?
+			 ORDER BY ORDER_DT
+			
+        ]]>
+    </query>
+    
+    <query id="tbef_ent_ff004" desc="모터/보트 합계 " fetchSize="50">
+        <![CDATA[
+           -- 모터/보트 합계 
+			 SELECT SUM(BOAT) AS BOAT,
+			 		SUM(MOTER) AS MOTER,
+					SUM(TOTAL) AS TOTAL
+			 FROM(				 
+				 SELECT 
+				 	   NVL(SUM(DECODE(C.PARTS_TPE, 'B', A.ENT_CNT)),0) BOAT,	
+					   NVL(SUM(DECODE(C.PARTS_TPE, 'M', A.ENT_CNT)),0) MOTER,	
+				 	   SUM(NVL(A.ENT_CNT,0)) AS TOTAL	
+				 FROM TBEF_ENT_PARTS A, TBEF_PARTS_MASTER C
+			     WHERE A.PARTS_CD = C.PARTS_CD
+				 AND A.STND_YEAR = ?
+			     AND A.MBR_CD  = ?
+				 AND A.ORDER_SEQ  = ?
+				 GROUP BY A.STND_YEAR, A.MBR_CD, A.ORDER_SEQ, A.ENT_SEQ, C.PARTS_TPE
+				 )
+			
+        ]]>
+    </query>
+      
+     <query id="tbef_ent_ff005" desc="입고일자 조회 " fetchSize="50">
+        <![CDATA[
+            -- 주문일자 조회  
+			SELECT  DISTINCT ENT_DT, SUBSTR(ENT_DT,0,4) || '-' || SUBSTR(ENT_DT,5,2) || '-' || SUBSTR(ENT_DT,7) ENT_DATE
+			FROM    TBEF_ENT
+			WHERE   ENT_SEQ IN (
+			    SELECT  DISTINCT ENT_SEQ  
+			    FROM    TBEF_ENT_PARTS
+			    WHERE   ORDER_SEQ = ?
+			            AND STND_YEAR = ?
+			            AND MBR_CD = ?
+			           )
+			   AND STND_YEAR = ?
+			   AND MBR_CD = ?
+			ORDER BY    ENT_DT DESC
+        ]]>
+    </query>
+    
+    <query id="tbef_ent_ff006" desc="입고확인서 출력 " fetchSize="50">
+        <![CDATA[
+            -- 입고 내역 조회  
+             SELECT
+                    ROWNUM NUM,           -- 순번
+                   STND_YEAR,            -- 년도
+                   MBR_CD,                -- 경정장
+                   ORDER_SEQ,            -- 일련번호
+                   PARTS_CD,            -- 품번
+                   PARTS_TPE,    -- 부품 구분 
+                   PRICE_STND_YEAR,            -- 부품 이련번호 
+                   PARTS_ITEM_CD_NM,    -- 품명
+                   SPEC,                -- 규격
+                   ORDER_CNT,            -- 주문수량
+                   RMK,                    -- 비고
+                   MODULE_CODE,         -- 식별번호    
+                   UNIT_PRICE,          -- 단가    
+                   AMOUNT,                -- 금액    
+                   NVL(ENT_CNT,0) AS GI_ENT_CNT,    -- 입고수량,
+                   ENT_SEQ,
+                   '' AS ENT_CNT,
+                    NVL(ENT_CNT,0)  AS SUM_CNT    
+             FROM(       
+                 SELECT 
+                       A.STND_YEAR,
+                       A.MBR_CD,
+                       A.ORDER_SEQ,
+                       A.PARTS_CD,
+                       D.PARTS_TPE,
+                       A.PRICE_STND_YEAR,
+                       D.PARTS_ITEM_CD_NM,
+                       D.SPEC,
+                       A.ORDER_CNT,
+                       A.RMK,
+                       SUBSTR(D.MODULE_CODE,1,1) || '-'|| 
+                       DECODE(SUBSTR(D.MODULE_CODE,2,1),0,'',SUBSTR(D.MODULE_CODE,2,1)) || SUBSTR(D.MODULE_CODE,3,1) || '-'||
+                       DECODE(SUBSTR(D.MODULE_CODE,4,1),0,'',SUBSTR(D.MODULE_CODE,4,1)) || SUBSTR(D.MODULE_CODE,5,1) || '-'||
+                       DECODE(SUBSTR(D.MODULE_CODE,6,1),0,'',SUBSTR(D.MODULE_CODE,6,1)) || SUBSTR(D.MODULE_CODE,7,1) as MODULE_CODE,
+                       TPP.UNIT_PRICE,
+                       NVL(TPP.UNIT_PRICE,0) * NVL(A.ORDER_CNT,0) AS AMOUNT,
+                       C.ENT_CNT,
+                       C.ENT_SEQ              
+                  FROM TBEF_ORDER_PARTS A, TBEF_ENT_PARTS C, TBEF_PARTS_MASTER D, TBEF_PARTS_PRICE TPP, TBEF_ENT E
+                  WHERE A.PARTS_CD = D.PARTS_CD
+                  AND A.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                  AND A.PARTS_CD = TPP.PARTS_CD 
+                  AND A.STND_YEAR = C.STND_YEAR(+)
+                  AND A.MBR_CD = C.MBR_CD(+)
+                  AND A.PARTS_CD = C.PARTS_CD(+)
+                  AND A.ORDER_SEQ = C.ORDER_SEQ(+)
+                  AND A.STND_YEAR = ?
+                  AND A.MBR_CD  = ?
+                  AND A.ORDER_SEQ = ?
+                  AND E.ENT_DT = ?
+     			  AND A.STND_YEAR = E.STND_YEAR
+                  AND A.MBR_CD = E.MBR_CD
+                  AND E.ENT_SEQ = C.ENT_SEQ
+                  AND C.ENT_CNT > 0
+                  ORDER BY A.STND_YEAR, A.MBR_CD, D.MODULE_CODE
+                  )
+        ]]>
+    </query>   
+    
+    <query id="tbef_ent_ff007" desc="입고일련번호 " fetchSize="50">
+        <![CDATA[
+			SELECT  ENT_SEQ  
+			FROM    TBEF_ENT
+			WHERE   STND_YEAR = ?
+        			AND MBR_CD = ?
+        			AND ENT_DT = ?
+        ]]>
+    </query>   
+    
+    <query id="tbef_ent_ff008" desc="다음입고일련번호 " fetchSize="50">
+        <![CDATA[
+			SELECT  NVL(MAX(TO_NUMBER(ENT_SEQ)) + 1,1) NEXT_ENT_SEQ    
+			FROM    TBEF_ENT
+			WHERE   STND_YEAR = ?
+        			AND MBR_CD = ?
+        ]]>
+    </query>   
+    
+  	<query id="tbef_ent_if001" desc="입고 등록(마스터) " fetchSize="10">
+        <![CDATA[
+        	-- 입고 등록 
+            INSERT INTO TBEF_ENT 
+            (
+               STND_YEAR,       -- 기준년도	
+               MBR_CD,			-- 경정장 
+			   ENT_SEQ, 		-- 입고일련번호 
+			   ENT_DT,			-- 입고일자		       
+			   INST_ID, 		-- 작성자 ID
+			   INST_DTM) 		-- 작성일시 
+			VALUES ( 
+			   ?,               -- 기준년도
+			   ?,				-- 경정장 
+			   ?,    			-- 입고일련번호 
+			   ?,				-- 입고일자
+			   ?, 				-- 작성자 ID
+			   SYSDATE)			-- 작성일시  
+        ]]>
+    </query> 
+    
+    <query id="tbef_ent_mf001" desc="입고 등록(디테일)" fetchSize="10">
+        <![CDATA[
+			-- 입고 등록(디테일)
+			MERGE INTO TBEF_ENT_PARTS TEP
+			USING (
+				SELECT
+					? AS STND_YEAR,       -- 기준년도	
+					? AS MBR_CD,			-- 경정장 
+					? AS ENT_SEQ, 		-- 입고일련번호 
+					? AS ORDER_SEQ, 		-- 주문일련번호
+					? AS PARTS_CD,		-- 부품코드
+					? AS PRICE_STND_YEAR,		-- 부품코드
+					NVL(?,0) AS ENT_CNT,			-- 입고수량		       
+				    ? AS USER_ID -- 사용자 ID
+			    FROM DUAL ) TP
+			ON (
+					TEP.STND_YEAR = TP.STND_YEAR       -- 기준년도	
+					AND TEP.MBR_CD = TP.MBR_CD			-- 경정장 
+					AND TEP.ENT_SEQ = TP.ENT_SEQ 		-- 입고일련번호 
+					AND TEP.ORDER_SEQ = TP.ORDER_SEQ 		-- 주문일련번호
+					AND TEP.PARTS_CD = TP.PARTS_CD		-- 부품코드
+					AND TEP.PRICE_STND_YEAR = TP.PRICE_STND_YEAR		-- 부품코드
+			    )
+			WHEN MATCHED THEN
+			UPDATE 
+			SET
+			    TEP.ENT_CNT = TEP.ENT_CNT + TP.ENT_CNT,		-- 입고수량
+				TEP.UPDT_ID = TP.USER_ID,
+			    TEP.UPDT_DTM = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (
+				TEP.STND_YEAR,       -- 기준년도	
+				TEP.MBR_CD,			-- 경정장 
+				TEP.ENT_SEQ, 		-- 입고일련번호 
+				TEP.ORDER_SEQ, 		-- 주문일련번호
+				TEP.PARTS_CD,		-- 부품코드
+				TEP.PRICE_STND_YEAR,		-- 부품코드
+				TEP.ENT_CNT,			-- 입고수량	
+			    TEP.INST_ID,
+			    TEP.INST_DTM
+			)			    
+			VALUES(
+				TP.STND_YEAR,       -- 기준년도	
+				TP.MBR_CD,			-- 경정장 
+				?,           		-- 입고일련번호 
+				TP.ORDER_SEQ, 		-- 주문일련번호
+				TP.PARTS_CD,		-- 부품코드
+				TP.PRICE_STND_YEAR,		-- 부품코드
+				TP.ENT_CNT,			-- 입고수량	
+			    TP.USER_ID,
+			    SYSDATE
+			  )
+        ]]>
+    </query> 
+    
+    
+    <query id="tbef_ent_uf001" desc="입고  수정" fetchSize="10">
+        <![CDATA[
+        	-- 입고 수정 
+           UPDATE TBEF_ENT_PARTS SET
+           				ENT_CNT     = ENT_CNT+nvl(?,0),		-- 입고수량
+				       	UPDT_ID     = ?,		-- 수정자 ID
+				       	UPDT_DTM    = SYSDATE	-- 수정일시 
+				WHERE  STND_YEAR    = ?         -- 기준년도
+				AND    MBR_CD       = ?			-- 경정장 
+			    AND    ORDER_SEQ    = ?			-- 주문일련번호 			    
+			    AND    ENT_SEQ      = ?			-- 입고일련번호 
+			    AND    PARTS_CD     = ?			-- 부품코드 
+			    AND    PRICE_STND_YEAR     = ?			-- 부품코드 
+        ]]>
+    </query> 
+    
+    <query id="tbef_ent_uf002" desc="주문테이블 입고상태 수정" fetchSize="10">
+        <![CDATA[
+        	-- 주문테이블 입고상태 수정 
+           UPDATE TBEF_ORDER SET
+           				ENT_STATE   = ?,		-- 입고상태
+				       	UPDT_ID     = ?,		-- 수정자 ID
+				       	UPDT_DTM    = SYSDATE	-- 수정일시 
+				WHERE  STND_YEAR    = ?         -- 기준년도
+				AND    MBR_CD       = ?			-- 경정장 
+			    AND    ORDER_SEQ    = ?			-- 주문일련번호 			    			    
+        ]]>
+    </query> 
+    
+    <query id="tbef_ent_uf003" desc="부품테이블 현재고" fetchSize="10">
+        <![CDATA[
+        	-- 부품테이블 안전재고량 수정 
+           UPDATE TBEF_PARTS SET
+           				NOW_UNIT_CNT   = NOW_UNIT_CNT + nvl(?,0),		-- 현재고
+				       	UPDT_ID     = ?,		-- 수정자 ID
+				       	UPDT_DTM    = SYSDATE	-- 수정일시 
+				WHERE  STND_YEAR    = ?         -- 기준년도
+				AND    MBR_CD       = ?			-- 경정장 
+			    AND    PARTS_CD     = ?			-- 부품코드
+			    AND    PRICE_STND_YEAR     = ?			-- 부품코드
+        ]]>
+    </query> 
+    
+    <query id="tbef_ent_mf003" desc="부품테이블 현재고" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBEF_PARTS TEP
+            USING (
+                SELECT
+                    ? AS STND_YEAR,       -- 기준년도    
+                    ? AS MBR_CD,            -- 경정장 
+                    ? AS PARTS_CD,        -- 부품코드
+                    ? AS PRICE_STND_YEAR,        -- 부품코드
+                    NVL(?,0) AS NOW_UNIT_CNT,
+                    ? AS USER_ID
+                FROM DUAL ) TP
+            ON (
+                    TEP.STND_YEAR = TP.STND_YEAR       -- 기준년도    
+                    AND TEP.MBR_CD = TP.MBR_CD            -- 경정장 
+                    AND TEP.PARTS_CD = TP.PARTS_CD        -- 부품코드
+                    AND TEP.PRICE_STND_YEAR = TP.PRICE_STND_YEAR        -- 부품코드
+                )
+            WHEN MATCHED THEN
+            UPDATE 
+            SET
+                TEP.NOW_UNIT_CNT = TEP.NOW_UNIT_CNT + TP.NOW_UNIT_CNT,        -- 입고수량
+                TEP.UPDT_ID = TP.USER_ID,
+                TEP.UPDT_DTM = SYSDATE
+            WHEN NOT MATCHED THEN
+            INSERT (
+                TEP.STND_YEAR,       -- 기준년도    
+                TEP.MBR_CD,            -- 경정장 
+                TEP.PARTS_CD,        -- 부품코드
+                TEP.PRICE_STND_YEAR,        -- 부품코드
+    			TEP.NOW_UNIT_CNT,			-- 입고수량	
+			    TEP.INST_ID,
+			    TEP.INST_DTM
+			)			    
+			VALUES(
+				TP.STND_YEAR,       -- 기준년도	
+				TP.MBR_CD,			-- 경정장 
+				TP.PARTS_CD,		-- 부품코드
+				TP.PRICE_STND_YEAR,		-- 부품코드
+				TP.NOW_UNIT_CNT,			-- 입고수량	
+			    TP.USER_ID,
+			    SYSDATE
+			  )
+        ]]>
+    </query> 
+        
+</queryMap>

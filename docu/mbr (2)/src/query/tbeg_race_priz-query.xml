@@ -1,0 +1,694 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_race_priz 회차별 경주 성적상금  관리">
+	
+    
+    <query id="tbeg_race_priz_ff001" desc="회차별 경주 성적상금 조회" fetchSize="50">
+        <![CDATA[
+            /* 회차별 경주 성적상금  조회  */
+			SELECT 
+                T1.STND_YEAR,   -- 기준년도
+                T1.PAY_MONTH,     -- 기준월 
+                T1.MBR_CD,  -- 경정장 코드 
+                T1.TMS,     -- 회차 
+                T1.DAY_ORD,     -- 일차 
+                T1.RACE_NO,     -- 경주 번호 
+                T1.RACE_REG_NO,     -- 정번
+                T1.RACER_NO,    -- 선수등록번호
+                TRM.NM_KOR AS RACER_NM, -- 선수명 
+                T1.DAY_RUN_CNT,     -- 당일 출주수
+                T1.RANK,    -- 순위
+                T1.RANK_AMT,    -- 성적상금
+                NVL(T1.RUN_AMT,0) RUN_AMT,     -- 출주수당
+                NVL(T1.EVENT_AMT,0) EVENT_AMT,     -- 이벤트수당
+                NVL(T1.WAIT_AMT,0) WAIT_AMT,    -- 대기수당
+                NVL(T1.SAFY_AMT,0) SAFY_AMT,    -- 안전수당
+                NVL(T1.STR_AMT,0) STR_AMT,     -- 출발무사고상금
+                NVL(T1.WIN_AMT,0) WIN_AMT,     -- 연승상금 
+                NVL(T1.ETC_AMT,0) ETC_AMT,     -- 기타 상금 
+                NVL(T1.RANK_AMT,0) + NVL(T1.RUN_AMT,0) + NVL(T1.EVENT_AMT,0) +NVL(T1.WAIT_AMT,0) + NVL(T1.SAFY_AMT,0) + NVL(T1.STR_AMT,0) + NVL(T1.WIN_AMT,0) + NVL(T1.ETC_AMT,0) AS TOT_AMT,     -- 합계 금액 
+                T1.VOIL_CD_NM,  -- 위반판정 코드명
+                T1.VOIL_DESC,   -- 위반판정 내용
+                T2.RACE_KINDS_CD_NM,    -- 경주 종류 명
+                T2.RACE_DGRE_CD_NM,     -- 경주 등급 명
+                T2.RACE_STTS_CD_NM,     -- 경주 상황명
+                T2.RACE_STTS_DESC   -- 경주 상황 내용
+            FROM (
+                -- 회차별 경주 성적상금 
+                SELECT 
+                   STND_YEAR, PAY_MONTH, MBR_CD, TMS, 
+                   DAY_ORD, RACE_NO, RACE_REG_NO, 
+                   RACER_NO, RACER_GRD_CD, DAY_RUN_CNT, 
+                   RANK, RANK_AMT, RUN_AMT, EVENT_AMT,
+                   WAIT_AMT, SAFY_AMT, STR_AMT, WIN_AMT, ETC_AMT, 
+                   VOIL_CD_NM, VOIL_DESC
+                FROM TBEG_RACE_PRIZ
+                WHERE STND_YEAR=?
+                AND MBR_CD=?
+                AND TMS=?
+                AND DAY_ORD = DECODE(?, '', DAY_ORD,?)
+            )T1,
+            (
+                -- 경주 등급 , 경주 상황, 
+                SELECT 
+                    TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, 
+                    TCM.RACE_KINDS_CD, TSC2.CD_NM AS RACE_KINDS_CD_NM, TR.RACE_DGRE_CD, TSC3.RMK AS RACE_DGRE_CD_NM, 
+                    TR.RACE_STTS_CD, TSC1.CD_NM AS RACE_STTS_CD_NM, TR.RACE_STTS_DESC
+                FROM TBEB_RACE TR, -- 경주 
+                    TBEB_RACE_TMS TRT, -- 경주회차
+                    TBEB_CFRNT_METH TCM, -- 대진방법
+                    (SELECT CD, CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00036')  TSC1, -- 경주 상황 코드 
+                    (SELECT CD, CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00001')  TSC2, -- 경주 종료  코드 
+                    (SELECT CD, RMK FROM TBEA_SPEC_CD WHERE GRP_CD='E00005')  TSC3 -- 경주 등급  코드
+                WHERE TR.STND_YEAR = TRT.STND_YEAR
+                AND TR.MBR_CD = TRT.MBR_CD
+                AND TR.TMS = TRT.TMS
+                AND TRT.CFRNT_CD = TCM.CFRNT_CD
+                AND TR.RACE_STTS_CD = TSC1.CD
+                AND TCM.RACE_KINDS_CD = TSC2.CD
+                AND TR.RACE_DGRE_CD = TSC3.CD
+                AND TRT.STND_YEAR=? 
+                AND TRT.MBR_CD=? 
+                AND TRT.TMS=?
+            )T2, TBEC_RACER_MASTER TRM
+            WHERE T1.STND_YEAR = T2.STND_YEAR
+            AND T1.MBR_CD = T2.MBR_CD
+            AND T1.TMS = T2.TMS
+            AND T1.DAY_ORD = T2.DAY_ORD
+            AND T1.RACE_NO = T2.RACE_NO
+            AND T1.RACER_NO = TRM.RACER_NO
+            ORDER BY T1.STND_YEAR, T1.MBR_CD, T1.TMS, T1.DAY_ORD, T1.RACE_NO, RANK_AMT DESC, T1.RACE_REG_NO
+        ]]>
+    </query> 
+    
+    <query id="tbeg_race_priz_ff002" desc="회차별 경주 성적상금 마감여부 " fetchSize="10">
+        <![CDATA[
+            /* 회차별 경주 성적상금 마감여부   */
+			SELECT  
+				NVL(TMS_PRIZ_FINISH_YN, 'X') AS TMS_PRIZ_FINISH_YN, 	-- 회차 성적 마감
+			    NVL(MONTH_PRIZ_FINISH_YN, 'X') AS   MONTH_PRIZ_FINISH_YN	-- 월 성적 마감
+			FROM TBEB_RACE_TMS  TRT, TBEG_MONTH_PAY_BAC  TPMB
+			WHERE TRT.STND_YEAR = TPMB.STND_YEAR(+)
+			AND TRT.STND_YEAR = ?
+			AND TRT.MBR_CD = ?
+			AND TRT.TMS = ?
+        ]]>
+    </query> 
+    
+    <query id="tbeg_race_priz_ff003" desc="선수별 상금 계획 및 분석 조회 " fetchSize="10">
+        <![CDATA[
+			SELECT
+                TM.RACER_NO, 
+                TRM.NM_KOR RACER_NM, 
+                NVL(SUM(DAY_RUN_CNT),0) RUN_CNT, 
+                NVL(SUM(RANK_AMT),0) RANK_AMT, 
+                NVL(SUM(RUN_AMT),0) RUN_AMT, 
+                NVL(SUM(EVENT_AMT),0) EVENT_AMT,
+                NVL(SUM(WAIT_AMT),0) WAIT_AMT, 
+                NVL(SUM(SAFY_AMT),0) SAFY_AMT, 
+                NVL(SUM(STR_AMT),0) STR_AMT,
+                NVL(SUM(RANK_AMT)+SUM(RUN_AMT)+SUM(EVENT_AMT)+SUM(WAIT_AMT)+SUM(SAFY_AMT)+SUM(STR_AMT),0) TOT_AMT
+            FROM (                
+                    SELECT     
+                        TM.STND_YEAR,   -- 기준년도
+                        TM.PAY_MONTH,     -- 기준 월 
+                        TM.MBR_CD,  -- 경정장코드
+                        TM.TMS,     -- 회차 
+                        TM.DAY_ORD,     -- 일차 
+                        TM.RACE_NO,     -- 경주 번호 
+                        TM.RACE_KINDS_CD,    -- 경주 종류 
+                        TM.RACE_DGRE_CD,    -- 경주 등급
+                        TM.RACE_REG_NO,     -- 정번
+                        TM.RACER_NO,    -- 선수등록번호 
+                        TM.RACER_GRD_CD,    -- 경주 
+                        TM.DAY_RUN_CNT,     -- 당일 출주 수
+                        NVL(TM.RANK,0) AS RANK,    -- 순위 
+                        -- 성적 상금 
+                        CASE 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RANK>0  THEN TRRAB.RANK_AMT  
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RANK=0 AND NVL(TM.VOIL_CD,'000') NOT IN ('130','993','994','995','996','997','998')  AND IMMT_CLS_CD='003' THEN  GET_ZERO_RANK_AMT(TM.STND_YEAR, TM.MBR_CD, TM.TMS, TM.DAY_ORD, TM.RACE_NO , TM.RACE_KINDS_CD, TM.RACE_DGRE_CD)
+                            ELSE 0   -- 경주 취소, 경주 불성립
+                        END AS RANK_AMT,
+                        -- 출전 수당 
+                        CASE WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 AND TM.RACE_DGRE_CD = '103' THEN FLOOR(TM.RUM_BAC_AMT * TM.NEW_RACER_AMT_RATE/100) -- 신인경주 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 THEN TM.RUM_BAC_AMT    -- 신인경주 이외 경주 
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS RUN_AMT,
+                        -- 이벤트경주 수당 
+                        CASE WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RACE_DGRE_CD='907' THEN TM.EVENT_BAC_AMT 
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS EVENT_AMT,
+                        -- 대기 수당 
+                        CASE WHEN RACE_STTS_CD = '001' THEN 0    -- 경주성립, 재출발
+                            ELSE FLOOR(TM.RACE_TOT_RANK_AMT / (SELECT COUNT(RACE_REG_NO) FROM TBEB_ORGAN WHERE STND_YEAR = TM.STND_YEAR AND MBR_CD = TM.MBR_CD AND TMS = TM.TMS AND DAY_ORD = TM.DAY_ORD AND RACE_NO = TM.RACE_NO )
+                                 *0.7)    -- 경주 취소, 경주 불성립
+                        END AS WAIT_AMT,
+                        -- 안전 수당 
+                        CASE WHEN IMMT_CLS_CD='002' THEN 0 -- 자책인경우  
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RACE_DGRE_CD = '103' THEN FLOOR(TM.SAFY_BAC_AMT * TM.NEW_RACER_AMT_RATE/100) -- 신인경주 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' THEN TM.SAFY_BAC_AMT    -- 신인경주외 
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS SAFY_AMT,
+                        -- 출발무사고 상금  
+                        CASE 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND FL_YN='N' AND NVL(TM.VOIL_CD,'000') NOT IN ('130','993','994','995','996','997','998')   THEN TM.STR_BAC_AMT  
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS STR_AMT
+                    FROM (
+                            SELECT 
+                                RTL.STND_YEAR, RTL.PAY_MONTH, RTL.MBR_CD, RTL.TMS, RTL.DAY_ORD, RTL.RACE_NO, RTL.RACE_REG_NO, 
+                                RTL.RACER_NO, RTL.RANK, RTL.DAY_RUN_CNT, RTL.VOIL_CD_NM, TRM.RACER_GRD_CD,
+                                RTL.VOIL_CD, RTL.VOIL_DESC, RTS.RACE_KINDS_CD, 
+                                RTS.RACE_DGRE_CD, RTS.RACE_STTS_CD, 
+                                RTS.RACE_STTS_DESC, FL_YN, RACE_TOT_RANK_AMT,
+                                TAB.RUN_AMT AS RUM_BAC_AMT, TAB.EVENT_AMT AS EVENT_BAC_AMT, TAB.SAFY_AMT AS SAFY_BAC_AMT, 
+                                TAB.WAIT_AMT_RATE, TAB.STR_AMT AS STR_BAC_AMT, TAB.NEW_RACER_AMT_RATE,
+                                NVL(RTL.ABSE_CD, '001') AS ABSE_CD,
+                                CASE WHEN RTL.VOIL_CD IS NULL THEN '001' -- 정상 
+                                    WHEN INSTR(RTL.VOIL_CD,'996') > 0 OR INSTR(RTL.VOIL_CD,'998') > 0 OR INSTR(RTL.VOIL_CD,'999') > 0 THEN  '003' -- 면책: -- 996=출주제외 면책 , 998=결장(면책), 999=실격(면책) 
+                                    ELSE '002'  -- 자책 
+                                END AS IMMT_CLS_CD
+                            FROM (
+                                    -- 경주 결과 및 위반사항 조회  
+                                    SELECT T1.STND_YEAR, PAY_MONTH, T1.MBR_CD, T1.TMS, T1.DAY_ORD, T1.RACE_NO, T1.RACE_REG_NO, 
+                                        T1.RACER_NO, NVL(T1.RANK,0) AS RANK, DAY_RUN_CNT,   T1.ABSE_CD, T1.IMMT_CLS_CD,
+                                        CASE WHEN NVL(T1.RANK,0) = 0 THEN VOIL_CD ELSE '' END AS VOIL_CD, 
+                                        CASE WHEN NVL(T1.RANK,0) = 0  THEN VOIL_CD_NM ELSE '' END AS VOIL_CD_NM, 
+                                        CASE WHEN NVL(T1.RANK,0) = 0  THEN VOIL_DESC ELSE '' END AS VOIL_DESC
+                                    FROM (
+                                            SELECT 
+                                                STND_YEAR, TO_NUMBER(SUBSTR(RACE_DAY,5,2)) AS PAY_MONTH, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, 
+                                                RACER_NO, ABSE_CD, RANK, IMMT_CLS_CD, ROW_NUMBER() OVER(PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD,  RACER_NO ORDER BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO)  AS DAY_RUN_CNT
+                                            FROM TBEB_ORGAN
+                                            WHERE STND_YEAR =?
+                                            AND MBR_CD = ?
+                                        )T1,
+                                        (
+                                            -- 위반 사항 
+                                            SELECT  STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, 
+                                                SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_CD,',')),2) AS VOIL_CD,
+                                                SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_CD_NM,',')),2) AS VOIL_CD_NM,
+                                                SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_DESC,' ---- ')),7) AS VOIL_DESC
+                                            FROM (
+                                                    SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, VOIL_CD, CD_NM AS VOIL_CD_NM,VOIL_DESC,
+                                                        ROW_NUMBER () OVER (PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO ORDER  BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, SEQ) RNUM
+                                                    FROM TBED_RACE_VOIL_ACT TRVA, (SELECT CD, CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00035')  TSC
+                                                    WHERE TRVA.STND_YEAR =?
+                                                    AND TRVA.MBR_CD = ?
+                                                    AND TRVA.VOIL_CD = TSC.CD
+                                        )
+                                    START WITH RNUM = 1
+                                    CONNECT BY PRIOR RNUM = RNUM - 1 
+                                    AND PRIOR RACE_REG_NO = RACE_REG_NO
+                                    AND PRIOR RACE_NO = RACE_NO
+                                    AND PRIOR DAY_ORD = DAY_ORD
+                                    AND PRIOR TMS = TMS
+                                    AND PRIOR MBR_CD = MBR_CD
+                                    AND PRIOR STND_YEAR = STND_YEAR
+                                    GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO
+                                )T2 
+                            WHERE T1.STND_YEAR=T2.STND_YEAR(+)
+                            AND T1.MBR_CD = T2.MBR_CD(+)
+                            AND T1.TMS = T2.TMS(+)
+                            AND T1.DAY_ORD = T2.DAY_ORD(+)
+                            AND T1.RACE_NO = T2.RACE_NO(+)
+                            AND T1.RACE_REG_NO = T2.RACE_REG_NO(+)
+                        )RTL,
+                        (
+                            -- 경주 상황, F/L여부, 경주 TOTAL 상금 
+                            SELECT 
+                                TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, 
+                                TCM.RACE_KINDS_CD,  TR.RACE_DGRE_CD, 
+                                TR.RACE_STTS_CD, TR.RACE_STTS_DESC,
+                                NVL((SELECT 'Y' FROM  DUAL WHERE EXISTS (SELECT * FROM TBED_RACE_VOIL_ACT TRVA WHERE TRVA.STND_YEAR = TR.STND_YEAR AND TRVA.MBR_CD = TR.MBR_CD AND TRVA.TMS = TR.TMS AND TRVA.DAY_ORD = TR.DAY_ORD AND TRVA.RACE_NO = TR.RACE_NO AND TRVA.VOIL_CD IN ('110', '120') )), 'N')AS FL_YN,
+                                (SELECT SUM(RANK_AMT) FROM TBEG_RACE_RANK_AMT_BAC TRRAB WHERE  TRRAB.RACE_KINDS_CD = TCM.RACE_KINDS_CD AND TRRAB.RACE_DGRE_CD = TR.RACE_DGRE_CD AND TRRAB.STND_YEAR =TR.STND_YEAR AND RANK <7) AS RACE_TOT_RANK_AMT
+                            FROM TBEB_RACE TR, -- 경주 
+                                TBEB_RACE_TMS TRT, -- 경주회차
+                                TBEB_CFRNT_METH TCM -- 대진방법
+                            WHERE TR.STND_YEAR = TRT.STND_YEAR
+                            AND TR.MBR_CD = TRT.MBR_CD
+                            AND TR.TMS = TRT.TMS
+                            AND TRT.CFRNT_CD = TCM.CFRNT_CD
+                            AND TRT.STND_YEAR = ?
+                            AND TRT.MBR_CD =?
+                        )RTS,
+                        (
+                            SELECT * 
+                            FROM TBEG_ALLOW_BAC WHERE STND_YEAR=?) TAB, TBEC_RACER_MASTER TRM 
+                            WHERE RTL.STND_YEAR = RTS.STND_YEAR
+                            AND RTL.MBR_CD = RTS.MBR_CD
+                            AND RTL.TMS = RTS.TMS
+                            AND RTL.DAY_ORD = RTS.DAY_ORD
+                            AND RTL.RACE_NO = RTS.RACE_NO
+                            AND RTL.RACER_NO = TRM.RACER_NO
+                        )TM,
+                        (SELECT * FROM TBEG_RACE_RANK_AMT_BAC WHERE STND_YEAR=?) TRRAB 
+                    WHERE TM.STND_YEAR = ?
+                    AND TM.RACE_KINDS_CD = TRRAB.RACE_KINDS_CD(+)
+                    AND TM.RACE_DGRE_CD = TRRAB.RACE_DGRE_CD(+)
+                    AND TM.RANK = TRRAB.RANK(+)
+                ) TM, TBEC_RACER_MASTER TRM
+            WHERE TM.RACER_NO = TRM.RACER_NO      
+            GROUP BY TM.RACER_NO, TRM.NM_KOR
+            ORDER BY TM.RACER_NO
+        ]]>
+    </query> 
+    
+    <query id="tbeg_race_priz_ff004" desc="경주등급별 상금 계획 및 분석 조회 " fetchSize="10">
+        <![CDATA[
+			SELECT
+                TM.RACE_KINDS_CD,
+                TSC1.CD_NM RACE_KINDS_NM, 
+                TM.RACE_DGRE_CD,
+                TSC2.RMK RACE_DGRE_NM,
+                NVL(SUM(DAY_RUN_CNT),0) RUN_CNT, 
+                NVL(SUM(RANK_AMT),0) RANK_AMT, 
+                NVL(SUM(RUN_AMT),0) RUN_AMT, 
+                NVL(SUM(EVENT_AMT),0) EVENT_AMT, 
+                NVL(SUM(WAIT_AMT),0) WAIT_AMT, 
+                NVL(SUM(SAFY_AMT),0) SAFY_AMT, 
+                NVL(SUM(STR_AMT),0) STR_AMT,
+                NVL(SUM(RANK_AMT)+SUM(RUN_AMT)+SUM(WAIT_AMT)+SUM(SAFY_AMT)+SUM(STR_AMT),0) TOT_AMT
+            FROM (                
+                    SELECT     
+                        TM.STND_YEAR,   -- 기준년도
+                        TM.PAY_MONTH,     -- 기준 월 
+                        TM.MBR_CD,  -- 경정장코드
+                        TM.TMS,     -- 회차 
+                        TM.DAY_ORD,     -- 일차 
+                        TM.RACE_NO,     -- 경주 번호 
+                        TM.RACE_KINDS_CD,    -- 경주 종류 
+                        TM.RACE_DGRE_CD,    -- 경주 등급
+                        TM.RACE_REG_NO,     -- 정번
+                        TM.RACER_NO,    -- 선수등록번호 
+                        TM.RACER_GRD_CD,    -- 경주 
+                        TM.DAY_RUN_CNT,     -- 당일 출주 수
+                        NVL(TM.RANK,0) AS RANK,    -- 순위 
+                        -- 성적 상금 
+                        CASE 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RANK>0  THEN TRRAB.RANK_AMT  
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RANK=0 AND NVL(TM.VOIL_CD,'000') NOT IN ('130','993','994','995','996','997','998')  AND IMMT_CLS_CD='003' THEN  GET_ZERO_RANK_AMT(TM.STND_YEAR, TM.MBR_CD, TM.TMS, TM.DAY_ORD, TM.RACE_NO , TM.RACE_KINDS_CD, TM.RACE_DGRE_CD)
+                            ELSE 0   -- 경주 취소, 경주 불성립
+                        END AS RANK_AMT,
+                        -- 출전 수당 
+                        CASE WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 AND TM.RACE_DGRE_CD = '103' THEN FLOOR(TM.RUM_BAC_AMT * TM.NEW_RACER_AMT_RATE/100) -- 신인경주 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 THEN TM.RUM_BAC_AMT    -- 신인경주 이외 경주 
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS RUN_AMT,
+                         -- 이벤트 수당 
+                        CASE WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RACE_DGRE_CD='907' THEN TM.EVENT_BAC_AMT    -- 신인경주 이외 경주 
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS EVENT_AMT,
+                        -- 대기 수당 
+                        CASE WHEN RACE_STTS_CD = '001' THEN 0    -- 경주성립, 재출발
+                            ELSE FLOOR(TM.RACE_TOT_RANK_AMT / (SELECT COUNT(RACE_REG_NO) FROM TBEB_ORGAN WHERE STND_YEAR = TM.STND_YEAR AND MBR_CD = TM.MBR_CD AND TMS = TM.TMS AND DAY_ORD = TM.DAY_ORD AND RACE_NO = TM.RACE_NO )
+                                 *0.7)    -- 경주 취소, 경주 불성립
+                        END AS WAIT_AMT,
+                        -- 안전 수당 
+                        CASE WHEN IMMT_CLS_CD='002' THEN 0 -- 자책인경우  
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RACE_DGRE_CD = '103' THEN FLOOR(TM.SAFY_BAC_AMT * TM.NEW_RACER_AMT_RATE/100) -- 신인경주 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' THEN TM.SAFY_BAC_AMT    -- 신인경주외 
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS SAFY_AMT,
+                        -- 출발무사고 상금  
+                        CASE 
+                            WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND FL_YN='N' AND NVL(TM.VOIL_CD,'000') NOT IN ('130','993','994','995','996','997','998')   THEN TM.STR_BAC_AMT  
+                            ELSE 0    -- 경주 취소, 경주 불성립
+                        END AS STR_AMT
+                    FROM (
+                            SELECT 
+                                RTL.STND_YEAR, RTL.PAY_MONTH, RTL.MBR_CD, RTL.TMS, RTL.DAY_ORD, RTL.RACE_NO, RTL.RACE_REG_NO, 
+                                RTL.RACER_NO, RTL.RANK, RTL.DAY_RUN_CNT, RTL.VOIL_CD_NM, TRM.RACER_GRD_CD,
+                                RTL.VOIL_CD, RTL.VOIL_DESC, RTS.RACE_KINDS_CD, 
+                                RTS.RACE_DGRE_CD, RTS.RACE_STTS_CD, 
+                                RTS.RACE_STTS_DESC, FL_YN, RACE_TOT_RANK_AMT,
+                                TAB.RUN_AMT AS RUM_BAC_AMT, TAB.EVENT_AMT AS EVENT_BAC_AMT, TAB.SAFY_AMT AS SAFY_BAC_AMT, 
+                                TAB.WAIT_AMT_RATE, TAB.STR_AMT AS STR_BAC_AMT, TAB.NEW_RACER_AMT_RATE,
+                                NVL(RTL.ABSE_CD, '001') AS ABSE_CD,
+                                CASE WHEN RTL.VOIL_CD IS NULL THEN '001' -- 정상 
+                                    WHEN INSTR(RTL.VOIL_CD,'996') > 0 OR INSTR(RTL.VOIL_CD,'998') > 0 OR INSTR(RTL.VOIL_CD,'999') > 0 THEN  '003' -- 면책: -- 996=출주제외 면책 , 998=결장(면책), 999=실격(면책) 
+                                    ELSE '002'  -- 자책 
+                                END AS IMMT_CLS_CD
+                            FROM (
+                                    -- 경주 결과 및 위반사항 조회  
+                                    SELECT T1.STND_YEAR, PAY_MONTH, T1.MBR_CD, T1.TMS, T1.DAY_ORD, T1.RACE_NO, T1.RACE_REG_NO, 
+                                        T1.RACER_NO, NVL(T1.RANK,0) AS RANK, DAY_RUN_CNT,   T1.ABSE_CD, T1.IMMT_CLS_CD,
+                                        CASE WHEN NVL(T1.RANK,0) = 0 THEN VOIL_CD ELSE '' END AS VOIL_CD, 
+                                        CASE WHEN NVL(T1.RANK,0) = 0  THEN VOIL_CD_NM ELSE '' END AS VOIL_CD_NM, 
+                                        CASE WHEN NVL(T1.RANK,0) = 0  THEN VOIL_DESC ELSE '' END AS VOIL_DESC
+                                    FROM (
+                                            SELECT 
+                                                STND_YEAR, TO_NUMBER(SUBSTR(RACE_DAY,5,2)) AS PAY_MONTH, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, 
+                                                RACER_NO, ABSE_CD, RANK, IMMT_CLS_CD, ROW_NUMBER() OVER(PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD,  RACER_NO ORDER BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO)  AS DAY_RUN_CNT
+                                            FROM TBEB_ORGAN
+                                            WHERE STND_YEAR = ?
+                                            AND MBR_CD = ?
+                                        )T1,
+                                        (
+                                            -- 위반 사항 
+                                            SELECT  STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, 
+                                                SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_CD,',')),2) AS VOIL_CD,
+                                                SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_CD_NM,',')),2) AS VOIL_CD_NM,
+                                                SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_DESC,' ---- ')),7) AS VOIL_DESC
+                                            FROM (
+                                                    SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, VOIL_CD, CD_NM AS VOIL_CD_NM,VOIL_DESC,
+                                                        ROW_NUMBER () OVER (PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO ORDER  BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, SEQ) RNUM
+                                                    FROM TBED_RACE_VOIL_ACT TRVA, (SELECT CD, CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00035')  TSC
+                                                    WHERE TRVA.STND_YEAR =?
+                                                    AND TRVA.MBR_CD = ?
+                                                    AND TRVA.VOIL_CD = TSC.CD
+                                        )
+                                    START WITH RNUM = 1
+                                    CONNECT BY PRIOR RNUM = RNUM - 1 
+                                    AND PRIOR RACE_REG_NO = RACE_REG_NO
+                                    AND PRIOR RACE_NO = RACE_NO
+                                    AND PRIOR DAY_ORD = DAY_ORD
+                                    AND PRIOR TMS = TMS
+                                    AND PRIOR MBR_CD = MBR_CD
+                                    AND PRIOR STND_YEAR = STND_YEAR
+                                    GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO
+                                )T2 
+                            WHERE T1.STND_YEAR=T2.STND_YEAR(+)
+                            AND T1.MBR_CD = T2.MBR_CD(+)
+                            AND T1.TMS = T2.TMS(+)
+                            AND T1.DAY_ORD = T2.DAY_ORD(+)
+                            AND T1.RACE_NO = T2.RACE_NO(+)
+                            AND T1.RACE_REG_NO = T2.RACE_REG_NO(+)
+                        )RTL,
+                        (
+                            -- 경주 상황, F/L여부, 경주 TOTAL 상금 
+                            SELECT 
+                                TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, 
+                                TCM.RACE_KINDS_CD,  TR.RACE_DGRE_CD, 
+                                TR.RACE_STTS_CD, TR.RACE_STTS_DESC,
+                                NVL((SELECT 'Y' FROM  DUAL WHERE EXISTS (SELECT * FROM TBED_RACE_VOIL_ACT TRVA WHERE TRVA.STND_YEAR = TR.STND_YEAR AND TRVA.MBR_CD = TR.MBR_CD AND TRVA.TMS = TR.TMS AND TRVA.DAY_ORD = TR.DAY_ORD AND TRVA.RACE_NO = TR.RACE_NO AND TRVA.VOIL_CD IN ('110', '120') )), 'N')AS FL_YN,
+                                (SELECT SUM(RANK_AMT) FROM TBEG_RACE_RANK_AMT_BAC TRRAB WHERE  TRRAB.RACE_KINDS_CD = TCM.RACE_KINDS_CD AND TRRAB.RACE_DGRE_CD = TR.RACE_DGRE_CD AND TRRAB.STND_YEAR =TR.STND_YEAR AND RANK <7) AS RACE_TOT_RANK_AMT
+                            FROM TBEB_RACE TR, -- 경주 
+                                TBEB_RACE_TMS TRT, -- 경주회차
+                                TBEB_CFRNT_METH TCM -- 대진방법
+                            WHERE TR.STND_YEAR = TRT.STND_YEAR
+                            AND TR.MBR_CD = TRT.MBR_CD
+                            AND TR.TMS = TRT.TMS
+                            AND TRT.CFRNT_CD = TCM.CFRNT_CD
+                            AND TRT.STND_YEAR = ?
+                            AND TRT.MBR_CD = ?
+                        )RTS,
+                        (
+                            SELECT * 
+                            FROM TBEG_ALLOW_BAC WHERE STND_YEAR=?) TAB, TBEC_RACER_MASTER TRM 
+                            WHERE RTL.STND_YEAR = RTS.STND_YEAR
+                            AND RTL.MBR_CD = RTS.MBR_CD
+                            AND RTL.TMS = RTS.TMS
+                            AND RTL.DAY_ORD = RTS.DAY_ORD
+                            AND RTL.RACE_NO = RTS.RACE_NO
+                            AND RTL.RACER_NO = TRM.RACER_NO
+                        )TM,
+                        (SELECT * FROM TBEG_RACE_RANK_AMT_BAC WHERE STND_YEAR=?) TRRAB 
+                    WHERE TM.STND_YEAR = ?
+                    AND TM.RACE_KINDS_CD = TRRAB.RACE_KINDS_CD(+)
+                    AND TM.RACE_DGRE_CD = TRRAB.RACE_DGRE_CD(+)
+                    AND TM.RANK = TRRAB.RANK(+)
+                ) TM, TBEA_SPEC_CD TSC1, TBEA_SPEC_CD TSC2
+            WHERE TM.RACE_KINDS_CD = TSC1.CD
+              AND TSC1.GRP_CD = 'E00001'
+              AND TM.RACE_DGRE_CD = TSC2.CD
+              AND TSC2.GRP_CD = 'E00005'      
+            GROUP BY TM.RACE_KINDS_CD, TSC1.CD_NM, TM.RACE_DGRE_CD, TSC2.RMK
+            ORDER BY TM.RACE_KINDS_CD, TM.RACE_DGRE_CD
+        ]]>
+    </query> 
+        
+    <query id="tbeg_race_priz_if001" desc="회차별 경주 성적상금 등록" fetchSize="10">
+        <![CDATA[
+            /* 회차별 경주 성적상금 계산  등록  */
+            /* tbeg_race_priz_if001 IWORK_SFR-008 8위 까지... */
+			INSERT INTO TBEG_RACE_PRIZ (
+			   STND_YEAR, PAY_MONTH, MBR_CD, TMS, 
+               DAY_ORD, RACE_NO, RACE_KINDS_CD, RACE_DGRE_CD, RACE_REG_NO, 
+               RACER_NO, RACER_GRD_CD,  DAY_RUN_CNT, RANK, 
+               RANK_AMT, RUN_AMT, EVENT_AMT, WAIT_AMT, 
+               SAFY_AMT, STR_AMT, WIN_AMT, ETC_AMT, VOIL_CD_NM, 
+               VOIL_DESC, INST_ID, INST_DTM) 
+			--
+			SELECT     
+			    TM.STND_YEAR,   -- 기준년도
+			    TM.PAY_MONTH, 	-- 기준 월 
+			    TM.MBR_CD,  -- 경정장코드
+			    TM.TMS,     -- 회차 
+			    TM.DAY_ORD,     -- 일차 
+			    TM.RACE_NO,     -- 경주 번호 
+			    TM.RACE_KINDS_CD,	-- 경주 종류 
+			    TM.RACE_DGRE_CD,	-- 경주 등급
+			    TM.RACE_REG_NO,     -- 정번
+			    TM.RACER_NO,    -- 선수등록번호 
+			    TM.RACER_GRD_CD,    -- 경주 
+			    TM.DAY_RUN_CNT,     -- 당일 출주 수
+			    NVL(TM.RANK,0) AS RANK,    -- 순위 
+			    -- 성적 상금 
+			    CASE 
+			    	 WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RANK>0  THEN TRRAB.RANK_AMT  
+			         WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RANK=0 AND NVL(TM.VOIL_CD,'000') NOT IN ('130','993','994','995','996','997','998')  AND IMMT_CLS_CD='003' THEN  GET_ZERO_RANK_AMT(TM.STND_YEAR, TM.MBR_CD, TM.TMS, TM.DAY_ORD, TM.RACE_NO , TM.RACE_KINDS_CD, TM.RACE_DGRE_CD)
+			         ELSE 0   -- 경주 취소, 경주 불성립
+			    END AS RANK_AMT,
+			    -- 출전 수당(출전여부와 무관하게 출주전검사 여부로 지급(2014.6.5수정) 
+			    --CASE WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 AND TM.RACE_DGRE_CD = '103' THEN FLOOR(TM.RUM_BAC_AMT * TM.NEW_RACER_AMT_RATE/100) -- 신인경주 
+			    --     WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 THEN TM.RUM_BAC_AMT    -- 신인경주 이외 경주 
+			    --     ELSE 0    -- 경주 취소, 경주 불성립
+			    --END AS RUN_AMT,
+			    CASE WHEN RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 AND TM.TILT_CD IS NOT NULL AND TM.RACE_DGRE_CD = '103' THEN FLOOR(TM.RUM_BAC_AMT * TM.NEW_RACER_AMT_RATE/100) -- 신인경주 
+			         WHEN RACE_STTS_CD = '001' AND TM.DAY_RUN_CNT=1 AND TM.TILT_CD IS NOT NULL THEN TM.RUM_BAC_AMT    -- 신인경주 이외 경주 
+			         ELSE 0    -- 경주 취소, 경주 불성립
+			    END AS RUN_AMT,
+			     -- 이벤트경주 수당 
+                CASE WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RACE_DGRE_CD='907' THEN TM.EVENT_BAC_AMT -- 신인경주 
+                     ELSE 0    -- 경주 취소, 경주 불성립
+                END AS EVENT_AMT,
+			    -- 대기 수당 
+			    CASE WHEN RACE_STTS_CD = '001' THEN 0    -- 경주성립, 재출발
+			         ELSE FLOOR(TM.RACE_TOT_RANK_AMT / (
+			         			SELECT	COUNT(RACE_REG_NO) 
+			         			FROM	TBEB_ORGAN 
+			         			WHERE	STND_YEAR = TM.STND_YEAR 
+			         					AND MBR_CD = TM.MBR_CD 
+			         					AND TMS = TM.TMS 
+			         					AND DAY_ORD = TM.DAY_ORD 
+			         					AND RACE_NO = TM.RACE_NO )
+			         			*0.7)    -- 경주 취소, 경주 불성립
+			    END AS WAIT_AMT,
+			     -- 안전 수당 
+			    CASE WHEN IMMT_CLS_CD='002' THEN 0 -- 자책인경우  
+			         WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND TM.RACE_DGRE_CD = '103' THEN FLOOR(TM.SAFY_BAC_AMT * TM.NEW_RACER_AMT_RATE/100) -- 신인경주 
+			         WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' THEN TM.SAFY_BAC_AMT    -- 신인경주외 
+			         ELSE 0    -- 경주 취소, 경주 불성립
+			    END AS SAFY_AMT,
+			     -- 출발무사고 상금  
+			    CASE 
+                     /* WHEN ABSE_CD ='001' AND RACE_STTS_CD = '001' AND FL_YN='N' AND NVL(TM.VOIL_CD,'000') NOT IN ('130','993','994','995','996','997','998') */   
+                     WHEN ST_MTHD_CD = '002' AND ABSE_CD ='001' AND RACE_STTS_CD = '001' AND NVL(TM.VOIL_CD_NM,'0') NOT IN ('F', 'L') AND NVL(TM.VOIL_CD,'000') NOT IN ('130','993','994','995','996','997','998')   
+                        THEN TM.STR_BAC_AMT  
+			         ELSE 0    -- F, L 일 경우  2015년 부터 F/L 본인만 출발무사고 상금 미지급(기존 해당 경주 전원 미지급), 플라잉 출발일 경우만 지급 
+			    END AS STR_AMT,
+			    -- 연승상금 (연승상금 제도 변경으로 FUNCTION 재작성함. 2015.03.)
+                GET_WIN_AMT(TM.STND_YEAR, TM.MBR_CD, TM.TMS, TM.DAY_ORD, TM.RACE_NO, TM.RACER_NO)  AS WIN_AMT,     
+			    -- 기타수당 
+			    0 AS ETC_AMT, 
+			    TM.VOIL_CD_NM, -- 위반판정 코드 명 
+			    TM.VOIL_DESC,    -- 위반 판정 내용
+			    ?,  --  작성자 
+			    SYSDATE     -- 작성일자 
+			FROM (
+			    SELECT 
+			            RTL.STND_YEAR, RTL.PAY_MONTH, RTL.MBR_CD, RTL.TMS, RTL.DAY_ORD, RTL.RACE_NO, RTL.RACE_REG_NO, 
+			            RTL.RACER_NO, RTL.RANK, RTL.DAY_RUN_CNT, RTL.VOIL_CD_NM, TRM.RACER_GRD_CD,
+			            RTL.VOIL_CD, RTL.VOIL_DESC, RTS.RACE_KINDS_CD, RTL.ST_MTHD_CD,
+			            RTS.RACE_DGRE_CD, RTS.RACE_STTS_CD, 
+			            RTS.RACE_STTS_DESC, /*FL_YN,*/ RACE_TOT_RANK_AMT,
+			            TAB.RUN_AMT AS RUM_BAC_AMT, TAB.EVENT_AMT AS EVENT_BAC_AMT, TAB.SAFY_AMT AS SAFY_BAC_AMT, 
+			            TAB.WAIT_AMT_RATE, TAB.STR_AMT AS STR_BAC_AMT, TAB.NEW_RACER_AMT_RATE,
+			            NVL(RTL.ABSE_CD, '001') AS ABSE_CD,
+			            (
+                            -- 996=출주제외 면책 , 998=결장(면책), 999=실격(면책)
+                            CASE WHEN RTL.VOIL_CD IS NULL THEN '001' -- 정상 
+                            	WHEN INSTR(RTL.VOIL_CD,'996') > 0 OR INSTR(RTL.VOIL_CD,'998') > 0 OR INSTR(RTL.VOIL_CD,'999') > 0 THEN  '003' -- 면책 
+                            	ELSE '002' END  -- 자책 
+                        ) AS IMMT_CLS_CD,
+                        TRT.TILT_CD
+			    FROM (
+			        -- 경주 결과 및 위반사항 조회  
+			        SELECT T1.STND_YEAR, PAY_MONTH, T1.MBR_CD, T1.TMS, T1.DAY_ORD, T1.RACE_NO, T1.RACE_REG_NO, 
+			               T1.RACER_NO, NVL(T1.RANK,0) AS RANK, DAY_RUN_CNT,   T1.ABSE_CD, T1.IMMT_CLS_CD, T1.ST_MTHD_CD,
+			               CASE WHEN NVL(T1.RANK,0) = 0 THEN VOIL_CD ELSE '' END AS VOIL_CD, 
+			               CASE WHEN NVL(T1.RANK,0) = 0  THEN VOIL_CD_NM ELSE '' END AS VOIL_CD_NM, 
+			               CASE WHEN NVL(T1.RANK,0) = 0  THEN VOIL_DESC ELSE '' END AS VOIL_DESC
+			        FROM (
+			            SELECT STND_YEAR, TO_NUMBER(SUBSTR(RACE_DAY,5,2)) AS PAY_MONTH, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO,  
+			                   RACER_NO, ABSE_CD, RANK, IMMT_CLS_CD, ST_MTHD_CD,
+			                   ROW_NUMBER() OVER(PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD,  RACER_NO ORDER BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO)  AS DAY_RUN_CNT
+			            FROM   TBEB_ORGAN
+			            WHERE  STND_YEAR = ?
+			            AND    MBR_CD    = ?
+			            AND    TMS       = ?
+			        )T1,
+			        (
+			            -- 위반 사항 
+			            SELECT  STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, 
+			                    SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_CD,',')),2) AS VOIL_CD,
+			                    SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_CD_NM,',')),2) AS VOIL_CD_NM,
+			                    SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_DESC,' ---- ')),7) AS VOIL_DESC
+			            FROM (
+					            SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, VOIL_CD, CD_NM AS VOIL_CD_NM,VOIL_DESC,
+					                   ROW_NUMBER () OVER (PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO ORDER  BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, SEQ) RNUM
+					            FROM   TBED_RACE_VOIL_ACT TRVA, (SELECT CD, CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00035')  TSC
+					            WHERE  TRVA.STND_YEAR = ?
+					            AND    TRVA.MBR_CD    = ?
+					            AND    TRVA.TMS       = ?
+					            AND    TRVA.VOIL_CD   = TSC.CD
+					          )
+			            START WITH RNUM = 1
+			            CONNECT BY PRIOR RNUM = RNUM - 1 
+			            AND PRIOR RACE_REG_NO = RACE_REG_NO
+			            AND PRIOR RACE_NO     = RACE_NO
+			            AND PRIOR DAY_ORD     = DAY_ORD
+			            AND PRIOR TMS         = TMS
+			            AND PRIOR MBR_CD      = MBR_CD
+			            AND PRIOR STND_YEAR   = STND_YEAR
+			            GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO
+			        )T2 
+			        WHERE T1.STND_YEAR = T2.STND_YEAR(+)
+			        AND T1.MBR_CD      = T2.MBR_CD(+)
+			        AND T1.TMS         = T2.TMS(+)
+			        AND T1.DAY_ORD     = T2.DAY_ORD(+)
+			        AND T1.RACE_NO     = T2.RACE_NO(+)
+			        AND T1.RACE_REG_NO = T2.RACE_REG_NO(+)
+			    )RTL,
+			    (
+			        -- 경주 상황, F/L여부, 경주 TOTAL 상금 
+			        SELECT 
+			               TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, 
+			               TCM.RACE_KINDS_CD,  TR.RACE_DGRE_CD, 
+			               TR.RACE_STTS_CD, TR.RACE_STTS_DESC,
+			               /* F/L 경주단위 불필요(출발무사고 상금 규정 변경) -> FL_YN 제거
+			               NVL((SELECT 'Y' FROM  DUAL WHERE EXISTS (
+			                             SELECT * 
+			                             FROM   TBED_RACE_VOIL_ACT TRVA 
+			                             WHERE  TRVA.STND_YEAR = TR.STND_YEAR
+			                             AND TRVA.MBR_CD = TR.MBR_CD
+			                             AND TRVA.TMS = TR.TMS
+			                             AND TRVA.DAY_ORD = TR.DAY_ORD
+			                             AND TRVA.RACE_NO = TR.RACE_NO
+			                             AND TRVA.VOIL_CD IN ('110', '120') -- F/L 여부 
+			              )), 'N')AS FL_YN, */
+			             (SELECT SUM(RANK_AMT) 
+			              FROM   TBEG_RACE_RANK_AMT_BAC TRRAB 
+			              WHERE  TRRAB.RACE_KINDS_CD = TCM.RACE_KINDS_CD 
+			              AND    TRRAB.RACE_DGRE_CD  = TR.RACE_DGRE_CD
+                          AND    TRRAB.STND_YEAR     = TR.STND_YEAR
+			              AND    (RANK <7 OR RANK > 7)) AS RACE_TOT_RANK_AMT
+			        FROM TBEB_RACE TR, -- 경주 
+			             TBEB_RACE_TMS TRT, -- 경주회차
+			             TBEB_CFRNT_METH TCM -- 대진방법
+			        WHERE TR.STND_YEAR  = TRT.STND_YEAR
+			        AND   TR.MBR_CD     = TRT.MBR_CD
+			        AND   TR.TMS        = TRT.TMS
+			        AND   TRT.CFRNT_CD  = TCM.CFRNT_CD
+			        AND   TRT.STND_YEAR = ?
+			        AND   TRT.MBR_CD    = ?
+			        AND   TRT.TMS       = ?
+			    )RTS,(SELECT * FROM TBEG_ALLOW_BAC WHERE STND_YEAR=?) TAB, TBEC_RACER_MASTER TRM
+                    , TBEC_RACER_TILT TRT 
+			    WHERE RTL.STND_YEAR = RTS.STND_YEAR
+			    AND   RTL.MBR_CD    = RTS.MBR_CD
+			    AND   RTL.TMS       = RTS.TMS
+			    AND   RTL.DAY_ORD   = RTS.DAY_ORD
+			    AND   RTL.RACE_NO   = RTS.RACE_NO
+			    AND   RTL.RACER_NO  = TRM.RACER_NO
+                AND   RTL.STND_YEAR = TRT.STND_YEAR(+)
+                AND   RTL.MBR_CD    = TRT.MBR_CD(+)
+                AND   RTL.TMS       = TRT.TMS(+)
+                AND   RTL.DAY_ORD   = TRT.DAY_ORD(+)
+                AND   RTL.RACE_NO   = TRT.RACE_NO(+)
+                AND   RTL.RACER_NO  = TRT.RACER_NO(+) 
+			)TM, (SELECT * FROM TBEG_RACE_RANK_AMT_BAC WHERE STND_YEAR=?) TRRAB 
+			WHERE TM.STND_YEAR     = TRRAB.STND_YEAR(+)
+			AND   TM.RACE_KINDS_CD = TRRAB.RACE_KINDS_CD(+)
+			AND   TM.RACE_DGRE_CD  = TRRAB.RACE_DGRE_CD(+)
+			AND   TM.RANK          = TRRAB.RANK(+)
+			ORDER BY TM.STND_YEAR, TM.MBR_CD, TM.TMS, TM.DAY_ORD, TM.RACE_NO, DECODE(TM.RANK,0 ,99, RANK)
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeg_race_priz_ff005" desc="경주 성적상금 미마감된 최종회차 조회" fetchSize="10">
+        <![CDATA[
+            /* tbeg_race_priz_ff005: 경주 성적상금 미마감된 최종회차 조회   */
+			SELECT /* tbeg_race_priz_ff005 */ 
+			       NVL(MAX(TRT.TMS),0) AS TMS
+			FROM   TBEB_RACE_TMS  TRT
+			WHERE  1=1
+			AND    TRT.STND_YEAR = ?
+			AND    TRT.MBR_CD = ?
+            AND    NVL(TMS_PRIZ_FINISH_YN,'N') != 'Y'
+        ]]>
+    </query> 
+    
+    <query id="tbeg_race_priz_uf001" desc="회차별 경주 성적상금 수정" fetchSize="10">
+        <![CDATA[
+            /* 회차별 경주 성적상금 수정 */
+            UPDATE TBEG_RACE_PRIZ
+			SET    RANK_AMT     = ?,
+			       RUN_AMT      = ?,
+			       EVENT_AMT	= ?,
+			       WAIT_AMT     = ?,
+			       SAFY_AMT     = ?,
+			       STR_AMT      = ?,
+			       WIN_AMT      = ?,
+			       ETC_AMT      = ?,
+			       UPDT_ID      = ?,
+			       UPDT_DTM     = SYSDATE
+			WHERE  STND_YEAR    = ?
+			AND    MBR_CD       = ?
+			AND    TMS          = ?
+			AND    DAY_ORD      = ?
+			AND    RACE_NO      = ?
+			AND    RACE_REG_NO  = ?
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeg_race_priz_uf002" desc="회차별 경주 성적상금 마감여부 수정" fetchSize="10">
+        <![CDATA[
+            /* 회차별 경주 성적상금 마감여부 수정 */
+            UPDATE TBEB_RACE_TMS
+				SET    TMS_PRIZ_FINISH_YN     = ?
+			WHERE  STND_YEAR    = ?
+			AND    MBR_CD       = ?
+			AND    TMS          = ?
+        ]]>
+    </query> 
+    
+    
+    
+    <query id="tbeg_race_priz_if002" desc="회차별 경주 성적상금 마감여부 " fetchSize="10">
+        <![CDATA[
+            /* 회차별 경주 성적상금 마감여부 조회    */
+			SELECT  
+				NVL(TMS_PRIZ_FINISH_YN, 'X') AS TMS_PRIZ_FINISH_YN, 	-- 회차 상금 마감 여부 
+			    NVL(MONTH_PRIZ_FINISH_YN, 'X') AS   MONTH_PRIZ_FINISH_YN	-- 월 상금 마감 여부 
+			FROM TBEB_RACE_TMS  TRT, TBEG_MONTH_PAY_BAC  TPMB
+			WHERE TRT.STND_YEAR = TPMB.STND_YEAR(+)
+			AND TRT.STND_YEAR = ?
+			AND TRT.TMS = ? 
+        ]]>
+    </query> 
+    	
+    <query id="tbeg_race_priz_df001" desc="회차별 경주 성적상금 삭제 " fetchSize="10">
+        <![CDATA[
+            /* 회차별 경주 성적상금 수정 */
+			DELETE TBEG_RACE_PRIZ
+			WHERE STND_YEAR = ?
+			AND MBR_CD = ?
+			AND TMS = ? 
+        ]]>
+    </query> 
+    
+   
+</queryMap>

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem5010(기간별 지정좌석실 입장현황 조회 )">
+  
+    <query id="rem5010_s01" desc="기간별 지정좌석실 입장현황 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5010_s01 */
+ 			        COMM_NO
+ 			       ,B.CD_NM AS COMM_NM
+		           ,SUM(FS_ENT_PAY_CNT) AS FS_ENT_PAY_CNT
+		           ,SUM(FS_ENT_NO_PAY_CNT) AS FS_ENT_NO_PAY_CNT
+		           ,SUM(FS_ENT_AMT) AS FS_ENT_AMT
+		           ,SUM(ENT_AMT) AS ENT_AMT
+		           ,SUM(ENT_PAY_CNT) AS ENT_PAY_CNT
+		           ,SUM(ENT_NO_PAY_CNT) AS ENT_NO_PAY_CNT
+			FROM (           
+		            SELECT  ISSUE_DT
+	                       ,COMM_NO 
+				           ,SUM(FS_ENT_PAY_CNT)    AS FS_ENT_PAY_CNT
+				           ,SUM(FS_ENT_NO_PAY_CNT) AS FS_ENT_NO_PAY_CNT
+				           ,SUM(FS_ENT_AMT)        AS FS_ENT_AMT
+				           ,SUM(ENT_AMT)           AS ENT_AMT
+				           ,SUM(ENT_PAY_CNT)       AS ENT_PAY_CNT
+				           ,SUM(ENT_NO_PAY_CNT)    AS ENT_NO_PAY_CNT
+                    FROM (
+                           SELECT  ISSUE_DT
+                                  ,COMM_NO
+						          ,SUM(CASE WHEN AMOUNT > 0 THEN 1 ELSE 0 END)     AS FS_ENT_PAY_CNT
+                                  ,SUM(CASE WHEN AMOUNT = 0 THEN 1 ELSE 0 END)     AS FS_ENT_NO_PAY_CNT
+                                  ,SUM(AMOUNT)   AS FS_ENT_AMT
+						          ,SUM(AMOUNT1)  AS ENT_AMT
+						          ,SUM(CASE WHEN NVL(C.CD,'-') <> '-' AND AMOUNT1 > 0 THEN  1 ELSE 0 END) AS ENT_PAY_CNT
+						          ,SUM(CASE WHEN NVL(C.CD,'-') <> '-' AND AMOUNT1 = 0 THEN  1 ELSE 0 END) AS ENT_NO_PAY_CNT
+                           FROM   TBRC_FS_TRADE FST, TBRK_SPEC_CD C
+                           WHERE  C.GRP_CD(+) = '018'
+                           AND    C.CD_TERM5(+) = '11'
+                           AND    FST.COMM_NO = C.CD(+)
+                           GROUP BY ISSUE_DT, COMM_NO
+                           UNION ALL
+                           SELECT  SALES_DT
+                                  ,BRNC_CD
+                                  ,SUM(CASE WHEN REFUND_YN = 'N' AND SAVE_AMT > 0 THEN 1 ELSE 0 END) 
+                                  ,SUM(CASE WHEN REFUND_YN = 'N' AND SAVE_AMT = 0 THEN 1 ELSE 0 END) 
+                                  ,SUM(CASE WHEN REFUND_YN = 'N' THEN SAVE_AMT ELSE 0 END)
+                                  ,0
+                                  ,0
+                                  ,0
+                           FROM   TBRB_APPO_SEAT_MANA
+                           GROUP BY SALES_DT, BRNC_CD     
+                           UNION ALL
+						   SELECT /* 광명본장 */
+						   		 ISSUE_DT TRADE_DATE
+						   		,'00' COMM_NO
+						   		,SUM(DECODE(AMOUNT, 0, 0, QTY)) QTY
+						   		,SUM(DECODE(AMOUNT, 0, QTY, 0)) QTY
+						   		,SUM(AMOUNT)
+						        ,0,0,0
+						   FROM TBRC_FS_TRADE_KM --지정좌석실광명
+						   GROUP BY ISSUE_DT
+                         ) T,
+                         (
+	                        SELECT RACE_DAY
+	                              ,C.CD AS BRNC_CD
+	                              ,C.CD_NM AS COMM_NM
+	                        FROM  VW_SDL_INFO S,
+	                              TBRK_SPEC_CD C
+	                        WHERE 1=1
+	                        --AND S.MEET_CD IN ('001','003')
+	                        AND   C.GRP_CD = '018'
+	                        --AND   C.DEL_YN = 'N'
+	                        AND   C.CD_TERM4 IS NOT NULL
+	                        AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+	                        AND   S.RACE_DAY BETWEEN ? AND ?
+	                        GROUP BY RACE_DAY, C.CD, C.CD_NM
+                         ) S	            
+					WHERE S.RACE_DAY = T.ISSUE_DT
+                      AND S.BRNC_CD  = T.COMM_NO
+                      AND COMM_NO LIKE ?||'%'
+                      AND T.COMM_NO  <> DECODE(?,'1','00','-')
+		            GROUP BY ISSUE_DT, COMM_NO 
+		           ) A, TBRK_SPEC_CD B
+		    WHERE  A.COMM_NO = B.CD
+		    AND    B.GRP_CD = '018'       
+			GROUP BY COMM_NO, B.CD_NM
+			ORDER BY COMM_NO            
+        ]]>
+    </query> 
+    
+    <query id="rem5010_s02" desc="날짜별 지정좌석실 입장 세부내역 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5010_s02 */
+ 			        COMM_NO
+ 			       ,B.CD_NM AS COMM_NM
+ 			       ,A.ISSUE_DT
+		           ,SUM(FS_ENT_PAY_CNT) AS FS_ENT_PAY_CNT
+		           ,SUM(FS_ENT_NO_PAY_CNT) AS FS_ENT_NO_PAY_CNT
+		           ,SUM(FS_ENT_AMT) AS FS_ENT_AMT
+		           ,SUM(ENT_AMT) AS ENT_AMT
+		           ,SUM(ENT_PAY_CNT) AS ENT_PAY_CNT
+		           ,SUM(ENT_NO_PAY_CNT) AS ENT_NO_PAY_CNT
+			FROM (           
+		            SELECT  ISSUE_DT
+	                       ,COMM_NO 
+				           ,SUM(FS_ENT_PAY_CNT)    AS FS_ENT_PAY_CNT
+				           ,SUM(FS_ENT_NO_PAY_CNT) AS FS_ENT_NO_PAY_CNT
+				           ,SUM(FS_ENT_AMT)        AS FS_ENT_AMT
+				           ,SUM(ENT_AMT)           AS ENT_AMT
+				           ,SUM(ENT_PAY_CNT)       AS ENT_PAY_CNT
+				           ,SUM(ENT_NO_PAY_CNT)    AS ENT_NO_PAY_CNT
+                    FROM (
+                           SELECT  /* 지점 키오스크 입장인원 */
+                                   ISSUE_DT
+                                  ,COMM_NO
+						          ,SUM(CASE WHEN AMOUNT > 0 THEN 1 ELSE 0 END)     AS FS_ENT_PAY_CNT
+                                  ,SUM(CASE WHEN AMOUNT = 0 THEN 1 ELSE 0 END)     AS FS_ENT_NO_PAY_CNT
+                                  ,SUM(AMOUNT)   AS FS_ENT_AMT
+						          ,SUM(AMOUNT1)  AS ENT_AMT
+						          ,SUM(CASE WHEN NVL(C.CD,'-') <> '-' AND AMOUNT1 > 0 THEN  1 ELSE 0 END) AS ENT_PAY_CNT
+						          ,SUM(CASE WHEN NVL(C.CD,'-') <> '-' AND AMOUNT1 = 0 THEN  1 ELSE 0 END) AS ENT_NO_PAY_CNT
+                           FROM   TBRC_FS_TRADE FST, TBRK_SPEC_CD C
+                           WHERE  C.GRP_CD(+) = '018'
+                           AND    C.CD_TERM5(+) = '11'
+                           AND    FST.COMM_NO = C.CD(+)
+                           GROUP BY ISSUE_DT, COMM_NO
+                           UNION ALL
+                           SELECT  /* 경주사업 지정좌석관리(대전, 올림픽지점) */
+                                   SALES_DT
+                                  ,BRNC_CD
+                                  ,SUM(CASE WHEN REFUND_YN = 'N' AND SAVE_AMT > 0 THEN 1 ELSE 0 END) 
+                                  ,SUM(CASE WHEN REFUND_YN = 'N' AND SAVE_AMT = 0 THEN 1 ELSE 0 END) 
+                                  ,SUM(CASE WHEN REFUND_YN = 'N' THEN SAVE_AMT ELSE 0 END)
+                                  ,0
+                                  ,0
+                                  ,0
+                           FROM   TBRB_APPO_SEAT_MANA
+                           GROUP BY SALES_DT, BRNC_CD    
+                           UNION ALL
+						   SELECT /* 광명본장 */
+						   		 ISSUE_DT TRADE_DATE
+						   		,'00' COMM_NO
+						   		,SUM(DECODE(AMOUNT, 0, 0, QTY)) QTY
+						   		,SUM(DECODE(AMOUNT, 0, QTY, 0)) QTY
+						   		,SUM(AMOUNT)
+						        ,0,0,0
+						   FROM TBRC_FS_TRADE_KM --지정좌석실광명
+						   GROUP BY ISSUE_DT
+                         ) T,
+                         (
+	                        SELECT RACE_DAY
+	                              ,C.CD AS BRNC_CD
+	                              ,C.CD_NM AS COMM_NM
+	                        FROM  VW_SDL_INFO S,
+	                              TBRK_SPEC_CD C
+	                        WHERE 1=1
+	                        --AND S.MEET_CD IN ('001','003')
+	                        AND   C.GRP_CD = '018'
+	                        --AND   C.DEL_YN = 'N'
+	                        AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+	                        AND   S.RACE_DAY BETWEEN ? AND ?
+	                        GROUP BY RACE_DAY, CD, CD_NM
+                         ) S	            
+					WHERE S.RACE_DAY = T.ISSUE_DT
+                      AND S.BRNC_CD  = T.COMM_NO
+                      AND COMM_NO LIKE ?||'%'
+                      AND T.COMM_NO  <> DECODE(?,'1','00','-')
+		            GROUP BY ISSUE_DT, COMM_NO 
+		           ) A, TBRK_SPEC_CD B
+		    WHERE  A.COMM_NO = B.CD
+		    AND    B.GRP_CD = '018'       
+			GROUP BY COMM_NO, B.CD_NM, A.ISSUE_DT
+			ORDER BY COMM_NO,A.ISSUE_DT            
+        ]]>
+    </query> 
+    
+    <query id="rem5010_s03" desc="경륜본장 지정좌석실 입장인원 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5010_s03 */
+ 			        SEQ	
+ 			       ,LOC
+ 			       ,LOC_NAME
+		           ,SALE_DATE
+		           ,SALE_TIME
+		           ,PRICE
+		           ,QTY
+		           ,AMT
+			FROM   V_IF_DAILY_SALE_DATA  
+			where   sale_date = '20130901'     
+        ]]>
+    </query> 
+    
+    <query id="rem5010_m01" desc="지정좌석실 입장인원 저장" fetchSize="10">
+      <![CDATA[
+            MERGE /* rem5010_m01 */
+ 			      INTO TBRC_FS_TRADE_INPUT DST
+ 			USING (
+ 			       SELECT  ? AS COMM_NO
+ 			              ,? AS ISSUE_DT
+ 			              ,? AS FS_ENT_PAY_CNT
+ 			              ,? AS FS_ENT_AMT
+ 			              ,? AS RMK
+ 			              ,? AS USER_ID
+ 			       FROM    DUAL       
+ 			        ) SRC    
+ 			ON     (
+ 			           DST.COMM_NO = SRC.COMM_NO
+ 			       AND DST.ISSUE_DT = SRC.ISSUE_DT
+ 			       )
+ 			WHEN MATCHED THEN
+ 			      UPDATE SET
+ 			                 DST.FS_ENT_PAY_CNT = SRC.FS_ENT_PAY_CNT
+ 			                ,DST.FS_ENT_AMT     = SRC.FS_ENT_AMT
+ 			                ,DST.RMK            = SRC.RMK
+ 			                ,DST.UPDT_ID        = SRC.USER_ID
+ 			                ,DST.UPDT_DT        = SYSDATE
+ 			WHEN NOT MATCHED THEN
+ 			       INSERT (
+ 			                 COMM_NO
+ 			                ,ISSUE_DT
+ 			                ,FS_ENT_PAY_CNT
+ 			                ,FS_ENT_AMT
+ 			                ,RMK
+ 			                ,INST_ID
+ 			                ,INST_DT
+ 			               ) VALUES (
+ 			               	 SRC.COMM_NO
+ 			               	,SRC.ISSUE_DT
+ 			               	,SRC.FS_ENT_PAY_CNT
+ 			               	,SRC.FS_ENT_AMT
+ 			               	,SRC.RMK
+ 			               	,SRC.USER_ID
+ 			               	,SYSDATE
+ 			               )
+ 			                                       		       
+        ]]>
+    </query> 
+    
+</queryMap>

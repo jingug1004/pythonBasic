@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5010(선수관리 )">
+  <query id="rbs5010_s01" desc="선수 기본정보 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5010_s01 */
+                   '0' AS CHK
+		           ,R.RACER_ID 		-- 선수번호
+		           ,R.RACER_NM		-- 직원명
+		           ,R.EMP_NO		-- 사원번호
+		           ,R.GAME_CD		-- 종목코드
+		           ,C1.CD_NM AS GAME_NM	-- 종목명
+		           ,R.RACER_TYPE	-- 선수구분
+		           ,C2.CD_NM AS RACER_TYPE_NM	-- 선수구분명
+		           ,NVL(R.EMAIL, U.EMAIL) AS EMAIL						-- E-MAIL
+		           ,NVL(R.TEL_NO, U.TEL_NO) AS TEL_NO					-- 전화번호
+		           ,NVL(R.HP_NO, U.HP_NO) AS HP_NO						-- 핸드폰 번호
+		           ,NVL(R.FLOC, U.FLOC) AS FLOC						-- 직군
+		           ,NVL(R.FGRADE, U.FGRADE) AS FGRADE					-- 직책
+		           ,U.DEPT_CD					-- 부서코드(실)
+		           ,U.TEAM_CD					-- 팀코드
+		           ,NVL(R.DEPT_NM, U.DEPT_NM) AS DEPT_NM					-- 부서명(실)
+		           ,NVL(R.TEAM_NM, U.TEAM_NM) AS TEAM_NM           		-- 팀명
+		           ,NVL(R.RETIRE_GBN, U.RETIRE_GBN) AS RETIRE_GBN				-- 재직여부
+		           ,R.WORK_FRDT
+		           ,R.WORK_TODT
+			FROM TBRS_RACER R, TBRK_SPEC_CD C1, TBRK_SPEC_CD C2, TBRK_USER U
+			WHERE   R.GAME_CD = C1.CD
+			    AND C1.GRP_CD = '144'  
+			    AND R.RACER_TYPE = C2.CD
+			    AND C2.GRP_CD = '135'  
+			    AND R.EMP_NO = U.USER_ID(+)
+			    AND R.GAME_CD LIKE ?||'%'
+			    AND NVL(R.RETIRE_GBN,'0') LIKE NVL(?, '0')||'%'
+			    AND R.RACER_NM LIKE '%'||?||'%'			    
+			    AND R.DEL_YN = 'N'
+			ORDER BY R.GAME_CD, R.RACER_TYPE, R.EMP_NO
+        ]]>
+    </query>       
+    
+    <query id="rbs5010_s02" desc="선수별 계약이력 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5010_s02 */
+                   '0' AS CHK
+		           ,C.RACER_ID
+		           ,C.CNTR_YEAR
+		           ,C.CNTR_AMT
+		           ,C.PAY_ADJ_CD
+		           ,C.PAY_ADJ_RATE
+		           ,C.PAY_ADJ_AMT
+		           ,FC_GET_USERNAME(NVL(C.UPDT_ID,C.INST_ID)) AS UPDT_NM
+			FROM TBRS_RACER_CNTR C
+			WHERE C.RACER_ID LIKE ?||'%'
+			ORDER BY C.RACER_ID, C.CNTR_YEAR           
+        ]]>
+    </query>    
+    
+    <query id="rbs5010_m01" desc="선수 기본정보 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5010_m01 */
+                  TBRS_RACER DST
+           USING (
+                     SELECT   ? AS RACER_ID
+                             ,? AS EMP_NO
+                             ,? AS RACER_NM
+                             ,? AS GAME_CD
+                             ,? AS RACER_TYPE
+                             ,? AS RETIRE_GBN
+                             ,? AS EMAIL
+                             ,? AS DEPT_NM
+                             ,? AS TEAM_NM
+                             ,? AS FLOC
+                             ,? AS FGRADE
+                             ,? AS TEL_NO
+                             ,? AS HP_NO
+                             ,? AS USER_ID
+                             ,? AS WORK_FRDT
+                             ,? AS WORK_TODT
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.RACER_ID = SRC.RACER_ID
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.EMP_NO   	= SRC.EMP_NO
+                        ,DST.RACER_NM   = SRC.RACER_NM
+                        ,DST.GAME_CD   	= SRC.GAME_CD
+                        ,DST.RACER_TYPE = SRC.RACER_TYPE
+                        ,DST.RETIRE_GBN = SRC.RETIRE_GBN
+                        ,DST.EMAIL   	= SRC.EMAIL
+                        ,DST.DEPT_NM   	= SRC.DEPT_NM
+                        ,DST.TEAM_NM   	= SRC.TEAM_NM
+                        ,DST.FLOC   	= SRC.FLOC
+                        ,DST.FGRADE   	= SRC.FGRADE
+                        ,DST.TEL_NO   	= SRC.TEL_NO
+                        ,DST.HP_NO   	= SRC.HP_NO
+                        ,DST.UPDT_ID   	= SRC.USER_ID
+                        ,DST.UPDT_DT 	= SYSDATE
+                        ,DST.WORK_FRDT  = SRC.WORK_FRDT
+                        ,DST.WORK_TODT  = SRC.WORK_TODT
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  RACER_ID
+                , EMP_NO
+                , RACER_NM
+                , GAME_CD
+                , RACER_TYPE
+                , DEL_YN
+                , RETIRE_GBN
+                , EMAIL
+                , DEPT_NM
+                , TEAM_NM
+                , FLOC
+                , FGRADE
+                , TEL_NO
+                , HP_NO
+                , INST_ID
+                , INST_DT
+                , WORK_FRDT
+                , WORK_TODT
+               ) VALUES (
+                  (SELECT NVL(MAX(RACER_ID)+1,1) FROM TBRS_RACER)
+                , SRC.EMP_NO
+                , SRC.RACER_NM
+                , SRC.GAME_CD
+                , SRC.RACER_TYPE
+                , 'N'                
+                , SRC.RETIRE_GBN
+                , SRC.EMAIL
+                , SRC.DEPT_NM
+                , SRC.TEAM_NM
+                , SRC.FLOC
+                , SRC.FGRADE
+                , SRC.TEL_NO
+                , SRC.HP_NO
+                , SRC.USER_ID                
+                , SYSDATE  
+                , SRC.WORK_FRDT
+                , SRC.WORK_TODT  
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5010_m02" desc="선수 기본정보 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5010_m02 */
+                  TBRS_RACER_CNTR DST
+           USING (
+                     SELECT   ? AS RACER_ID
+                             ,? AS CNTR_YEAR
+                             ,? AS CNTR_AMT
+                             ,? AS PAY_ADJ_CD
+                             ,? AS PAY_ADJ_RATE
+                             ,? AS PAY_ADJ_AMT
+                             ,? AS USER_ID
+                 FROM DUAL
+                )  SRC
+                ON (
+                         DST.RACER_ID = SRC.RACER_ID
+                     AND DST.CNTR_YEAR = SRC.CNTR_YEAR
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.CNTR_AMT   	= SRC.CNTR_AMT
+                        ,DST.PAY_ADJ_CD    	= SRC.PAY_ADJ_CD
+                        ,DST.PAY_ADJ_RATE  	= SRC.PAY_ADJ_RATE
+                        ,DST.PAY_ADJ_AMT 	= SRC.PAY_ADJ_AMT
+                        ,DST.UPDT_ID 		= SRC.USER_ID
+                        ,DST.UPDT_DT    	= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  RACER_ID
+                , CNTR_YEAR
+                , CNTR_AMT
+                , PAY_ADJ_CD
+                , PAY_ADJ_RATE
+                , PAY_ADJ_AMT
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.RACER_ID
+                , SRC.CNTR_YEAR
+                , SRC.CNTR_AMT
+                , SRC.PAY_ADJ_CD
+                , SRC.PAY_ADJ_RATE
+                , SRC.PAY_ADJ_AMT
+                , SRC.USER_ID                
+                , SYSDATE    
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5010_d01" desc="선수 기본정보 삭제 " fetchSize="10">
+      <![CDATA[           
+           UPDATE /* rbs5010_d01 */
+                  TBRS_RACER
+             SET  DEL_YN = 'Y'
+           WHERE RACER_ID = ? 
+        ]]>
+    </query>    
+    
+    <query id="rbs5010_d02" desc="선수 계약정보 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5010_d02 */
+                  FROM TBRS_RACER_CNTR
+           WHERE RACER_ID = ? 
+             AND CNTR_YEAR = ?
+        ]]>
+    </query>    
+    
+</queryMap>

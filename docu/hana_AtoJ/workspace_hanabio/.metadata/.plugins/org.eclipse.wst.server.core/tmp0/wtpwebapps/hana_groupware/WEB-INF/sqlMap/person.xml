@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : person.xml
+  * @메뉴명 : 개인결재라인
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="person"> 
+	<select id="getPersonLineList" parameterType="hashmap" resultType="com.hanaph.gw.ea.person.vo.PersonLineVO">
+		SELECT   PERSON_SEQ, EMP_NO, CREATE_DT, CREATE_NO, SUBJECT
+		    FROM GW_EA_PERSON_LINE
+		   WHERE EMP_NO = #{emp_no}
+		ORDER BY PERSON_SEQ DESC 
+	</select>
+	
+	<select id="getPersonSeq" resultType="int">
+		SELECT SEQ_GW_EA_PERSON_LINE.NEXTVAL FROM DUAL
+	</select>
+
+	<insert id="insertPersonLine" parameterType="com.hanaph.gw.ea.person.vo.PersonLineVO">
+		INSERT INTO GW_EA_PERSON_LINE
+				(PERSON_SEQ, EMP_NO, CREATE_DT, CREATE_NO, SUBJECT
+	            )
+	     VALUES (#{person_seq} , #{emp_no}, SYSDATE, #{create_no}, #{subject}
+	            )
+	</insert>
+	
+	<delete id="deletePersonLine"  parameterType="hashmap">
+		DELETE FROM GW_EA_PERSON_LINE WHERE PERSON_SEQ = #{person_seq}
+	</delete>
+	
+	<select id="getPersonApprovalDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.person.vo.PersonApprovalVO">
+		SELECT   PERSON.EMP_NO, PERSON_SEQ, ORDERING, CREATE_DT, CREATE_NO,
+		         EMP.EMP_KO_NM
+		    FROM GW_EA_PERSON_APPROVAL PERSON, HANAHR.HR_HC_EMPBAS_0 EMP
+		   WHERE PERSON.EMP_NO = EMP.EMP_NO
+		     AND (EMP.ENGAG_DIV = '70010' OR EMP.ENGAG_DIV = '70030')
+		     AND PERSON_SEQ = #{person_seq}
+		ORDER BY ORDERING ASC
+	</select>
+	
+	<insert id="insertPersonApproval" parameterType="com.hanaph.gw.ea.person.vo.PersonApprovalVO">
+		INSERT INTO GW_EA_PERSON_APPROVAL
+	            (EMP_NO, PERSON_SEQ, ORDERING, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (#{emp_no} , #{person_seq} , #{ordering} ,SYSDATE, #{create_no} 
+	            )
+	</insert>
+	
+	<delete id="deletePersonApproval" parameterType="hashmap">
+		DELETE FROM GW_EA_PERSON_APPROVAL WHERE PERSON_SEQ = #{person_seq}
+	</delete>
+
+	<select id="getPersonImplDeptDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.person.vo.PersonImplDeptVO">
+		SELECT DISTINCT IMPL.DEPT_CD
+		,IMPL.PERSON_SEQ
+		,IMPL.ORDERING
+		,IMPL.CREATE_DT
+		,IMPL.CREATE_NO
+		,DECODE(LENGTH(IMPL.DEPT_CD), 4 ,HANAHR.F_GET_DEPT_NM(IMPL.DEPT_CD), HANAHR.F_GET_EMP_KO_NM(IMPL.DEPT_CD)) DEPT_KO_NM
+		FROM GW_EA_PERSON_IMPL_DEPT IMPL
+		        ,(                   
+		                SELECT EMP.EMP_NO
+		                ,DEPT.DEPT_CD
+		                FROM HANAHR.HR_HC_EMPBAS_0 EMP
+		                ,HANAHR.HR_CO_DEPART_0 DEPT
+		                WHERE EMP.DEPT_CD = DEPT.DEPT_CD
+		                AND EMP.ENGAG_DIV IN ('70010' ,'70030')
+		                AND DEPT.USE_YN = 'Y'                        
+        		) B
+		WHERE (IMPL.DEPT_CD = B.DEPT_CD OR IMPL.DEPT_CD = B.EMP_NO) 
+		AND PERSON_SEQ = #{person_seq}
+		ORDER BY ORDERING ASC 
+	</select>
+	
+	<insert id="insertPersonImplDept" parameterType="com.hanaph.gw.ea.person.vo.PersonImplDeptVO">
+		INSERT INTO GW_EA_PERSON_IMPL_DEPT
+	            (DEPT_CD, PERSON_SEQ, ORDERING, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (#{dept_cd}, #{person_seq}, #{ordering}, SYSDATE, #{create_no}
+	            )
+	</insert>
+	
+	<delete id="deletePersonImplDept" parameterType="hashmap">
+		DELETE FROM GW_EA_PERSON_IMPL_DEPT WHERE PERSON_SEQ = #{person_seq}
+	</delete>
+</mapper>

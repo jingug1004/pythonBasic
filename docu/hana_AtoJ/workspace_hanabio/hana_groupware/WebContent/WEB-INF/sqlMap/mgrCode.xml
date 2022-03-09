@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : mgrCode.xml
+  * @메뉴명 : 코드관리 
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="mgrCode"> 
+	
+	<select id="getCodeList" parameterType="hashmap" resultType="com.hanaph.gw.co.code.vo.CodeVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+					SELECT CD, M_CD, S_CD, CD_NM, DESCR,
+					       USE_YN, ORDERING, CREATE_DT, CREATE_NO, DELETE_YN
+					  FROM GW_CO_CODE
+					  	WHERE DELETE_YN = 'N'
+					  	<if test="use_yn != null" >
+					  	 AND USE_YN = #{use_yn}
+					  	</if>
+					  	AND
+					  	
+	  	<if test="s_cd != null" >
+			  	S_CD = #{s_cd}
+	  	</if>
+	  	<if test="m_cd != null" >
+	  			S_CD != '000'
+				AND M_CD = #{m_cd}
+		</if>
+		<if test="searchKeyword != null">
+			<choose>
+				<when test="searchType == 'cd'">
+ 					AND CD LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'cd_nm'">
+ 					AND CD_NM LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+				ORDER BY ORDERING , CD ASC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+
+	<select id="getCodeCount" parameterType="map" resultType="int">
+		SELECT COUNT(*) 
+				FROM GW_CO_CODE 
+			WHERE DELETE_YN = 'N'
+			<if test="use_yn != null" >
+		  	AND USE_YN = #{use_yn}
+		  	</if>
+			AND S_CD = #{s_cd}
+		<if test="searchKeyword != null">
+			<choose>
+				<when test="searchType == 'cd'">
+ 					AND CD LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'cd_nm'">
+ 					AND CD_NM LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+	</select>
+	
+	<select id="getScodeList" parameterType="hashmap" resultType="com.hanaph.gw.co.code.vo.CodeVO">
+		SELECT CD, M_CD, S_CD, CD_NM, DESCR,
+		       USE_YN, ORDERING, CREATE_DT, CREATE_NO, DELETE_YN
+		  FROM GW_CO_CODE
+			WHERE M_CD = #{m_cd}
+			  AND S_CD != '000' 
+			  AND DELETE_YN = 'N'
+			ORDER BY ORDERING , CD ASC
+	</select>
+	
+	<select id="detailCode" parameterType="hashmap" resultType="com.hanaph.gw.co.code.vo.CodeVO">
+		SELECT CD, M_CD, S_CD, CD_NM, DESCR,
+		       USE_YN, ORDERING, CREATE_DT, CREATE_NO, DELETE_YN
+		  FROM GW_CO_CODE
+			WHERE M_CD = #{m_cd}
+			AND S_CD = #{s_cd}
+	</select>
+	
+	<insert id="insertCode" parameterType="com.hanaph.gw.co.code.vo.CodeVO">
+		INSERT INTO GW_CO_CODE(CD, M_CD, S_CD, CD_NM, DESCR, USE_YN, ORDERING, CREATE_DT, CREATE_NO, DELETE_YN)
+			VALUES (#{cd}, #{m_cd}, #{s_cd}, #{cd_nm}, #{descr}, #{use_yn}, #{ordering}, sysdate, #{create_no}, 'N')
+	</insert>
+	
+	<update id="deleteCode" parameterType="com.hanaph.gw.co.code.vo.CodeVO">
+		UPDATE GW_CO_CODE SET 
+			DELETE_YN = #{delete_yn}, MODIFY_NO = #{create_no}, MODIFY_DT = SYSDATE
+				WHERE
+			<choose>
+			    <when test="cd != null">
+					CD = #{cd}
+			    </when>
+			    <otherwise>
+			    	M_CD = #{m_cd}
+			    </otherwise>
+		    </choose>
+	</update>
+	
+	<select id="checkCode" parameterType="String" resultType="com.hanaph.gw.co.code.vo.CodeVO">
+		SELECT CD, DELETE_YN
+		  FROM GW_CO_CODE
+		 WHERE CD = #{cd}
+	</select>
+	
+	<update id="updateCode" parameterType="com.hanaph.gw.co.code.vo.CodeVO">
+		UPDATE GW_CO_CODE SET 
+				CD = #{cd}, M_CD = #{m_cd}, S_CD = #{s_cd}, CD_NM = #{cd_nm}, MODIFY_DT = SYSDATE, MODIFY_NO = #{create_no}, 
+				DESCR = #{descr}, USE_YN = #{use_yn}, ORDERING = #{ordering}, DELETE_YN = #{delete_yn}
+			WHERE CD = #{cd}
+	</update>
+	
+	<insert id="updateCodeLog" parameterType="com.hanaph.gw.co.code.vo.CodeVO">
+		INSERT INTO GW_CO_CODE_LOG(CD_SEQ, CD, USE_YN, CREATE_NO, CREATE_DT) 
+			VALUES(SEQ_GW_CO_CODE_LOG.NEXTVAL, #{cd}, #{use_yn}, #{create_no}, SYSDATE)
+	</insert>	
+	
+	<select id="getOracleUserList" resultType="hashmap">
+		SELECT ORAUSER USERNAME, UTL_I18N.RAW_TO_CHAR(ORAUSER_PASS) PASSWORD, USE_YN USEYN FROM TB_ORAUSER_INFO	
+	</select>
+	
+</mapper>
+	

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5110(입상내역 관리 )">
+  <query id="rbs5110_s01" desc="입상내역 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5110_s01 */
+                   '0' AS CHK
+                   ,W.RACER_ID					-- 선수번호
+		           ,R.RACER_NM					-- 선수번호
+		           ,W.CONTEST_SEQ				-- 대회연번
+		           ,C.GAME_CD					-- 종목코드
+		           ,W.WIN_HIS_SEQ				-- 입상내역연번
+		           ,W.RANK						-- 순위
+		           ,W.ENTY_NM					-- 참가종목명
+		           ,W.RMK						-- 비고
+		           ,W.WIN_DY					-- 입상일자
+		           ,W.MRTN_RACE_TYPE			-- 마라콘코스 종류
+		           ,W.PRV_GRP_TYPE				-- 개인단체 여부
+		           ,C.CONTEST_NM				-- 대회명
+		           ,T.INTL_TYPE					-- 국제대회 여부
+		           ,T.CONTEST_TYPE_SEQ			-- 대회분류연번
+		           ,C1.CD_NM AS GAME_NM			-- 종목명
+		           ,RH.PAY_DY					-- 지급일자
+		           ,RH.PAY_AMT					-- 포상금
+		           ,RH.RWRD_SEQ                 -- 포상금 지급연번
+			FROM   TBRS_WIN_HIS W, 
+			       TBRS_CONTEST C, 
+			       TBRS_CONTEST_TYPE T, 
+			       TBRS_RACER R, 
+			       TBRK_SPEC_CD C1,
+			       (SELECT  WIN_HIS_SEQ
+			               ,RACER_ID
+			               ,MAX(RWRD_SEQ) AS RWRD_SEQ
+			               ,MAX(PAY_DY) AS PAY_DY
+			               ,SUM(PAY_AMT) AS PAY_AMT
+			         FROM TBRS_RWRD_HIS
+			         GROUP BY WIN_HIS_SEQ, RACER_ID) RH
+			WHERE   C.GAME_CD     = C1.CD
+			   AND  C1.GRP_CD     = '144'
+			   AND  W.CONTEST_SEQ = C.CONTEST_SEQ
+			   AND  C.GAME_CD     = T.GAME_CD
+			   AND  C.CONTEST_TYPE_SEQ = T.CONTEST_TYPE_SEQ
+			   AND  W.RACER_ID    = R.RACER_ID
+			   AND  W.WIN_HIS_SEQ = RH.WIN_HIS_SEQ(+)
+			   AND  W.RACER_ID    = RH.RACER_ID
+			   AND  C.GAME_CD LIKE ?||'%'
+			   AND  W.WIN_DY BETWEEN NVL(?, '19990101') AND NVL(?, '29991231')
+			   AND  W.RACER_ID LIKE ?||'%'
+			ORDER BY C.GAME_CD, W.WIN_DY 
+        ]]>
+    </query>       
+    
+  <query id="rbs5110_s02" desc="입상내역 연번 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5110_s02 */
+                   NVL(MAX(WIN_HIS_SEQ)+1,1) AS MAX_WIN_HIS_SEQ                   
+			FROM   TBRS_WIN_HIS 
+        ]]>
+    </query>       
+    
+    <query id="rbs5110_m01" desc="입상내역 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5110_m01 */
+                  TBRS_WIN_HIS DST
+           USING (
+                     SELECT   ? AS WIN_HIS_SEQ
+                             ,? AS RACER_ID
+                             ,? AS GAME_CD
+                             ,? AS CONTEST_SEQ
+                             ,? AS RANK
+                             ,? AS ENTY_NM
+                             ,? AS WIN_DY
+                             ,? AS MRTN_RACE_TYPE
+                             ,? AS RMK
+                             ,? AS PRV_GRP_TYPE
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.WIN_HIS_SEQ 	= SRC.WIN_HIS_SEQ
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.RACER_ID 		= SRC.RACER_ID
+                        ,DST.GAME_CD 		= SRC.GAME_CD
+                        ,DST.CONTEST_SEQ   	= SRC.CONTEST_SEQ
+                        ,DST.RANK   		= SRC.RANK
+                        ,DST.ENTY_NM   		= SRC.ENTY_NM
+                        ,DST.WIN_DY   		= SRC.WIN_DY
+                        ,DST.MRTN_RACE_TYPE = SRC.MRTN_RACE_TYPE
+                        ,DST.RMK   			= SRC.RMK
+                        ,DST.PRV_GRP_TYPE	= SRC.PRV_GRP_TYPE
+                        ,DST.UPDT_ID 		= SRC.USER_ID
+                        ,DST.UPDT_DT 		= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  WIN_HIS_SEQ
+                , RACER_ID
+                , GAME_CD
+                , CONTEST_SEQ
+                , RANK
+                , ENTY_NM
+                , WIN_DY
+                , MRTN_RACE_TYPE
+                , RMK
+                , PRV_GRP_TYPE
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.WIN_HIS_SEQ --(SELECT NVL(MAX(WIN_HIS_SEQ), 0) + 1 FROM TBRS_WIN_HIS)
+                , SRC.RACER_ID
+                , SRC.GAME_CD
+                , SRC.CONTEST_SEQ
+                , SRC.RANK
+                , SRC.ENTY_NM
+                , SRC.WIN_DY
+                , NVL(SRC.MRTN_RACE_TYPE,'001')
+                , SRC.RMK
+                , SRC.PRV_GRP_TYPE
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5110_d01" desc="입상내역 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5110_d01 */
+            FROM TBRS_WIN_HIS
+           WHERE WIN_HIS_SEQ = ? 
+        ]]>
+    </query>    
+    
+</queryMap>

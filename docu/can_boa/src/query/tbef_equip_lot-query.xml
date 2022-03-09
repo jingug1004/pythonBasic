@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_equip 추첨 대상 모터보트 등록 ">
+    <query id="tbef_equip_lot_ff001" desc="추첨대상 모터  조회 " fetchSize="50">
+        <![CDATA[
+            -- 모터 추첨 대상 조회 
+			SELECT 
+				   T1.STND_YEAR,   -- 기준 년도 
+				   T1.MBR_CD,	-- 경정장 코드 
+				   T1.TMS, 		   -- 회차 
+				   T1.EQUIP_NO,    -- 장비번호 
+				   T1.EQUIP_TPE_CD||T1.EQUIP_REG_NO AS EQUIP_REG_NO,   -- 장비등록 번호 
+				   T1.EQUIP_TPE_CD,   -- 장비구분 
+				   T1.EQUIP_STAT_CD, -- 장비 상태 코드
+				   CASE WHEN T1.EQUIP_STAT_CD = '001' THEN ''
+				   		ELSE (SELECT CD_NM FROM TBEA_SPEC_CD SC WHERE SC.GRP_CD='E00103' AND SC.CD = T1.EQUIP_STAT_CD)
+				   END AS EQUIP_STAT_NM ,	-- 상비 상태 코드명
+				   DECODE(T1.PREPAR_YN, 'N', '1', '0') AS LOT_YN, -- 추첨대상  
+				   CASE WHEN T1.PREPAR_YN='Y' AND LOT_ORD<1 THEN  '1' ELSE  '0' END AS PREPAR_YN,  -- 예비대상  
+				   CASE WHEN T1.PREPAR_YN='Y' AND LOT_ORD=1 THEN  '1' ELSE  '0' END AS PREPAR_ADD1_YN,  -- 예비대상1  
+				   CASE WHEN T1.PREPAR_YN='Y' AND LOT_ORD=2 THEN  '1' ELSE  '0' END PREPAR_ADD2_YN,  -- 예비대상 2 
+				   T2.RUN_CNT, 		-- 출전 
+				   T2.RACE_CNT,  		-- 출전일 
+				   T2.RACE_DAY_CNT, 	-- 출주
+				   T2.RANK_1_CNT, 		-- 1착
+				   T2.RANK_2_CNT, 		-- 2착 
+				   T2.RANK_3_CNT, 		-- 3착 
+				   T2.RANK_4_CNT, 		-- 4착 
+				   T2.RANK_5_CNT, 		-- 5착 
+				   T2.RANK_6_CNT, 		-- 6착 
+				   T2.ACCU_RANK_SCR, 	-- 1/2착 
+				   T2.AVG_RANK_SCR, 	-- 평균 착순점
+				   T2.HIGH_RANK_RATIO, 	   -- 연대율
+				   T2.HIGH_3_RANK_RATIO,   -- 3연대율
+				   T2.TMS_3_ITRDT_RUN_TM,  -- 최근3소개
+				   T2.AVG_ITRDT_RUN_TM,    -- 평균소개
+				   T2.MAX_ITRDT_RUN_TM 			   -- 최고타임
+			FROM ( 
+			    -- 모터 추첨 현황 
+				SELECT 
+					TE.STND_YEAR, TE.MBR_CD, TE.TMS, TE.EQUIP_NO, TE.EQUIP_REG_NO, TE.EQUIP_TPE_CD, 
+					TEL.PREPAR_YN, TEL.LOT_ORD, TE.EQUIP_STAT_CD
+				FROM 
+					(SELECT 
+						? AS STND_YEAR,  MBR_CD, ? AS TMS, EQUIP_TPE_CD, EQUIP_STAT_CD,
+						EQUIP_NO, EQUIP_REG_NO 
+					FROM TBEF_EQUIP 
+					WHERE STND_YEAR = ?  AND MBR_CD = ?  AND EQUIP_TPE_CD = ?
+					AND USE_YN='Y'
+					) TE, TBEF_EQUIP_LOT TEL 
+				WHERE TE.STND_YEAR = TEL.STND_YEAR(+) 
+				AND TE.TMS = TEL.TMS(+) 
+				AND TE.EQUIP_TPE_CD = TEL.EQUIP_TPE_CD(+)
+				AND TE.EQUIP_NO = TEL.EQUIP_NO(+)
+				-- 장비배정전이고 마감인경우 
+				AND ( '020' > (SELECT NVL(RACE_TMS_STAT_CD,'000') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+					AND
+					 'N' = (SELECT NVL(EQUIP_DRWLT_CMPL_YN,'N') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+				)
+				-- 추점 마감 또는 장비 배정 이후 상금이 마감 된경우 equal jion한다,. 
+				UNION ALL
+				SELECT 
+					TE.STND_YEAR, TE.MBR_CD, TE.TMS, TE.EQUIP_NO, TE.EQUIP_REG_NO, TE.EQUIP_TPE_CD, 
+					TEL.PREPAR_YN, TEL.LOT_ORD, TE.EQUIP_STAT_CD
+				FROM 
+					(SELECT 
+						STND_YEAR,  MBR_CD, TMS, EQUIP_TPE_CD, EQUIP_STAT_CD,
+						EQUIP_NO, SUBSTR(EQUIP_NO, 6,3) AS EQUIP_REG_NO
+					FROM TBEF_EQUIP_STAT_LOT
+					WHERE STND_YEAR = ?  AND MBR_CD = ?  AND TMS = ? AND EQUIP_TPE_CD = ?
+					) TE, TBEF_EQUIP_LOT TEL 
+				WHERE TE.STND_YEAR = TEL.STND_YEAR(+) 
+				AND TE.TMS = TEL.TMS(+) 
+				AND TE.EQUIP_TPE_CD = TEL.EQUIP_TPE_CD(+)
+				AND TE.EQUIP_NO = TEL.EQUIP_NO(+)
+				-- 마감이나 추첨이후인 경우 
+				AND ( '020' <= (SELECT NVL(RACE_TMS_STAT_CD,'000') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+					OR
+					 'Y' = (SELECT NVL(EQUIP_DRWLT_CMPL_YN,'N') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+				)
+			)T1, 
+			( 
+			    -- 모터 회차별 기록 
+				SELECT ? AS STND_YEAR, ? AS TMS, MOT_NO AS EQUIP_NO, 
+		            RUN_CNT, RACE_CNT, RACE_DAY_CNT, 
+		            RANK_1_CNT, RANK_2_CNT, RANK_3_CNT, 
+		            RANK_4_CNT, RANK_5_CNT, RANK_6_CNT, 
+		            RANK_1_CNT + RANK_2_CNT AS ACCU_RANK_SCR, AVG_RANK_SCR, HIGH_RANK_RATIO, 
+		            HIGH_3_RANK_RATIO, TMS_3_ITRDT_RUN_TM, AVG_ITRDT_RUN_TM, 
+		            MAX_ITRDT_RUN_TM  
+		         FROM (
+		         	SELECT ROW_NUMBER () OVER (PARTITION BY MOT_NO ORDER BY STND_YEAR DESC, TMS DESC) AS NUM, 
+		            MOT_NO, RUN_CNT, RACE_CNT, RACE_DAY_CNT, 
+		            RANK_1_CNT, RANK_2_CNT, RANK_3_CNT, 
+		            RANK_4_CNT, RANK_5_CNT, RANK_6_CNT, 
+		            AMU_RANK_SCR AS ACCU_RANK_SCR, AVG_RANK_SCR, HIGH_RANK_RATIO, 
+		            HIGH_3_RANK_RATIO, TMS_3_ITRDT_RUN_TM, AVG_ITRDT_RUN_TM, 
+		            MAX_ITRDT_RUN_TM    
+		         FROM TBEB_MOT_RECD_ACCU_SUM   T
+		         WHERE STND_YEAR||LPAD(TMS,3,'0') <= ?||LPAD(?,3,'0')
+		         ) WHERE NUM=1
+			)T2 
+			WHERE T1.EQUIP_NO = T2.EQUIP_NO(+)
+			ORDER BY T1.EQUIP_NO
+        ]]>
+    </query> 
+    <query id="tbef_equip_lot_ff002" desc="추첨대상  보트 조회 " fetchSize="50">
+        <![CDATA[
+            /* 보트 추첨 대상 조회 */
+			SELECT 
+				   T1.STND_YEAR,   -- 기준 년도 
+				   T1.MBR_CD,	-- 경정자 코드 
+				   T1.TMS, 		   -- 회차 
+				   T1.EQUIP_NO,    -- 장비번호 
+				   T1.EQUIP_TPE_CD||T1.EQUIP_REG_NO AS EQUIP_REG_NO,   -- 장비등록 번호 
+				   T1.EQUIP_TPE_CD,   -- 장비구분 
+				   T1.EQUIP_STAT_CD, -- 장비 상태 코드
+				   CASE WHEN T1.EQUIP_STAT_CD = '001' THEN ''
+				   		ELSE (SELECT CD_NM FROM TBEA_SPEC_CD SC WHERE SC.GRP_CD='E00103' AND SC.CD = T1.EQUIP_STAT_CD)
+				   END AS EQUIP_STAT_NM ,	-- 상비 상태 
+				   DECODE(T1.PREPAR_YN, 'N', '1', '0') AS LOT_YN, -- 추첨대상  
+				   CASE WHEN T1.PREPAR_YN='Y' AND LOT_ORD<1 THEN  '1' ELSE  '0' END AS PREPAR_YN,  -- 예비대상  
+				   CASE WHEN T1.PREPAR_YN='Y' AND LOT_ORD=1 THEN  '1' ELSE  '0' END AS PREPAR_ADD1_YN,  -- 예비대상1  
+				   CASE WHEN T1.PREPAR_YN='Y' AND LOT_ORD=2 THEN  '1' ELSE  '0' END PREPAR_ADD2_YN,  -- 예비대상 2 
+				   T2.RUN_CNT, 		-- 출전 
+				   T2.RACE_CNT,  		-- 출전일 
+				   T2.RACE_DAY_CNT, 	-- 출주
+				   T2.RANK_1_CNT, 		-- 1착
+				   T2.RANK_2_CNT, 		-- 2착 
+				   T2.RANK_3_CNT, 		-- 3착 
+				   T2.RANK_4_CNT, 		-- 4착 
+				   T2.RANK_5_CNT, 		-- 5착 
+				   T2.RANK_6_CNT, 		-- 6착 
+				   T2.ACCU_RANK_SCR, 	-- 1/2착 
+				   T2.AVG_RANK_SCR, 	-- 평균 착순점
+				   T2.HIGH_RANK_RATIO, 	   -- 연대율
+				   T2.HIGH_3_RANK_RATIO   -- 3연대율
+			FROM ( 
+			    -- 보트  추첨 현황 
+				SELECT 
+					TE.STND_YEAR, TE.MBR_CD, TE.TMS, TE.EQUIP_NO, TE.EQUIP_REG_NO, TE.EQUIP_TPE_CD, 
+					TEL.PREPAR_YN, TEL.LOT_ORD, TE.EQUIP_STAT_CD
+				FROM 
+					(SELECT 
+						? AS STND_YEAR,  MBR_CD, ? AS TMS, EQUIP_TPE_CD, EQUIP_STAT_CD,
+						EQUIP_NO, EQUIP_REG_NO 
+					FROM TBEF_EQUIP 
+					WHERE STND_YEAR = ?  AND MBR_CD = ?  AND EQUIP_TPE_CD = ?
+					AND USE_YN='Y'
+					) TE, TBEF_EQUIP_LOT TEL 
+				WHERE TE.STND_YEAR = TEL.STND_YEAR(+) 
+				AND TE.TMS = TEL.TMS(+) 
+				AND TE.EQUIP_TPE_CD = TEL.EQUIP_TPE_CD(+)
+				AND TE.EQUIP_NO = TEL.EQUIP_NO(+)
+				-- 장비배정전이고 마감인경우 
+				AND ( '020' > (SELECT NVL(RACE_TMS_STAT_CD,'000') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+					AND
+					 'N' = (SELECT NVL(EQUIP_DRWLT_CMPL_YN,'N') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+				)
+				-- 회차 상금이 마감 된경우 equal jion한다,. 
+				UNION ALL
+				SELECT 
+					TE.STND_YEAR, TE.MBR_CD, TE.TMS, TE.EQUIP_NO, TE.EQUIP_REG_NO, TE.EQUIP_TPE_CD, 
+					TEL.PREPAR_YN, TEL.LOT_ORD, TE.EQUIP_STAT_CD
+				FROM 
+					(SELECT 
+						STND_YEAR,  MBR_CD, TMS, EQUIP_TPE_CD, EQUIP_STAT_CD,
+						EQUIP_NO, SUBSTR(EQUIP_NO, 6,3) AS EQUIP_REG_NO
+					FROM TBEF_EQUIP_STAT_LOT
+					WHERE STND_YEAR = ?  AND MBR_CD = ?  AND TMS = ? AND EQUIP_TPE_CD = ?
+					) TE, TBEF_EQUIP_LOT TEL 
+				WHERE TE.STND_YEAR = TEL.STND_YEAR(+) 
+				AND TE.TMS = TEL.TMS(+) 
+				AND TE.EQUIP_TPE_CD = TEL.EQUIP_TPE_CD(+)
+				AND TE.EQUIP_NO = TEL.EQUIP_NO(+)
+				-- 마감이나 추첨 이후인경우  
+				AND ( '020' <= (SELECT NVL(RACE_TMS_STAT_CD,'000') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+					OR
+					 'Y' = (SELECT NVL(EQUIP_DRWLT_CMPL_YN,'N') FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD=? AND TMS=?)
+				)
+			)T1, 
+			( 
+				-- 보트 회차별 기록 
+				SELECT ? AS STND_YEAR, ? AS TMS, BOAT_NO AS EQUIP_NO, 
+		            RUN_CNT, RACE_CNT, RACE_DAY_CNT, 
+				   RANK_1_CNT, RANK_2_CNT, RANK_3_CNT, 
+				   RANK_4_CNT, RANK_5_CNT, RANK_6_CNT, 
+				   RANK_1_CNT + RANK_2_CNT AS ACCU_RANK_SCR, AVG_RANK_SCR, HIGH_RANK_RATIO, 
+				   HIGH_3_RANK_RATIO
+				 FROM (
+		         	SELECT ROW_NUMBER () OVER (PARTITION BY BOAT_NO ORDER BY STND_YEAR DESC, TMS DESC) AS NUM, 
+			            BOAT_NO, RUN_CNT, RACE_CNT, RACE_DAY_CNT, 
+					   RANK_1_CNT, RANK_2_CNT, RANK_3_CNT, 
+					   RANK_4_CNT, RANK_5_CNT, RANK_6_CNT, 
+					   AMU_RANK_SCR AS  ACCU_RANK_SCR, AVG_RANK_SCR, HIGH_RANK_RATIO, 
+					   HIGH_3_RANK_RATIO
+			         FROM TBEB_BOAT_RECD_ACCU_SUM   T
+			         WHERE STND_YEAR||LPAD(TMS,3,'0') <= ?||LPAD(?,3,'0') 
+		         ) WHERE NUM=1
+			)T2 
+			WHERE T1.EQUIP_NO = T2.EQUIP_NO(+)
+			ORDER BY T1.EQUIP_NO
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_lot_ff003" desc="추첨대상  프로펠러" fetchSize="50">
+        <![CDATA[
+            /* 프로펠러  추첨 대상 조회 */
+			SELECT 
+					0 AS CHK, 
+				   STND_YEAR,   -- 기준 년도 
+				   MBR_CD,	-- 경정자 코드 
+				   TMS, 		   -- 회차 
+				   EQUIP_NO,    -- 장비번호 
+				   EQUIP_NO AS EQUIP_REG_NO,   -- 장비등록 번호 
+				   EQUIP_TPE_CD,   -- 장비구분 
+				   '' EQUIP_STAT ,	-- 상비 상태 
+				   DECODE(PREPAR_YN, 'N', '1', '0') AS LOT_YN, -- 추첨대상  
+				   DECODE(PREPAR_YN,'Y', '1', '0') AS PREPAR_YN,  -- 예비대상  
+				   DECODE(LOT_ORD,1, '1', '0') AS PREPAR_ADD1_YN,  -- 예비대상1  
+				   DECODE(LOT_ORD,2, '1', '0') AS PREPAR_ADD2_YN  -- 예비대상 2 
+			FROM TBEF_EQUIP_LOT
+			WHERE STND_YEAR = ?  AND MBR_CD = ?  AND TMS = ? AND EQUIP_TPE_CD = ?
+			ORDER BY EQUIP_NO
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_lot_mf001" desc="장비 저장/수정 " fetchSize="10">
+        <![CDATA[
+            /* 모터 보트 추첨 대상 등록/수정  */
+            MERGE INTO TBEF_EQUIP_LOT TEL
+            USING (
+            	SELECT 
+					? AS STND_YEAR, 	-- 기준년도 
+					? AS MBR_CD, 		-- 경정장 코드 
+					? AS TMS, 		-- 회차 
+					? AS EQUIP_TPE_CD,	-- 장비구분 
+					? AS EQUIP_NO, 	-- 장비번호 
+					? AS PREPAR_YN, 	-- 예비 대상 
+					? AS LOT_ORD, 	-- 추첨 차수 
+					? AS USER_ID 	-- 작성자 아이디 
+				FROM DUAL
+			) TL
+            ON (TEL.STND_YEAR = TL.STND_YEAR		-- 경정장 코드 
+            	AND TEL.MBR_CD = TL.MBR_CD		-- 경정장 코드 
+				AND TEL.TMS	= TL.TMS		-- 회차 
+				AND TEL.EQUIP_TPE_CD = TL.EQUIP_TPE_CD 		-- 장비구분 
+				AND TEL.EQUIP_NO = TL.EQUIP_NO			-- 장비 번호 
+			    )
+			WHEN MATCHED THEN
+				UPDATE
+			 	SET	TEL.PREPAR_YN = TL.PREPAR_YN, 		-- 예비대상 
+			 		TEL.LOT_ORD = TL.LOT_ORD, 		--추첨 차수 
+				    TEL.UPDT_ID   = TL.USER_ID,		-- 수정자 ID
+				    TEL.UPDT_DTM  = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+				   TEL.STND_YEAR, 	-- 기준년도 
+				   TEL.MBR_CD, 		-- 경정장 코드 
+				   TEL.TMS, 		-- 회차 
+				   TEL.EQUIP_TPE_CD,	-- 장비구분 
+				   TEL.EQUIP_NO, 	-- 장비번호 
+				   TEL.PREPAR_YN, 	-- 예비 대상 
+				   TEL.LOT_ORD, 	-- 추첨 차수  
+				   TEL.INST_ID, 	-- 작성자 아이디 
+				   TEL.INST_DTM 	-- 작성일시 
+				   ) 
+				VALUES ( 
+					TL.STND_YEAR, 	-- 기준년도 
+				   	TL.MBR_CD, 		-- 경정장 코드 
+				   	TL.TMS, 		-- 회차 
+				   	TL.EQUIP_TPE_CD,	-- 장비구분 
+				   	TL.EQUIP_NO, 	-- 장비번호 
+				   	TL.PREPAR_YN, 	-- 예비 대상 
+				   	TL.LOT_ORD, 	-- 추첨 차수  
+				   	TL.USER_ID, 	-- 작성자 아이디 
+				    SYSDATE)
+        ]]>
+    </query> 
+    
+    
+    <query id="tbef_equip_lot_df001" desc="삭제" fetchSize="10">
+        <![CDATA[
+            /* 모터 보트 추첨 대상 삭제  */
+			DELETE 
+			FROM TBEF_EQUIP_LOT
+			WHERE  STND_YEAR = ?		-- 기준 년도 
+			AND MBR_CD = ? 		-- 경정장 코드 
+			AND	TMS       = ?		-- 회차 
+			AND EQUIP_TPE_CD = ? 		-- 장비구분 
+			AND EQUIP_NO = ?			-- 장비 번호 
+        ]]>
+    </query> 
+    
+    
+    
+    <query id="tbef_equip_lot_ff901" desc="레포트 조회 " fetchSize="10">
+        <![CDATA[
+        	-- 모터보트 확정 통보서 계 
+            SELECT 
+				SUM(DECODE(EQUIP_TPE_CD,'M',1,0)) AS MOT_CNT, -- 모터 계
+			 	SUM(DECODE(EQUIP_TPE_CD,'B',1,0)) AS BOAT_CNT,	-- 보트 계
+			 	SUM(DECODE(EQUIP_TPE_CD,'P',1,0)) AS PROPELLER_CNT,	-- 프로펠러 계 
+			 	'예비용포함' AS RMK	-- 비고 
+			FROM VWEF_EQUIP_LOT
+			WHERE STND_YEAR = ?
+			AND MBR_CD = ?
+			AND TMS = ?
+			AND LOT_ORD =?
+        ]]>
+    </query> 
+    
+    
+    
+    
+    
+    <query id="tbef_equip_lot_ff902" desc="레포트 조회 " fetchSize="10">
+        <![CDATA[
+        -- 모터보트 확정 통보서  내역
+        -- 수정 장비갯수 : 66->72 (ROWNUM : 22->24->?, 전체ROWNUM : 66->72->(?*3), 예비용 : 16->18->(?-6))
+          SELECT MB.SEQ_NUM,	-- row Num
+		    MOT_SEQ_1,   -- 장비1 순번 
+		    MOT_NO_1,	-- 장비1 번호 
+		    MOT_SEQ_2,	-- 장비2 순번 
+		    MOT_NO_2,	-- 장비2 번호 
+		    MOT_SEQ_3,	-- 장비3 순번 
+		    MOT_NO_3,	-- 장비3 번호 
+		    BOAT_SEQ_1,	-- 보트1 순번 
+		    BOAT_NO_1,	-- 보트1 번호 
+		    BOAT_SEQ_2,	-- 보트2 순번
+		    BOAT_NO_2,	-- 보트2 번호 
+		    BOAT_SEQ_3,	-- 보트3 순번
+		    BOAT_NO_3,	-- 보트3 번호 
+		    PROPELLER_NO 	-- 프로펠러 
+		FROM (
+		    SELECT SEQ_NUM,
+		        MAX(DECODE(SEQ_TYPE,0, MOT_SEQ_1))AS MOT_SEQ_1,
+		        MAX(DECODE(SEQ_TYPE,0, MOT_NO_1))AS MOT_NO_1,
+		        MAX(DECODE(SEQ_TYPE,1, MOT_SEQ_2))AS MOT_SEQ_2,
+		        MAX(DECODE(SEQ_TYPE,1, MOT_NO_2))AS MOT_NO_2,
+		        MAX(DECODE(SEQ_TYPE,2, MOT_SEQ_3))AS MOT_SEQ_3,
+		        MAX(DECODE(SEQ_TYPE,2, MOT_NO_3))AS MOT_NO_3,
+		        MAX(DECODE(SEQ_TYPE,0, BOAT_SEQ_1))AS BOAT_SEQ_1,
+		        MAX(DECODE(SEQ_TYPE,0, BOAT_NO_1))AS BOAT_NO_1,
+		        MAX(DECODE(SEQ_TYPE,1, BOAT_SEQ_2))AS BOAT_SEQ_2,
+		        MAX(DECODE(SEQ_TYPE,1, BOAT_NO_2))AS BOAT_NO_2,
+		        MAX(DECODE(SEQ_TYPE,2, BOAT_SEQ_3))AS BOAT_SEQ_3,
+		        MAX(DECODE(SEQ_TYPE,2, BOAT_NO_3))AS BOAT_NO_3
+		     FROM (    
+		        SELECT COPY_NUM, SEQ_TYPE,
+		            -- 모터 
+--		            DECODE(SEQ_NUM,0, 22, SEQ_NUM) AS SEQ_NUM,
+		            DECODE(SEQ_NUM,0, ?, SEQ_NUM) AS SEQ_NUM,
+		            CASE WHEN SEQ_TYPE=0 THEN MOT_SEQ END AS MOT_SEQ_1,
+		            CASE WHEN SEQ_TYPE=0 THEN MOT_NO END AS MOT_NO_1,
+		            CASE WHEN SEQ_TYPE=1 THEN MOT_SEQ END AS MOT_SEQ_2,
+		            CASE WHEN SEQ_TYPE=1 THEN MOT_NO END AS MOT_NO_2,
+		            CASE WHEN SEQ_TYPE=2 THEN MOT_SEQ END AS MOT_SEQ_3,
+		            CASE WHEN SEQ_TYPE=2 THEN MOT_NO END AS MOT_NO_3,
+		            -- 보트 
+		            CASE WHEN SEQ_TYPE=0 THEN BOAT_SEQ END AS BOAT_SEQ_1,
+		            CASE WHEN SEQ_TYPE=0 THEN BOAT_NO END AS BOAT_NO_1,
+		            CASE WHEN SEQ_TYPE=1 THEN BOAT_SEQ END AS BOAT_SEQ_2,
+		            CASE WHEN SEQ_TYPE=1 THEN BOAT_NO END AS BOAT_NO_2,
+		            CASE WHEN SEQ_TYPE=2 THEN BOAT_SEQ END AS BOAT_SEQ_3,
+		            CASE WHEN SEQ_TYPE=2 THEN BOAT_NO END AS BOAT_NO_3 
+		        FROM (
+		            -- 장비 조회 
+		            SELECT A.SEQ_TYPE, A.SEQ_NUM, MOT_SEQ , MOT_NO, BOAT_NO, BOAT_SEQ
+		            FROM (
+		                 SELECT 
+--						    FLOOR((ROWNUM-1)/22) AS SEQ_TYPE, MOD(ROWNUM,22) AS SEQ_NUM, ROWNUM AS MOT_SEQ, EQUIP_NO AS MOT_NO  
+						    FLOOR((ROWNUM-1)/?) AS SEQ_TYPE, MOD(ROWNUM,?) AS SEQ_NUM, ROWNUM AS MOT_SEQ, EQUIP_NO AS MOT_NO  
+						 FROM 
+						 (SELECT  ROWNUM AS SEQ_NUM, EQUIP_TPE_CD, EQUIP_NO, PREPAR_YN, LOT_ORD  FROM VWEF_EQUIP_LOT
+						    WHERE STND_YEAR=? AND MBR_CD=? AND  TMS=? AND EQUIP_TPE_CD='M' AND LOT_ORD =?
+						 )ET, 
+--						 (SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=66) TP
+						 (SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=(?*3)) TP
+						 WHERE TP.SEQ_NUM = ET.SEQ_NUM(+)
+		            )A,
+		            (
+		                SELECT 
+--						    FLOOR((ROWNUM-1)/22) AS SEQ_TYPE, MOD(ROWNUM,22) AS SEQ_NUM, ROWNUM AS BOAT_SEQ, EQUIP_NO AS BOAT_NO  
+						    FLOOR((ROWNUM-1)/?) AS SEQ_TYPE, MOD(ROWNUM,?) AS SEQ_NUM, ROWNUM AS BOAT_SEQ, EQUIP_NO AS BOAT_NO  
+						 FROM 
+						 (SELECT  ROWNUM AS SEQ_NUM, EQUIP_TPE_CD, EQUIP_NO, PREPAR_YN, LOT_ORD  FROM VWEF_EQUIP_LOT
+						    WHERE STND_YEAR=? AND MBR_CD=? AND  TMS=? AND EQUIP_TPE_CD='B' AND LOT_ORD =?
+						 )ET, 
+--						 (SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=66) TP
+						 (SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=(?*3)) TP
+						 WHERE TP.SEQ_NUM = ET.SEQ_NUM(+)
+--		            )B, (SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=66) C
+		            )B, (SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=(?*3)) C
+                    WHERE A.SEQ_NUM = B.SEQ_NUM
+		            AND A.SEQ_TYPE = B.SEQ_TYPE
+		        ), (SELECT ROWNUM AS COPY_NUM FROM TBEF_EQUIP WHERE ROWNUM<=3) T2
+		    )
+		    GROUP BY SEQ_NUM
+		    ORDER BY SEQ_NUM
+		)MB,
+		(
+		    SELECT A.SEQ_NUM, B.PROPELLER_NO FROM (
+--		    SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=22
+		    SELECT ROWNUM AS SEQ_NUM FROM TBEF_EQUIP WHERE ROWNUM<=?
+		    )A,(
+--		    SELECT 16 AS SEQ_NUM , '예비용' AS PROPELLER_NO FROM DUAL
+		    SELECT (?-6) AS SEQ_NUM , '예비용' AS PROPELLER_NO FROM DUAL
+		    UNION ALL
+--		    SELECT ROWNUM + 16 AS SEQ_NUM, EQUIP_NO AS PROPELLER_NO  FROM VWEF_EQUIP_LOT
+		    SELECT ROWNUM + (?-6) AS SEQ_NUM, EQUIP_NO AS PROPELLER_NO  FROM VWEF_EQUIP_LOT
+		    WHERE STND_YEAR=? AND MBR_CD=? AND TMS=?  AND EQUIP_TPE_CD='P'
+		    AND 0=?
+		    )B
+		    WHERE A.SEQ_NUM = B.SEQ_NUM(+)
+		    ORDER BY SEQ_NUM
+		)P
+		WHERE MB.SEQ_NUM = P.SEQ_NUM
+        ]]>
+    </query> 
+    
+   
+</queryMap>

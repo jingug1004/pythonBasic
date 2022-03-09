@@ -1,0 +1,2244 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM2010(매출현황)">
+	<query id="rsm2010_s01" desc="경주 기본 정보" fetchSize="10">
+        <![CDATA[
+        	WITH SDAY AS ( --광명 휴장일 지방교차 처리 
+				          SELECT '20140808' RACE_DAY FROM DUAL --세계주니어선수권대회
+				UNION ALL SELECT '20140809' RACE_DAY FROM DUAL --세계주니어선수권대회 
+				UNION ALL SELECT '20140810' RACE_DAY FROM DUAL --세계주니어선수권대회
+				UNION ALL SELECT '20160923' RACE_DAY FROM DUAL --광명피스타 공사
+				UNION ALL SELECT '20160924' RACE_DAY FROM DUAL --광명피스타 공사
+				UNION ALL SELECT '20160925' RACE_DAY FROM DUAL --광명피스타 공사
+			)
+        	SELECT	/* rsm2010_s01 */
+        		AA.MEET_CD,      -- 경륜장코드              
+		        AA.STND_YEAR,    -- 기준년도    
+		        AA.TMS,          -- 회차
+		        AA.DAY_ORD,      -- 일차
+		        AA.RACE_DAY,     -- 경주일          
+		        AA.RACE_YOIL,    -- 요일       
+		        TO_CHAR(TO_DATE(AA.RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD')||
+		        ' ('||AA.RACE_YOIL_KOR||') '||AA.TMS||'회차 '||AA.DAY_ORD||'일차'  
+		        AS RACE_INFO  -- 경주 정보                           
+			 
+			   FROM (        	
+	           SELECT                              
+				        MEET_CD,      -- 경륜장코드              
+				        STND_YEAR,    -- 기준년도    
+				        TMS,          -- 회차
+				        DAY_ORD,      -- 일차
+				        RACE_DAY,     -- 경주일          
+				        RACE_YOIL,    -- 요일
+				        DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') AS RACE_YOIL_KOR, -- 요일 
+				        TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD')||
+				        ' ('||RACE_YOIL||') '||TMS||'회차 '||DAY_ORD||'일차'  
+				        AS RACE_INFO  -- 경주 정보                                 
+				 FROM                                
+				        VW_SDL_INFO T    -- 경주일 정보            
+				 WHERE  1=1                             
+				        AND RACE_DAY = ?
+				        AND MEET_CD IN (
+							SELECT '001' FROM DUAL --광명
+							WHERE T.RACE_DAY NOT IN (SELECT RACE_DAY FROM SDAY )
+							UNION ALL
+							SELECT '003' FROM DUAL --미사리
+							WHERE T.RACE_DAY NOT IN (SELECT RACE_DAY FROM SDAY )
+							UNION ALL
+							SELECT '002' FROM DUAL --광명 휴장(창원)
+							WHERE T.RACE_DAY IN (SELECT RACE_DAY FROM SDAY )
+							UNION ALL
+							SELECT '004' FROM DUAL --광명 휴장(부산)
+							WHERE T.RACE_DAY IN (SELECT RACE_DAY FROM SDAY )
+						)
+			)AA
+				          
+        ]]>
+    </query>
+    
+    <query id="rsm2010_s02" desc="매출현황 조회(경륜)" fetchSize="10">
+        <![CDATA[
+	          SELECT /* rsm2010_s02 */
+	          		C.LEV,       -- TOTAL, % 구분값
+			       C.MEET_NM,   -- 시행처
+			       C.MEET_CD,   -- 경륜장코드
+			       C.MEET_CD_ORDER, -- 정렬순서
+			       C.RACE_NO,   -- 경주    
+			        
+			        DECODE(C.LEV,1,SUM(WIN), 2,SUM(WIN), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(WIN)/SUM(SUB_TOT)* 100),2) )) AS WIN,    -- 단승식
+                    DECODE(C.LEV,1,SUM(PLC), 2,SUM(PLC), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(PLC)/SUM(SUB_TOT)* 100),2) )) AS PLC,    -- 연승식
+                    DECODE(C.LEV,1,SUM(QUI), 2,SUM(QUI), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(QUI)/SUM(SUB_TOT)* 100),2) )) AS QUI,    -- 복승식
+                    DECODE(C.LEV,1,SUM(EXA), 2,SUM(EXA), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(EXA)/SUM(SUB_TOT)* 100),2) )) AS EXA,    -- 쌍승식
+                    DECODE(C.LEV,1,SUM(TRI), 2,SUM(TRI), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(TRI)/SUM(SUB_TOT)* 100),2) )) AS TRI,  -- 삼복승식
+                    DECODE(C.LEV,1,SUM(SUB_TOT), 2,SUM(SUB_TOT), 3, 100) AS SUB_TOT,                        -- 매출액
+                    DECODE(C.LEV,1,SUM(SUB_REFUND_TOT), 2,SUM(SUB_REFUND_TOT), 3,DECODE(SUM(DIV_TOTAL),0,0, ROUND((SUM(SUB_REFUND_TOT)/SUM(DIV_TOTAL)* 100),2) )) AS SUB_REFUND_TOT,    -- 미사리
+                    DECODE(C.LEV,1,SUM(CRA), 2,SUM(CRA), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(CRA)/SUM(DIV_TOTAL)* 100),2) )) AS CRA, -- 광명
+                    DECODE(C.LEV,1,SUM(MRA), 2,SUM(MRA), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(MRA)/SUM(DIV_TOTAL)* 100),2) )) AS MRA, -- 경정지점
+                    DECODE(C.LEV,1,SUM(MYCAT), 2,SUM(MYCAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(MYCAT)/SUM(DIV_TOTAL)* 100),2) )) AS MYCAT,     -- MYCAT
+                    DECODE(C.LEV,1,SUM(BON_CAT), 2,SUM(BON_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(BON_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS BON_CAT, -- 본장
+                    DECODE(C.LEV,1,SUM(NON_CAT), 2,SUM(NON_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(NON_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS NON_CAT, -- 논현
+                    DECODE(C.LEV,1,SUM(OLM_CAT), 2,SUM(OLM_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(OLM_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS OLM_CAT, -- 올림픽
+                    DECODE(C.LEV,1,SUM(TON_CAT), 2,SUM(TON_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(TON_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS TON_CAT, -- 동대문
+                    DECODE(C.LEV,1,SUM(SAN_CAT), 2,SUM(SAN_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(SAN_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS SAN_CAT, -- 산본
+                    DECODE(C.LEV,1,SUM(JIBANG), 2,SUM(JIBANG), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(JIBANG)/SUM(DIV_TOTAL)* 100),2) )) AS JIBANG,     -- 교차
+                    DECODE(C.LEV,1,SUM(JIJUM), 2,SUM(JIJUM), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(JIJUM)/SUM(DIV_TOTAL)* 100),2) )) AS JIJUM,         -- 장외지점
+                                                                              
+                    DECODE(C.LEV,1,SUM(DIV_TOTAL), 2,SUM(DIV_TOTAL), 3, 100) AS DIV_TOTAL  -- 전체
+                    
+			        
+			FROM ( 
+			SELECT BB.LEV, 
+			    DECODE(BB.LEV, 1, AA.MEET_NM, 2, '',3, '')AS  MEET_NM, 
+			    DECODE(BB.LEV, 1, AA.MEET_CD||'TOTAL_3', 2, AA.MEET_CD||'TOTAL_2',AA.MEET_CD||'TOTAL_1')AS  MEET_CD_ORDER,
+			    AA.MEET_CD,
+			    DECODE(BB.LEV, 1, AA.RACE_NO, 2, '합계',3, '%')AS  RACE_NO ,
+			    AA.WIN,
+			    AA.PLC,
+			    AA.QUI,
+			    AA.EXA,                                                            
+			    AA.TRI,                                                            
+			    AA.SUB_TOT,                                                        
+			    AA.SUB_REFUND_TOT,                                                 
+			    --AA.CRA,                                                            
+			    DECODE(AA.MEET_CD, '003', 0, AA.CRA) AS CRA,                                                               
+			    --AA.MRA,                                                            
+			    DECODE(AA.MEET_CD, '003', AA.MRA, 0) AS MRA,                                                               
+			    AA.MYCAT,                                                          
+			    AA.BON_CAT,                                                        
+			    AA.NON_CAT,                                                        
+			    AA.OLM_CAT,                                                        
+			    AA.TON_CAT,                                                        
+			    AA.SAN_CAT,                                                        
+			    AA.JIBANG,   
+                --AA.JIJUM,                                                          
+			    DECODE(AA.MEET_CD, '001', AA.JIJUM + NVL(AA.MRA,0), '003', AA.JIJUM + NVL(AA.CRA,0), AA.JIJUM) AS JIJUM,                                                               
+			    AA.DIV_TOTAL   
+			
+			 FROM(	 
+				 SELECT                                                                
+				     P.MEET_NM,                                                        
+				     P.MEET_CD,                                                        
+				     P.G_MEET_CD,                                                      
+				     P.RACE_NO,                                                        
+				     DECODE(P.RACE_NO,'TOTAL','TD_G_C','TD_W_C2') AS COLOR,            
+				     P.G_RACE_NO,                                                      
+				     P.WIN,                                                            
+				     P.PLC,                                                            
+				     P.QUI,                                                            
+				     P.EXA,                                                            
+				     P.TRI,                                                            
+				     P.SUB_TOT,                                                        
+				     P.SUB_REFUND_TOT,                                                 
+				     NVL(D.CRA,0) AS CRA,                                                            
+				     NVL(D.MRA,0) AS MRA,                                                            
+				     D.MYCAT,                                                          
+				     E.BON_CAT,                                                        
+				     E.NON_CAT,                                                        
+				     E.OLM_CAT,                                                        
+				     E.TON_CAT,                                                        
+				     E.SAN_CAT,                                                        
+				     D.JIBANG,                                                         
+				     D.JIJUM,                                                          
+				     D.DIV_TOTAL                                                       
+				 FROM                                                                  
+				 (                                                                     
+				     SELECT                                                            
+				         NVL(                                                          
+				             CASE                                                      
+				                WHEN P.MEET_CD = '001' THEN '광명'                     
+				                WHEN P.MEET_CD = '002' THEN '창원'                     
+				                WHEN P.MEET_CD = '004' THEN '부산'                     
+				                WHEN P.MEET_CD = '003' THEN '미사리'                   
+				             END,'TOTAL'                                               
+				         ) AS MEET_NM,                                                 
+				         NVL(P.MEET_CD,'TOTAL') AS MEET_CD,                            
+				         GROUPING (P.MEET_CD) AS G_MEET_CD,                            
+				         NVL(P.RACE_NO,'TOTAL') AS RACE_NO,                            
+				         GROUPING (P.RACE_NO) AS G_RACE_NO,                            
+				         SUM (CASE WHEN P.POOL_CD = '001' THEN P.POOL_TOTAL END) WIN,  
+				         SUM (CASE WHEN P.POOL_CD = '002' THEN P.POOL_TOTAL END) PLC,  
+				         SUM (CASE WHEN P.POOL_CD = '005' THEN P.POOL_TOTAL END) QUI,  
+				         SUM (CASE WHEN P.POOL_CD = '004' THEN P.POOL_TOTAL END) EXA,  
+				         SUM (CASE WHEN P.POOL_CD = '006' THEN P.POOL_TOTAL END) TRI,  
+				         SUM (P.POOL_TOTAL) SUB_TOT,                                   
+				         SUM (P.REFUND) SUB_REFUND_TOT                                 
+				     FROM                                                              
+				         VW_SDL_PT P,      -- 경주 매출액                                           
+				         VW_SDL_INFO I       -- 경주일 정보                                                  
+				     WHERE 1=1                                                            
+				         AND I.RACE_DAY= ?       -- 경주일 yyyymmdd                                              
+				         AND P.STND_YEAR  = I.STND_YEAR                                
+				         AND P.MEET_CD    = I.MEET_CD                                  
+				         AND P.TMS        = I.TMS                                      
+				         AND P.DAY_ORD    = I.DAY_ORD                                  
+				     GROUP BY P.MEET_CD, P.RACE_NO
+				 ) P,                                                                  
+				 (                                                                     
+				     SELECT                                                            
+				         NVL(                                                          
+				             CASE                                                      
+				                WHEN D.MEET_CD = '001' THEN '광명'                     
+				                WHEN D.MEET_CD = '002' THEN '창원'                     
+				                WHEN D.MEET_CD = '004' THEN '부산'                     
+				                WHEN D.MEET_CD = '003' THEN '미사리'                   
+				             END,'TOTAL'                                               
+				         ) AS MEET_NM,                                                 
+				         NVL(D.MEET_CD,'TOTAL') AS MEET_CD,                            
+				         GROUPING (D.MEET_CD) AS G_MEET_CD,                            
+				         NVL(D.RACE_NO,'TOTAL') AS RACE_NO,                            
+				         GROUPING (D.RACE_NO) AS G_RACE_NO,                            
+				         SUM(                                                          
+				             CASE                                                      
+				                 WHEN                                                  
+				                     D.SELL_CD = '01'                                  
+				                     AND D.COMM_NO IN ('01','02','03','04','08')                   
+				                 THEN D.DIV_TOTAL                                      
+				             END                                                       
+				         ) AS CRA,                                                     
+				         SUM(                                                          
+				             CASE                                                      
+				                 WHEN                                                  
+				                     D.SELL_CD = '03'                                  
+				                     AND D.COMM_NO NOT IN('06','07')                   
+				                 THEN D.DIV_TOTAL                                      
+				             END                                                       
+				         ) AS MRA,                                                     
+				         NVL(SUM(                                                      
+				             CASE                                                      
+				                 WHEN                                                  
+				                     D.COMM_NO IN ('06')
+				                 THEN D.DIV_TOTAL                                      
+				             END                                                       
+				         ),0) AS MYCAT,                                                
+				         NVL(SUM(                                                      
+				             CASE                                                      
+				                 WHEN                                                  
+				                     ( D.SELL_CD = '02' OR D.SELL_CD = '04')           
+				                 THEN D.DIV_TOTAL                                      
+				             END                                                       
+				         ),0) AS JIBANG,                                               
+				         NVL(SUM(                                                      
+				             CASE                                                      
+				                 WHEN                                                  
+				                     D.SELL_CD = '01'                                  
+				                     AND D.COMM_NO NOT IN ('01','02','03','04','08','06')                            
+				                 THEN D.DIV_TOTAL                                      
+				             END                                                       
+				         ),0) AS JIJUM,                                                
+				         SUM (D.DIV_TOTAL) DIV_TOTAL                                   
+				     FROM                                                              
+				         VW_SDL_DT D,		-- 지점별 매출액                                                            
+				         VW_SDL_INFO I      -- 경주일 정보                                            
+				     WHERE 1=1                                                             
+				         AND I.RACE_DAY   = ?      -- 경주일 yyyymmdd                                   
+				         AND D.STND_YEAR  = I.STND_YEAR                                
+				         AND D.MEET_CD    = I.MEET_CD                                  
+				         AND D.TMS        = I.TMS                                      
+				         AND D.DAY_ORD    = I.DAY_ORD                                  
+				     GROUP BY D.MEET_CD,D.RACE_NO                     
+				 ) D,                                                                  
+				 (                                                                     
+				 	SELECT                                                              
+				 		NVL(                                                            
+				             CASE                                                      
+				                WHEN MEET_CD = '001' THEN '광명'                        
+				                WHEN MEET_CD = '002' THEN '창원'                        
+				                WHEN MEET_CD = '004' THEN '부산'                        
+				                WHEN MEET_CD = '003' THEN '미사리'                      
+				             END,'TOTAL'                                               
+				         ) AS MEET_NM,                                                 
+				         NVL(MEET_CD,'TOTAL') AS MEET_CD,                              
+				         GROUPING (MEET_CD) AS G_MEET_CD,                              
+				         NVL(RACE_NO,'TOTAL') AS RACE_NO,                              
+				         GROUPING (RACE_NO) AS G_RACE_NO,                              
+				   	SUM(DECODE(DIV_NO,'00',NET_AMT,0)) BON_CAT, /* 발매지점, 순매출액 */                     
+				       SUM(DECODE(DIV_NO,'15',NET_AMT,0)) NON_CAT,                     
+				       SUM(DECODE(DIV_NO,'17',NET_AMT,0)) OLM_CAT,                      
+				       SUM(DECODE(DIV_NO,'04',NET_AMT,0)) TON_CAT,                     
+				       SUM(DECODE(DIV_NO,'07',NET_AMT,0)) SAN_CAT                     
+				  	FROM                                                                
+				 	VW_MYCAT_SALES                  -- 계좌 지점별 매출액                                    
+				 	WHERE 1=1
+				 	AND RACE_DAY = ?            	-- 경주일  yyyymmdd                             
+				 	GROUP BY MEET_CD, RACE_NO                              
+				 ) E                                                                   
+				 WHERE 1=1                                                             
+				     AND P.MEET_CD = D.MEET_CD(+)                                      
+				     AND P.RACE_NO = D.RACE_NO(+)                                      
+				     AND P.MEET_CD = E.MEET_CD(+)                                      
+				     AND P.RACE_NO = E.RACE_NO(+)                                      
+				    -- AND P.MEET_CD NOT IN ('003')
+				    AND (P.MEET_CD  LIKE ? 
+				       OR P.MEET_CD = DECODE(?,'001','002')  
+				       OR P.MEET_CD = DECODE(?,'001','004')
+				     )
+			)AA,(SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=3 ) BB	 
+			)C GROUP BY C.LEV, C.MEET_NM,C.MEET_CD_ORDER,C.MEET_CD,C.RACE_NO
+			ORDER BY C.MEET_CD_ORDER DESC,C.LEV ASC				               
+			
+        ]]>
+    </query>
+
+	<query id="rsm2010_s06" desc="경륜, 경정 구분 검색 " fetchSize="10">
+	    <![CDATA[
+	    SELECT /* rsm2010_s06 */
+	           DISTINCT DECODE(MEET_CD,'003','003','001') AS CD,
+		       DECODE(MEET_CD,'003','경정','경륜') AS CD_NM
+		 FROM VW_SDL_INFO
+		WHERE 1=1
+		  AND RACE_DAY	= ? -- 0:RACE_DAY 경주일
+		ORDER BY CD	    
+	    ]]>
+    </query>
+    
+    <query id="rsm2010_s09" desc="지점별 총 매출액" fetchSize="10">
+	    <![CDATA[
+			WITH I AS (
+			        SELECT * FROM VW_SDL_INFO
+			        WHERE race_day = ?
+			          AND meet_cd = ?
+			) 
+			,A AS (
+			        SELECT --comm_no, sum(div_total)
+			            R.MEET_CD,        -- 경륜구분 코드
+			            R.STND_YEAR,        -- 기준년도           
+			            SUM(DIV_TOTAL) SUM_AMT,                                                    -- 매출총계
+			            SUM(CASE WHEN R.MEET_CD||SELL_CD IN ('00101','00201','00303','00401') AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END) BON_AMT, -- 경주 구분 코드
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN DIV_TOTAL END) SUW_AMT,    -- 수원
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN DIV_TOTAL END) JUN_AMT,    -- 상봉(중랑)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN DIV_TOTAL END) ILS_AMT,    -- 일산
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN DIV_TOTAL END) TON_AMT,    -- 동대문
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN DIV_TOTAL END) BUN_AMT,    -- 분당
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN DIV_TOTAL END) JAN_AMT,    -- 장안
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN DIV_TOTAL END) SAN_AMT,    -- 산본
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN DIV_TOTAL END) BUC_AMT,    -- 부천
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN DIV_TOTAL END) GWA_AMT,    -- 관악
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN DIV_TOTAL END) SUN_AMT,    -- 길음(성북)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN DIV_TOTAL END) YOU_AMT,    -- 당산(영등포)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN DIV_TOTAL END) DAE_AMT,    -- 유성(대전)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN DIV_TOTAL END) INC_AMT,    -- 인천
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN DIV_TOTAL END) SIH_AMT,    -- 시흥
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN DIV_TOTAL END) NON_AMT,    -- 논현(강남)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN DIV_TOTAL END) CHU_AMT,    -- 천안
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN DIV_TOTAL END) OLM_AMT,    -- 올림픽
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN DIV_TOTAL END) EUI_AMT,    -- 의정부
+			            SUM(CASE WHEN R.MEET_CD||SELL_CD IN ('00103','00203','00301','00403') AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END) SHA_AMT -- 공동활용 본장 
+			        FROM VW_SDL_DT_SUM_GSUM R, I   --과거는 VW_SDL_DT_SUM_GSUM  , 오늘은  VW_SDL_DT_GSUM_REAL
+			        WHERE R.stnd_year = I.stnd_year AND R.tms = I.tms AND R.day_ord = I.day_ord AND R.meet_cd = I.meet_cd
+			        GROUP BY R.meet_cd, R.stnd_year  
+			)
+			,AA AS (
+			     SELECT
+			        BON_AMT,
+			        ROUND(BON_AMT/SUM_AMT*100,2) AS BON_RATE,
+			        NON_AMT,
+			        ROUND(NON_AMT/SUM_AMT*100,2) AS NON_RATE,
+			        OLM_AMT,
+			        ROUND(OLM_AMT/SUM_AMT*100,2) AS OLM_RATE,
+			        TON_AMT,
+			        ROUND(TON_AMT/SUM_AMT*100,2) AS TON_RATE,
+			        SAN_AMT,
+			        ROUND(SAN_AMT/SUM_AMT*100,2) AS SAN_RATE,
+			        EUI_AMT,
+			        ROUND(EUI_AMT/SUM_AMT*100,2) AS EUI_RATE,
+			        SUW_AMT,
+			        ROUND(SUW_AMT/SUM_AMT*100,2) AS SUW_RATE,                            
+			        JUN_AMT,
+			        ROUND(JUN_AMT/SUM_AMT*100,2) AS JUN_RATE,
+			        ILS_AMT,
+			        ROUND(ILS_AMT/SUM_AMT*100,2) AS ILS_RATE,
+			        BUN_AMT,
+			        ROUND(BUN_AMT/SUM_AMT*100,2) AS BUN_RATE,
+			        JAN_AMT,
+			        ROUND(JAN_AMT/SUM_AMT*100,2) AS JAN_RATE,
+			        BUC_AMT,
+			        ROUND(BUC_AMT/SUM_AMT*100,2) AS BUC_RATE,
+			        GWA_AMT,
+			        ROUND(GWA_AMT/SUM_AMT*100,2) AS GWA_RATE,
+			        SUN_AMT,
+			        ROUND(SUN_AMT/SUM_AMT*100,2) AS SUN_RATE,
+			        YOU_AMT,
+			        ROUND(YOU_AMT/SUM_AMT*100,2) AS YOU_RATE,
+			        DAE_AMT,
+			        ROUND(DAE_AMT/SUM_AMT*100,2) AS DAE_RATE,
+			        INC_AMT,
+			        ROUND(INC_AMT/SUM_AMT*100,2) AS INC_RATE,
+			        SIH_AMT,
+			        ROUND(SIH_AMT/SUM_AMT*100,2) AS SIH_RATE,
+			        CHU_AMT,
+			        ROUND(CHU_AMT/SUM_AMT*100,2) AS CHU_RATE,
+			        SHA_AMT,
+			        ROUND(SHA_AMT/SUM_AMT*100,2) AS SHA_RATE,
+			        SUM_AMT,
+			        ROUND(SUM_AMT/SUM_AMT*100,2) AS SUM_RATE 
+			    FROM A
+			)    
+			SELECT 
+			        DECODE(LEV,1,SUM_AMT,SUM_RATE) AS SUM_AMT,    -- 합계            
+			        DECODE(LEV,1,BON_AMT,BON_RATE) AS BON_AMT,    -- 본장
+			        DECODE(LEV,1,SUW_AMT,SUW_RATE) AS SUW_AMT,    -- 수원
+			        DECODE(LEV,1,JUN_AMT,JUN_RATE) AS JUN_AMT,    -- 중랑
+			        DECODE(LEV,1,ILS_AMT,ILS_RATE) AS ILS_AMT,    -- 일산
+			        DECODE(LEV,1,BUN_AMT,BUN_RATE) AS BUN_AMT,    -- 분당
+			        DECODE(LEV,1,TON_AMT,TON_RATE) AS TON_AMT,    -- 동대문                    
+			        DECODE(LEV,1,JAN_AMT,JAN_RATE) AS JAN_AMT,    -- 장안
+			        DECODE(LEV,1,SAN_AMT,SAN_RATE) AS SAN_AMT,    -- 산본                    
+			        DECODE(LEV,1,BUC_AMT,BUC_RATE) AS BUC_AMT,    -- 부천
+			        DECODE(LEV,1,GWA_AMT,GWA_RATE) AS GWA_AMT,    -- 관악
+			        DECODE(LEV,1,SUN_AMT,SUN_RATE) AS SUN_AMT,    -- 성북
+			        DECODE(LEV,1,YOU_AMT,YOU_RATE) AS YOU_AMT,    -- 영등포
+			        DECODE(LEV,1,DAE_AMT,DAE_RATE) AS DAE_AMT,    -- 대전
+			        DECODE(LEV,1,INC_AMT,INC_RATE) AS INC_AMT,    -- 인천
+			        DECODE(LEV,1,SIH_AMT,SIH_RATE) AS SIH_AMT,    -- 시흥
+			        DECODE(LEV,1,NON_AMT,NON_RATE) AS NON_AMT,    -- 강남                    
+			        DECODE(LEV,1,CHU_AMT,CHU_RATE) AS CHU_AMT,    -- 천안
+			        DECODE(LEV,1,OLM_AMT,OLM_RATE) AS OLM_AMT,    -- 올림픽
+			        DECODE(LEV,1,EUI_AMT,EUI_RATE) AS EUI_AMT,    -- 의정부                    
+			        DECODE(LEV,1,SHA_AMT,SHA_RATE) AS SHA_AMT     -- 공동활용본장(광명 또는 미사리)            
+			FROM AA,
+			    (SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2 ) BB
+	    ]]>
+    </query>
+    
+    <query id="rsm2010_s04" desc="전주대비 전년대비" fetchSize="10">
+        <![CDATA[
+			  SELECT
+			  	/* rsm2010_s04 */                                                            
+			     RACE_YOIL,		-- 요일  	                                                  
+			     BEFORE_YEAR,   -- 전회차 년도                                         
+			     BEFORE_TMS,    -- 전회                                         
+			     YEAR,          -- 현재년                                         
+			     TMS,           -- 현재회                                       
+			     LAST_YEAR,     --                                        
+			     LAST_TMS,                                                     
+			     BEFORE_TOTAL,  -- 전주대비 첫 번째 회차                                               
+			     TOTAL,         -- 전주대비회차                                            
+			     LAST_TOTAL,	-- 전년대비 첫번째 회
+			     (TOTAL-BEFORE_TOTAL) AS BEFORE_COMPARE,	-- 전주대비 증감액
+			                                                             
+			     CASE 
+			     	WHEN (TOTAL-BEFORE_TOTAL) > 0 THEN '1' 
+			     	WHEN (TOTAL-BEFORE_TOTAL) < 0 THEN '-1'
+			     	ELSE '0'
+			     END BEFORE_COMPARE_COLOR,                                     
+			     
+			     (TOTAL-LAST_TOTAL) AS LAST_COMPARE,		-- 전년대비 증감액		     
+			     
+			     (TOTAL-LAST_TOTAL) LAST_COMPARE_COLOR,
+			     CASE 
+			     	WHEN (TOTAL-LAST_TOTAL) > 0 THEN '1' 
+			     	WHEN (TOTAL-LAST_TOTAL) < 0 THEN '-1'
+			     	ELSE '0'
+			     END LAST_COMPARE_COLOR,                                       
+			                            
+			                                
+			     CASE                                                          
+			         WHEN BEFORE_TOTAL<>0 AND BEFORE_TOTAL>0 THEN              
+			         TO_CHAR((TOTAL-BEFORE_TOTAL)/BEFORE_TOTAL*100,'990.00')   
+			         ELSE '0.00'                                               
+			     END PER_BEFORE,                                               
+			     CASE                                                          
+			         WHEN LAST_TOTAL<>0 AND LAST_TOTAL>0 THEN                  
+			         TO_CHAR((TOTAL-LAST_TOTAL)/LAST_TOTAL*100,'990.00')       
+			         ELSE '0.00'                                               
+			     END PER_LAST_BEFORE,                                          
+			    CASE                                                                                              
+			        WHEN BEFORE_TOTAL<>0 AND BEFORE_TOTAL>0 AND (TOTAL-BEFORE_TOTAL)>0 THEN                       
+			        TO_CHAR((TOTAL-BEFORE_TOTAL)/BEFORE_TOTAL*100,'990.00')    
+			        WHEN BEFORE_TOTAL<>0 AND BEFORE_TOTAL>0  AND (TOTAL-BEFORE_TOTAL)<0 THEN                      
+			        TO_CHAR((TOTAL-BEFORE_TOTAL)/BEFORE_TOTAL*100,'990.00')   
+			       WHEN BEFORE_TOTAL=0 AND TOTAL>0 THEN  
+			        '100'                                	    
+			        ELSE '0.00'                                                                                   
+			    END PER_BEFORE_COLOR,                                                                             
+			    CASE                                                                                              
+			       WHEN  LAST_TOTAL<>0 AND LAST_TOTAL>0 AND (TOTAL-LAST_TOTAL)>0 THEN                           
+			        TO_CHAR((TOTAL-LAST_TOTAL)/LAST_TOTAL*100,'990.00')        
+			        WHEN  LAST_TOTAL<>0 AND LAST_TOTAL>0  AND (TOTAL-LAST_TOTAL)<0 THEN                         
+			        TO_CHAR((TOTAL-LAST_TOTAL)/LAST_TOTAL*100,'990.00')       
+			       WHEN LAST_TOTAL=0 AND TOTAL>0 THEN  
+			        '100'                              	    
+			        ELSE '0.00'                                                                                   
+			    END PER_LAST_BEFORE_COLOR
+			 FROM(                                                             
+			     SELECT                                                        
+			         T.RACE_YOIL,                                              
+			         A.STND_YEAR AS BEFORE_YEAR,                                
+			         A.TMS AS BEFORE_TMS,                                     
+			         V.STND_YEAR AS YEAR,                                       
+			         V.TMS AS TMS,                                              
+			         V.STND_YEAR-1 AS LAST_YEAR,                                
+			         V.TMS  AS LAST_TMS,                                        
+			         NVL(A.POOL_TOTAL,0) AS BEFORE_TOTAL,                      
+			         NVL(B.POOL_TOTAL,0) AS TOTAL,                             
+			         NVL(C.POOL_TOTAL,0) AS LAST_TOTAL                         
+			     FROM                                                          
+			     (                                                             
+			         SELECT                                                    
+			             'MON' AS RACE_YOIL,                                   
+			             '1' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'TUE',                                               
+			             '2' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'WED',                                               
+			             '3' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'THU',                                               
+			             '4' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'FRI',                                               
+			             '5' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'SAT',                                               
+			             '6' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'SUN',                                               
+			             '7' AS SEQ                                            
+			         FROM DUAL                                                 
+			     ) T,                                                          
+			     (                                                             
+			         SELECT                                                    
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             SUM(P.POOL_TOTAL) POOL_TOTAL,                         
+			             I.RACE_YOIL                                           
+			         FROM                                                      
+			             VW_SDL_PT P,                                        
+			             VW_SDL_INFO I,
+			             (
+			             	SELECT ROWNUM AS RNUM,
+			             	       MEET_CD,
+			             	       STND_YEAR,
+			             	       TMS
+			             	  FROM (     
+					              SELECT MEET_CD, STND_YEAR, TMS
+					                FROM VW_SDL_INFO 
+					                WHERE 1=1
+					                 AND MEET_CD	= ?             -- 0:MEET_CD                  
+					                 AND RACE_DAY  <= ?             -- 1:RACE_DAY
+					                 GROUP BY MEET_CD, STND_YEAR, TMS
+					                 ORDER BY STND_YEAR DESC, TMS DESC
+				               )
+			              ) V                                         
+			         WHERE 1=1                                                     
+			             AND P.MEET_CD    = V.MEET_CD                                    
+			             AND P.STND_YEAR  = V.STND_YEAR                         
+			             AND P.TMS        = V.TMS
+			             AND V.RNUM       = 2                                
+			             AND I.MEET_CD=P.MEET_CD                               
+			             AND I.STND_YEAR = P.STND_YEAR                         
+			             AND I.TMS=P.TMS                                       
+			             AND I.DAY_ORD=P.DAY_ORD                               
+			         GROUP BY                                                  
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             I.RACE_YOIL                                           
+			     ) A,  -- 전주 대비                                                                         
+			     (                                                             
+			         SELECT                                                    
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             SUM(P.POOL_TOTAL) POOL_TOTAL,                         
+			             I.RACE_YOIL                                           
+			         FROM                                                      
+			             VW_SDL_PT P,                                        
+			             VW_SDL_INFO I,
+			             (
+			                 SELECT * 
+			                    FROM VW_SDL_INFO 
+			                    WHERE 1=1
+			                     AND MEET_CD	= ?                   -- 2:MEET_CD                  
+			                     AND RACE_DAY	= ?              -- 3:RACE_DAY
+			                 )V                                         
+			         WHERE                                                     
+			             P.MEET_CD=V.MEET_CD                                    
+			             AND P.STND_YEAR  = V.STND_YEAR                         
+			             AND P.TMS     = V.TMS                                  
+			             AND I.MEET_CD=P.MEET_CD                               
+			             AND I.STND_YEAR = P.STND_YEAR                         
+			             AND I.TMS=P.TMS                                       
+			             AND I.DAY_ORD=P.DAY_ORD                               
+			         GROUP BY                                                  
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             I.RACE_YOIL                                           
+			     ) B,                                                          
+			     (                                                             
+			         SELECT                                                    
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             SUM(P.POOL_TOTAL) POOL_TOTAL,                         
+			             I.RACE_YOIL                                           
+			         FROM                                                      
+			             VW_SDL_PT P,                                        
+			             VW_SDL_INFO I,
+			             (
+			                 SELECT * 
+			                    FROM VW_SDL_INFO 
+			                    WHERE 1=1
+			                     AND MEET_CD	= ?                   -- 4:MEET_CD                  
+			                     AND RACE_DAY	= ?             -- 5:RACE_DAY        
+			                 )V                                         
+			         WHERE                                                     
+			             P.MEET_CD=V.MEET_CD                                    
+			             AND P.STND_YEAR  = V.STND_YEAR-1                       
+			             AND P.TMS     = V.TMS                                  
+			             AND I.MEET_CD=P.MEET_CD                               
+			             AND I.STND_YEAR = P.STND_YEAR                         
+			             AND I.TMS=P.TMS                                       
+			             AND I.DAY_ORD=P.DAY_ORD                               
+			         GROUP BY                                                  
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             I.RACE_YOIL                                           
+			     ) C,     -- 전년대비
+			     (
+			     SELECT * 
+			        FROM VW_SDL_INFO 
+			        WHERE 1=1
+			         AND MEET_CD	= ?                   -- 6:MEET_CD                  
+			         AND RACE_DAY	= ?             -- 7:RACE_DAY        
+			     ) V
+			     WHERE                                                         
+			         T.RACE_YOIL=A.RACE_YOIL(+)                                
+			         AND T.RACE_YOIL=B.RACE_YOIL(+)                            
+			         AND T.RACE_YOIL=C.RACE_YOIL(+)                            
+			     ORDER BY T.SEQ                                                
+			 )                                                                                                                                                                                                                                     			
+        ]]>
+    </query>
+    
+    <query id="rsm2010_s10" desc="지점별 그린카드 매출금액" fetchSize="10">
+        <![CDATA[
+			WITH SALES_INFO AS ( /* rsm2010_s10 지점별 그린카드 매출금액*/
+				SELECT
+					T1.COMM_NO,
+					(T1.DIV_TOT+T2.MYCAT_TOT) TOTAL, --총매출액
+					T1.DIV_TOT CASH_AMT,             --현금
+					ROUND(T1.DIV_TOT/(T1.DIV_TOT+T2.MYCAT_TOT)*100,2) CASH_RATIO, --현금비율
+					T2.MYCAT_TOT, --전자카드
+					T2.MYCAT_DEV, --단말기
+					T2.MYCAT_MOB,  --모바일
+					ROUND(T2.MYCAT_TOT/(T1.DIV_TOT+T2.MYCAT_TOT)*100,2) MYCAT_RATIO --전자카드비율
+				FROM
+				(
+					SELECT
+						COMM_NO,
+						SUM(DIV_TOTAL) DIV_TOT
+					FROM (
+						SELECT
+							CASE WHEN D.COMM_NO < 11 THEN '00' ELSE D.COMM_NO END AS COMM_NO,
+							NVL(D.DIV_TOTAL,0) DIV_TOTAL
+						FROM VW_SDL_INFO A,		 -- 경주일 정보
+						     VW_SDL_DT D
+						WHERE 1=1
+						AND D.MEET_CD   = A.MEET_CD
+						AND D.STND_YEAR = A.STND_YEAR
+						AND D.TMS       = A.TMS
+						AND D.DAY_ORD   = A.DAY_ORD
+						AND D.SELL_CD   IN ('01','03')
+						AND D.COMM_NO  != '06'
+						AND D.MEET_CD IN ('001','003')
+						AND A.RACE_DAY  = ?
+					)
+					GROUP BY COMM_NO
+				) T1,
+				(
+					SELECT
+						COMM_NO,
+						SUM(NET_AMT) MYCAT_TOT,
+						SUM(DECODE(CHANNEL_CD,'001',NET_AMT,0)) MYCAT_DEV,
+						SUM(DECODE(CHANNEL_CD,'002',NET_AMT,0)) MYCAT_MOB
+					FROM (
+						SELECT
+							CASE WHEN DIV_NO = '00' THEN DIV_NO
+								 WHEN DIV_NO = '04' THEN '15' --그린카드: 동대문(04) -> 현금: 동대문(15)
+								 WHEN DIV_NO = '05' THEN '14' --그린카드: 분당(05) -> 현금: 분당(14)
+							     ELSE TO_CHAR(TO_NUMBER(DIV_NO)+10) END
+							AS COMM_NO,
+							CHANNEL_CD,
+							NET_AMT
+						FROM VW_MYCAT_SALES_DET
+						WHERE RACE_DAY = ?
+						AND MEET_CD IN ('001','003')
+					)
+					GROUP BY COMM_NO
+				) T2
+				WHERE T1.COMM_NO = T2.COMM_NO
+			)
+			SELECT
+				IDX,
+				MAX(GUBUN1) GUBUN1,
+				MAX(GUBUN2) GUBUN2,
+				MAX(COMM_00) COMM_00,
+				MAX(COMM_11) COMM_11,
+				MAX(COMM_12) COMM_12,
+				MAX(COMM_13) COMM_13,
+				MAX(COMM_14) COMM_14,
+				MAX(COMM_15) COMM_15,
+				MAX(COMM_16) COMM_16,
+				MAX(COMM_17) COMM_17,
+				MAX(COMM_18) COMM_18,
+				MAX(COMM_19) COMM_19,
+				MAX(COMM_20) COMM_20,
+				MAX(COMM_21) COMM_21,
+				MAX(COMM_22) COMM_22,
+				MAX(COMM_23) COMM_23,
+				MAX(COMM_24) COMM_24,
+				MAX(COMM_25) COMM_25,
+				MAX(COMM_26) COMM_26,
+				MAX(COMM_28) COMM_28
+			FROM (
+				SELECT
+					1 AS IDX, --총매출액
+					'총매출' GUBUN1,
+					'(A=B+C)' GUBUN2,
+					DECODE(COMM_NO, '00', TOTAL,0) AS COMM_00, DECODE(COMM_NO, '11', TOTAL,0) AS COMM_11, DECODE(COMM_NO, '12', TOTAL,0) AS COMM_12, DECODE(COMM_NO, '13', TOTAL,0) AS COMM_13,
+					DECODE(COMM_NO, '14', TOTAL,0) AS COMM_14, DECODE(COMM_NO, '15', TOTAL,0) AS COMM_15, DECODE(COMM_NO, '16', TOTAL,0) AS COMM_16, DECODE(COMM_NO, '17', TOTAL,0) AS COMM_17,
+					DECODE(COMM_NO, '18', TOTAL,0) AS COMM_18, DECODE(COMM_NO, '19', TOTAL,0) AS COMM_19, DECODE(COMM_NO, '20', TOTAL,0) AS COMM_20, DECODE(COMM_NO, '21', TOTAL,0) AS COMM_21,
+					DECODE(COMM_NO, '22', TOTAL,0) AS COMM_22, DECODE(COMM_NO, '23', TOTAL,0) AS COMM_23, DECODE(COMM_NO, '24', TOTAL,0) AS COMM_24, DECODE(COMM_NO, '25', TOTAL,0) AS COMM_25,
+					DECODE(COMM_NO, '26', TOTAL,0) AS COMM_26, DECODE(COMM_NO, '28', TOTAL,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					2 AS IDX,  --현금
+					'현금' GUBUN1,
+					'(B)' GUBUN2,
+					DECODE(COMM_NO, '00', CASH_AMT,0) AS COMM_00, DECODE(COMM_NO, '11', CASH_AMT,0) AS COMM_11, DECODE(COMM_NO, '12', CASH_AMT,0) AS COMM_12, DECODE(COMM_NO, '13', CASH_AMT,0) AS COMM_13,
+					DECODE(COMM_NO, '14', CASH_AMT,0) AS COMM_14, DECODE(COMM_NO, '15', CASH_AMT,0) AS COMM_15, DECODE(COMM_NO, '16', CASH_AMT,0) AS COMM_16, DECODE(COMM_NO, '17', CASH_AMT,0) AS COMM_17,
+					DECODE(COMM_NO, '18', CASH_AMT,0) AS COMM_18, DECODE(COMM_NO, '19', CASH_AMT,0) AS COMM_19, DECODE(COMM_NO, '20', CASH_AMT,0) AS COMM_20, DECODE(COMM_NO, '21', CASH_AMT,0) AS COMM_21,
+					DECODE(COMM_NO, '22', CASH_AMT,0) AS COMM_22, DECODE(COMM_NO, '23', CASH_AMT,0) AS COMM_23, DECODE(COMM_NO, '24', CASH_AMT,0) AS COMM_24, DECODE(COMM_NO, '25', CASH_AMT,0) AS COMM_25,
+					DECODE(COMM_NO, '26', CASH_AMT,0) AS COMM_26, DECODE(COMM_NO, '28', CASH_AMT,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					3 AS IDX,  --현금비율
+					'현금비율(%)' GUBUN1,
+					'(B/A*100)' GUBUN2,
+					DECODE(COMM_NO, '00', CASH_RATIO,0) AS COMM_00, DECODE(COMM_NO, '11', CASH_RATIO,0) AS COMM_11, DECODE(COMM_NO, '12', CASH_RATIO,0) AS COMM_12, DECODE(COMM_NO, '13', CASH_RATIO,0) AS COMM_13,
+					DECODE(COMM_NO, '14', CASH_RATIO,0) AS COMM_14, DECODE(COMM_NO, '15', CASH_RATIO,0) AS COMM_15, DECODE(COMM_NO, '16', CASH_RATIO,0) AS COMM_16, DECODE(COMM_NO, '17', CASH_RATIO,0) AS COMM_17,
+					DECODE(COMM_NO, '18', CASH_RATIO,0) AS COMM_18, DECODE(COMM_NO, '19', CASH_RATIO,0) AS COMM_19, DECODE(COMM_NO, '20', CASH_RATIO,0) AS COMM_20, DECODE(COMM_NO, '21', CASH_RATIO,0) AS COMM_21,
+					DECODE(COMM_NO, '22', CASH_RATIO,0) AS COMM_22, DECODE(COMM_NO, '23', CASH_RATIO,0) AS COMM_23, DECODE(COMM_NO, '24', CASH_RATIO,0) AS COMM_24, DECODE(COMM_NO, '25', CASH_RATIO,0) AS COMM_25,
+					DECODE(COMM_NO, '26', CASH_RATIO,0) AS COMM_26, DECODE(COMM_NO, '28', CASH_RATIO,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					4 AS IDX,  --그린카드
+					'그린카드' GUBUN1,
+					'(C=D+E)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_TOT,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_TOT,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_TOT,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_TOT,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_TOT,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_TOT,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_TOT,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_TOT,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_TOT,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_TOT,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_TOT,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_TOT,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_TOT,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_TOT,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_TOT,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_TOT,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_TOT,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_TOT,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					5 AS IDX,   --그린카드-단말기
+					' - 단말기' GUBUN1,
+					'(D)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_DEV,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_DEV,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_DEV,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_DEV,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_DEV,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_DEV,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_DEV,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_DEV,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_DEV,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_DEV,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_DEV,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_DEV,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_DEV,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_DEV,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_DEV,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_DEV,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_DEV,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_DEV,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					6 AS IDX,   --그린카드-앱
+					' - 앱' GUBUN1,
+					'(E)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_MOB,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_MOB,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_MOB,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_MOB,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_MOB,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_MOB,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_MOB,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_MOB,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_MOB,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_MOB,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_MOB,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_MOB,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_MOB,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_MOB,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_MOB,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_MOB,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_MOB,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_MOB,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					7 AS IDX,   -- 그린카드비율
+					'그린카드비율(%)' GUBUN1,
+					'(C/A*100)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_RATIO,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_RATIO,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_RATIO,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_RATIO,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_RATIO,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_RATIO,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_RATIO,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_RATIO,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_RATIO,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_RATIO,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_RATIO,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_RATIO,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_RATIO,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_RATIO,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_RATIO,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_RATIO,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_RATIO,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_RATIO,0) AS COMM_28
+				FROM SALES_INFO
+			)
+			GROUP BY IDX
+			ORDER BY IDX
+        ]]>
+    </query>
+    
+        <query id="rsm2010_s11" desc="지점별 그린카드 매출건수" fetchSize="10">
+        <![CDATA[
+			WITH SALES_INFO AS (  /* rsm2010_s11 지점별 그린카드 매출건수*/
+				SELECT
+					T1.COMM_NO,
+					(T1.DIV_TOT+T2.MYCAT_TOT) TOTAL, --총매출액
+					T1.DIV_TOT CASH_AMT,             --현금
+					ROUND(T1.DIV_TOT/(T1.DIV_TOT+T2.MYCAT_TOT)*100,2) CASH_RATIO, --현금비율
+					T2.MYCAT_TOT, --전자카드
+					T2.MYCAT_DEV, --단말기
+					T2.MYCAT_MOB,  --모바일
+					ROUND(T2.MYCAT_TOT/(T1.DIV_TOT+T2.MYCAT_TOT)*100,2) MYCAT_RATIO --전자카드비율
+				FROM
+				(
+					SELECT
+						COMM_NO,
+						SUM(DIV_TOTAL) DIV_TOT
+					FROM (
+						SELECT
+							CASE WHEN D.COMM_NO < 11 THEN '00' ELSE D.COMM_NO END AS COMM_NO,
+							NVL(D.COUNT8,0) DIV_TOTAL
+						FROM VW_SDL_INFO A,		 -- 경주일 정보
+						     VW_PC_SELLST D
+						WHERE 1=1
+						AND D.MEET_CD   = A.MEET_CD
+						AND D.STND_YEAR = A.STND_YEAR
+						AND D.TMS       = A.TMS
+						AND D.DAY_ORD   = A.DAY_ORD
+						AND D.SELL_CD   IN ('01','03')
+						AND D.COMM_NO  != '06'
+						AND A.RACE_DAY  = ?
+						AND D.MEET_CD IN ('001','003')
+					)
+					GROUP BY COMM_NO
+				) T1,
+				(
+					SELECT
+						COMM_NO,
+						SUM(COUNT8) MYCAT_TOT,
+						SUM(DECODE(CHANNEL_CD,'001',COUNT8,0)) MYCAT_DEV,
+						SUM(DECODE(CHANNEL_CD,'002',COUNT8,0)) MYCAT_MOB
+					FROM (
+						SELECT
+							CASE WHEN DIV_NO = '00' THEN DIV_NO
+								 WHEN DIV_NO = '04' THEN '15' --그린카드: 동대문(04) -> 현금: 동대문(15)
+								 WHEN DIV_NO = '05' THEN '14' --그린카드: 분당(05) -> 현금: 분당(14)
+							     ELSE TO_CHAR(TO_NUMBER(DIV_NO)+10) END
+							AS COMM_NO,
+							CHANNEL_CD,
+							COUNT8
+						FROM VW_MYCAT_SALES_DET
+						WHERE RACE_DAY = ?
+						AND MEET_CD IN ('001','003')
+					)
+					GROUP BY COMM_NO
+				) T2
+				WHERE T1.COMM_NO = T2.COMM_NO
+			)
+			SELECT
+				IDX,
+				MAX(GUBUN1) GUBUN1,
+				MAX(GUBUN2) GUBUN2,
+				MAX(COMM_00) COMM_00,
+				MAX(COMM_11) COMM_11,
+				MAX(COMM_12) COMM_12,
+				MAX(COMM_13) COMM_13,
+				MAX(COMM_14) COMM_14,
+				MAX(COMM_15) COMM_15,
+				MAX(COMM_16) COMM_16,
+				MAX(COMM_17) COMM_17,
+				MAX(COMM_18) COMM_18,
+				MAX(COMM_19) COMM_19,
+				MAX(COMM_20) COMM_20,
+				MAX(COMM_21) COMM_21,
+				MAX(COMM_22) COMM_22,
+				MAX(COMM_23) COMM_23,
+				MAX(COMM_24) COMM_24,
+				MAX(COMM_25) COMM_25,
+				MAX(COMM_26) COMM_26,
+				MAX(COMM_28) COMM_28
+			FROM (
+				SELECT
+					1 AS IDX, --총매출액
+					'총매출' GUBUN1,
+					'(A=B+C)' GUBUN2,
+					DECODE(COMM_NO, '00', TOTAL,0) AS COMM_00, DECODE(COMM_NO, '11', TOTAL,0) AS COMM_11, DECODE(COMM_NO, '12', TOTAL,0) AS COMM_12, DECODE(COMM_NO, '13', TOTAL,0) AS COMM_13,
+					DECODE(COMM_NO, '14', TOTAL,0) AS COMM_14, DECODE(COMM_NO, '15', TOTAL,0) AS COMM_15, DECODE(COMM_NO, '16', TOTAL,0) AS COMM_16, DECODE(COMM_NO, '17', TOTAL,0) AS COMM_17,
+					DECODE(COMM_NO, '18', TOTAL,0) AS COMM_18, DECODE(COMM_NO, '19', TOTAL,0) AS COMM_19, DECODE(COMM_NO, '20', TOTAL,0) AS COMM_20, DECODE(COMM_NO, '21', TOTAL,0) AS COMM_21,
+					DECODE(COMM_NO, '22', TOTAL,0) AS COMM_22, DECODE(COMM_NO, '23', TOTAL,0) AS COMM_23, DECODE(COMM_NO, '24', TOTAL,0) AS COMM_24, DECODE(COMM_NO, '25', TOTAL,0) AS COMM_25,
+					DECODE(COMM_NO, '26', TOTAL,0) AS COMM_26, DECODE(COMM_NO, '28', TOTAL,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					2 AS IDX,  --현금
+					'현금' GUBUN1,
+					'(B)' GUBUN2,
+					DECODE(COMM_NO, '00', CASH_AMT,0) AS COMM_00, DECODE(COMM_NO, '11', CASH_AMT,0) AS COMM_11, DECODE(COMM_NO, '12', CASH_AMT,0) AS COMM_12, DECODE(COMM_NO, '13', CASH_AMT,0) AS COMM_13,
+					DECODE(COMM_NO, '14', CASH_AMT,0) AS COMM_14, DECODE(COMM_NO, '15', CASH_AMT,0) AS COMM_15, DECODE(COMM_NO, '16', CASH_AMT,0) AS COMM_16, DECODE(COMM_NO, '17', CASH_AMT,0) AS COMM_17,
+					DECODE(COMM_NO, '18', CASH_AMT,0) AS COMM_18, DECODE(COMM_NO, '19', CASH_AMT,0) AS COMM_19, DECODE(COMM_NO, '20', CASH_AMT,0) AS COMM_20, DECODE(COMM_NO, '21', CASH_AMT,0) AS COMM_21,
+					DECODE(COMM_NO, '22', CASH_AMT,0) AS COMM_22, DECODE(COMM_NO, '23', CASH_AMT,0) AS COMM_23, DECODE(COMM_NO, '24', CASH_AMT,0) AS COMM_24, DECODE(COMM_NO, '25', CASH_AMT,0) AS COMM_25,
+					DECODE(COMM_NO, '26', CASH_AMT,0) AS COMM_26, DECODE(COMM_NO, '28', CASH_AMT,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					3 AS IDX,  --현금비율
+					'현금비율(%)' GUBUN1,
+					'(B/A*100)' GUBUN2,
+					DECODE(COMM_NO, '00', CASH_RATIO,0) AS COMM_00, DECODE(COMM_NO, '11', CASH_RATIO,0) AS COMM_11, DECODE(COMM_NO, '12', CASH_RATIO,0) AS COMM_12, DECODE(COMM_NO, '13', CASH_RATIO,0) AS COMM_13,
+					DECODE(COMM_NO, '14', CASH_RATIO,0) AS COMM_14, DECODE(COMM_NO, '15', CASH_RATIO,0) AS COMM_15, DECODE(COMM_NO, '16', CASH_RATIO,0) AS COMM_16, DECODE(COMM_NO, '17', CASH_RATIO,0) AS COMM_17,
+					DECODE(COMM_NO, '18', CASH_RATIO,0) AS COMM_18, DECODE(COMM_NO, '19', CASH_RATIO,0) AS COMM_19, DECODE(COMM_NO, '20', CASH_RATIO,0) AS COMM_20, DECODE(COMM_NO, '21', CASH_RATIO,0) AS COMM_21,
+					DECODE(COMM_NO, '22', CASH_RATIO,0) AS COMM_22, DECODE(COMM_NO, '23', CASH_RATIO,0) AS COMM_23, DECODE(COMM_NO, '24', CASH_RATIO,0) AS COMM_24, DECODE(COMM_NO, '25', CASH_RATIO,0) AS COMM_25,
+					DECODE(COMM_NO, '26', CASH_RATIO,0) AS COMM_26, DECODE(COMM_NO, '28', CASH_RATIO,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					4 AS IDX,  --그린카드
+					'그린카드' GUBUN1,
+					'(C=D+E)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_TOT,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_TOT,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_TOT,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_TOT,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_TOT,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_TOT,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_TOT,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_TOT,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_TOT,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_TOT,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_TOT,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_TOT,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_TOT,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_TOT,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_TOT,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_TOT,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_TOT,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_TOT,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					5 AS IDX,   --그린카드-단말기
+					' - 단말기' GUBUN1,
+					'(D)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_DEV,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_DEV,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_DEV,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_DEV,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_DEV,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_DEV,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_DEV,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_DEV,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_DEV,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_DEV,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_DEV,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_DEV,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_DEV,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_DEV,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_DEV,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_DEV,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_DEV,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_DEV,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					6 AS IDX,   --그린카드-앱
+					' - 앱' GUBUN1,
+					'(E)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_MOB,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_MOB,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_MOB,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_MOB,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_MOB,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_MOB,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_MOB,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_MOB,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_MOB,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_MOB,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_MOB,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_MOB,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_MOB,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_MOB,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_MOB,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_MOB,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_MOB,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_MOB,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					7 AS IDX,   -- 그린카드비율
+					'그린카드비율(%)' GUBUN1,
+					'(C/A*100)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_RATIO,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_RATIO,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_RATIO,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_RATIO,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_RATIO,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_RATIO,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_RATIO,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_RATIO,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_RATIO,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_RATIO,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_RATIO,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_RATIO,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_RATIO,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_RATIO,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_RATIO,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_RATIO,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_RATIO,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_RATIO,0) AS COMM_28
+				FROM SALES_INFO
+			)
+			GROUP BY IDX
+			ORDER BY IDX
+
+        ]]>
+    </query>
+    
+    
+    
+    
+    
+    <!-- 오늘 경주일 경우  -->
+    <query id="rsm2010_s02Today" desc="매출현황 조회" fetchSize="10">
+        <![CDATA[
+         SELECT /* rsm2010_s02Today */
+				C.LEV,       -- TOTAL, % 구분값
+			       C.MEET_NM,   -- 시행처
+			       C.MEET_CD,   -- 경륜장코드
+			       C.MEET_CD_ORDER, -- 정렬순서
+			       C.RACE_NO,   -- 경주
+                    DECODE(C.LEV,1,SUM(WIN), 2,SUM(WIN), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(WIN)/SUM(SUB_TOT)* 100),2) )) AS WIN,    -- 단승식
+                    DECODE(C.LEV,1,SUM(PLC), 2,SUM(PLC), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(PLC)/SUM(SUB_TOT)* 100),2) )) AS PLC,    -- 연승식
+                    DECODE(C.LEV,1,SUM(QUI), 2,SUM(QUI), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(QUI)/SUM(SUB_TOT)* 100),2) )) AS QUI,    -- 복승식
+                    DECODE(C.LEV,1,SUM(EXA), 2,SUM(EXA), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(EXA)/SUM(SUB_TOT)* 100),2) )) AS EXA,    -- 쌍승식
+                    DECODE(C.LEV,1,SUM(TRI), 2,SUM(TRI), 3,DECODE(SUM(SUB_TOT),0,0, ROUND((SUM(TRI)/SUM(SUB_TOT)* 100),2) )) AS TRI,  -- 삼복승식
+                    DECODE(C.LEV,1,SUM(SUB_TOT), 2,SUM(SUB_TOT), 3, 100) AS SUB_TOT,                        -- 매출액
+                    DECODE(C.LEV,1,SUM(SUB_REFUND_TOT), 2,SUM(SUB_REFUND_TOT), 3,DECODE(SUM(DIV_TOTAL),0,0, ROUND((SUM(SUB_REFUND_TOT)/SUM(DIV_TOTAL)* 100),2) )) AS SUB_REFUND_TOT,    -- 미사리
+                    DECODE(C.LEV,1,SUM(CRA), 2,SUM(CRA), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(CRA)/SUM(DIV_TOTAL)* 100),2) )) AS CRA, -- 광명
+                    DECODE(C.LEV,1,SUM(MRA), 2,SUM(MRA), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(MRA)/SUM(DIV_TOTAL)* 100),2) )) AS MRA, -- 경정지점
+                    DECODE(C.LEV,1,SUM(MYCAT), 2,SUM(MYCAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(MYCAT)/SUM(DIV_TOTAL)* 100),2) )) AS MYCAT,     -- MYCAT
+                    DECODE(C.LEV,1,SUM(BON_CAT), 2,SUM(BON_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(BON_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS BON_CAT, -- 본장
+                    DECODE(C.LEV,1,SUM(NON_CAT), 2,SUM(NON_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(NON_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS NON_CAT, -- 논현
+                    DECODE(C.LEV,1,SUM(OLM_CAT), 2,SUM(OLM_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(OLM_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS OLM_CAT, -- 올림픽
+                    DECODE(C.LEV,1,SUM(TON_CAT), 2,SUM(TON_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(TON_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS TON_CAT, -- 동대문
+                    DECODE(C.LEV,1,SUM(SAN_CAT), 2,SUM(SAN_CAT), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(SAN_CAT)/SUM(DIV_TOTAL)* 100),2) )) AS SAN_CAT, -- 산본
+                    DECODE(C.LEV,1,SUM(JIBANG), 2,SUM(JIBANG), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(JIBANG)/SUM(DIV_TOTAL)* 100),2) )) AS JIBANG,     -- 교차
+                    DECODE(C.LEV,1,SUM(JIJUM), 2,SUM(JIJUM), 3,DECODE(SUM(DIV_TOTAL),0,0,ROUND((SUM(JIJUM)/SUM(DIV_TOTAL)* 100),2) )) AS JIJUM,         -- 장외지점
+                                                                              
+                    DECODE(C.LEV,1,SUM(DIV_TOTAL), 2,SUM(DIV_TOTAL), 3, 100) AS DIV_TOTAL  -- 전체
+			        
+			FROM ( 
+				SELECT BB.LEV, 
+				    DECODE(BB.LEV, 1, AA.MEET_NM, 2, '',3, '')AS  MEET_NM, 
+				    DECODE(BB.LEV, 1, AA.MEET_CD||'TOTAL_3', 2, AA.MEET_CD||'TOTAL_2',AA.MEET_CD||'TOTAL_1')AS  MEET_CD_ORDER,
+				    AA.MEET_CD,
+				    DECODE(BB.LEV, 1, AA.RACE_NO, 2, 'TOTAL',3, '%')AS  RACE_NO ,
+				    AA.WIN,
+				    AA.PLC,
+				    AA.QUI,
+				    AA.EXA,                                                            
+				    AA.TRI,                                                            
+				    AA.SUB_TOT,                                                        
+				    AA.SUB_REFUND_TOT,                                                 
+				    --AA.CRA,                                                     
+			    	DECODE(AA.MEET_CD, '003', 0, AA.CRA) AS CRA,                                                             
+				    --AA.MRA,                                                           
+			    	DECODE(AA.MEET_CD, '003', AA.MRA, 0) AS MRA,                                                             
+				    AA.MYCAT,                                                          
+				    AA.BON_CAT,                                                        
+				    AA.NON_CAT,                                                        
+				    AA.OLM_CAT,                                                        
+				    AA.TON_CAT,                                                        
+				    AA.SAN_CAT,                                                        
+				    AA.JIBANG,                                                         
+				    --AA.JIJUM,                                                         
+			    	DECODE(AA.MEET_CD, '001', AA.JIJUM + NVL(AA.MRA,0), '003', AA.JIJUM + NVL(AA.CRA,0), AA.JIJUM) AS JIJUM,                                                              
+				    AA.DIV_TOTAL   
+				
+				 FROM(	 
+						 SELECT                                                                
+						     P.MEET_NM,                                                        
+						     P.MEET_CD,                                                        
+						     P.G_MEET_CD,                                                      
+						     P.RACE_NO,                                                        
+						     DECODE(P.RACE_NO,'TOTAL','TD_G_C','TD_W_C2') AS COLOR,            
+						     P.G_RACE_NO,                                                      
+						     P.WIN,                                                            
+						     P.PLC,                                                            
+						     P.QUI,                                                            
+						     P.EXA,                                                            
+						     P.TRI,                                                            
+						     P.SUB_TOT,                                                        
+						     P.SUB_REFUND_TOT,                                                 
+						     D.CRA,                                                            
+						     D.MRA,                                                            
+						     D.MYCAT,                                                          
+						     NVL2(D.MYCAT, E.BON_CAT, NULL) AS BON_CAT,                                                      
+						     NVL2(D.MYCAT, E.NON_CAT, NULL) AS NON_CAT,                                                       
+						     NVL2(D.MYCAT, E.OLM_CAT, NULL) AS OLM_CAT,                                                       
+						     NVL2(D.MYCAT, E.TON_CAT, NULL) AS TON_CAT,                                                      
+						     NVL2(D.MYCAT, E.SAN_CAT, NULL) AS SAN_CAT,                                                      
+						     D.JIBANG,                                                         
+						     D.JIJUM,                                                          
+						     D.DIV_TOTAL                                                       
+						 FROM                                                                  
+							 (                                                                     
+							     SELECT                                                            
+							         NVL(                                                          
+							             CASE                                                      
+							                WHEN P.MEET_CD = '001' THEN '광명'                     
+							                WHEN P.MEET_CD = '002' THEN '창원'                     
+							                WHEN P.MEET_CD = '004' THEN '부산'                     
+							                WHEN P.MEET_CD = '003' THEN '미사리'                   
+							             END,'TOTAL'                                               
+							         ) AS MEET_NM,                                                 
+							         NVL(P.MEET_CD,'TOTAL') AS MEET_CD,                            
+							         GROUPING (P.MEET_CD) AS G_MEET_CD,                            
+							         NVL(P.RACE_NO,'TOTAL') AS RACE_NO,                            
+							         GROUPING (P.RACE_NO) AS G_RACE_NO,                            
+							         SUM (CASE WHEN P.POOL_CD = '001' THEN P.POOL_TOTAL END) WIN,  
+							         SUM (CASE WHEN P.POOL_CD = '002' THEN P.POOL_TOTAL END) PLC,  
+							         SUM (CASE WHEN P.POOL_CD = '005' THEN P.POOL_TOTAL END) QUI,  
+							         SUM (CASE WHEN P.POOL_CD = '004' THEN P.POOL_TOTAL END) EXA,  
+							         SUM (CASE WHEN P.POOL_CD = '006' THEN P.POOL_TOTAL END) TRI,  
+							         SUM (P.POOL_TOTAL) SUB_TOT,                                   
+							         SUM (P.REFUND) SUB_REFUND_TOT                                 
+							     FROM                                                              
+							         TBES_SDL_PT P,      -- 경주 매출액                                           
+							         VW_SDL_INFO I       -- 경주일 정보                                                  
+							     WHERE 1=1                                                            
+							         AND I.RACE_DAY= ?       -- 경주일 yyyymmdd                                              
+							         AND P.STND_YEAR  = I.STND_YEAR                                
+							         AND P.MEET_CD    = I.MEET_CD                                  
+							         AND P.TMS        = I.TMS                                      
+							         AND P.DAY_ORD    = I.DAY_ORD                                  
+							     GROUP BY P.MEET_CD, P.RACE_NO
+							 ) P,                                                                  
+							 (                                                                     
+							     SELECT                                                            
+							         NVL(                                                          
+							             CASE                                                      
+							                WHEN D.MEET_CD = '001' THEN '광명'                     
+							                WHEN D.MEET_CD = '002' THEN '창원'                     
+							                WHEN D.MEET_CD = '004' THEN '부산'                     
+							                WHEN D.MEET_CD = '003' THEN '미사리'                   
+							             END,'TOTAL'                                               
+							         ) AS MEET_NM,                                                 
+							         NVL(D.MEET_CD,'TOTAL') AS MEET_CD,                            
+							         GROUPING (D.MEET_CD) AS G_MEET_CD,                            
+							         NVL(D.RACE_NO,'TOTAL') AS RACE_NO,                            
+							         GROUPING (D.RACE_NO) AS G_RACE_NO,                            
+							         SUM(                                                          
+							             CASE                                                      
+							                 WHEN                                                  
+							                     D.SELL_CD = '01'                                  
+							                     AND D.COMM_NO IN ('01','02','03','04','08')                   
+							                 THEN D.DIV_TOTAL                                      
+							             END                                                       
+							         ) AS CRA,                                                     
+							         SUM(                                                          
+							             CASE                                                      
+							                 WHEN                                                  
+							                     D.SELL_CD = '03'                                  
+							                     AND D.COMM_NO NOT IN('06','07')                   
+							                 THEN D.DIV_TOTAL                                      
+							             END                                                       
+							         ) AS MRA,                                                     
+							         NVL(SUM(                                                      
+							             CASE                                                      
+							                 WHEN                                                  
+							                     D.SELL_CD = '01'                                  
+							                     AND D.COMM_NO IN('06')                            
+							                 THEN D.DIV_TOTAL                                      
+							             END                                                       
+							         ),0) AS MYCAT,                                                
+							         NVL(SUM(                                                      
+							             CASE                                                      
+							                 WHEN                                                  
+							                     ( D.SELL_CD = '02' OR D.SELL_CD = '04')           
+							                 THEN D.DIV_TOTAL                                      
+							             END                                                       
+							         ),0) AS JIBANG,                                               
+							         NVL(SUM(                                                      
+							             CASE                                                      
+							                 WHEN                                                  
+							                     D.SELL_CD = '01'                                  
+							                     AND D.COMM_NO NOT IN ('01','02','03','04','08','06')                            
+							                 THEN D.DIV_TOTAL                                      
+							             END                                                       
+							         ),0) AS JIJUM,                                                
+							         SUM (D.DIV_TOTAL) DIV_TOTAL                                   
+							     FROM                                                              
+							         TBES_SDL_DT D,		-- 지점별 매출액                                                            
+							         VW_SDL_INFO I      -- 경주일 정보                                            
+							     WHERE 1=1                                                             
+							         AND I.RACE_DAY   = ?      -- 경주일 yyyymmdd                                   
+							         AND D.STND_YEAR  = I.STND_YEAR                                
+							         AND D.MEET_CD    = I.MEET_CD                                  
+							         AND D.TMS        = I.TMS                                      
+							         AND D.DAY_ORD    = I.DAY_ORD                                  
+							     GROUP BY D.MEET_CD,D.RACE_NO                     
+							 ) D,                                                                  
+							 (                                                                     
+							 	SELECT                                                              
+							 		NVL(                                                            
+							             CASE                                                      
+							                WHEN MEET_CD = '001' THEN '광명'                        
+							                WHEN MEET_CD = '002' THEN '창원'                        
+							                WHEN MEET_CD = '004' THEN '부산'                        
+							                WHEN MEET_CD = '003' THEN '미사리'                      
+							             END,'TOTAL'                                               
+							         ) AS MEET_NM,                                                 
+							         NVL(MEET_CD,'TOTAL') AS MEET_CD,                              
+							         GROUPING (MEET_CD) AS G_MEET_CD,                              
+							         NVL(RACE_NO,'TOTAL') AS RACE_NO,                              
+							         GROUPING (RACE_NO) AS G_RACE_NO,                              
+							   	SUM(DECODE(DIV_NO,'00',NET_AMT,0)) BON_CAT, /* 발매지점, 순매출액 */                     
+							       SUM(DECODE(DIV_NO,'15',NET_AMT,0)) NON_CAT,                     
+							       SUM(DECODE(DIV_NO,'17',NET_AMT,0)) OLM_CAT,
+							       SUM(DECODE(DIV_NO,'04',NET_AMT,0)) TON_CAT,
+							       SUM(DECODE(DIV_NO,'07',NET_AMT,0)) SAN_CAT
+							  	FROM                                                                
+							 	VW_MYCAT_SALES                  -- 계좌 지점별 매출액                                    
+							 	WHERE 1=1
+							 	AND RACE_DAY = ?            	-- 경주일  yyyymmdd                             
+							 	GROUP BY MEET_CD, RACE_NO                              
+							 ) E                                                                   
+						 WHERE 1=1                                                             
+						     AND P.MEET_CD = D.MEET_CD(+)                                      
+						     AND P.RACE_NO = D.RACE_NO(+)                                      
+						     AND P.MEET_CD = E.MEET_CD(+)                                      
+						     AND P.RACE_NO = E.RACE_NO(+)                                      
+						     -- AND P.MEET_CD NOT IN ('003')
+						     AND (P.MEET_CD LIKE ?							-- 3:MEET_CD 경륜,경정 구분 코드  
+						       OR P.MEET_CD = DECODE(?,'001','002')		-- 4:MEET_CD 경륜,경정 구분 코드
+						       OR P.MEET_CD = DECODE(?,'001','004')		-- 5:MEET_CD 경륜,경정 구분 코드
+				     )
+				)AA,(SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=3 ) BB	 
+			)C 
+			GROUP BY C.LEV, C.MEET_NM,C.MEET_CD_ORDER,C.MEET_CD,C.RACE_NO
+			ORDER BY C.MEET_CD_ORDER DESC,C.LEV ASC
+							               
+			]]>
+    </query>
+    
+    <query id="rsm2010_s04Today" desc="전주대비 전년대비" fetchSize="10">
+        <![CDATA[
+			  SELECT
+			  	/* rsm2010_s04Today */                                                            
+			     RACE_YOIL,		-- 요일  	                                                  
+			     BEFORE_YEAR,   -- 전년                                         
+			     BEFORE_TMS,    -- 전회                                         
+			     YEAR,          -- 현재년                                         
+			     TMS,           -- 현재회                                       
+			     LAST_YEAR,     --                                        
+			     LAST_TMS,                                                     
+			     BEFORE_TOTAL,  -- 전주대비 첫 번째 회차                                               
+			     TOTAL,         -- 전주대비회차                                            
+			     LAST_TOTAL,	-- 전년대비 첫번째 회
+			     (TOTAL-BEFORE_TOTAL) AS BEFORE_COMPARE,	-- 전주대비 증감액
+			                                                             
+			     CASE 
+			     	WHEN (TOTAL-BEFORE_TOTAL) > 0 THEN '1' 
+			     	WHEN (TOTAL-BEFORE_TOTAL) < 0 THEN '-1'
+			     	ELSE '0'
+			     END BEFORE_COMPARE_COLOR,                                     
+			     
+			     (TOTAL-LAST_TOTAL) AS LAST_COMPARE,		-- 전년대비 증감액		     
+			     
+			     (TOTAL-LAST_TOTAL) LAST_COMPARE_COLOR,
+			     CASE 
+			     	WHEN (TOTAL-LAST_TOTAL) > 0 THEN '1' 
+			     	WHEN (TOTAL-LAST_TOTAL) < 0 THEN '-1'
+			     	ELSE '0'
+			     END LAST_COMPARE_COLOR,                                       
+			                            
+			                                
+			     CASE                                                          
+			         WHEN BEFORE_TOTAL<>0 AND BEFORE_TOTAL>0 THEN              
+			         TO_CHAR((TOTAL-BEFORE_TOTAL)/BEFORE_TOTAL*100,'990.00')   
+			         ELSE '0.00'                                               
+			     END PER_BEFORE,                                               
+			     CASE                                                          
+			         WHEN LAST_TOTAL<>0 AND LAST_TOTAL>0 THEN                  
+			         TO_CHAR((TOTAL-LAST_TOTAL)/LAST_TOTAL*100,'990.00')       
+			         ELSE '0.00'                                               
+			     END PER_LAST_BEFORE,                                          
+			    CASE                                                                                              
+			        WHEN BEFORE_TOTAL<>0 AND BEFORE_TOTAL>0 AND (TOTAL-BEFORE_TOTAL)>0 THEN                       
+			        TO_CHAR((TOTAL-BEFORE_TOTAL)/BEFORE_TOTAL*100,'990.00')    
+			        WHEN BEFORE_TOTAL<>0 AND BEFORE_TOTAL>0  AND (TOTAL-BEFORE_TOTAL)<0 THEN                      
+			        TO_CHAR((TOTAL-BEFORE_TOTAL)/BEFORE_TOTAL*100,'990.00')   
+			       WHEN BEFORE_TOTAL=0 AND TOTAL>0 THEN  
+			        '100'                                	    
+			        ELSE '0.00'                                                                                   
+			    END PER_BEFORE_COLOR,                                                                             
+			    CASE                                                                                              
+			       WHEN  LAST_TOTAL<>0 AND LAST_TOTAL>0 AND (TOTAL-LAST_TOTAL)>0 THEN                           
+			        TO_CHAR((TOTAL-LAST_TOTAL)/LAST_TOTAL*100,'990.00')        
+			        WHEN  LAST_TOTAL<>0 AND LAST_TOTAL>0  AND (TOTAL-LAST_TOTAL)<0 THEN                         
+			        TO_CHAR((TOTAL-LAST_TOTAL)/LAST_TOTAL*100,'990.00')       
+			       WHEN LAST_TOTAL=0 AND TOTAL>0 THEN  
+			        '100'                              	    
+			        ELSE '0.00'                                                                                   
+			    END PER_LAST_BEFORE_COLOR
+			 FROM(                                                             
+			     SELECT                                                        
+			         T.RACE_YOIL,                                              
+			         A.STND_YEAR AS BEFORE_YEAR,                                
+			         A.TMS AS BEFORE_TMS,                                     
+			         V.STND_YEAR AS YEAR,                                       
+			         V.TMS AS TMS,                                              
+			         V.STND_YEAR-1 AS LAST_YEAR,                                
+			         V.TMS  AS LAST_TMS,                                        
+			         NVL(A.POOL_TOTAL,0) AS BEFORE_TOTAL,                      
+			         NVL(B.POOL_TOTAL,0) AS TOTAL,                             
+			         NVL(C.POOL_TOTAL,0) AS LAST_TOTAL                         
+			     FROM                                                          
+			     (                                                             
+			         SELECT                                                    
+			             'MON' AS RACE_YOIL,                                   
+			             '1' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'TUE',                                               
+			             '2' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'WED',                                               
+			             '3' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'THU',                                               
+			             '4' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'FRI',                                               
+			             '5' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'SAT',                                               
+			             '6' AS SEQ                                            
+			         FROM DUAL                                                 
+			         UNION ALL                                                 
+			         SELECT                                                    
+			              'SUN',                                               
+			             '7' AS SEQ                                            
+			         FROM DUAL                                                 
+			     ) T,                                                          
+			     (                                                             
+			         SELECT                                                    
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             SUM(P.POOL_TOTAL) POOL_TOTAL,                         
+			             I.RACE_YOIL                                           
+			         FROM                                                      
+			             TBES_SDL_PT P,                                        
+			             VW_SDL_INFO I,
+			             (
+			             	SELECT ROWNUM AS RNUM,
+			             	       MEET_CD,
+			             	       STND_YEAR,
+			             	       TMS
+			             	FROM   (			             	
+			                        SELECT MEET_CD, STND_YEAR, TMS 
+			                        FROM VW_SDL_INFO 
+			                        WHERE 1=1
+			                          AND MEET_CD	= ?                   -- 0:MEET_CD                  
+			                          AND RACE_DAY <= ?             -- 1:RACE_DAY
+			                          GROUP BY MEET_CD, STND_YEAR, TMS
+			                          ORDER BY STND_YEAR DESC, TMS DESC
+			                        )
+			             ) V                                         
+			         WHERE 1=1                                                     
+			             AND P.MEET_CD    = V.MEET_CD                                    
+			             AND P.STND_YEAR  = V.STND_YEAR                         
+			             AND P.TMS         = V.TMS
+			             AND V.RNUM        = 2                                
+			             AND I.MEET_CD     = P.MEET_CD                               
+			             AND I.STND_YEAR   = P.STND_YEAR                         
+			             AND I.TMS         = P.TMS                                       
+			             AND I.DAY_ORD     = P.DAY_ORD                               
+			         GROUP BY                                                  
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             I.RACE_YOIL                                           
+			     ) A,  -- 전주 대비                                                                         
+			     (                                                             
+			         SELECT                                                    
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             SUM(P.POOL_TOTAL) POOL_TOTAL,                         
+			             I.RACE_YOIL                                           
+			         FROM                                                      
+			             TBES_SDL_PT P,                                        
+			             VW_SDL_INFO I,
+			             (
+			                 SELECT * 
+			                    FROM VW_SDL_INFO 
+			                    WHERE 1=1
+			                     AND MEET_CD	= ?                   -- 2:MEET_CD                  
+			                     AND RACE_DAY	= ?              -- 3:RACE_DAY
+			                 )V                                         
+			         WHERE                                                     
+			             P.MEET_CD=V.MEET_CD                                    
+			             AND P.STND_YEAR  = V.STND_YEAR                         
+			             AND P.TMS     = V.TMS                                  
+			             AND I.MEET_CD=P.MEET_CD                               
+			             AND I.STND_YEAR = P.STND_YEAR                         
+			             AND I.TMS=P.TMS                                       
+			             AND I.DAY_ORD=P.DAY_ORD                               
+			         GROUP BY                                                  
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             I.RACE_YOIL                                           
+			     ) B,                                                          
+			     (                                                             
+			         SELECT                                                    
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             SUM(P.POOL_TOTAL) POOL_TOTAL,                         
+			             I.RACE_YOIL                                           
+			         FROM                                                      
+			             TBES_SDL_PT P,                                        
+			             VW_SDL_INFO I,
+			             (
+			                 SELECT * 
+			                    FROM VW_SDL_INFO 
+			                    WHERE 1=1
+			                     AND MEET_CD	= ?                   -- 4:MEET_CD                  
+			                     AND RACE_DAY	= ?             -- 5:RACE_DAY        
+			                 )V                                         
+			         WHERE                                                     
+			             P.MEET_CD=V.MEET_CD                                    
+			             AND P.STND_YEAR  = V.STND_YEAR-1                       
+			             AND P.TMS     = V.TMS                                  
+			             AND I.MEET_CD=P.MEET_CD                               
+			             AND I.STND_YEAR = P.STND_YEAR                         
+			             AND I.TMS=P.TMS                                       
+			             AND I.DAY_ORD=P.DAY_ORD                               
+			         GROUP BY                                                  
+			             P.STND_YEAR,                                          
+			             P.TMS,                                                
+			             I.RACE_YOIL                                           
+			     ) C,     -- 전년대비
+			     (
+			     SELECT * 
+			        FROM VW_SDL_INFO 
+			        WHERE 1=1
+			         AND MEET_CD	= ?                   -- 6:MEET_CD                  
+			         AND RACE_DAY	= ?             -- 7:RACE_DAY        
+			     )V
+			     WHERE                                                         
+			         T.RACE_YOIL=A.RACE_YOIL(+)                                
+			         AND T.RACE_YOIL=B.RACE_YOIL(+)                            
+			         AND T.RACE_YOIL=C.RACE_YOIL(+)                            
+			     ORDER BY T.SEQ                                                
+			 )                                                                                                                                                                                                                                     			
+        ]]>
+    </query>
+    
+        <query id="rsm2010_s09Today" desc="지점별 총 매출액(today) " fetchSize="10">
+	    <![CDATA[
+			WITH I AS (
+			        SELECT * FROM VW_SDL_INFO
+			        WHERE race_day = ?
+			          AND meet_cd = ?
+			) 
+			,A AS (
+			        SELECT --comm_no, sum(div_total)
+			            R.MEET_CD,        -- 경륜구분 코드
+			            R.STND_YEAR,        -- 기준년도           
+			            SUM(DIV_TOTAL) SUM_AMT,                                                    -- 매출총계
+			            SUM(CASE WHEN R.MEET_CD||SELL_CD IN ('00101','00201','00301','00303','00401') AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END) BON_AMT, -- 경주 구분 코드  -- 00301 추가 20150715
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN DIV_TOTAL END) SUW_AMT,    -- 수원
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN DIV_TOTAL END) JUN_AMT,    -- 상봉(중랑)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN DIV_TOTAL END) ILS_AMT,    -- 일산
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN DIV_TOTAL END) TON_AMT,    -- 동대문
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN DIV_TOTAL END) BUN_AMT,    -- 분당
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN DIV_TOTAL END) JAN_AMT,    -- 장안
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN DIV_TOTAL END) SAN_AMT,    -- 산본
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN DIV_TOTAL END) BUC_AMT,    -- 부천
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN DIV_TOTAL END) GWA_AMT,    -- 관악
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN DIV_TOTAL END) SUN_AMT,    -- 길음(성북)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN DIV_TOTAL END) YOU_AMT,    -- 당산(영등포)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN DIV_TOTAL END) DAE_AMT,    -- 유성(대전)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN DIV_TOTAL END) INC_AMT,    -- 인천
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN DIV_TOTAL END) SIH_AMT,    -- 시흥
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN DIV_TOTAL END) NON_AMT,    -- 논현(강남)
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN DIV_TOTAL END) CHU_AMT,    -- 천안
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN DIV_TOTAL END) OLM_AMT,    -- 올림픽
+			            SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN DIV_TOTAL END) EUI_AMT,    -- 의정부
+			            SUM(CASE WHEN R.MEET_CD||SELL_CD IN ('00103','00203','00403') AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END) SHA_AMT -- 공동활용 본장  --00301 제거 20150715
+			        FROM VW_SDL_DT_GSUM_REAL R, I   --과거는 VW_SDL_DT_SUM_GSUM  , 오늘은  VW_SDL_DT_GSUM_REAL
+			        WHERE R.stnd_year = I.stnd_year AND R.tms = I.tms AND R.day_ord = I.day_ord AND R.meet_cd = I.meet_cd
+			        GROUP BY R.meet_cd, R.stnd_year  
+			)
+			,AA AS (
+			     SELECT
+			        BON_AMT,
+			        ROUND(BON_AMT/SUM_AMT*100,2) AS BON_RATE,
+			        NON_AMT,
+			        ROUND(NON_AMT/SUM_AMT*100,2) AS NON_RATE,
+			        OLM_AMT,
+			        ROUND(OLM_AMT/SUM_AMT*100,2) AS OLM_RATE,
+			        TON_AMT,
+			        ROUND(TON_AMT/SUM_AMT*100,2) AS TON_RATE,
+			        SAN_AMT,
+			        ROUND(SAN_AMT/SUM_AMT*100,2) AS SAN_RATE,
+			        EUI_AMT,
+			        ROUND(EUI_AMT/SUM_AMT*100,2) AS EUI_RATE,
+			        SUW_AMT,
+			        ROUND(SUW_AMT/SUM_AMT*100,2) AS SUW_RATE,                            
+			        JUN_AMT,
+			        ROUND(JUN_AMT/SUM_AMT*100,2) AS JUN_RATE,
+			        ILS_AMT,
+			        ROUND(ILS_AMT/SUM_AMT*100,2) AS ILS_RATE,
+			        BUN_AMT,
+			        ROUND(BUN_AMT/SUM_AMT*100,2) AS BUN_RATE,
+			        JAN_AMT,
+			        ROUND(JAN_AMT/SUM_AMT*100,2) AS JAN_RATE,
+			        BUC_AMT,
+			        ROUND(BUC_AMT/SUM_AMT*100,2) AS BUC_RATE,
+			        GWA_AMT,
+			        ROUND(GWA_AMT/SUM_AMT*100,2) AS GWA_RATE,
+			        SUN_AMT,
+			        ROUND(SUN_AMT/SUM_AMT*100,2) AS SUN_RATE,
+			        YOU_AMT,
+			        ROUND(YOU_AMT/SUM_AMT*100,2) AS YOU_RATE,
+			        DAE_AMT,
+			        ROUND(DAE_AMT/SUM_AMT*100,2) AS DAE_RATE,
+			        INC_AMT,
+			        ROUND(INC_AMT/SUM_AMT*100,2) AS INC_RATE,
+			        SIH_AMT,
+			        ROUND(SIH_AMT/SUM_AMT*100,2) AS SIH_RATE,
+			        CHU_AMT,
+			        ROUND(CHU_AMT/SUM_AMT*100,2) AS CHU_RATE,
+			        SHA_AMT,
+			        ROUND(SHA_AMT/SUM_AMT*100,2) AS SHA_RATE,
+			        SUM_AMT,
+			        ROUND(SUM_AMT/SUM_AMT*100,2) AS SUM_RATE 
+			    FROM A
+			)    
+			SELECT 
+			        DECODE(LEV,1,SUM_AMT,SUM_RATE) AS SUM_AMT,    -- 합계            
+			        DECODE(LEV,1,BON_AMT,BON_RATE) AS BON_AMT,    -- 본장
+			        DECODE(LEV,1,SUW_AMT,SUW_RATE) AS SUW_AMT,    -- 수원
+			        DECODE(LEV,1,JUN_AMT,JUN_RATE) AS JUN_AMT,    -- 중랑
+			        DECODE(LEV,1,ILS_AMT,ILS_RATE) AS ILS_AMT,    -- 일산
+			        DECODE(LEV,1,BUN_AMT,BUN_RATE) AS BUN_AMT,    -- 분당
+			        DECODE(LEV,1,TON_AMT,TON_RATE) AS TON_AMT,    -- 동대문                    
+			        DECODE(LEV,1,JAN_AMT,JAN_RATE) AS JAN_AMT,    -- 장안
+			        DECODE(LEV,1,SAN_AMT,SAN_RATE) AS SAN_AMT,    -- 산본                    
+			        DECODE(LEV,1,BUC_AMT,BUC_RATE) AS BUC_AMT,    -- 부천
+			        DECODE(LEV,1,GWA_AMT,GWA_RATE) AS GWA_AMT,    -- 관악
+			        DECODE(LEV,1,SUN_AMT,SUN_RATE) AS SUN_AMT,    -- 성북
+			        DECODE(LEV,1,YOU_AMT,YOU_RATE) AS YOU_AMT,    -- 영등포
+			        DECODE(LEV,1,DAE_AMT,DAE_RATE) AS DAE_AMT,    -- 대전
+			        DECODE(LEV,1,INC_AMT,INC_RATE) AS INC_AMT,    -- 인천
+			        DECODE(LEV,1,SIH_AMT,SIH_RATE) AS SIH_AMT,    -- 시흥
+			        DECODE(LEV,1,NON_AMT,NON_RATE) AS NON_AMT,    -- 강남                    
+			        DECODE(LEV,1,CHU_AMT,CHU_RATE) AS CHU_AMT,    -- 천안
+			        DECODE(LEV,1,OLM_AMT,OLM_RATE) AS OLM_AMT,    -- 올림픽
+			        DECODE(LEV,1,EUI_AMT,EUI_RATE) AS EUI_AMT,    -- 의정부                    
+			        DECODE(LEV,1,SHA_AMT,SHA_RATE) AS SHA_AMT     -- 공동활용본장(광명 또는 미사리)            
+			FROM AA,
+			    (SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2 ) BB
+	    ]]>
+    </query>
+    
+    <query id="rsm2010_s10Today" desc="지점별 그린카드 매출금액" fetchSize="10">
+        <![CDATA[
+			WITH SALES_INFO AS ( /* rsm2010_s10Today 지점별 그린카드 매출금액 today*/
+				SELECT
+					T1.COMM_NO,
+					(T1.DIV_TOT+T2.MYCAT_TOT) TOTAL, --총매출액
+					T1.DIV_TOT CASH_AMT,             --현금
+					ROUND(T1.DIV_TOT/(T1.DIV_TOT+T2.MYCAT_TOT)*100,2) CASH_RATIO, --현금비율
+					T2.MYCAT_TOT, --전자카드
+					T2.MYCAT_DEV, --단말기
+					T2.MYCAT_MOB,  --모바일
+					ROUND(T2.MYCAT_TOT/(T1.DIV_TOT+T2.MYCAT_TOT)*100,2) MYCAT_RATIO --전자카드비율
+				FROM
+				(
+					SELECT
+						COMM_NO,
+						SUM(DIV_TOTAL) DIV_TOT
+					FROM (
+						SELECT
+							CASE WHEN D.COMM_NO < 11 THEN '00' ELSE D.COMM_NO END AS COMM_NO,
+							NVL(D.DIV_TOTAL,0) DIV_TOTAL
+						FROM VW_SDL_INFO A,		 -- 경주일 정보
+						     TBES_SDL_DT D
+						WHERE 1=1
+						AND D.MEET_CD   = A.MEET_CD
+						AND D.STND_YEAR = A.STND_YEAR
+						AND D.TMS       = A.TMS
+						AND D.DAY_ORD   = A.DAY_ORD
+						AND D.SELL_CD   IN ('01','03')
+						AND D.COMM_NO  != '06'
+						AND A.RACE_DAY  = ?
+						AND D.MEET_CD IN ('001','003')
+					)
+					GROUP BY COMM_NO
+				) T1,
+				(
+					SELECT
+						COMM_NO,
+						SUM(NET_AMT) MYCAT_TOT,
+						SUM(DECODE(CHANNEL_CD,'001',NET_AMT,0)) MYCAT_DEV,
+						SUM(DECODE(CHANNEL_CD,'002',NET_AMT,0)) MYCAT_MOB
+					FROM (
+						SELECT
+							CASE WHEN DIV_NO = '00' THEN DIV_NO
+								 WHEN DIV_NO = '04' THEN '15' --그린카드: 동대문(04) -> 현금: 동대문(15)
+								 WHEN DIV_NO = '05' THEN '14' --그린카드: 분당(05) -> 현금: 분당(14)
+							     ELSE TO_CHAR(TO_NUMBER(DIV_NO)+10) END
+							AS COMM_NO,
+							CHANNEL_CD,
+							NET_AMT
+						FROM VW_MYCAT_SALES_DET
+						WHERE RACE_DAY = ?
+						AND MEET_CD IN ('001','003')
+					)
+					GROUP BY COMM_NO
+				) T2
+				WHERE T1.COMM_NO = T2.COMM_NO
+			)
+			SELECT
+				IDX,
+				MAX(GUBUN1) GUBUN1,
+				MAX(GUBUN2) GUBUN2,
+				MAX(COMM_00) COMM_00,
+				MAX(COMM_11) COMM_11,
+				MAX(COMM_12) COMM_12,
+				MAX(COMM_13) COMM_13,
+				MAX(COMM_14) COMM_14,
+				MAX(COMM_15) COMM_15,
+				MAX(COMM_16) COMM_16,
+				MAX(COMM_17) COMM_17,
+				MAX(COMM_18) COMM_18,
+				MAX(COMM_19) COMM_19,
+				MAX(COMM_20) COMM_20,
+				MAX(COMM_21) COMM_21,
+				MAX(COMM_22) COMM_22,
+				MAX(COMM_23) COMM_23,
+				MAX(COMM_24) COMM_24,
+				MAX(COMM_25) COMM_25,
+				MAX(COMM_26) COMM_26,
+				MAX(COMM_28) COMM_28
+			FROM (
+				SELECT
+					1 AS IDX, --총매출액
+					'총매출' GUBUN1,
+					'(A=B+C)' GUBUN2,
+					DECODE(COMM_NO, '00', TOTAL,0) AS COMM_00, DECODE(COMM_NO, '11', TOTAL,0) AS COMM_11, DECODE(COMM_NO, '12', TOTAL,0) AS COMM_12, DECODE(COMM_NO, '13', TOTAL,0) AS COMM_13,
+					DECODE(COMM_NO, '14', TOTAL,0) AS COMM_14, DECODE(COMM_NO, '15', TOTAL,0) AS COMM_15, DECODE(COMM_NO, '16', TOTAL,0) AS COMM_16, DECODE(COMM_NO, '17', TOTAL,0) AS COMM_17,
+					DECODE(COMM_NO, '18', TOTAL,0) AS COMM_18, DECODE(COMM_NO, '19', TOTAL,0) AS COMM_19, DECODE(COMM_NO, '20', TOTAL,0) AS COMM_20, DECODE(COMM_NO, '21', TOTAL,0) AS COMM_21,
+					DECODE(COMM_NO, '22', TOTAL,0) AS COMM_22, DECODE(COMM_NO, '23', TOTAL,0) AS COMM_23, DECODE(COMM_NO, '24', TOTAL,0) AS COMM_24, DECODE(COMM_NO, '25', TOTAL,0) AS COMM_25,
+					DECODE(COMM_NO, '26', TOTAL,0) AS COMM_26, DECODE(COMM_NO, '28', TOTAL,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					2 AS IDX,  --현금
+					'현금' GUBUN1,
+					'(B)' GUBUN2,
+					DECODE(COMM_NO, '00', CASH_AMT,0) AS COMM_00, DECODE(COMM_NO, '11', CASH_AMT,0) AS COMM_11, DECODE(COMM_NO, '12', CASH_AMT,0) AS COMM_12, DECODE(COMM_NO, '13', CASH_AMT,0) AS COMM_13,
+					DECODE(COMM_NO, '14', CASH_AMT,0) AS COMM_14, DECODE(COMM_NO, '15', CASH_AMT,0) AS COMM_15, DECODE(COMM_NO, '16', CASH_AMT,0) AS COMM_16, DECODE(COMM_NO, '17', CASH_AMT,0) AS COMM_17,
+					DECODE(COMM_NO, '18', CASH_AMT,0) AS COMM_18, DECODE(COMM_NO, '19', CASH_AMT,0) AS COMM_19, DECODE(COMM_NO, '20', CASH_AMT,0) AS COMM_20, DECODE(COMM_NO, '21', CASH_AMT,0) AS COMM_21,
+					DECODE(COMM_NO, '22', CASH_AMT,0) AS COMM_22, DECODE(COMM_NO, '23', CASH_AMT,0) AS COMM_23, DECODE(COMM_NO, '24', CASH_AMT,0) AS COMM_24, DECODE(COMM_NO, '25', CASH_AMT,0) AS COMM_25,
+					DECODE(COMM_NO, '26', CASH_AMT,0) AS COMM_26, DECODE(COMM_NO, '28', CASH_AMT,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					3 AS IDX,  --현금비율
+					'현금비율(%)' GUBUN1,
+					'(B/A*100)' GUBUN2,
+					DECODE(COMM_NO, '00', CASH_RATIO,0) AS COMM_00, DECODE(COMM_NO, '11', CASH_RATIO,0) AS COMM_11, DECODE(COMM_NO, '12', CASH_RATIO,0) AS COMM_12, DECODE(COMM_NO, '13', CASH_RATIO,0) AS COMM_13,
+					DECODE(COMM_NO, '14', CASH_RATIO,0) AS COMM_14, DECODE(COMM_NO, '15', CASH_RATIO,0) AS COMM_15, DECODE(COMM_NO, '16', CASH_RATIO,0) AS COMM_16, DECODE(COMM_NO, '17', CASH_RATIO,0) AS COMM_17,
+					DECODE(COMM_NO, '18', CASH_RATIO,0) AS COMM_18, DECODE(COMM_NO, '19', CASH_RATIO,0) AS COMM_19, DECODE(COMM_NO, '20', CASH_RATIO,0) AS COMM_20, DECODE(COMM_NO, '21', CASH_RATIO,0) AS COMM_21,
+					DECODE(COMM_NO, '22', CASH_RATIO,0) AS COMM_22, DECODE(COMM_NO, '23', CASH_RATIO,0) AS COMM_23, DECODE(COMM_NO, '24', CASH_RATIO,0) AS COMM_24, DECODE(COMM_NO, '25', CASH_RATIO,0) AS COMM_25,
+					DECODE(COMM_NO, '26', CASH_RATIO,0) AS COMM_26, DECODE(COMM_NO, '28', CASH_RATIO,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					4 AS IDX,  --그린카드
+					'그린카드' GUBUN1,
+					'(C=D+E)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_TOT,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_TOT,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_TOT,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_TOT,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_TOT,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_TOT,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_TOT,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_TOT,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_TOT,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_TOT,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_TOT,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_TOT,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_TOT,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_TOT,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_TOT,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_TOT,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_TOT,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_TOT,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					5 AS IDX,   --그린카드-단말기
+					' - 단말기' GUBUN1,
+					'(D)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_DEV,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_DEV,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_DEV,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_DEV,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_DEV,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_DEV,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_DEV,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_DEV,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_DEV,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_DEV,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_DEV,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_DEV,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_DEV,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_DEV,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_DEV,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_DEV,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_DEV,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_DEV,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					6 AS IDX,   --그린카드-앱
+					' - 앱' GUBUN1,
+					'(E)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_MOB,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_MOB,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_MOB,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_MOB,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_MOB,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_MOB,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_MOB,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_MOB,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_MOB,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_MOB,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_MOB,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_MOB,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_MOB,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_MOB,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_MOB,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_MOB,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_MOB,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_MOB,0) AS COMM_28
+				FROM SALES_INFO
+				UNION ALL
+				SELECT
+					7 AS IDX,   -- 그린카드비율
+					'그린카드비율(%)' GUBUN1,
+					'(C/A*100)' GUBUN2,
+					DECODE(COMM_NO, '00', MYCAT_RATIO,0) AS COMM_00, DECODE(COMM_NO, '11', MYCAT_RATIO,0) AS COMM_11, DECODE(COMM_NO, '12', MYCAT_RATIO,0) AS COMM_12, DECODE(COMM_NO, '13', MYCAT_RATIO,0) AS COMM_13,
+					DECODE(COMM_NO, '14', MYCAT_RATIO,0) AS COMM_14, DECODE(COMM_NO, '15', MYCAT_RATIO,0) AS COMM_15, DECODE(COMM_NO, '16', MYCAT_RATIO,0) AS COMM_16, DECODE(COMM_NO, '17', MYCAT_RATIO,0) AS COMM_17,
+					DECODE(COMM_NO, '18', MYCAT_RATIO,0) AS COMM_18, DECODE(COMM_NO, '19', MYCAT_RATIO,0) AS COMM_19, DECODE(COMM_NO, '20', MYCAT_RATIO,0) AS COMM_20, DECODE(COMM_NO, '21', MYCAT_RATIO,0) AS COMM_21,
+					DECODE(COMM_NO, '22', MYCAT_RATIO,0) AS COMM_22, DECODE(COMM_NO, '23', MYCAT_RATIO,0) AS COMM_23, DECODE(COMM_NO, '24', MYCAT_RATIO,0) AS COMM_24, DECODE(COMM_NO, '25', MYCAT_RATIO,0) AS COMM_25,
+					DECODE(COMM_NO, '26', MYCAT_RATIO,0) AS COMM_26, DECODE(COMM_NO, '28', MYCAT_RATIO,0) AS COMM_28
+				FROM SALES_INFO
+			)
+			GROUP BY IDX
+			ORDER BY IDX
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2010_s03" desc="지점별 매출액 누계(미사용)" fetchSize="10">
+        <![CDATA[
+		  SELECT /* rsm2010_s03 (미사용)*/
+		  			CNT,TOTAL, 
+			       DECODE(LEV,1,COMM_NO_11,PER_JIJUM_11) AS COMM_NO_11,	-- 수원 (경정 X) 
+			       DECODE(LEV,1,COMM_NO_12,PER_JIJUM_12) AS COMM_NO_12,	-- 상봉
+			       DECODE(LEV,1,COMM_NO_13,PER_JIJUM_13) AS COMM_NO_13, -- 일산
+			       DECODE(LEV,1,COMM_NO_14,PER_JIJUM_14) AS COMM_NO_14,	-- 분당
+			       DECODE(LEV,1,COMM_NO_15,PER_JIJUM_15) AS COMM_NO_15, -- 동대문 (경정 X)
+			       DECODE(LEV,1,COMM_NO_16,PER_JIJUM_16) AS COMM_NO_16,	-- 장안
+			       DECODE(LEV,1,COMM_NO_17,PER_JIJUM_17) AS COMM_NO_17, -- 산본 (경정 X)
+			       DECODE(LEV,1,COMM_NO_18,PER_JIJUM_18) AS COMM_NO_18, -- 부천 (경정 X)
+			       DECODE(LEV,1,COMM_NO_19,PER_JIJUM_19) AS COMM_NO_19,	-- 관악
+			       DECODE(LEV,1,COMM_NO_20,PER_JIJUM_20) AS COMM_NO_20, -- 길음
+			       DECODE(LEV,1,COMM_NO_21,PER_JIJUM_21) AS COMM_NO_21,	-- 당산 (경정 X)
+			       DECODE(LEV,1,COMM_NO_22,PER_JIJUM_22) AS COMM_NO_22,	-- 유성
+			       DECODE(LEV,1,COMM_NO_23,PER_JIJUM_23) AS COMM_NO_23,	-- 인천
+			       DECODE(LEV,1,COMM_NO_24,PER_JIJUM_24) AS COMM_NO_24,	-- 시흥
+			       DECODE(LEV,1,COMM_NO_25,PER_JIJUM_25) AS COMM_NO_25,	-- 논현
+			       DECODE(LEV,1,COMM_NO_26,PER_JIJUM_26) AS COMM_NO_26,	-- 천안
+			       DECODE(LEV,1,COMM_NO_27,PER_JIJUM_27) AS COMM_NO_27,	-- 올림픽
+			       DECODE(LEV,1,COMM_NO_28,PER_JIJUM_28) AS COMM_NO_28,	-- 의정부
+			       DECODE(LEV,1,COMM_NO_99,PER_JIJUM_99) AS COMM_NO_99	-- 공동활용본장
+			       
+			FROM
+			(
+			SELECT MIN(CNT) AS CNT,
+			       MIN(TOTAL) AS TOTAL,
+			       MIN(CASE WHEN COMM_NO='11' THEN  DIV_TOTAL END) AS COMM_NO_11,
+			       MIN(CASE WHEN COMM_NO='11' THEN  PER_JIJUM END) AS PER_JIJUM_11,
+			       MIN(CASE WHEN COMM_NO='12' THEN  DIV_TOTAL END) AS COMM_NO_12,
+			       MIN(CASE WHEN COMM_NO='12' THEN  PER_JIJUM END) AS PER_JIJUM_12,
+			       MIN(CASE WHEN COMM_NO='13' THEN  DIV_TOTAL END) AS COMM_NO_13,
+			       MIN(CASE WHEN COMM_NO='13' THEN  PER_JIJUM END) AS PER_JIJUM_13,
+			       MIN(CASE WHEN COMM_NO='14' THEN  DIV_TOTAL END) AS COMM_NO_14,
+			       MIN(CASE WHEN COMM_NO='14' THEN  PER_JIJUM END) AS PER_JIJUM_14,
+			       MIN(CASE WHEN COMM_NO='15' THEN  DIV_TOTAL END) AS COMM_NO_15,
+			       MIN(CASE WHEN COMM_NO='15' THEN  PER_JIJUM END) AS PER_JIJUM_15,
+			       MIN(CASE WHEN COMM_NO='16' THEN  DIV_TOTAL END) AS COMM_NO_16,  
+			       MIN(CASE WHEN COMM_NO='16' THEN  PER_JIJUM END) AS PER_JIJUM_16,     
+			       MIN(CASE WHEN COMM_NO='17' THEN  DIV_TOTAL END) AS COMM_NO_17,
+			       MIN(CASE WHEN COMM_NO='17' THEN  PER_JIJUM END) AS PER_JIJUM_17,
+			       MIN(CASE WHEN COMM_NO='18' THEN  DIV_TOTAL END) AS COMM_NO_18,
+			       MIN(CASE WHEN COMM_NO='18' THEN  PER_JIJUM END) AS PER_JIJUM_18,
+			       MIN(CASE WHEN COMM_NO='19' THEN  DIV_TOTAL END) AS COMM_NO_19,
+			       MIN(CASE WHEN COMM_NO='19' THEN  PER_JIJUM END) AS PER_JIJUM_19,
+			       MIN(CASE WHEN COMM_NO='20' THEN  DIV_TOTAL END) AS COMM_NO_20,
+			       MIN(CASE WHEN COMM_NO='20' THEN  PER_JIJUM END) AS PER_JIJUM_20,
+			       MIN(CASE WHEN COMM_NO='21' THEN  DIV_TOTAL END) AS COMM_NO_21,
+			       MIN(CASE WHEN COMM_NO='21' THEN  PER_JIJUM END) AS PER_JIJUM_21,
+			       MIN(CASE WHEN COMM_NO='22' THEN  DIV_TOTAL END) AS COMM_NO_22,
+			       MIN(CASE WHEN COMM_NO='22' THEN  PER_JIJUM END) AS PER_JIJUM_22,
+			       MIN(CASE WHEN COMM_NO='23' THEN  DIV_TOTAL END) AS COMM_NO_23,
+			       MIN(CASE WHEN COMM_NO='23' THEN  PER_JIJUM END) AS PER_JIJUM_23,
+			       MIN(CASE WHEN COMM_NO='24' THEN  DIV_TOTAL END) AS COMM_NO_24,
+			       MIN(CASE WHEN COMM_NO='24' THEN  PER_JIJUM END) AS PER_JIJUM_24,
+			       MIN(CASE WHEN COMM_NO='25' THEN  DIV_TOTAL END) AS COMM_NO_25,
+			       MIN(CASE WHEN COMM_NO='25' THEN  PER_JIJUM END) AS PER_JIJUM_25,
+			       MIN(CASE WHEN COMM_NO='26' THEN  DIV_TOTAL END) AS COMM_NO_26,
+			       MIN(CASE WHEN COMM_NO='26' THEN  PER_JIJUM END) AS PER_JIJUM_26,
+			       MIN(CASE WHEN COMM_NO='27' THEN  DIV_TOTAL END) AS COMM_NO_27,
+			       MIN(CASE WHEN COMM_NO='27' THEN  PER_JIJUM END) AS PER_JIJUM_27,
+			       MIN(CASE WHEN COMM_NO='28' THEN  DIV_TOTAL END) AS COMM_NO_28,
+			       MIN(CASE WHEN COMM_NO='28' THEN  PER_JIJUM END) AS PER_JIJUM_28,
+			       MIN(CASE WHEN COMM_NO='99' THEN  DIV_TOTAL END) AS COMM_NO_99,
+			       MIN(CASE WHEN COMM_NO='99' THEN  PER_JIJUM END) AS PER_JIJUM_99
+			FROM
+			(
+			        SELECT
+					      S.COMM_NO,        -- 발매지점
+					      S.CNT,           -- 조회 카운트
+					      S.DIV_TOTAL, -- 발매지점 카운트
+					      T.TOTAL,
+					      DECODE(DIV_TOTAL,0,0,DECODE(TOTAL,0,0, ROUND(DIV_TOTAL/TOTAL*100,2))) AS PER_JIJUM -- 지점별 백분율					      
+					      -- ,S.MEET_CD 
+					                                                  
+					  FROM                                                         
+					  (                                                            
+					   SELECT                                           
+					      D.COMM_NO_SHARE AS COMM_NO,
+					      COUNT(*) CNT,                                   
+					      NVL(SUM(D.DIV_TOTAL),0) DIV_TOTAL
+					      --,D.MEET_CD                        
+					   FROM
+					   	  VW_SDL_INFO A,		-- 경주일 정보                                                    
+					      VW_SDL_DT D        	-- 매출액
+					   WHERE 1=1
+					   	   AND D.MEET_CD   = A.MEET_CD
+					       AND D.STND_YEAR = A.STND_YEAR
+					       AND D.TMS       = A.TMS
+					       AND D.DAY_ORD   = A.DAY_ORD					       
+					       AND D.SELL_CD   IN ('01','03')
+					       AND D.COMM_NO_SHARE BETWEEN '11' AND '99'	
+					       AND D.COMM_NO  != '06'				                                                                                                        
+					       AND D.MEET_CD  LIKE ? -- 0:MEET_CD '001' -- 지점 코드      
+					       AND A.RACE_DAY  = ? -- 1:RACE_DAY '20110304' -- 날짜
+					   GROUP BY  D.COMM_NO_SHARE --,D.MEET_CD                                
+					  ) S,                                                         
+					  (                                                            
+					   SELECT                                                      
+					      NVL(SUM(D.DIV_TOTAL),0) TOTAL                            
+					   FROM                                                        
+					      VW_SDL_INFO A, VW_SDL_DT D  	-- 지점별 경주 매출액                                          
+					   WHERE 1=1        
+					      AND D.MEET_CD = A.MEET_CD
+					       AND D.STND_YEAR = A.STND_YEAR
+					       AND D.TMS = A.TMS
+					       AND D.DAY_ORD = A.DAY_ORD                                              
+					       AND D.MEET_CD LIKE ? -- 2:MEET_CD '001' 	-- 지점 코드                                      
+					       AND A.RACE_DAY = ? --3:RACE_DAY  '20110304' -- 날짜                
+					  )T                                                           
+					  ORDER BY S.COMM_NO       
+			)AA
+			)AAA,(SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2 ) BB		                                              			
+        ]]>
+    </query>
+    
+    <query id="rsm2010_s07" desc="그린카드 지점별 매출액(미사용) " fetchSize="10">
+	    <![CDATA[
+             SELECT /* rsm2010_s07(미사용) */                         
+                    DECODE(LEV,1,SUM_CAT,SUM_RATE) AS SUM_CAT,    -- 합계
+                    DECODE(LEV,1,BON_CAT,BON_RATE) AS BON_CAT,    -- 본장
+                    DECODE(LEV,1,SUW_CAT,SUW_RATE) AS SUW_CAT,    -- 수원
+                    DECODE(LEV,1,JUN_CAT,JUN_RATE) AS JUN_CAT,    -- 중랑
+                    DECODE(LEV,1,ILS_CAT,ILS_RATE) AS ILS_CAT,    -- 일산
+                    DECODE(LEV,1,BUN_CAT,BUN_RATE) AS BUN_CAT,    -- 분당
+                    DECODE(LEV,1,TON_CAT,TON_RATE) AS TON_CAT,    -- 동대문                    
+                    DECODE(LEV,1,JAN_CAT,JAN_RATE) AS JAN_CAT,    -- 장안
+                    DECODE(LEV,1,SAN_CAT,SAN_RATE) AS SAN_CAT,    -- 산본                    
+                    DECODE(LEV,1,BUC_CAT,BUC_RATE) AS BUC_CAT,    -- 부천
+                    DECODE(LEV,1,GWA_CAT,GWA_RATE) AS GWA_CAT,    -- 관악
+                    DECODE(LEV,1,SUN_CAT,SUN_RATE) AS SUN_CAT,    -- 성북
+                    DECODE(LEV,1,YOU_CAT,YOU_RATE) AS YOU_CAT,    -- 영등포
+                    DECODE(LEV,1,DAE_CAT,DAE_RATE) AS DAE_CAT,    -- 대전
+                    DECODE(LEV,1,INC_CAT,INC_RATE) AS INC_CAT,    -- 인천
+                    DECODE(LEV,1,SIH_CAT,SIH_RATE) AS SIH_CAT,    -- 시흥
+                    DECODE(LEV,1,NON_CAT,NON_RATE) AS NON_CAT,    -- 강남                    
+                    DECODE(LEV,1,CHU_CAT,CHU_RATE) AS CHU_CAT,    -- 천안
+                    DECODE(LEV,1,OLM_CAT,OLM_RATE) AS OLM_CAT,    -- 올림픽
+                    DECODE(LEV,1,EUI_CAT,EUI_RATE) AS EUI_CAT,    -- 의정부                    
+                    DECODE(LEV,1,SHA_CAT,SHA_RATE) AS SHA_CAT     -- 공동활용본장(광명 또는 미사리)
+            FROM              
+                    (
+                    SELECT  --MEET_NM,
+                            --MEET_CD,
+                            BON_CAT,
+                            ROUND(BON_CAT/TOTAL*100,2) AS BON_RATE,
+                            NON_CAT,
+                            ROUND(NON_CAT/TOTAL*100,2) AS NON_RATE,
+                            OLM_CAT,
+                            ROUND(OLM_CAT/TOTAL*100,2) AS OLM_RATE,
+                            TON_CAT,
+                            ROUND(TON_CAT/TOTAL*100,2) AS TON_RATE,
+                            SAN_CAT,
+                            ROUND(SAN_CAT/TOTAL*100,2) AS SAN_RATE,
+                            EUI_CAT,
+                            ROUND(EUI_CAT/TOTAL*100,2) AS EUI_RATE,
+                            SUW_CAT,
+                            ROUND(SUW_CAT/TOTAL*100,2) AS SUW_RATE,                            
+                            JUN_CAT,
+                            ROUND(JUN_CAT/TOTAL*100,2) AS JUN_RATE,
+                            ILS_CAT,
+                            ROUND(ILS_CAT/TOTAL*100,2) AS ILS_RATE,
+                            BUN_CAT,
+                            ROUND(BUN_CAT/TOTAL*100,2) AS BUN_RATE,
+                            JAN_CAT,
+                            ROUND(JAN_CAT/TOTAL*100,2) AS JAN_RATE,
+                            BUC_CAT,
+                            ROUND(BUC_CAT/TOTAL*100,2) AS BUC_RATE,
+                            GWA_CAT,
+                            ROUND(GWA_CAT/TOTAL*100,2) AS GWA_RATE,
+                            SUN_CAT,
+                            ROUND(SUN_CAT/TOTAL*100,2) AS SUN_RATE,
+                            YOU_CAT,
+                            ROUND(YOU_CAT/TOTAL*100,2) AS YOU_RATE,
+                            DAE_CAT,
+                            ROUND(DAE_CAT/TOTAL*100,2) AS DAE_RATE,
+                            INC_CAT,
+                            ROUND(INC_CAT/TOTAL*100,2) AS INC_RATE,
+                            SIH_CAT,
+                            ROUND(SIH_CAT/TOTAL*100,2) AS SIH_RATE,
+                            CHU_CAT,
+                            ROUND(CHU_CAT/TOTAL*100,2) AS CHU_RATE,
+                            SHA_CAT,
+                            ROUND(SHA_CAT/TOTAL*100,2) AS SHA_RATE,
+                            SUM_CAT,
+                            ROUND(SUM_CAT/TOTAL*100,2) AS SUM_RATE              
+                    FROM (
+                                 SELECT                                                          
+                                        --NVL(                                                            
+                                        --    CASE                                                      
+                                        --         WHEN M.MEET_CD = '001' THEN '광명'                        
+                                        --         WHEN M.MEET_CD = '002' THEN '창원'                        
+                                        --         WHEN M.MEET_CD = '004' THEN '부산'                        
+                                        --         WHEN M.MEET_CD = '003' THEN '미사리'                      
+                                        --      END,'TOTAL'                                               
+                                        --    ) AS MEET_NM,                                                 
+                                        --NVL(M.MEET_CD,'TOTAL') AS MEET_CD,                              
+                                        --SUM(DECODE(M.DIV_NO,'00',NET_AMT,0)) BON_CAT, /* 발매지점, 순매출액 */                     
+                                        SUM(CASE WHEN SUBSTR(M.MEET_CD,2,2) = M.SELL_CD AND M.DIV_NO = '00' THEN NET_AMT ELSE 0 END) BON_CAT, /* 발매지점, 순매출액 */                     
+                                        SUM(DECODE(M.DIV_NO,'15',NET_AMT,0)) NON_CAT, --강남                    
+                                        SUM(DECODE(M.DIV_NO,'17',NET_AMT,0)) OLM_CAT, --올림픽                     
+                                        SUM(DECODE(M.DIV_NO,'04',NET_AMT,0)) TON_CAT, --동대문                    
+                                        SUM(DECODE(M.DIV_NO,'07',NET_AMT,0)) SAN_CAT, --산본
+                                        SUM(DECODE(M.DIV_NO,'18',NET_AMT,0)) EUI_CAT, --의정부
+                                        SUM(DECODE(M.DIV_NO,'01',NET_AMT,0)) SUW_CAT, --수원
+                                        SUM(DECODE(M.DIV_NO,'02',NET_AMT,0)) JUN_CAT, --중랑
+                                        SUM(DECODE(M.DIV_NO,'03',NET_AMT,0)) ILS_CAT, --일산
+                                        SUM(DECODE(M.DIV_NO,'05',NET_AMT,0)) BUN_CAT, --분당
+                                        SUM(DECODE(M.DIV_NO,'06',NET_AMT,0)) JAN_CAT, --장안
+                                        SUM(DECODE(M.DIV_NO,'08',NET_AMT,0)) BUC_CAT, --부천
+                                        SUM(DECODE(M.DIV_NO,'09',NET_AMT,0)) GWA_CAT, --관악
+                                        SUM(DECODE(M.DIV_NO,'10',NET_AMT,0)) SUN_CAT, --성북
+                                        SUM(DECODE(M.DIV_NO,'11',NET_AMT,0)) YOU_CAT, --영등포
+                                        SUM(DECODE(M.DIV_NO,'12',NET_AMT,0)) DAE_CAT, --대전
+                                        SUM(DECODE(M.DIV_NO,'13',NET_AMT,0)) INC_CAT, --인천
+                                        SUM(DECODE(M.DIV_NO,'14',NET_AMT,0)) SIH_CAT, --시흥
+                                        SUM(DECODE(M.DIV_NO,'16',NET_AMT,0)) CHU_CAT, --천안
+			                            SUM(CASE WHEN SUBSTR(M.MEET_CD,2,2) != M.SELL_CD AND M.DIV_NO = '00' THEN NET_AMT ELSE 0 END) SHA_CAT, /* 공동활용본장 */                     
+			                            SUM(NET_AMT) AS SUM_CAT                      
+			                     FROM                                                                
+			                            VW_MYCAT_SALES M              -- 계좌 지점별 매출액
+			                     WHERE 1=1
+			                           AND M.RACE_DAY =  ?              -- 경주일  yyyymmdd
+			                           AND M.MEET_CD LIKE ?
+			                           AND RACE_NO <= (SELECT MAX(A.RACE_NO) 
+			                                             FROM VW_SDL_DT A, VW_SDL_INFO I
+			                                             WHERE A.MEET_CD   = I.MEET_CD
+			                                               AND A.STND_YEAR = I.STND_YEAR
+			                                               AND A.TMS       = I.TMS
+			                                               AND A.DAY_ORD   = I.DAY_ORD
+			                                               AND I.RACE_DAY  = ?
+			                                               AND I.MEET_CD LIKE ?) -- 경주일  yyyymmdd
+			                     --GROUP BY M.MEET_CD
+			                    ) A,
+			                    (SELECT SUM(DIV_TOTAL) AS TOTAL
+			                     FROM   VW_SDL_DT
+			                     WHERE (MEET_CD, STND_YEAR, TMS, DAY_ORD) IN 
+			                           (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD 
+			                            FROM   VW_SDL_INFO 
+			                            WHERE RACE_DAY = ? 
+			                              AND MEET_CD LIKE ?)   -- 경주일  yyyymmdd
+			                     ) B  
+			        ) AA,
+			        (SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2 ) BB  
+	    ]]>
+    </query>
+    
+    
+
+    
+    <query id="rsm2010_s03Today" desc="지점별 매출액 누계(today) (미사용)" fetchSize="10">
+        <![CDATA[
+		  SELECT /* rsm2010_s03Today (미사용)*/
+		  			CNT,TOTAL, 
+			       DECODE(LEV,1,COMM_NO_11,PER_JIJUM_11) AS COMM_NO_11,	-- 수원 (경정 X) 
+			       DECODE(LEV,1,COMM_NO_12,PER_JIJUM_12) AS COMM_NO_12,	-- 상봉
+			       DECODE(LEV,1,COMM_NO_13,PER_JIJUM_13) AS COMM_NO_13, -- 일산
+			       DECODE(LEV,1,COMM_NO_14,PER_JIJUM_14) AS COMM_NO_14,	-- 분당
+			       DECODE(LEV,1,COMM_NO_15,PER_JIJUM_15) AS COMM_NO_15, -- 동대문 (경정 X)
+			       DECODE(LEV,1,COMM_NO_16,PER_JIJUM_16) AS COMM_NO_16,	-- 장안
+			       DECODE(LEV,1,COMM_NO_17,PER_JIJUM_17) AS COMM_NO_17, -- 산본 (경정 X)
+			       DECODE(LEV,1,COMM_NO_18,PER_JIJUM_18) AS COMM_NO_18, -- 부천 (경정 X)
+			       DECODE(LEV,1,COMM_NO_19,PER_JIJUM_19) AS COMM_NO_19,	-- 관악
+			       DECODE(LEV,1,COMM_NO_20,PER_JIJUM_20) AS COMM_NO_20, -- 길음
+			       DECODE(LEV,1,COMM_NO_21,PER_JIJUM_21) AS COMM_NO_21,	-- 당산 (경정 X)
+			       DECODE(LEV,1,COMM_NO_22,PER_JIJUM_22) AS COMM_NO_22,	-- 유성
+			       DECODE(LEV,1,COMM_NO_23,PER_JIJUM_23) AS COMM_NO_23,	-- 인천
+			       DECODE(LEV,1,COMM_NO_24,PER_JIJUM_24) AS COMM_NO_24,	-- 시흥
+			       DECODE(LEV,1,COMM_NO_25,PER_JIJUM_25) AS COMM_NO_25,	-- 논현
+			       DECODE(LEV,1,COMM_NO_26,PER_JIJUM_26) AS COMM_NO_26,	-- 천안
+			       DECODE(LEV,1,COMM_NO_27,PER_JIJUM_27) AS COMM_NO_27,	-- 올림픽
+			       DECODE(LEV,1,COMM_NO_28,PER_JIJUM_28) AS COMM_NO_28,	-- 의정부
+			       DECODE(LEV,1,COMM_NO_99,PER_JIJUM_99) AS COMM_NO_99	-- 공동활용본장
+			       
+			FROM
+			(
+			SELECT MIN(CNT) AS CNT,
+			       MIN(TOTAL) AS TOTAL,
+			       MIN(CASE WHEN COMM_NO='11' THEN  DIV_TOTAL END) AS COMM_NO_11,
+			       MIN(CASE WHEN COMM_NO='11' THEN  PER_JIJUM END) AS PER_JIJUM_11,
+			       MIN(CASE WHEN COMM_NO='12' THEN  DIV_TOTAL END) AS COMM_NO_12,
+			       MIN(CASE WHEN COMM_NO='12' THEN  PER_JIJUM END) AS PER_JIJUM_12,
+			       MIN(CASE WHEN COMM_NO='13' THEN  DIV_TOTAL END) AS COMM_NO_13,
+			       MIN(CASE WHEN COMM_NO='13' THEN  PER_JIJUM END) AS PER_JIJUM_13,
+			       MIN(CASE WHEN COMM_NO='14' THEN  DIV_TOTAL END) AS COMM_NO_14,
+			       MIN(CASE WHEN COMM_NO='14' THEN  PER_JIJUM END) AS PER_JIJUM_14,
+			       MIN(CASE WHEN COMM_NO='15' THEN  DIV_TOTAL END) AS COMM_NO_15,
+			       MIN(CASE WHEN COMM_NO='15' THEN  PER_JIJUM END) AS PER_JIJUM_15,
+			       MIN(CASE WHEN COMM_NO='16' THEN  DIV_TOTAL END) AS COMM_NO_16,  
+			       MIN(CASE WHEN COMM_NO='16' THEN  PER_JIJUM END) AS PER_JIJUM_16,     
+			       MIN(CASE WHEN COMM_NO='17' THEN  DIV_TOTAL END) AS COMM_NO_17,
+			       MIN(CASE WHEN COMM_NO='17' THEN  PER_JIJUM END) AS PER_JIJUM_17,
+			       MIN(CASE WHEN COMM_NO='18' THEN  DIV_TOTAL END) AS COMM_NO_18,
+			       MIN(CASE WHEN COMM_NO='18' THEN  PER_JIJUM END) AS PER_JIJUM_18,
+			       MIN(CASE WHEN COMM_NO='19' THEN  DIV_TOTAL END) AS COMM_NO_19,
+			       MIN(CASE WHEN COMM_NO='19' THEN  PER_JIJUM END) AS PER_JIJUM_19,
+			       MIN(CASE WHEN COMM_NO='20' THEN  DIV_TOTAL END) AS COMM_NO_20,
+			       MIN(CASE WHEN COMM_NO='20' THEN  PER_JIJUM END) AS PER_JIJUM_20,
+			       MIN(CASE WHEN COMM_NO='21' THEN  DIV_TOTAL END) AS COMM_NO_21,
+			       MIN(CASE WHEN COMM_NO='21' THEN  PER_JIJUM END) AS PER_JIJUM_21,
+			       MIN(CASE WHEN COMM_NO='22' THEN  DIV_TOTAL END) AS COMM_NO_22,
+			       MIN(CASE WHEN COMM_NO='22' THEN  PER_JIJUM END) AS PER_JIJUM_22,
+			       MIN(CASE WHEN COMM_NO='23' THEN  DIV_TOTAL END) AS COMM_NO_23,
+			       MIN(CASE WHEN COMM_NO='23' THEN  PER_JIJUM END) AS PER_JIJUM_23,
+			       MIN(CASE WHEN COMM_NO='24' THEN  DIV_TOTAL END) AS COMM_NO_24,
+			       MIN(CASE WHEN COMM_NO='24' THEN  PER_JIJUM END) AS PER_JIJUM_24,
+			       MIN(CASE WHEN COMM_NO='25' THEN  DIV_TOTAL END) AS COMM_NO_25,
+			       MIN(CASE WHEN COMM_NO='25' THEN  PER_JIJUM END) AS PER_JIJUM_25,
+			       MIN(CASE WHEN COMM_NO='26' THEN  DIV_TOTAL END) AS COMM_NO_26,
+			       MIN(CASE WHEN COMM_NO='26' THEN  PER_JIJUM END) AS PER_JIJUM_26,
+			       MIN(CASE WHEN COMM_NO='27' THEN  DIV_TOTAL END) AS COMM_NO_27,
+			       MIN(CASE WHEN COMM_NO='27' THEN  PER_JIJUM END) AS PER_JIJUM_27,
+			       MIN(CASE WHEN COMM_NO='28' THEN  DIV_TOTAL END) AS COMM_NO_28,
+			       MIN(CASE WHEN COMM_NO='28' THEN  PER_JIJUM END) AS PER_JIJUM_28,
+			       MIN(CASE WHEN COMM_NO='99' THEN  DIV_TOTAL END) AS COMM_NO_99,
+			       MIN(CASE WHEN COMM_NO='99' THEN  PER_JIJUM END) AS PER_JIJUM_99
+			FROM
+			(
+			        SELECT
+					      S.COMM_NO,        -- 발매지점
+					      S.CNT,           -- 조회 카운트
+					      S.DIV_TOTAL, -- 발매지점 카운트
+					      T.TOTAL,
+					      DECODE(DIV_TOTAL,0,0,DECODE(TOTAL,0,0, ROUND(DIV_TOTAL/TOTAL*100,2)))  AS PER_JIJUM-- 지점별 백분율
+					      --,S.MEET_CD 
+					                                                  
+					  FROM                                                         
+					  (                                                            
+					   SELECT                                           
+					      D.COMM_NO_SHARE AS COMM_NO,
+					      COUNT(*) CNT,                                   
+					      NVL(SUM(D.DIV_TOTAL),0) DIV_TOTAL
+					      --,D.MEET_CD                        
+					   FROM
+					   	  VW_SDL_INFO A,		-- 경주일 정보                                                    
+					       (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO,
+                                          CASE WHEN COMM_NO < '11' AND MEET_CD||SELL_CD IN ('00103','00301') THEN '99'
+                                                   ELSE COMM_NO
+                                                   END AS COMM_NO_SHARE, DIV_TOTAL
+                              FROM  TBES_SDL_DT) D        -- 매출액
+					   WHERE 1=1
+					   	   AND D.MEET_CD = A.MEET_CD
+					       AND D.STND_YEAR = A.STND_YEAR
+					       AND D.TMS = A.TMS
+					       AND D.DAY_ORD = A.DAY_ORD
+					       AND D.SELL_CD   IN ('01','03')
+					       AND D.COMM_NO_SHARE BETWEEN '11' AND '99'	
+					       AND D.COMM_NO  != '06'				                                                                                                        
+					       AND D.MEET_CD LIKE ? -- 0:MEET_CD '001' -- 지점 코드                                      
+					       AND A.RACE_DAY = ? -- 1:RACE_DAY '20110304' -- 날짜                
+					   GROUP BY  D.COMM_NO_SHARE --,D.MEET_CD                                
+					  ) S,                                                         
+					  (                                                            
+					   SELECT                                                      
+					      NVL(SUM(D.DIV_TOTAL),0) TOTAL                            
+					   FROM                                                        
+					      VW_SDL_INFO A, TBES_SDL_DT D  	-- 지점별 경주 매출액                                          
+					   WHERE 1=1        
+					      AND D.MEET_CD = A.MEET_CD
+					       AND D.STND_YEAR = A.STND_YEAR
+					       AND D.TMS = A.TMS
+					       AND D.DAY_ORD = A.DAY_ORD                                              
+					       AND D.MEET_CD	LIKE ? -- 2:MEET_CD '001' 	-- 지점 코드                                      
+					       AND A.RACE_DAY	= ? -- 3:RACE_DAY  '20110304' -- 날짜                
+					  )T                                                           
+					  ORDER BY S.COMM_NO       
+			)AA
+			)AAA,(SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2 ) BB		                                              			
+        ]]>
+    </query>
+    
+    
+    
+           
+	
+    
+
+           
+	<query id="rsm2010_s05Today" desc="전주대비 전년대비 (미사용)" fetchSize="10">
+        <![CDATA[
+			  SELECT /* rsm2010_s05Today (미사용) */                                                            
+			         MAX(RACE_NO) AS MAX_RACE_NO		-- 당일 최종 경주수  	                                                  
+			  FROM   TBES_SDL_DT D, VW_SDL_INFO I			    
+			  WHERE  D.MEET_CD   = I.MEET_CD		 
+			    AND  D.STND_YEAR = I.STND_YEAR
+			    AND  D.TMS       = I.TMS
+			    AND  D.DAY_ORD   = I.DAY_ORD
+			    AND  I.RACE_DAY  = ?                -- 경주일자                                                                                                                                                                                               			
+        ]]>
+    </query>
+    
+    <query id="rsm2010_s07Today" desc="그린카드 지점별 매출액 (미사용) " fetchSize="10">
+	    <![CDATA[
+			SELECT  /* rsm2010_s07Today (미사용)*/			
+                    DECODE(LEV,1,SUM_CAT,SUM_RATE) AS SUM_CAT,    -- 합계			
+                    DECODE(LEV,1,BON_CAT,BON_RATE) AS BON_CAT,    -- 본장
+                    DECODE(LEV,1,SUW_CAT,SUW_RATE) AS SUW_CAT,    -- 수원
+                    DECODE(LEV,1,JUN_CAT,JUN_RATE) AS JUN_CAT,    -- 중랑
+                    DECODE(LEV,1,ILS_CAT,ILS_RATE) AS ILS_CAT,    -- 일산
+                    DECODE(LEV,1,BUN_CAT,BUN_RATE) AS BUN_CAT,    -- 분당
+                    DECODE(LEV,1,TON_CAT,TON_RATE) AS TON_CAT,    -- 동대문                    
+                    DECODE(LEV,1,JAN_CAT,JAN_RATE) AS JAN_CAT,    -- 장안
+                    DECODE(LEV,1,SAN_CAT,SAN_RATE) AS SAN_CAT,    -- 산본                    
+                    DECODE(LEV,1,BUC_CAT,BUC_RATE) AS BUC_CAT,    -- 부천
+                    DECODE(LEV,1,GWA_CAT,GWA_RATE) AS GWA_CAT,    -- 관악
+                    DECODE(LEV,1,SUN_CAT,SUN_RATE) AS SUN_CAT,    -- 성북
+                    DECODE(LEV,1,YOU_CAT,YOU_RATE) AS YOU_CAT,    -- 영등포
+                    DECODE(LEV,1,DAE_CAT,DAE_RATE) AS DAE_CAT,    -- 대전
+                    DECODE(LEV,1,INC_CAT,INC_RATE) AS INC_CAT,    -- 인천
+                    DECODE(LEV,1,SIH_CAT,SIH_RATE) AS SIH_CAT,    -- 시흥
+                    DECODE(LEV,1,NON_CAT,NON_RATE) AS NON_CAT,    -- 강남                    
+                    DECODE(LEV,1,CHU_CAT,CHU_RATE) AS CHU_CAT,    -- 천안
+                    DECODE(LEV,1,OLM_CAT,OLM_RATE) AS OLM_CAT,    -- 올림픽
+                    DECODE(LEV,1,EUI_CAT,EUI_RATE) AS EUI_CAT,    -- 의정부                    
+                    DECODE(LEV,1,SHA_CAT,SHA_RATE) AS SHA_CAT     -- 공동활용본장(광명 또는 미사리)			
+			FROM              
+			        (
+			        SELECT --MEET_NM,
+			                    --MEET_CD,
+			                    BON_CAT,
+			                    ROUND(BON_CAT/TOTAL*100,2) AS BON_RATE,
+			                    NON_CAT,
+			                    ROUND(NON_CAT/TOTAL*100,2) AS NON_RATE,
+			                    OLM_CAT,
+			                    ROUND(OLM_CAT/TOTAL*100,2) AS OLM_RATE,
+			                    TON_CAT,
+			                    ROUND(TON_CAT/TOTAL*100,2) AS TON_RATE,
+			                    SAN_CAT,
+			                    ROUND(SAN_CAT/TOTAL*100,2) AS SAN_RATE,
+			                    EUI_CAT,
+			                    ROUND(EUI_CAT/TOTAL*100,2) AS EUI_RATE,
+			                    SUW_CAT,
+	                            ROUND(SUW_CAT/TOTAL*100,2) AS SUW_RATE,                            
+	                            JUN_CAT,
+	                            ROUND(JUN_CAT/TOTAL*100,2) AS JUN_RATE,
+	                            ILS_CAT,
+	                            ROUND(ILS_CAT/TOTAL*100,2) AS ILS_RATE,
+	                            BUN_CAT,
+	                            ROUND(BUN_CAT/TOTAL*100,2) AS BUN_RATE,
+	                            JAN_CAT,
+	                            ROUND(JAN_CAT/TOTAL*100,2) AS JAN_RATE,
+	                            BUC_CAT,
+	                            ROUND(BUC_CAT/TOTAL*100,2) AS BUC_RATE,
+	                            GWA_CAT,
+	                            ROUND(GWA_CAT/TOTAL*100,2) AS GWA_RATE,
+	                            SUN_CAT,
+	                            ROUND(SUN_CAT/TOTAL*100,2) AS SUN_RATE,
+	                            YOU_CAT,
+	                            ROUND(YOU_CAT/TOTAL*100,2) AS YOU_RATE,
+	                            DAE_CAT,
+	                            ROUND(DAE_CAT/TOTAL*100,2) AS DAE_RATE,
+	                            INC_CAT,
+	                            ROUND(INC_CAT/TOTAL*100,2) AS INC_RATE,
+	                            SIH_CAT,
+	                            ROUND(SIH_CAT/TOTAL*100,2) AS SIH_RATE,
+	                            CHU_CAT,
+	                            ROUND(CHU_CAT/TOTAL*100,2) AS CHU_RATE,
+			                    SHA_CAT,
+			                    ROUND(SHA_CAT/TOTAL*100,2) AS SHA_RATE,
+			                    SUM_CAT,
+			                    ROUND(SUM_CAT/TOTAL*100,2) AS SUM_RATE           
+			        FROM (
+			                     SELECT                                                          
+			                            --NVL(                                                            
+			                            --    CASE                                                      
+			                            --         WHEN M.MEET_CD = '001' THEN '광명'                        
+			                            --         WHEN M.MEET_CD = '002' THEN '창원'                        
+			                            --         WHEN M.MEET_CD = '004' THEN '부산'                        
+			                            --         WHEN M.MEET_CD = '003' THEN '미사리'                      
+			                            --      END,'TOTAL'                                               
+			                            --    ) AS MEET_NM,                                                 
+			                            --NVL(M.MEET_CD,'TOTAL') AS MEET_CD,                              
+			                            --SUM(DECODE(M.DIV_NO,'00',NET_AMT,0)) BON_CAT, /* 발매지점, 순매출액 */                     
+			                            SUM(CASE WHEN SUBSTR(M.MEET_CD,2,2) = M.SELL_CD AND M.DIV_NO = '00' THEN NET_AMT ELSE 0 END) BON_CAT, /* 공동활용본장 */                     
+                                        SUM(DECODE(M.DIV_NO,'15',NET_AMT,0)) NON_CAT, --강남                    
+                                        SUM(DECODE(M.DIV_NO,'17',NET_AMT,0)) OLM_CAT, --올림픽                     
+                                        SUM(DECODE(M.DIV_NO,'04',NET_AMT,0)) TON_CAT, --동대문                    
+                                        SUM(DECODE(M.DIV_NO,'07',NET_AMT,0)) SAN_CAT, --산본
+                                        SUM(DECODE(M.DIV_NO,'18',NET_AMT,0)) EUI_CAT, --의정부
+                                        SUM(DECODE(M.DIV_NO,'01',NET_AMT,0)) SUW_CAT, --수원
+                                        SUM(DECODE(M.DIV_NO,'02',NET_AMT,0)) JUN_CAT, --중랑
+                                        SUM(DECODE(M.DIV_NO,'03',NET_AMT,0)) ILS_CAT, --일산
+                                        SUM(DECODE(M.DIV_NO,'05',NET_AMT,0)) BUN_CAT, --분당
+                                        SUM(DECODE(M.DIV_NO,'06',NET_AMT,0)) JAN_CAT, --장안
+                                        SUM(DECODE(M.DIV_NO,'08',NET_AMT,0)) BUC_CAT, --부천
+                                        SUM(DECODE(M.DIV_NO,'09',NET_AMT,0)) GWA_CAT, --관악
+                                        SUM(DECODE(M.DIV_NO,'10',NET_AMT,0)) SUN_CAT, --성북
+                                        SUM(DECODE(M.DIV_NO,'11',NET_AMT,0)) YOU_CAT, --영등포
+                                        SUM(DECODE(M.DIV_NO,'12',NET_AMT,0)) DAE_CAT, --대전
+                                        SUM(DECODE(M.DIV_NO,'13',NET_AMT,0)) INC_CAT, --인천
+                                        SUM(DECODE(M.DIV_NO,'14',NET_AMT,0)) SIH_CAT, --시흥
+                                        SUM(DECODE(M.DIV_NO,'16',NET_AMT,0)) CHU_CAT, --천안
+			                            SUM(CASE WHEN SUBSTR(M.MEET_CD,2,2) != M.SELL_CD AND M.DIV_NO = '00' THEN NET_AMT ELSE 0 END) SHA_CAT, /* 공동활용본장 */                     
+			                            SUM(NET_AMT) AS SUM_CAT                      
+			                     FROM                                                                
+			                            VW_MYCAT_SALES M              -- 계좌 지점별 매출액
+			                     WHERE 1=1
+			                           AND M.RACE_DAY =  ?              -- 경주일  yyyymmdd
+			                           AND M.MEET_CD LIKE ?
+			                           AND RACE_NO <= (SELECT MAX(A.RACE_NO) 
+			                                             FROM TBES_SDL_DT A, VW_SDL_INFO I
+			                                             WHERE A.MEET_CD   = I.MEET_CD
+			                                               AND A.STND_YEAR = I.STND_YEAR
+			                                               AND A.TMS       = I.TMS
+			                                               AND A.DAY_ORD   = I.DAY_ORD
+			                                               AND I.RACE_DAY  = ?
+			                                               AND A.MEET_CD LIKE ?) -- 경주일  yyyymmdd
+			                     --GROUP BY M.MEET_CD
+			                    ) A,
+			                    (SELECT SUM(DIV_TOTAL) AS TOTAL
+			                     FROM   TBES_SDL_DT
+			                     WHERE (MEET_CD, STND_YEAR, TMS, DAY_ORD) IN 
+			                           (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD 
+			                            FROM   VW_SDL_INFO 
+			                            WHERE RACE_DAY = ? 
+			                              AND MEET_CD LIKE ? )   -- 경주일  yyyymmdd
+			                     ) B  
+			        ) AA,
+			        (SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2 ) BB  
+	    ]]>
+    </query>
+
+	<query id="rsm2010_s08" desc="년간 목표대비(미사용)" fetchSize="10">
+        <![CDATA[
+				WITH A AS ( /* rsm2010_s08 년간 목표대비(미사용) */
+                    SELECT dt.stnd_year, sum(pool_total) s_amt, cd_nm o_amt 
+                    FROM   VW_SDL_PT dt, TBRK_SPEC_CD c, VW_SDL_INFO I  
+                    WHERE 1=1 
+                      AND dt.stnd_year = I.stnd_year
+                      AND dt.meet_cd = I.meet_cd
+                      AND dt.tms = I.tms
+                      AND dt.day_ord = I.day_ord
+                      AND c.grp_cd = '171'  AND c.cd = dt.stnd_year||dt.meet_cd
+                      AND dt.stnd_year >= substr(I.race_day,1,4) -1
+                      AND I.race_day <= ?
+				      AND dt.meet_cd = ?
+                     GROUP BY dt.stnd_year, cd_nm
+				) 
+				SELECT  /* rsm2010_s08 */
+				    stnd_year, s_amt, o_amt, round(s_amt/o_amt*100,2) ratio
+				FROM A
+				ORDER BY 1  
+        ]]>
+    </query>
+
+	<query id="rsm2010_s08Today" desc="년간 목표대비(미사용)" fetchSize="10">
+        <![CDATA[
+				WITH A AS ( /* rsm2010_s08Today 년간 목표대비(미사용) */
+                    SELECT dt.stnd_year, sum(pool_total) s_amt, cd_nm o_amt 
+                    FROM   TBES_SDL_PT dt, TBRK_SPEC_CD c, VW_SDL_INFO I  
+                    WHERE 1=1 
+                      AND dt.stnd_year = I.stnd_year
+                      AND dt.meet_cd = I.meet_cd
+                      AND dt.tms = I.tms
+                      AND dt.day_ord = I.day_ord
+                      AND c.grp_cd = '171'  AND c.cd = dt.stnd_year||dt.meet_cd
+                      AND dt.stnd_year >= substr(I.race_day,1,4) -1
+                      AND I.race_day <= ?
+				      AND dt.meet_cd = ?
+                     GROUP BY dt.stnd_year, cd_nm
+				) 
+				SELECT  /* rsm2010_s08Today */
+				    stnd_year, s_amt, o_amt, round(s_amt/o_amt*100,2) ratio
+				FROM A
+				ORDER BY 1  
+        ]]>
+    </query>
+
+        
+        
+</queryMap>

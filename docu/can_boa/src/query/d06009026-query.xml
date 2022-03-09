@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdn_cand_race_detlr(인적자원조회)">
+
+	<query id="tbdn_cand_race_detlr_fb001" desc="후보생 개인별 성적 조회" fetchSize="10">
+        <![CDATA[
+		--후보생 개인별 성적 조회
+		SELECT
+			  B.CAND_NO,
+			  B.NM_KOR,
+			  NVL(COUNT,0) AS COUNT,
+			  NVL(DECODE(COUNT,0,0,ROUND((PRE1_CNT/COUNT)*100)),0) AS WIN_RATE,
+			  NVL(DECODE(COUNT,0,0,ROUND(((PRE1_CNT+PRE2_CNT)/COUNT)*100)),0) AS TWO_WIN_RATE,
+			  NVL(DECODE(COUNT,0,0,ROUND(((PRE1_CNT+PRE2_CNT+PRE3_CNT)/COUNT)*100)),0) AS THREE_WIN_RATE,
+			  NVL(PRE1_CNT,0) AS PRE1_CNT,
+			  NVL(PRE2_CNT,0) AS PRE2_CNT,
+			  NVL(PRE3_CNT,0) AS PRE3_CNT
+		FROM(
+			 SELECT 	
+			 		RACER_PERIO_NO,
+				    CAND_NO,
+					SUM(COUNT) AS COUNT,
+					SUM(PRE1_CNT) AS PRE1_CNT,
+					SUM(PRE2_CNT) AS PRE2_CNT,
+					SUM(PRE3_CNT) AS PRE3_CNT
+			 FROM(				  		
+					SELECT 
+						   RACER_PERIO_NO,
+						   CAND_NO,					   
+						   COUNT(*) AS COUNT,
+						   CASE WHEN ARRIV_ORD = 1 THEN COUNT(*) 
+							        ELSE 0 
+									END AS PRE1_CNT,
+						   CASE WHEN ARRIV_ORD = 2 THEN COUNT(*)
+							        ELSE 0 
+									END AS PRE2_CNT,
+						   CASE WHEN ARRIV_ORD = 3 THEN COUNT(*)
+							        ELSE 0 
+									END AS PRE3_CNT					  
+					FROM TBDN_CAND_RACE_DETL  
+					WHERE RACER_PERIO_NO = ?
+					GROUP BY RACER_PERIO_NO, CAND_NO, ARRIV_ORD
+				  )
+			  GROUP BY RACER_PERIO_NO, CAND_NO	  
+			) A , TBDN_CAND_IDENT B
+		WHERE  A.RACER_PERIO_NO(+) = B.RACER_PERIO_NO	   
+	    AND    A.CAND_NO(+) = B.CAND_NO
+	    AND    B.RACER_PERIO_NO = ?
+		ORDER BY B.CAND_NO		
+		]]>
+    </query>
+    
+    <query id="tbdn_cand_race_detlr_fb002" desc="종합승정시간" fetchSize="10">
+        <![CDATA[
+			--종합승정시간 조회
+		SELECT
+	  		ROWNUM NUM,
+	  		B.CAND_NO,
+			B.NM_KOR,	
+			NVL(TOTAL_BOAT_TIME,0) ||'분 '  AS TOTAL_BOAT_TIME,
+			NVL(VIOL_1,0) ||'분 ' AS VIOL_1,
+			NVL(VIOL_2,0) ||'분 ' AS VIOL_2,
+			NVL(VIOL_3,0) ||'분 ' AS VIOL_3,
+			NVL(VIOL_4,0) ||'분 ' AS VIOL_4,
+			NVL(VIOL_5,0) ||'분 ' AS VIOL_5,
+			NVL(VIOL_6,0) ||'분 ' AS VIOL_6
+		  FROM(		
+				SELECT 
+					  RACER_PERIO_NO,
+					  CAND_NO,
+					  SUM(TOTAL_BOAT_TIME) AS TOTAL_BOAT_TIME,
+					  SUM(VIOL_1) AS VIOL_1,
+					  SUM(VIOL_2) AS VIOL_2,
+					  SUM(VIOL_3) AS VIOL_3,
+					  SUM(VIOL_4) AS VIOL_4,
+					  SUM(VIOL_5) AS VIOL_5,
+					  SUM(VIOL_6) AS VIOL_6
+				FROM(	  
+						SELECT 
+							   RACER_PERIO_NO,
+							   CAND_NO,
+							   NVL(SUM(to_number(boat_time)),0) AS TOTAL_BOAT_TIME,
+							   CASE WHEN GBN = '001' THEN SUM(to_number(boat_time))	 
+							        ELSE 0 
+									END AS VIOL_1,
+							   CASE WHEN GBN = '002' THEN SUM(to_number(boat_time))	 
+							        ELSE 0 
+									END AS VIOL_2,	
+							   CASE WHEN GBN = '003' THEN SUM(to_number(boat_time))	 
+							        ELSE 0 
+									END AS VIOL_3,	
+							   CASE WHEN GBN = '004' THEN SUM(to_number(boat_time))	 
+							        ELSE 0 
+									END AS VIOL_4,	
+							   CASE WHEN GBN = '005' THEN SUM(to_number(boat_time))	 
+							        ELSE 0 
+									END AS VIOL_5,	
+							   CASE WHEN GBN = '006' THEN SUM(to_number(boat_time))	 
+							        ELSE 0 
+									END AS VIOL_6				
+						FROM TBDN_CAND_RACE_DETL 
+						WHERE RACER_PERIO_NO = ?
+						GROUP BY RACER_PERIO_NO, CAND_NO, GBN
+					 )
+				GROUP BY RACER_PERIO_NO, CAND_NO	 			
+			   ) A, TBDN_CAND_IDENT B
+		  WHERE  A.RACER_PERIO_NO(+) = B.RACER_PERIO_NO	   
+		  AND    A.CAND_NO(+) = B.CAND_NO
+		  AND    B.RACER_PERIO_NO = ?
+		  ORDER BY B.CAND_NO
+		]]>
+    </query> 
+    
+     <query id="tbdn_cand_race_detlr_fb003" desc="종합승정시간(최대/최소/평균)" fetchSize="10">
+        <![CDATA[
+			--종합승정시간(최대/최소/평균) 조회
+		SELECT	
+			ROWNUM NUM,  			
+			NVL(TOTAL_BOAT_TIME,0) ||'분 '  AS TOTAL_BOAT_TIME,
+			NVL(VIOL_1,0) ||'분 ' AS VIOL_1,
+			NVL(VIOL_2,0) ||'분 ' AS VIOL_2,
+			NVL(VIOL_3,0) ||'분 ' AS VIOL_3,
+			NVL(VIOL_4,0) ||'분 ' AS VIOL_4,
+			NVL(VIOL_5,0) ||'분 ' AS VIOL_5,
+			NVL(VIOL_6,0) ||'분 ' AS VIOL_6
+		  FROM(	  
+		  SELECT
+				ROUND(AVG(TOTAL_BOAT_TIME)) AS TOTAL_BOAT_TIME,
+				ROUND(AVG(VIOL_1)) AS VIOL_1,	
+				ROUND(AVG(VIOL_2)) AS VIOL_2,	
+				ROUND(AVG(VIOL_3)) AS VIOL_3,	
+				ROUND(AVG(VIOL_4)) AS VIOL_4,	
+				ROUND(AVG(VIOL_5)) AS VIOL_5,	
+				ROUND(AVG(VIOL_6)) AS VIOL_6		
+		  FROM(
+			  SELECT
+			  		B.CAND_NO,
+					B.NM_KOR,	
+					NVL(TOTAL_BOAT_TIME,0) AS TOTAL_BOAT_TIME,
+					NVL(VIOL_1,0) AS VIOL_1,	
+					NVL(VIOL_2,0) AS VIOL_2,	
+					NVL(VIOL_3,0) AS VIOL_3,	
+					NVL(VIOL_4,0) AS VIOL_4,	
+					NVL(VIOL_5,0) AS VIOL_5,	
+					NVL(VIOL_6,0) AS VIOL_6		
+			  FROM(		 		
+					SELECT 
+						  RACER_PERIO_NO,
+						  CAND_NO,
+						  SUM(TOTAL_BOAT_TIME) AS TOTAL_BOAT_TIME,
+						  SUM(VIOL_1) AS VIOL_1,
+						  SUM(VIOL_2) AS VIOL_2,
+						  SUM(VIOL_3) AS VIOL_3,
+						  SUM(VIOL_4) AS VIOL_4,
+						  SUM(VIOL_5) AS VIOL_5,
+						  SUM(VIOL_6) AS VIOL_6
+					FROM(	  
+							SELECT 
+								   RACER_PERIO_NO,
+								   CAND_NO,
+								   NVL(SUM(to_number(boat_time)),0) AS TOTAL_BOAT_TIME,
+								   CASE WHEN GBN = '001' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_1,
+								   CASE WHEN GBN = '002' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_2,	
+								   CASE WHEN GBN = '003' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_3,	
+								   CASE WHEN GBN = '004' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_4,	
+								   CASE WHEN GBN = '005' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_5,	
+								   CASE WHEN GBN = '006' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_6						
+							FROM TBDN_CAND_RACE_DETL 
+							WHERE RACER_PERIO_NO = ?
+							GROUP BY RACER_PERIO_NO, CAND_NO, GBN
+						 )
+					GROUP BY RACER_PERIO_NO, CAND_NO	 			
+				   ) A, TBDN_CAND_IDENT B
+			  WHERE  A.RACER_PERIO_NO(+) = B.RACER_PERIO_NO	   
+			  AND    A.CAND_NO(+) = B.CAND_NO
+			  AND    B.RACER_PERIO_NO = ?
+			  ORDER BY 	B.CAND_NO 
+			 )
+		 UNION ALL
+		  SELECT
+				MAX(TOTAL_BOAT_TIME) AS TOTAL_BOAT_TIME,
+				MAX(VIOL_1) AS VIOL_1,	
+				MAX(VIOL_2) AS VIOL_2,	
+				MAX(VIOL_3) AS VIOL_3,	
+				MAX(VIOL_4) AS VIOL_4,	
+				MAX(VIOL_5) AS VIOL_5,	
+				MAX(VIOL_6) AS VIOL_6		
+		  FROM(
+			  SELECT
+			  		B.CAND_NO,
+					B.NM_KOR,	
+					NVL(TOTAL_BOAT_TIME,0) AS TOTAL_BOAT_TIME,
+					NVL(VIOL_1,0) AS VIOL_1,	
+					NVL(VIOL_2,0) AS VIOL_2,	
+					NVL(VIOL_3,0) AS VIOL_3,	
+					NVL(VIOL_4,0) AS VIOL_4,	
+					NVL(VIOL_5,0) AS VIOL_5,	
+					NVL(VIOL_6,0) AS VIOL_6		
+			  FROM(		 		
+					SELECT 
+						  RACER_PERIO_NO,
+						  CAND_NO,
+						  SUM(TOTAL_BOAT_TIME) AS TOTAL_BOAT_TIME,
+						  SUM(VIOL_1) AS VIOL_1,
+						  SUM(VIOL_2) AS VIOL_2,
+						  SUM(VIOL_3) AS VIOL_3,
+						  SUM(VIOL_4) AS VIOL_4,
+						  SUM(VIOL_5) AS VIOL_5,
+						  SUM(VIOL_6) AS VIOL_6
+					FROM(	  
+							SELECT 
+								   RACER_PERIO_NO,
+								   CAND_NO,
+								   NVL(SUM(to_number(boat_time)),0) AS TOTAL_BOAT_TIME,
+								   CASE WHEN GBN = '001' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_1,
+								   CASE WHEN GBN = '002' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_2,	
+								   CASE WHEN GBN = '003' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_3,	
+								   CASE WHEN GBN = '004' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_4,	
+								   CASE WHEN GBN = '005' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_5,	
+								   CASE WHEN GBN = '006' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_6							
+							FROM TBDN_CAND_RACE_DETL 
+							WHERE RACER_PERIO_NO = ?
+							GROUP BY RACER_PERIO_NO, CAND_NO, GBN
+						 )
+					GROUP BY RACER_PERIO_NO, CAND_NO	 			
+				   ) A, TBDN_CAND_IDENT B
+			  WHERE  A.RACER_PERIO_NO(+) = B.RACER_PERIO_NO	   
+			  AND    A.CAND_NO(+) = B.CAND_NO
+			  AND    B.RACER_PERIO_NO = ?
+			  ORDER BY 	B.CAND_NO 
+			 )
+		 UNION ALL
+		  SELECT
+				MIN(TOTAL_BOAT_TIME) AS TOTAL_BOAT_TIME,
+				MIN(VIOL_1) AS VIOL_1,	
+				MIN(VIOL_2) AS VIOL_2,	
+				MIN(VIOL_3) AS VIOL_3,	
+				MIN(VIOL_4) AS VIOL_4,	
+				MIN(VIOL_5) AS VIOL_5,	
+				MIN(VIOL_6) AS VIOL_6		
+		  FROM(
+			  SELECT
+			  		B.CAND_NO,
+					B.NM_KOR,	
+					NVL(TOTAL_BOAT_TIME,0) AS TOTAL_BOAT_TIME,
+					NVL(VIOL_1,0) AS VIOL_1,	
+					NVL(VIOL_2,0) AS VIOL_2,	
+					NVL(VIOL_3,0) AS VIOL_3,	
+					NVL(VIOL_4,0) AS VIOL_4,	
+					NVL(VIOL_5,0) AS VIOL_5,	
+					NVL(VIOL_6,0) AS VIOL_6		
+			  FROM(		 		
+					SELECT 
+						  RACER_PERIO_NO,
+						  CAND_NO,
+						  SUM(TOTAL_BOAT_TIME) AS TOTAL_BOAT_TIME,
+						  SUM(VIOL_1) AS VIOL_1,
+						  SUM(VIOL_2) AS VIOL_2,
+						  SUM(VIOL_3) AS VIOL_3,
+						  SUM(VIOL_4) AS VIOL_4,
+						  SUM(VIOL_5) AS VIOL_5,
+						  SUM(VIOL_6) AS VIOL_6
+					FROM(	  
+							SELECT 
+								   RACER_PERIO_NO,
+								   CAND_NO,								   
+								   NVL(SUM(to_number(boat_time)),0) AS TOTAL_BOAT_TIME,
+								   CASE WHEN GBN = '001' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_1,
+								   CASE WHEN GBN = '002' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_2,	
+								   CASE WHEN GBN = '003' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_3,	
+								   CASE WHEN GBN = '004' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_4,	
+								   CASE WHEN GBN = '005' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_5,	
+								   CASE WHEN GBN = '006' THEN SUM(to_number(boat_time))	 
+								        ELSE 0 
+										END AS VIOL_6							
+							FROM TBDN_CAND_RACE_DETL 
+							WHERE RACER_PERIO_NO = ?
+							GROUP BY RACER_PERIO_NO, CAND_NO, GBN
+						 )
+					GROUP BY RACER_PERIO_NO, CAND_NO	 			
+				   ) A, TBDN_CAND_IDENT B
+			  WHERE  A.RACER_PERIO_NO(+) = B.RACER_PERIO_NO	   
+			  AND    A.CAND_NO(+) = B.CAND_NO
+			  AND    B.RACER_PERIO_NO = ?
+			  ORDER BY 	B.CAND_NO 
+			 )	 	  
+		)	 
+		]]>
+    </query>          
+</queryMap>

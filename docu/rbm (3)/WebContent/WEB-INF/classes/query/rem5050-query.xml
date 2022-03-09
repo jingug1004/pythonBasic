@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem5050(지점별 지정좌석실 입출내역  조회 )">
+  
+    <query id="rem5050_s01" desc="지정좌석실 상품 입출내역 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5050_s01 */          
+			       'IN' JOB_TYPE
+			      ,A.COMM_NO
+			      ,A.STOR_DT AS STND_DT
+			      ,A.STOR_DT
+			      ,A.SEQ_NO
+			      ,A.GOOD_NM
+			      ,A.GOOD_TYPE_CD
+			      ,PRICE
+			      ,A.STOR_CNT
+			      ,NULL UNSTOR_CNT
+			FROM TBRC_FS_STOR A
+			WHERE 1=1
+			AND   A.STOR_DT BETWEEN ? AND ?
+			UNION ALL
+			SELECT 'OUT'
+			      ,A.COMM_NO
+			      ,A.STOR_DT
+			      ,B.UNSTOR_DT
+			      ,A.SEQ_NO
+			      ,A.GOOD_NM
+			      ,A.GOOD_TYPE_CD
+			      ,PRICE
+			      ,A.STOR_CNT
+			      ,UNSTOR_CNT
+			FROM  TBRC_FS_STOR A, TBRC_FS_UNSTOR B
+			WHERE A.COMM_NO = B.COMM_NO
+			AND   A.STOR_DT = B.STOR_DT
+			AND   A.SEQ_NO  = B.SEQ_NO
+			AND   A.STOR_DT BETWEEN ? AND ?
+			AND   (B.UNSTOR_CNT + B.DISUSE_CNT) > 0
+			ORDER BY 2,3,5,1,4          
+        ]]>
+    </query> 
+    
+    
+    <query id="rem5050_s02" desc="지정좌석실 상품입출내역 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5050_s02 */          
+			       A.COMM_NO
+			      ,A.STOR_DT
+			      ,B.UNSTOR_DT
+			      ,A.SEQ_NO
+			      ,A.GOOD_NM
+			      ,A.GOOD_TYPE_CD
+			      ,PRICE
+			      ,A.STOR_CNT
+			      ,UNSTOR_CNT
+			      ,DISUSE_CNT
+			      ,A.STOR_CNT - SUM(UNSTOR_CNT+DISUSE_CNT) OVER (PARTITION  BY A.COMM_NO, A.STOR_DT, A.SEQ_NO ORDER BY B.UNSTOR_DT) AS CS
+			      ,B.RMK
+			FROM  TBRC_FS_STOR A LEFT OUTER JOIN TBRC_FS_UNSTOR B
+			ON    A.COMM_NO = B.COMM_NO
+			  AND A.STOR_DT = B.STOR_DT
+			  AND A.SEQ_NO  = B.SEQ_NO
+			  AND (B.UNSTOR_CNT + B.DISUSE_CNT) > 0						  
+			WHERE A.COMM_NO LIKE ?||'%'
+			AND   A.STOR_DT BETWEEN ? AND ?
+			ORDER BY A.COMM_NO, A.GOOD_TYPE_CD, A.STOR_DT, A.SEQ_NO, B.UNSTOR_DT     
+        ]]>
+    </query> 
+    
+    <query id="rem5050_s03" desc="지정좌석실 상품 입출내역 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5050_s03 */          
+			        A.COMM_NO
+		           ,A.YEAR_ITEM_SEQ_NO
+		           ,B.GOOD_TYPE_CD
+		           ,B.GOOD_NM
+		           ,B.PRICE
+                   ,C.STOR_CNT_SUM
+                   ,C.UNSTOR_CNT_SUM
+		           ,A.STOR_DT
+		           ,SUM(STOR_CNT) AS STOR_CNT
+		           ,SUM(UNSTOR_CNT) AS UNSTOR_CNT
+		           ,SUM(DISUSE_CNT) AS DISUSE_CNT
+		           ,MAX(A.RMK) AS RMK
+			FROM  (            
+		            SELECT COMM_NO
+		                       ,YEAR_ITEM_SEQ_NO
+		                       ,STOR_DT
+		                       ,STOR_CNT
+		                       ,0 AS UNSTOR_CNT
+		                       ,0 AS DISUSE_CNT
+		                       ,RMK
+		            FROM TBRC_FS_STOR
+		            WHERE COMM_NO = ?
+		            AND   STOR_DT BETWEEN ? AND ?
+		            UNION ALL
+		            SELECT COMM_NO
+		                       ,YEAR_ITEM_SEQ_NO
+		                       ,UNSTOR_DT
+		                       ,0 AS STOR_CNT
+		                       ,UNSTOR_CNT
+		                       ,DISUSE_CNT
+		                       ,RMK   
+		            FROM  TBRC_FS_YEAR_ITEM_OUT
+		            WHERE COMM_NO = ?
+		            AND   UNSTOR_DT BETWEEN ? AND ?
+		            AND  (UNSTOR_CNT+DISUSE_CNT) > 0
+		            ) A
+		            ,TBRC_FS_YEAR_ITEM B
+                    ,(
+                      SELECT A.COMM_NO
+                            ,A.YEAR_ITEM_SEQ_NO
+                            ,STOR_CNT_SUM
+                            ,NVL(UNSTOR_CNT_SUM,0) AS UNSTOR_CNT_SUM
+                      FROM  (
+                                SELECT COMM_NO
+                                           ,YEAR_ITEM_SEQ_NO
+                                           ,SUM(STOR_CNT) AS STOR_CNT_SUM
+                                FROM  TBRC_FS_STOR
+                                GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                                ) A
+                                ,(
+                                SELECT COMM_NO
+                                           ,YEAR_ITEM_SEQ_NO
+                                           ,SUM(UNSTOR_CNT+DISUSE_CNT) AS UNSTOR_CNT_SUM
+                                FROM   TBRC_FS_YEAR_ITEM_OUT
+                                GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                                ) B
+                     WHERE   A.COMM_NO = ?
+                     AND     A.COMM_NO = B.COMM_NO(+)
+                     AND     A.YEAR_ITEM_SEQ_NO = B.YEAR_ITEM_SEQ_NO(+)
+                     ) C
+			WHERE   B.COMM_NO = DECODE(A.COMM_NO,'04','00','05','00',A.COMM_NO) 
+			AND     A.YEAR_ITEM_SEQ_NO = B.YEAR_ITEM_SEQ_NO     
+            AND     A.COMM_NO = C.COMM_NO
+            AND     A.YEAR_ITEM_SEQ_NO = C.YEAR_ITEM_SEQ_NO             
+			GROUP BY  A.COMM_NO
+		           ,A.YEAR_ITEM_SEQ_NO
+		           ,B.GOOD_TYPE_CD
+		           ,B.GOOD_NM
+		           ,B.PRICE
+                   ,C.STOR_CNT_SUM
+                   ,C.UNSTOR_CNT_SUM
+		           ,STOR_DT
+			ORDER BY A.COMM_NO, B.GOOD_TYPE_CD, A.YEAR_ITEM_SEQ_NO, A.STOR_DT           
+        ]]>
+    </query> 
+    
+</queryMap>

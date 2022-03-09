@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSY7010(알림이력 조회)">
+    <query id="rsy7010_s01" desc="알림이력  조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rsy7010_s01 */
+                   ALARM_GBN  --알림구분(쪽지,SMS)
+                  ,NVL(B.USER_NM, A.RECV_ID) RECV_ID   --받는사람ID
+                  ,A.SEQ_NO     --일련번호
+                  ,A.MN_ID      --메뉴ID
+                  ,A.TITLE      --제목                
+                  ,A.CNTNT      --내용
+                  ,A.HP_NO      --휴대폰번호
+                  ,(SELECT  CD_NM
+                      FROM  TBRK_SPEC_CD
+                     WHERE  1=1
+                       AND  GRP_CD = '081'
+                       AND  CD     = A.ALARM_GBN) AS ALARM_NM
+                  ,TO_CHAR(A.INST_DT, 'yyyy-mm-dd') AS INST_DT
+                  ,TO_CHAR(A.INST_DT, 'hh24:mi')    AS INST_DTM
+                  ,(SELECT MN_NM 
+                      FROM TBRK_MN
+                      WHERE MN_ID =  A.MN_ID) MN_NM
+                  ,(SELECT USER_NM 
+                      FROM TBRK_USER
+                      WHERE USER_ID = A.INST_ID) INST_ID
+                  ,NVL(S.RESULT,M.RESULT) AS SMSRSLT                                               
+                  ,NVL2(SMS_SEQ_NO,NVL2(S.RESULT,'SMS','MMS'),'') AS SMS_TYPE
+                  ,CASE WHEN SUBSTR(NVL(S.RDATE||S.RTIME, M.REQTIME),1,12) = '000000000000' THEN ''
+                           ELSE SUBSTR(NVL(S.RDATE||S.RTIME, M.REQTIME),1,12) END AS RDATE
+              FROM  TBRK_ALARM_HIST  A --알림전송이력
+                    ,TBRK_USER B
+                    ,TBRK_USER C
+                    ,SMS.SMSDATA S
+                    ,SMS.MMSDATA M
+             WHERE  1=1
+                AND A.RECV_ID    = B.USER_ID(+)
+                AND A.INST_ID    = C.USER_ID
+                AND A.SMS_SEQ_NO = S.SEQNO(+)
+                AND A.SMS_SEQ_NO = M.SEQNO(+)
+                AND TO_CHAR(A.INST_DT, 'yyyymmdd') BETWEEN ? AND ?     
+                AND A.ALARM_GBN LIKE  ?||'%'                
+                AND B.USER_NM(+) LIKE ?  || '%'  -- 받는사람
+                AND C.USER_NM LIKE ?  || '%'  -- 보낸사람
+                
+                -- AND  (A.RECV_ID LIKE '%' || NVL(?, A.RECV_ID)  || '%'        -- 받는사람/보낸사람 ID
+                --        OR  A.INST_ID LIKE '%' || NVL(?, A.INST_ID)  || '%'  ) 
+                
+          ORDER BY  A.ALARM_GBN,A.INST_DT DESC
+                    
+        ]]>
+    </query>
+    <query id="rsy7010_i01" desc="알림이력 입력" fetchSize="10">
+
+            INSERT INTO TBRK_ALARM_HIST (  /* rsy7010_i01 */
+
+				 ALARM_GBN    --알람구분
+				,RECV_ID      --받는사람ID
+				,SEQ_NO       --일련번호
+				,MN_ID        --메뉴ID
+				,HP_NO        --이동전화번호				
+				,TITLE        --제목
+				,CNTNT        --내용
+				,SMS_SEQ_NO
+				,INST_ID      --작성자ID
+				,INST_DT      --작성일시
+            ) VALUES (
+                  ?             -- ALARM_GBN 
+                , ?             -- RECV_ID
+                , SQ_TBRK_ALARM_HIST.NEXTVAL    -- SEQ_NO
+                , ?             -- MN_ID
+                , ?             -- HP_NO
+                , ?             -- TITLE               
+                , ?             -- CNTNT
+                , ?             -- SMS_SEQ_NO
+                , ?             -- INST_ID              
+                , SYSDATE       -- INST_DT
+            )
+    </query> 
+    
+    
+    <query id="rsy7010_u01" desc="알림이력 수정 " fetchSize="10">
+            UPDATE TBRK_ALARM_HIST (  /* rsy7010_u01 */
+                 SMS_SEQ_NO    --SMS 전송 번호 
+            WHERE ALARM_GBN = ?
+                AND RECV_ID = ?
+                AND SEQ_NO = ?
+    </query> 
+    
+     <query id="rsy7010_i02" desc="SMS 전송 입력 " fetchSize="10">
+			 INSERT /* rsy7010_i02 */
+			        INTO SMS.SMSDATA(
+			        SEQNO,   --
+			        INDATE,  
+			        INTIME,  
+			        MEMBER, 
+			        SENDID,   
+			
+			        RPHONE1, 
+			        RPHONE2, 
+			        RPHONE3, 
+			        RECVNAME,
+			        
+			        SPHONE1,
+			        SPHONE2, 
+			        SPHONE3, 
+			        SENDNAME,
+			        
+			        MSG, 
+			        URL, 
+			
+			        RDATE, 
+			        RTIME, 
+			        RESULT, 
+			        KIND, 
+			        ERRCODE,  
+			        SYS_GBN, 
+			        USERID 
+			)VALUES(
+			        ?,   --SEQNO
+			        TO_CHAR (SYSDATE, 'yyyymmdd'), 
+			        TO_CHAR (SYSDATE, 'hh24miss'),     
+			        0, 
+			        'kcycle',
+			       
+			        ?,    --RPHONE1
+			        ?,    --RPHONE2
+			        ?,    --RPHONE3
+			        ?,    --RECVNAME
+			       
+			        ?,    --SPHONE1
+			        ?,    --SPHONE2
+			        ?,    --SPHONE3
+			        ?,    --SENDNAME
+			
+			        SUBSTRB(?, 1, 120),    --MSG 
+			        '', 
+			        ?,		--RDATE(예약발송일자)
+			        ?, 		--RTIME(예약발송시간)
+			        '0', 'S', 0,     
+			        'USRBM', 
+			        ?  -- SENDUSERID    
+			
+			)
+
+    </query> 
+    
+     <query id="rsy7010_i03" desc="LMS 전송 입력 " fetchSize="10">
+			 INSERT /* rsy7010_i03 */
+			        INTO SMS.MMSDATA(
+			        SEQNO,   		-- 연번
+              		USERCODE, 		-- 고객사코드
+              		INTIME,  		-- 요청일시              		
+              		REQTIME, 		-- 예약발송시간
+              		RECVTIME,		-- 단말기 수신시간
+                   	CALLPHONE, 		-- 수신자 전화번호
+                   	REQPHONE, 		-- 발송자 전화번호
+                   	SUBJECT, 		-- 제목
+                   	MSG,     		-- 문자메세지 내용
+                   	FKCONTENT, 		-- 미디어 외부참조키
+                   	MEDIATYPE, 		-- 단말기 통신사 코드
+                   	RESULT,			-- 결과   
+                   	ERRCODE			-- 오류코드
+            ) VALUES (
+                    ?, 
+                    'kcycle', 
+                    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 
+                    ?, 
+                    NULL,
+                    REPLACE(?,'-',''), 
+                    ?, 
+                    SUBSTRB(?,1,80), 
+                    ?, 
+                    0, 
+                    NULL, 
+                    '0', 
+                    0) 
+
+    </query> 
+    <query id="rsy7010_s02" desc="SMS DATA KEY 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rsy7010_s02 */
+                 SMS.SQ_SMSDATA.NEXTVAL  SMS_SEQ_NO  -- SMS DATA KEY
+            FROM DUAL                       
+        ]]>
+    </query>
+    
+    <query id="rsy7010_s03" desc="LMS DATA KEY 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rsy7010_s03 */
+                 SMS.SEQNO.NEXTVAL  SMS_SEQ_NO  -- SMS DATA KEY
+            FROM DUAL                       
+        ]]>
+    </query>
+</queryMap>

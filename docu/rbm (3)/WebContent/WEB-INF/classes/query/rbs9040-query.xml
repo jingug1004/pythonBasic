@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs9040(1인당 매출액)">
+  <query id="rbs9040_s01" desc="1인당 매출액 조회" fetchSize="10">
+      <![CDATA[
+			WITH ENT AS ( /* rbs9040_s01 */
+			            SELECT A.STND_YEAR
+			                       ,BRNC_CNT
+			                      ,MAIN_CNT
+			                      ,TOT_CNT
+			                      ,BRNC_AMT
+			                      ,MAIN_AMT
+			                      ,TOT_AMT
+			                      ,A.PREV_YEAR
+			                      ,A.THIS_YEAR
+			            FROM (
+			                        SELECT SUBSTR(RACE_DT,1,4) AS STND_YEAR
+                                               ,SUM(CASE WHEN (MEET_CD = '001' AND BRNC_CD = '00') OR (MEET_CD = '003' AND BRNC_CD = '98') THEN ENT_PRSN_NUM ELSE 0 END) AS MAIN_CNT
+                                               ,SUM(CASE WHEN (MEET_CD = '001' AND BRNC_CD = '00') OR (MEET_CD = '003' AND BRNC_CD = '98') THEN 0 ELSE ENT_PRSN_NUM END) AS BRNC_CNT
+			                                   ,SUM(ENT_PRSN_NUM) AS TOT_CNT
+			                                   ,?-1 AS PREV_YEAR
+			                                   ,?   AS THIS_YEAR
+			                        FROM TBRC_STAY_MANA
+			                        WHERE RACE_DT BETWEEN (?-1)||'0101' AND ?||'1231'
+			                        AND MEET_CD = ?    
+			                        GROUP BY SUBSTR(RACE_DT,1,4)
+			                        ) A,
+			                        (
+			                        SELECT  STND_YEAR
+			                                    ,SUM(DIV_TOTAL) AS TOTAL_AMT
+                                                ,SUM(CASE WHEN SUBSTR(MEET_CD,2,2) = SELL_CD AND COMM_NO <= '10' THEN DIV_TOTAL ELSE 0 END) AS MAIN_AMT
+                                                ,SUM(CASE WHEN SUBSTR(MEET_CD,2,2) = SELL_CD AND COMM_NO <= '10' THEN 0 ELSE DIV_TOTAL END) AS BRNC_AMT
+			                                    ,SUM(DIV_TOTAL) AS TOT_AMT
+			                                   ,?-1 AS PREV_YEAR
+			                                   ,?   AS THIS_YEAR
+			                        FROM VW_SDL_DT_SUM_GSUM
+			                        WHERE STND_YEAR BETWEEN ?-1 AND ?
+			                        AND   MEET_CD = ?
+			                        GROUP BY STND_YEAR
+			                        ) B
+			            WHERE A.STND_YEAR = B.STND_YEAR
+			        )
+			        			
+			SELECT  '지점' AS RSLT_TITLE
+			            ,SUM(CASE WHEN STND_YEAR = PREV_YEAR THEN ROUND(BRNC_AMT/BRNC_CNT) ELSE 0 END) AS CUST_TRACT_PREV
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN BRNC_CNT ELSE 0 END) AS ENTR_THIS
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN BRNC_AMT ELSE 0 END) AS AMT_THIS
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN ROUND(BRNC_AMT/BRNC_CNT) ELSE 0 END) AS CUST_TRACT_THIS 
+			FROM ENT
+			UNION ALL
+			SELECT  '본장' AS RSLT_TITLE
+			            ,SUM(CASE WHEN STND_YEAR = PREV_YEAR THEN ROUND(MAIN_AMT/MAIN_CNT) ELSE 0 END) AS CUST_TRACT_PREV
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN MAIN_CNT ELSE 0 END) AS ENTR_THIS
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN MAIN_AMT ELSE 0 END) AS AMT_THIS
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN ROUND(MAIN_AMT/MAIN_CNT) ELSE 0 END) AS CUST_TRACT_THIS 
+			FROM ENT
+			UNION ALL
+			SELECT  '계' AS RSLT_TITLE
+			            ,SUM(CASE WHEN STND_YEAR = PREV_YEAR THEN ROUND(TOT_AMT/TOT_CNT) ELSE 0 END) AS CUST_TRACT_PREV
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN TOT_CNT ELSE 0 END) AS ENTR_THIS
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN TOT_AMT ELSE 0 END) AS AMT_THIS
+			            ,SUM(CASE WHEN STND_YEAR = THIS_YEAR THEN ROUND(TOT_AMT/TOT_CNT) ELSE 0 END) AS CUST_TRACT_THIS 
+			FROM ENT
+
+        ]]>
+    </query>   
+        
+    
+    <query id="rbs9040_s02" desc="기준년도 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs9040_s02 */
+                   SUBSTR(RACE_DT,1,4) AS CD
+                  ,SUBSTR(RACE_DT,1,4)||'년' AS CD_NM
+            FROM   TBRC_STAY_MANA
+	        GROUP BY SUBSTR(RACE_DT,1,4)
+	        ORDER BY SUBSTR(RACE_DT,1,4) DESC
+        ]]>
+    </query>    
+</queryMap>

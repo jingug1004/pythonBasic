@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="RSM2090(경주개최결과)">    
+
+    <query id="rsm2090_s01" desc="년도별 가까운 회차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2090_s01 */
+			        TMS,					-- 회차
+			        TMS||'회' AS TMS_DESC,	-- 회차 표현
+				    NVL(MAX(TMS) OVER(),0) AS MAX_TMS, -- 최근 회차
+				     MIN(RACE_DAY) RACE_STR_DAY,
+                    MAX(RACE_DAY) RACE_END_DAY
+			FROM VW_SDL_INFO
+			WHERE 1=1
+			  AND STND_YEAR = ?
+			  AND MEET_CD 	= ?
+			GROUP BY TMS			  
+			ORDER BY TMS DESC			  
+        ]]>
+    </query>
+    
+    <query id="rsm2090_s02" desc="년도별 마지막 회차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2090_s02 */
+			        STND_YEAR,
+			        MAX(TMS) AS MAX_TMS					-- 회차
+			FROM VW_SDL_INFO
+			WHERE 1=1
+			  AND MEET_CD 	 = ?
+			GROUP BY STND_YEAR			  
+			ORDER BY STND_YEAR DESC			  
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2090_s03" desc="요일별 매출액(경륜)" fetchSize="10">
+        <![CDATA[       
+			WITH SALES_AMT /* rsm2090_s03 */ 
+			AS (
+			-- 당회차 매출액
+			SELECT 1 JOB_TYPE
+			         ,STND_YEAR
+			         ,CASE WHEN COMM_NO < '11' AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '00'  -- old : SELL_CD IN ('01','03')
+			                 ELSE '01' END AS JIJIM_TYPE
+			        ,SUM(DIV_TOTAL) AS DIV_TOTAL
+			FROM VW_SDL_DT_SUM_GSUM
+			WHERE STND_YEAR = ?
+			AND    MEET_CD  = ?
+			AND    TMS      = ?
+			GROUP BY  STND_YEAR, CASE WHEN COMM_NO < '11' AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '00'
+			                 ELSE '01' END
+			UNION ALL
+			-- 전회차 매출액
+			SELECT 2  JOB_TYPE
+			         ,STND_YEAR
+			         ,CASE WHEN COMM_NO < '11'  AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '00'  -- old : SELL_CD IN ('01','03')
+			                 ELSE '01' END AS JIJIM_TYPE
+			        ,SUM(DIV_TOTAL) AS DIV_TOTAL
+			FROM VW_SDL_DT_SUM_GSUM
+			WHERE STND_YEAR = ?
+			AND    MEET_CD  = ?
+			AND    TMS      = ?
+			GROUP BY  STND_YEAR, CASE WHEN COMM_NO < '11'  AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '00'
+			                 ELSE '01' END
+			UNION ALL
+			-- 당해년도 매출목표
+			SELECT 3 AS TMS
+			         ,SUBSTR(CD,1,4)
+			         ,SUBSTR(CD,8,2)
+			         ,TO_NUMBER(CD_NM) * 1000000 AS DIV_TOTAL
+			FROM TBRK_SPEC_CD
+			WHERE GRP_CD = '165'
+			AND    CD LIKE ?||?||'%'                 
+			UNION ALL
+			-- 연간 매출누적금액
+			SELECT DECODE(STND_YEAR, ?, 4, 5) TMS
+			         ,STND_YEAR
+			         ,CASE WHEN COMM_NO < '11' AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '00' -- old : SELL_CD IN ('01','03')
+			                 ELSE '01' END AS JIJIM_TYPE
+			        ,SUM(DIV_TOTAL) AS DIV_TOTAL
+			FROM VW_SDL_DT_SUM_GSUM
+			WHERE STND_YEAR BETWEEN ? -1 AND ?
+			AND    MEET_CD  = ?
+			AND    TMS     <= ?
+			GROUP BY STND_YEAR, CASE WHEN COMM_NO < '11'  AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '00'
+			                 ELSE '01' END
+			)
+			SELECT BRANCH_CD AS TYPE_CD
+			         ,DECODE(BRANCH_CD, '100', '매출 합계','110','     본장','120','   지점계','200','입장인원','300','베팅수(천건)','400','평균금액(원)') AS TYPE_NM                
+			         ,COL1
+			         ,COL2
+			         ,CASE WHEN COL1 < COL2 THEN '△'
+			                 WHEN COL1 = COL2 THEN '-'
+			                 ELSE ''
+			                 END AS COL3_1
+			        ,DECODE(COL2,0,0,ROUND(ABS(COL2-COL1)/COL2*100,1)) AS COL3_2
+			        ,COL4
+			        ,COL5
+			        ,DECODE(COL4,0,0,ROUND(ABS(COL5/COL4)*100,1)) AS COL6
+			        ,COL7
+			         ,CASE WHEN COL5 < COL7 THEN '△'
+			                 WHEN COL5 = COL7 THEN '-'
+			                 ELSE ''
+			                 END AS COL8_1
+			        ,DECODE(COL7,0,0,ROUND(ABS(COL5-COL7)/COL7*100,1)) AS COL8_2
+			FROM (             
+                    SELECT 100  AS BRANCH_CD
+                             ,ROUND(SUM(DECODE(JOB_TYPE,1,DIV_TOTAL))/1000000,0) AS COL1
+                             ,ROUND(SUM(DECODE(JOB_TYPE,2,DIV_TOTAL))/1000000,0) AS COL2
+                             ,ROUND(SUM(DECODE(JOB_TYPE,3,DIV_TOTAL))/1000000,0) AS COL4
+                             ,ROUND(SUM(DECODE(JOB_TYPE,4,DIV_TOTAL))/1000000,0) AS COL5
+                             ,ROUND(SUM(DECODE(JOB_TYPE,5,DIV_TOTAL))/1000000,0) AS COL7
+                    FROM SALES_AMT      
+                    UNION ALL
+                    SELECT 110  AS BRANCH_CD
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=1 AND JIJIM_TYPE='00' THEN DIV_TOTAL END)/1000000,0) AS COL1
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=2 AND JIJIM_TYPE='00' THEN DIV_TOTAL END)/1000000,0) AS COL2
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=3 AND JIJIM_TYPE='00' THEN DIV_TOTAL END)/1000000,0) AS COL4
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=4 AND JIJIM_TYPE='00' THEN DIV_TOTAL END)/1000000,0) AS COL5
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=5 AND JIJIM_TYPE='00' THEN DIV_TOTAL END)/1000000,0) AS COL7
+                    FROM SALES_AMT   
+                    UNION ALL
+                    SELECT 120  AS BRANCH_CD
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=1 AND JIJIM_TYPE='01' THEN DIV_TOTAL END)/1000000,0) AS COL1
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=2 AND JIJIM_TYPE='01' THEN DIV_TOTAL END)/1000000,0) AS COL2
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=3 AND JIJIM_TYPE='01' THEN DIV_TOTAL END)/1000000,0) AS COL4
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=4 AND JIJIM_TYPE='01' THEN DIV_TOTAL END)/1000000,0) AS COL5
+                             ,ROUND(SUM(CASE WHEN JOB_TYPE=5 AND JIJIM_TYPE='01' THEN DIV_TOTAL END)/1000000,0) AS COL7
+                    FROM SALES_AMT     
+                    UNION ALL
+                    SELECT 200 AS BRANCH_CD
+                             ,SUM(DECODE(JOB_TYPE,1,DIV_TOTAL)) AS COL1
+                             ,SUM(DECODE(JOB_TYPE,2,DIV_TOTAL)) AS COL2
+                             ,NULL AS COL4
+                             ,SUM(DECODE(JOB_TYPE,4,DIV_TOTAL)) AS COL5
+                             ,SUM(DECODE(JOB_TYPE,5,DIV_TOTAL)) AS COL7
+                    FROM (
+                            -- 당회차 입장인원
+                            SELECT 1 AS JOB_TYPE
+                                    ,STND_YEAR, SUM(ENT_PRSN_NUM) DIV_TOTAL
+                            --FROM    TBRC_STAY_MANA A, VW_SDL_INFO B
+                            FROM    VWRC_STAY_MANA_TSUM A, VW_SDL_INFO B
+                            WHERE  A.RACE_DT = B.RACE_DAY
+                            AND    B.STND_YEAR = ?		-- 
+                            AND    B.MEET_CD   = ?
+                            AND    B.TMS       = ?
+                            GROUP BY STND_YEAR
+                            UNION ALL
+                            -- 전회차 입장인원
+                            SELECT 2 AS JOB_TYPE
+                                     ,STND_YEAR, SUM(ENT_PRSN_NUM)
+                            --FROM   TBRC_STAY_MANA A, VW_SDL_INFO B
+                            FROM   VWRC_STAY_MANA_TSUM A, VW_SDL_INFO B
+                            WHERE  A.RACE_DT = B.RACE_DAY
+                            AND    B.STND_YEAR = ?	--이전회차 -- param16
+                            AND    B.MEET_CD   = ?
+                            AND    B.TMS       = ?  --이전회차 
+                            GROUP BY STND_YEAR
+                            UNION ALL
+                            -- 연간 누계 입장인원
+                            SELECT DECODE(STND_YEAR, ?, 4, 5) AS JOB_TYPE
+                                     ,STND_YEAR, SUM(ENT_PRSN_NUM)
+                            --FROM   TBRC_STAY_MANA A, VW_SDL_INFO B
+                            FROM   VWRC_STAY_MANA_TSUM A, VW_SDL_INFO B
+                            WHERE  A.RACE_DT = B.RACE_DAY
+                            AND    B.STND_YEAR BETWEEN ? -1 AND ?
+                            AND    B.MEET_CD = ?
+                            AND    B.TMS    <= ?
+                            GROUP BY STND_YEAR
+                            )
+                    UNION ALL
+                    SELECT 300 AS BRANCH_CD
+                             ,ROUND(SUM(DECODE(JOB_TYPE,1,DIV_TOTAL))/1000,0) AS COL1
+                             ,ROUND(SUM(DECODE(JOB_TYPE,2,DIV_TOTAL))/1000,0) AS COL2
+                             ,NULL AS COL4
+                             ,ROUND(SUM(DECODE(JOB_TYPE,4,DIV_TOTAL))/1000,0) AS COL5
+                             ,ROUND(SUM(DECODE(JOB_TYPE,5,DIV_TOTAL))/1000,0) AS COL7
+                    FROM (
+                            -- 당회차 베팅건수
+                            SELECT 1 AS JOB_TYPE
+                                     ,STND_YEAR, SUM(COUNT8) DIV_TOTAL
+                            FROM VW_PC_SELLST
+                            WHERE STND_YEAR = ?
+                            AND   MEET_CD   = ?
+                            AND   TMS       = ?
+                            GROUP BY STND_YEAR, TMS
+                            UNION ALL
+                            -- 전회차 베팅건수
+                            SELECT 2 AS JOB_TYPE
+                                     ,STND_YEAR,  SUM(COUNT8) CNT
+                            FROM VW_PC_SELLST
+                            WHERE STND_YEAR = ?		--이전회차 년도 -- param27
+                            AND   MEET_CD   = ?		
+                            AND   TMS       = ?		--이전회차
+                            GROUP BY STND_YEAR, TMS
+                            UNION ALL
+                            -- 연간 누적 베팅건수
+                            SELECT DECODE(STND_YEAR, ?,4,5) AS JOB_TYPE
+                                     ,STND_YEAR, SUM(COUNT8)
+                            FROM VW_PC_SELLST
+                            WHERE STND_YEAR BETWEEN ? -1 AND ?
+                            AND   MEET_CD = ?
+                            AND   TMS    <= ?
+                            GROUP BY STND_YEAR
+                            )        
+                    UNION ALL                        
+                    SELECT                                   
+                             400 AS BRANCH_CD
+                             ,ROUND(DECODE(SUM(N_CNT),0,0,SUM(N_AMT)/SUM(N_CNT)),0) COL1  
+                             ,ROUND(DECODE(SUM(B_CNT),0,0,SUM(B_AMT)/SUM(B_CNT)),0) COL2  
+                             ,NULL AS COL4
+                             ,ROUND(DECODE(SUM(L_CNT),0,0,SUM(L_AMT)/SUM(L_CNT)),0) COL5  
+                             ,ROUND(DECODE(SUM(BL_CNT),0,0,SUM(BL_AMT)/SUM(BL_CNT)),0) COL7      
+                    FROM (                                   
+                           SELECT                                 
+                                   SUM(SOLD_NUM-CNCL_NUM) N_CNT,        
+                                   0 B_CNT,                             
+                                   0 L_CNT,
+                                   0 BL_CNT,                             
+                                   SUM(SOLD_AMT-CNCL_AMT) N_AMT,        
+                                   0 B_AMT,                             
+                                   0 L_AMT,
+                                   0 BL_AMT                              
+                           FROM  VW_PC_TELMP 
+                           WHERE 1=1                                  
+                           AND   STND_YEAR = ? 	-- STND_YEAR 기준년도
+                           AND   MEET_CD   = ?                        
+                           AND   TMS       = ?
+                           UNION ALL                                  
+                           SELECT                                     
+                                   0 N_CNT,                                 
+                                   SUM(SOLD_NUM-CNCL_NUM) B_CNT,            
+                                   0 L_CNT,    
+                                   0 BL_CNT,                             
+                                   0 N_AMT,                                 
+                                   SUM(SOLD_AMT-CNCL_AMT) B_AMT,            
+                                   0 L_AMT,
+                                   0 BL_AMT                                  
+                           FROM  VW_PC_TELMP 
+                           WHERE 1=1                                  
+                           AND   STND_YEAR = ?   	-- 이전회차 년도;param38
+                           AND   MEET_CD   = ?                        
+                           AND   TMS       = ?		-- 이전회차
+                           UNION ALL                                  
+                           SELECT                                     
+                                   0 N_CNT,                                 
+                                   0 B_CNT,                                 
+                                   DECODE(STND_YEAR, ?,SUM(SOLD_NUM-CNCL_NUM),0) L_CNT,                                                           
+                                   DECODE(STND_YEAR, ?,0,SUM(SOLD_NUM-CNCL_NUM)) BL_CNT,                                                           
+                                   0 N_AMT,                                 
+                                   0 B_AMT,                                 
+                                   DECODE(STND_YEAR, ?,SUM(SOLD_AMT-CNCL_AMT),0) L_AMT,                                 
+                                   DECODE(STND_YEAR, ?,0,SUM(SOLD_AMT-CNCL_AMT)) BL_AMT
+                           FROM  VW_PC_TELMP
+                           WHERE 1=1                                  
+                           AND   STND_YEAR BETWEEN ? -1 AND ? 
+                           AND   MEET_CD = ?                            
+                           AND   TMS    <= ?
+                           GROUP BY STND_YEAR
+                           )     
+			        )			
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2090_s04" desc="회차별 매출액" fetchSize="10">
+        <![CDATA[            
+				WITH SALE_TMS AS /* rsm2090_s04 */
+				(
+				SELECT JIJUM
+				                     ,DECODE(JIJUM, '11', '본장','12','장외지점','20','창원판매','30','부산판매') AS TYPE_NM
+				                     ,SUM(DECODE(RACE_YOIL, 'TUE', DIV_TOTAL,0)) AS TUE_AMT
+				                     ,SUM(DECODE(RACE_YOIL, 'TUE', ENT_NUM,0)) AS TUE_PER
+				                     ,SUM(DECODE(RACE_YOIL, 'WED', DIV_TOTAL,0)) AS WED_AMT
+				                     ,SUM(DECODE(RACE_YOIL, 'WED', ENT_NUM,0)) AS WED_PER
+				                     ,SUM(DECODE(RACE_YOIL, 'THU', DIV_TOTAL,0)) AS THU_AMT
+				                     ,SUM(DECODE(RACE_YOIL, 'THU', ENT_NUM,0)) AS THU_PER
+				                     ,SUM(DECODE(RACE_YOIL, 'FRI', DIV_TOTAL,0)) AS FRI_AMT
+				                     ,SUM(DECODE(RACE_YOIL, 'FRI', ENT_NUM,0)) AS FRI_PER
+				                     ,SUM(DECODE(RACE_YOIL, 'SAT', DIV_TOTAL,0)) AS SAT_AMT
+				                     ,SUM(DECODE(RACE_YOIL, 'SAT', ENT_NUM,0)) AS SAT_PER
+				                     ,SUM(DECODE(RACE_YOIL, 'SUN', DIV_TOTAL,0)) AS SUN_AMT
+				                     ,SUM(DECODE(RACE_YOIL, 'SUN', ENT_NUM,0)) AS SUN_PER
+				                     ,SUM(DIV_TOTAL) AS AMT_SUM
+				                     ,SUM(ENT_NUM) AS PER_SUM
+				            FROM (         
+				                    SELECT B.RACE_YOIL, JIJUM, DIV_TOTAL, 0 ENT_NUM
+				                    FROM (
+				                                SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,  
+				                                         CASE WHEN COMM_NO < '11' AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '11'  -- old : SELL_CD IN ('01','03')
+				                                                             ELSE '12' END AS JIJUM, SUM(DIV_TOTAL) AS DIV_TOTAL
+				                                FROM  VW_SDL_DT_SUM_GSUM
+				                                WHERE STND_YEAR =  ?
+				                                AND   MEET_CD   =  ?
+				                                AND   TMS       BETWEEN ? AND ?
+				                                AND   MEET_CD IN ('001','003')
+				                                AND   SELL_CD IN ('01','03')   
+				                                GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD,  
+				                                              CASE WHEN COMM_NO < '11' AND SELL_CD=DECODE(MEET_CD,'001','01','03') THEN '11'  -- old : SELL_CD IN ('01','03')
+				                                                             ELSE '12' END
+				                                UNION ALL
+				                                SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, 
+				                                         DECODE(SELL_CD, '02','20','30'),  SUM(NET_AMT)
+				                                FROM  VW_PC_PAYOFFS
+				                                WHERE SELL_CD NOT IN ('01','03')
+				                                AND   MEET_CD IN ('001','003')
+				                                AND   STND_YEAR = ?
+				                                AND   MEET_CD   = ?
+				                                AND   TMS BETWEEN ? AND ?
+				                                GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD,
+				                                             DECODE(SELL_CD, '02','20','30')
+				                                ) A, VW_SDL_INFO B
+				                      WHERE A.STND_YEAR = B.STND_YEAR
+				                      AND    A.MEET_CD = B.MEET_CD
+				                      AND    A.TMS = B.TMS
+				                      AND   A.DAY_ORD = B.DAY_ORD
+				                     UNION ALL
+				                        -- 당회차 입장인원
+				                        SELECT  B.RACE_YOIL
+				                                ,CASE WHEN A.MEET_CD = '001' AND BRNC_CD = '00' THEN '11'
+				                                        WHEN A.MEET_CD = '003' AND BRNC_CD= '98' THEN '11'
+				                                        ELSE '12' END AS JIJUM
+				                                ,0 AS DIV_TOTAL
+				                                ,SUM(ENT_PRSN_NUM) ENT_NUM
+				                        --FROM   TBRC_STAY_MANA A, VW_SDL_INFO B
+				                        FROM   VWRC_STAY_MANA_TSUM A, VW_SDL_INFO B
+				                        WHERE  A.RACE_DT = B.RACE_DAY
+				                        AND    B.MEET_CD IN ('001','003')
+				                        AND    B.STND_YEAR = ?
+				                        AND    A.MEET_CD   = ?
+				                        AND    B.TMS    BETWEEN ? AND ?
+				                        AND    A.ENT_PRSN_NUM > 0
+				                        GROUP BY B.RACE_YOIL 
+				                                ,CASE WHEN A.MEET_CD = '001' AND BRNC_CD = '00' THEN '11'
+				                                        WHEN A.MEET_CD = '003' AND BRNC_CD= '98' THEN '11'
+				                                        ELSE '12' END                
+				                    )
+				            GROUP BY JIJUM        
+				            ORDER BY 1
+				)
+				SELECT *
+				FROM SALE_TMS
+				UNION ALL
+				SELECT '19' AS JIJUM
+				         ,'공단 합계' TYPE_NM
+				         ,SUM(TUE_AMT) AS TUE_AMT
+				         ,SUM(TUE_PER) AS TUE_PER
+				         ,SUM(WED_AMT) AS WED_AMT
+				         ,SUM(WED_PER) AS WED_PER
+				         ,SUM(THU_AMT) AS THU_AMT
+				         ,SUM(THU_PER) AS THU_PER
+				         ,SUM(FRI_AMT) AS FRI_AMT
+				         ,SUM(FRI_PER) AS FRI_PER
+				         ,SUM(SAT_AMT) AS SAT_AMT
+				         ,SUM(SAT_PER) AS SAT_PER
+				         ,SUM(SUN_AMT) AS SUN_AMT
+				         ,SUM(SUN_PER) AS SUN_PER
+				         ,SUM(AMT_SUM) AS AMT_SUM
+				         ,SUM(PER_SUM) AS PER_SUM
+				FROM SALE_TMS
+				WHERE JIJUM LIKE '1%'  
+				UNION ALL
+				SELECT '99' AS JIJUM
+				         ,'총계' TYPE_NM
+				         ,SUM(TUE_AMT) AS TUE_AMT
+				         ,NULL AS TUE_PER
+				         ,SUM(WED_AMT) AS WED_AMT
+				         ,NULL AS WED_PER
+				         ,SUM(THU_AMT) AS THU_AMT
+				         ,NULL AS THU_PER
+				         ,SUM(FRI_AMT) AS FRI_AMT
+				         ,NULL AS FRI_PER
+				         ,SUM(SAT_AMT) AS SAT_AMT
+				         ,NULL AS SAT_PER
+				         ,SUM(SUN_AMT) AS SUN_AMT
+				         ,NULL AS SUN_PER
+				         ,SUM(AMT_SUM) AS AMT_SUM
+				         ,NULL AS PER_SUM
+				FROM SALE_TMS
+				ORDER BY 1
+        ]]>
+    </query>
+    
+    
+    
+</queryMap>

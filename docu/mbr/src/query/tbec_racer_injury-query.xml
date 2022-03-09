@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_injury(부상선수등록)">
+    <query id="tbec_racer_injury_fc002" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                    TRI.STND_YEAR           -- 기준년도    
+                  , TRI.SEQ                 -- 일련번호
+                  , TRI.RACER_NO            -- 등록번호
+                  , TRM.NM_KOR              -- 선수명    
+                  , TRI.IJRY_DT             -- 부상일  
+                  , TRI.DIAGNS_DT			-- 진단/소견일자  
+                  , TRI.IJRY_PART           -- 부상부위  
+                  , TRI.IJRY_STAT           -- 부상상태    
+                  , TRI.DIAGNS_WK           -- 진단주   
+                  , TRI.EHOSP_DT            -- 입원일    
+                  , TRI.RESIGN_DT           -- 퇴원일 
+                  , TRI.RESIGN_DT - TRI.EHOSP_DT AS HOSP_DAY-- 입원일수
+                  , TRI.HOMEPAGE_NOTI_SDT   -- 홈페이지 공시시작
+                  , TRI.HOMEPAGE_NOTI_EDT   -- 홈페이지 공시끝   
+                  , '0' as CHK
+            FROM  TBEC_RACER_INJURY TRI
+                  , TBEC_RACER_MASTER TRM
+            WHERE TRI.RACER_NO = TRM.RACER_NO
+                AND TRI.STND_YEAR = NVL(?, TRI.STND_YEAR)
+                AND NM_KOR LIKE '%' ||NVL(?, TRM.NM_KOR)|| '%'
+            ORDER BY STND_YEAR DESC, SEQ DESC
+        ]]>
+    </query>
+    <query id="tbec_racer_injury_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+            BEGIN
+                INSERT ALL
+                    INTO TBEC_RACER_INJURY
+                    ( 
+                            STND_YEAR           -- 기준년도    
+                          , SEQ                 -- 일련번호
+                          , RACER_NO            -- 등록번호
+                          , IJRY_DT             -- 부상일  
+                          , DIAGNS_DT			-- 진단/소견일자  
+                          , IJRY_PART           -- 부상부위  
+                          , IJRY_STAT           -- 부상상태    
+                          , DIAGNS_WK           -- 진단주   
+                          , EHOSP_DT            -- 입원일    
+                          , RESIGN_DT           -- 퇴원일 
+                          , HOMEPAGE_NOTI_SDT   -- 홈페이지 공시시작
+                          , HOMEPAGE_NOTI_EDT   -- 홈페이지 공시끝
+                          , RMK                  -- 비고
+                          , INST_ID          -- 작성자ID    
+                          , INST_DTM         -- 작성일시   
+                          , UPDT_ID          -- 수정자ID    
+                          , UPDT_DTM         -- 수정일시
+                    ) VALUES (
+                            STND_YEAR           -- 기준년도    
+                          , IJRY_SEQ                 -- 일련번호
+                          , RACER_NO            -- 등록번호
+                          , IJRY_DT             -- 부상일    
+                          , DIAGNS_DT			-- 진단/소견일자
+                          , IJRY_PART           -- 부상부위  
+                          , IJRY_STAT           -- 부상상태    
+                          , DIAGNS_WK           -- 진단주   
+                          , EHOSP_DT            -- 입원일    
+                          , RESIGN_DT           -- 퇴원일 
+                          , HOMEPAGE_NOTI_SDT   -- 홈페이지 공시시작
+                          , HOMEPAGE_NOTI_EDT   -- 홈페이지 공시끝
+                          , RMK                  -- 비고
+                          , INST_ID          -- 작성자ID    
+                          , INST_DTM         -- 작성일시   
+                          , UPDT_ID          -- 수정자ID    
+                          , UPDT_DTM         -- 수정일시
+        			)
+                    INTO TBEC_ARRANGE_ESC
+                    (
+                        SEQ,            -- 일련번호    
+                        RACER_NO,       -- 등록번호
+                        IJRY_YEAR,		-- 기준년도
+                        IJRY_SEQ,       -- 부상일련번호 
+                        STR_DT,         -- 주선제외시작일
+                        END_DT,         -- 주선제외종료일
+                        RSN_CD,         -- 주선보류분류코드
+                        INST_ID,        -- 작성자ID    
+                        INST_DTM,       -- 작성일시
+                        UPDT_ID,        -- 수정자
+                        UPDT_DTM           -- 수정일시
+                    )
+                    VALUES
+                    (
+                        ARRANGE_ESC_SEQ,        -- 일련번호
+                        RACER_NO,               -- 등록번호
+                        STND_YEAR,				-- 기준년도
+                        IJRY_SEQ,               -- 발급번호
+                        HOMEPAGE_NOTI_SDT,      -- 주선제외시작일
+                        HOMEPAGE_NOTI_EDT,      -- 주선제외종료일
+                        '002',          -- 주선보류분류코드
+                        INST_ID,        -- 작성자ID    
+                        INST_DTM,       -- 작성일시
+                        INST_ID,        -- 수정자    
+                        INST_DTM        -- 수정일시
+                    )
+                SELECT
+                            ?       AS STND_YEAR,           -- 기준년도    
+                            (
+                                SELECT 											
+                        		    NVL(MAX(SEQ)+1,1) SEQ			--시퀀스	 
+                    			FROM TBEC_RACER_INJURY
+                    			 WHERE STND_YEAR  		= ?		-- 기준년도
+                                )        AS IJRY_SEQ,           --일련번호(부상선수)
+                            (
+        						SELECT	NVL(MAX(SEQ), 0) + 1 
+        						FROM	TBEC_ARRANGE_ESC)	AS ARRANGE_ESC_SEQ,		--일련번호(주전선수제외)
+                            ?        AS RACER_NO,            --선수등록번호
+                            ?        AS IJRY_DT,             -- 부상일    
+                            ?		 AS DIAGNS_DT,			 -- 진단/소견일자
+                            ?        AS IJRY_PART,           -- 부상부위  
+                            ?        AS IJRY_STAT,           -- 부상상태    
+                            ?        AS DIAGNS_WK,           -- 진단주   
+                            ?        AS EHOSP_DT,            -- 입원일    
+                            ?        AS RESIGN_DT,           -- 퇴원일 
+                            ?        AS HOMEPAGE_NOTI_SDT,   -- 홈페이지 공시시작
+                            ?        AS HOMEPAGE_NOTI_EDT,   -- 홈페이지 공시끝
+                            ?        AS RMK,                 -- 비고
+                            ?        AS INST_ID,                -- 작성자ID    
+                            SYSDATE        AS INST_DTM,         -- 작성일시   
+                            ?        AS UPDT_ID,                -- 수정자ID    
+                            SYSDATE        AS UPDT_DTM           -- 수정일시
+                FROM    DUAL;
+            END;
+        ]]>
+    </query> 
+    <query id="tbec_racer_injury_uc001" desc="수정" fetchSize="10">
+        <![CDATA[
+        	BEGIN            
+                UPDATE TBEC_RACER_INJURY SET
+                        IJRY_DT                	= ?         -- 부상일    
+                      , DIAGNS_DT				= ?			-- 진단/소견일자
+                      , IJRY_PART               = ?         -- 부상부위  
+                      , IJRY_STAT               = ?         -- 부상상태    
+                      , DIAGNS_WK               = ?         -- 진단주   
+                      , EHOSP_DT                = ?         -- 입원일    
+                      , RESIGN_DT               = ?         -- 퇴원일 
+                      , HOMEPAGE_NOTI_SDT       = ?         -- 홈페이지 공시시작
+                      , HOMEPAGE_NOTI_EDT       = ?         -- 홈페이지 공시끝
+                      , RMK                     = ?         -- 비고
+                      , UPDT_ID                 = ?         -- 수정자ID    
+                      , UPDT_DTM                = SYSDATE   -- 수정일시    
+                WHERE STND_YEAR                 = ?    		-- 기준년도
+                AND	  SEQ					    = ?;  		-- 일련번호
+                UPDATE    TBEC_ARRANGE_ESC SET
+                        STR_DT                  = ?,        --주선제외시작일
+                        END_DT                  = ?,        --주선제외종료일
+                          UPDT_ID               = ?,        --수정자ID    
+                          UPDT_DTM              = SYSDATE   --수정일시 
+				WHERE IJRY_YEAR   				= ?			-- 기준년도
+				AND	IJRY_SEQ					= ?;		-- 부상일련번호  
+            END; 
+        ]]>
+    </query> 
+    <query id="tbec_racer_injury_dc001" desc="삭제" fetchSize="10">
+        <![CDATA[
+        	BEGIN
+				DELETE
+				FROM  TBEC_RACER_INJURY
+				WHERE STND_YEAR   			= ?			-- 기준년도
+	            AND	  SEQ					= ?; 		-- 일련번호 
+				DELETE
+				FROM 	TBEC_ARRANGE_ESC
+				WHERE IJRY_YEAR   			= ?			-- 기준년도
+				AND	IJRY_SEQ				= ?;		-- 부상일련번호  
+			END;
+        ]]>
+    </query> 
+    <query id="tbee_racer_sanc_fc002" desc="선수제재사항 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	'0'	AS chk,
+					A.RACER_NO, 		--선수등록번호
+					A.SEQ, 				--일련번호
+					A.STND_YEAR, 		--기준년도
+					A.SANC_ISSUE_NO,	--발급번호 
+					A.SANC_BASIS_CD,	--양정코드
+					A.SANC_TERM, 		--제재처분기간
+					A.SANC_RSN_CD,		--사유코드
+					A.SANC_RSN, 		--사유내역
+					A.SANC_ACT_DT, 		--처분일자
+					A.INST_ID,			--입력자
+					B.RACER_GRD_CD,		--등급
+					B.NM_KOR,			--선수성명
+					C.SMRY,				--관련근거
+					A.UNIT, 			--단위
+					D.CD_NM	AS UNIT_NM	--단위이름
+			FROM    TBEE_RACER_SANC A, TBEC_RACER_MASTER B, TBEE_SANC_BASIS C, TBEA_SPEC_CD D
+			WHERE   A.RACER_NO = B.RACER_NO
+			  AND	A.SANC_BASIS_CD = C.SANC_BASIS_CD
+			  AND	A.UNIT = D.CD(+)
+			  AND 	'E00116' = D.GRP_CD(+)
+			  AND	A.STND_YEAR  = 	NVL(?, A.STND_YEAR)
+              AND   B.NM_KOR LIKE '%' ||NVL(?, B.NM_KOR)|| '%'
+			ORDER BY A.SANC_ACT_DT DESC
+        ]]>
+    </query>  
+    <query id="tbec_racer_injury_fc003" desc="선수부상사항  시퀀스조회" fetchSize="10">
+        <![CDATA[
+            /* 선수부상사항 시퀀스조회 */
+			SELECT 											
+    		NVL(MAX(SEQ)+1,1) SEQ			--시퀀스	 
+			FROM TBEC_RACER_INJURY
+			 WHERE STND_YEAR  		= ?		-- 기준년도
+			 AND	RACER_NO  		= ?		-- 등록번호
+        ]]>
+    </query>
+</queryMap>

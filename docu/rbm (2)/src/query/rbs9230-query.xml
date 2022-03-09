@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS9230(전자카드 금액대별 이용률 조회)">
+        
+    <query id="rbs9230_s01" desc="전자카드 금액대별 이용률 조회 " fetchSize="10">
+        <![CDATA[    
+			WITH CASH AS (
+				SELECT CASE WHEN T.MEET_CD||SELL_CD IN ('00101','00303') AND T.COMM_NO < 10 THEN '01' 
+				            WHEN T.MEET_CD||SELL_CD = '00103' AND T.COMM_NO < 10 THEN '98' 
+				            WHEN T.MEET_CD||SELL_CD = '00301' AND T.COMM_NO < 10 THEN '99' 
+				            ELSE T.COMM_NO END AS COMM_NO,
+				            SUM(AMOUNT8) * 100 CASH_AMOUNT,
+                    		SUM(COUNT8) CASH_COUNT
+				 FROM VW_SDL_INFO V,	-- 경주일 정보                                        
+				      VW_PC_SELLST_GSUM T	-- 구간별 매출액                                      
+				 WHERE 1=1
+				   AND T.MEET_CD=V.MEET_CD                               
+				   AND T.STND_YEAR=V.STND_YEAR                           
+				   AND T.TMS=V.TMS                                       
+				   AND T.DAY_ORD=V.DAY_ORD    
+				   AND T.GREEN_YN = 'N'
+				   AND V.RACE_DAY >= ?	-- 기간 시작일
+				   AND V.RACE_DAY <= ?	-- 기간 종료일
+				   AND V.MEET_CD  = NVL(?, V.MEET_CD)	-- 구분 코드
+				   AND T.COMM_NO  = NVL(?, T.COMM_NO)	-- 지점 코드    
+				GROUP BY CASE WHEN T.MEET_CD||SELL_CD IN ('00101','00303') AND T.COMM_NO < 10 THEN '01' 
+				              WHEN T.MEET_CD||SELL_CD = '00103' AND T.COMM_NO < 10 THEN '98' 
+				              WHEN T.MEET_CD||SELL_CD = '00301' AND T.COMM_NO < 10 THEN '99' 
+				              ELSE T.COMM_NO END  
+				),         
+				GREENCARD AS (        
+				SELECT CASE WHEN T.MEET_CD||SELL_CD IN ('00101','00303') AND T.COMM_NO < 10 THEN '01' 
+				            WHEN T.MEET_CD||SELL_CD = '00103' AND T.COMM_NO < 10 THEN '98' 
+				            WHEN T.MEET_CD||SELL_CD = '00301' AND T.COMM_NO < 10 THEN '99' 
+				            ELSE T.COMM_NO END AS COMM_NO,
+				            SUM(AMOUNT8) * 100 GREENCARD_AMOUNT,
+                    		SUM(COUNT8) GREENCARD_COUNT
+				 FROM VW_SDL_INFO V,	-- 경주일 정보                                        
+				      VW_PC_SELLST_GSUM T	-- 구간별 매출액                                      
+				 WHERE 1=1
+				   AND T.MEET_CD=V.MEET_CD                               
+				   AND T.STND_YEAR=V.STND_YEAR                           
+				   AND T.TMS=V.TMS                                       
+				   AND T.DAY_ORD=V.DAY_ORD    
+				   AND T.GREEN_YN = 'Y'
+				   AND V.RACE_DAY >= ?	-- 기간 시작일
+				   AND V.RACE_DAY <= ?	-- 기간 종료일
+				   AND V.MEET_CD  = NVL(?, V.MEET_CD)	-- 구분 코드
+				   AND T.COMM_NO  = NVL(?, T.COMM_NO)	-- 지점 코드  
+				GROUP BY CASE WHEN T.MEET_CD||SELL_CD IN ('00101','00303') AND T.COMM_NO < 10 THEN '01' 
+				              WHEN T.MEET_CD||SELL_CD = '00103' AND T.COMM_NO < 10 THEN '98' 
+				              WHEN T.MEET_CD||SELL_CD = '00301' AND T.COMM_NO < 10 THEN '99' 
+				              ELSE T.COMM_NO END  
+				)      
+				SELECT *
+		          FROM (
+		                SELECT '발매건당 평균 배팅액' AS GUBUN,
+		                           CS.COMM_NO, CS.CASH_AMOUNT, CS.CASH_COUNT,
+		                           GC.GREENCARD_AMOUNT, GC.GREENCARD_COUNT,
+		                           ROUND(CS.CASH_AMOUNT / CS.CASH_COUNT,0) AS CASH_AVG_AMT,
+		                           ROUND(GC.GREENCARD_AMOUNT / GC.GREENCARD_COUNT,0) AS GREENCARD_AVG_AMT,
+		                           ROUND((CS.CASH_AMOUNT + GC.GREENCARD_AMOUNT) / (CS.CASH_COUNT + GC.GREENCARD_COUNT),0) AS SUM_AVG_AMT 
+		                  FROM CASH CS, GREENCARD GC
+		                 WHERE 1 = 1  
+		                   AND CS.COMM_NO = GC.COMM_NO
+		                
+		                UNION ALL
+		                
+		                SELECT '합계' AS GUBUN,
+		                       '999' AS COMM_NO,
+		                       T.CASH_AMOUNT,
+		                       T.CASH_COUNT,
+		                       T.GREENCARD_AMOUNT,
+		                       T.GREENCARD_COUNT,
+		                       ROUND(T.CASH_AMOUNT / T.CASH_COUNT,0) AS CASH_AVG_AMT,
+		                       ROUND(T.GREENCARD_AMOUNT / T.GREENCARD_COUNT,0) AS GREENCARD_AVG_AMT,
+		                       ROUND((T.CASH_AMOUNT + T.GREENCARD_AMOUNT) / (T.CASH_COUNT + T.GREENCARD_COUNT),0) AS SUM_AVG_AMT 
+		                  FROM (
+		                        SELECT SUM(CS.CASH_AMOUNT) AS CASH_AMOUNT, 
+		                               SUM(CS.CASH_COUNT) AS CASH_COUNT,
+		                               SUM(GC.GREENCARD_AMOUNT) AS GREENCARD_AMOUNT, 
+		                               SUM(GC.GREENCARD_COUNT) AS GREENCARD_COUNT
+		                          FROM CASH CS, GREENCARD GC
+		                         WHERE 1 = 1  
+		                           AND CS.COMM_NO = GC.COMM_NO
+		                       )T   
+		              )
+		        WHERE 1=1
+		        ORDER BY COMM_NO             
+        ]]>
+    </query>
+    
+    <query id="rbs9230_s02" desc="전자카드 금액대별 이용률 조회 (금액)" fetchSize="10">
+        <![CDATA[
+            SELECT  '현금' AS GUBUN,
+			        (SUM(AMOUNT1)*100) AMOUNT1,                          -- 현금 금액 100~10,000
+			        ROUND(SUM(COUNT1)/SUM(COUNT8)*100,2) AMOUNT_RATE1,   -- 현금 비율 100~10,000
+			        (SUM(AMOUNT2)*100) AMOUNT2,                          -- 현금 금액 10,100~20,000
+			        ROUND(SUM(COUNT2)/SUM(COUNT8)*100,2) AMOUNT_RATE2,   -- 현금 비율 10,100~20,000
+			        (SUM(AMOUNT3)*100) AMOUNT3,                          -- 현금 금액 20,100~49,900        
+			        ROUND(SUM(COUNT3)/SUM(COUNT8)*100,2) AMOUNT_RATE3,   -- 현금 비율 20,100~49,900
+			        (SUM(AMOUNT4)*100) AMOUNT4,                          -- 현금 금액 50,000     
+			        ROUND(SUM(COUNT4)/SUM(COUNT8)*100,2) AMOUNT_RATE4,   -- 현금 비율 50,000       
+			        (SUM(AMOUNT5)*100) AMOUNT5,                          -- 현금 금액 50,100~80,000
+			        ROUND(SUM(COUNT5)/SUM(COUNT8)*100,2) AMOUNT_RATE5,   -- 현금 비율 50,100~80,000
+			        (SUM(AMOUNT6)*100) AMOUNT6,                          -- 현금 금액 80,100~99,900              
+			        ROUND(SUM(COUNT6)/SUM(COUNT8)*100,2) AMOUNT_RATE6,   -- 현금 비율 80,100~99,900
+			        (SUM(AMOUNT7)*100) AMOUNT7,                          -- 현금 금액 100,000             
+			        ROUND(SUM(COUNT7)/SUM(COUNT8)*100,2) AMOUNT_RATE7,   -- 현금 비율 100,000
+			        (SUM(AMOUNT8)*100) AMOUNT8,
+              		SUM(COUNT8) COUNT8      
+			 FROM VW_SDL_INFO V,	-- 경주일 정보                                        
+			      VW_PC_SELLST_GSUM T	-- 구간별 매출액                                      
+			 WHERE 1=1
+			   AND T.MEET_CD=V.MEET_CD                               
+			   AND T.STND_YEAR=V.STND_YEAR                           
+			   AND T.TMS=V.TMS                                       
+			   AND T.DAY_ORD=V.DAY_ORD    
+			   AND T.GREEN_YN = 'N'
+			   AND T.SELL_CD IN ('01', '03')
+			   AND V.RACE_DAY >= ?	-- 기간 시작일
+			   AND V.RACE_DAY <= ?	-- 기간 종료일          
+			   AND V.MEET_CD  = NVL(?, V.MEET_CD)	-- 구분 코드
+			   AND T.COMM_NO  = NVL(?, T.COMM_NO) 	-- 지점 코드         
+			
+			UNION ALL
+			
+			SELECT GUBUN, 
+			       NVL(AMOUNT1,0) AMOUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) AMOUNT_RATE1,   -- 비율 100~10,000
+			       NVL(AMOUNT2,0) AMOUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) AMOUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(AMOUNT3,0) AMOUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) AMOUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(AMOUNT4,0) AMOUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) AMOUNT_RATE4,   -- 비율 50,000
+			       NVL(AMOUNT5,0) AMOUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) AMOUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(AMOUNT6,0) AMOUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) AMOUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(AMOUNT7,0) AMOUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) AMOUNT_RATE7,   -- 비율 100,000
+			       NVL(AMOUNT8,0) AMOUNT8,
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '전자카드' GUBUN,
+			               SUM(CASE WHEN TF.AMT <= 99900 THEN TF.AMT END) AMOUNT1, -- 금액 100~10,000
+			               SUM(CASE WHEN TF.AMT >= 100000 AND TF.AMT <= 199900 THEN TF.AMT END) AMOUNT2, -- 금액 10,100~20,000
+			               SUM(CASE WHEN TF.AMT >= 200000 AND TF.AMT <= 499900 THEN TF.AMT END) AMOUNT3, -- 금액 20,100~49,900
+			               SUM(CASE WHEN TF.AMT = 500000 THEN TF.AMT END) AMOUNT4, -- 금액 50,000
+			               SUM(CASE WHEN TF.AMT >= 500100 AND TF.AMT <= 799900 THEN TF.AMT END) AMOUNT5, -- 금액 50,100~80,000
+			               SUM(CASE WHEN TF.AMT >= 800000 AND TF.AMT <= 999900 THEN TF.AMT END) AMOUNT6, -- 금액 80,100~99,900
+			               SUM(CASE WHEN TF.AMT >= 1000000 THEN TF.AMT END) AMOUNT7, -- 금액 100,000     
+			               SUM(TF.AMT) AS AMOUNT8,
+			               SUM(CASE WHEN TF.AMT <= 99900 THEN TF.NUM END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN TF.AMT >= 100000 AND TF.AMT <= 199900 THEN TF.NUM END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN TF.AMT >= 200000 AND TF.AMT <= 499900 THEN TF.NUM END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN TF.AMT = 500000 THEN TF.NUM END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN TF.AMT >= 500100 AND TF.AMT <= 799900 THEN TF.NUM END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN TF.AMT >= 800000 AND TF.AMT <= 999900 THEN TF.NUM END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN TF.AMT >= 1000000 THEN TF.NUM END) COUNT7, -- 건수 100,000     
+			               SUM(TF.NUM) AS COUNT8
+			          FROM TBJI_PC_TELMP_FIXEDSEAT TF, VW_SDL_INFO VS
+			         WHERE 1 = 1
+			           AND VS.RACE_DAY = TF.RACE_DAY
+			           AND TF.GRN_ZN_CD IN ('002','003')
+			           AND TF.WIN_TYPE = '14'
+			           AND TF.RACE_DAY BETWEEN ? AND ?
+			           AND VS.MEET_CD IN ('001','003')
+			           AND VS.MEET_CD = NVL(?, VS.MEET_CD)
+			           AND TF.COMM_NO = NVL(DECODE(?, '01', '00', ?), TF.COMM_NO)         
+			       )    
+			       
+			UNION ALL
+			
+			SELECT GUBUN, 
+			       NVL(AMOUNT1,0) AMOUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) AMOUNT_RATE1,   -- 비율 100~10,000
+			       NVL(AMOUNT2,0) AMOUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) AMOUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(AMOUNT3,0) AMOUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) AMOUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(AMOUNT4,0) AMOUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) AMOUNT_RATE4,   -- 비율 50,000
+			       NVL(AMOUNT5,0) AMOUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) AMOUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(AMOUNT6,0) AMOUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) AMOUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(AMOUNT7,0) AMOUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) AMOUNT_RATE7,   -- 비율 100,000
+			       NVL(AMOUNT8,0) AMOUNT8,
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '모바일' AS GUBUN,
+			               SUM(CASE WHEN DEV_SALES_AMT <= 99900 THEN DEV_SALES_AMT END) AMOUNT1, -- 금액 100~10,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 100000 AND DEV_SALES_AMT <= 199900 THEN DEV_SALES_AMT END) AMOUNT2, -- 금액 10,100~20,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 200000 AND DEV_SALES_AMT <= 499900 THEN DEV_SALES_AMT END) AMOUNT3, -- 금액 20,100~49,900
+			               SUM(CASE WHEN DEV_SALES_AMT = 500000 THEN DEV_SALES_AMT END) AMOUNT4, -- 금액 50,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 500100 AND DEV_SALES_AMT <= 799900 THEN DEV_SALES_AMT END) AMOUNT5, -- 금액 50,100~80,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 800000 AND DEV_SALES_AMT <= 999900 THEN DEV_SALES_AMT END) AMOUNT6, -- 금액 80,100~99,900
+			               SUM(CASE WHEN DEV_SALES_AMT >= 1000000 THEN DEV_SALES_AMT END) AMOUNT7, -- 금액 100,000      
+			               SUM(DEV_SALES_AMT) AMOUNT8,
+			               SUM(CASE WHEN DEV_SALES_AMT <= 99900 THEN DEV_SALES_CNT END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 100000 AND DEV_SALES_AMT <= 199900 THEN DEV_SALES_CNT END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 200000 AND DEV_SALES_AMT <= 499900 THEN DEV_SALES_CNT END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN DEV_SALES_AMT = 500000 THEN DEV_SALES_CNT END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 500100 AND DEV_SALES_AMT <= 799900 THEN DEV_SALES_CNT END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 800000 AND DEV_SALES_AMT <= 999900 THEN DEV_SALES_CNT END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN DEV_SALES_AMT >= 1000000 THEN DEV_SALES_CNT END) COUNT7, -- 건수 100,000      
+			               SUM(DEV_SALES_CNT) COUNT8
+			          FROM TBRS_MYCAT_TELMP TM, VW_SDL_INFO T6
+			         WHERE 1 = 1
+			           AND T6.RACE_DAY = TM.RACE_DAY
+			           AND TM.CHNL_CD = '002' 
+			           AND TM.MEET_CD IN ('001','003')
+			           AND T6.MEET_CD IN ('001','003')
+			           AND TM.RACE_DAY BETWEEN ? AND ?
+			           AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			           AND COMM_NO = NVL(?, COMM_NO)
+			       )    
+			         
+        ]]>
+    </query>
+    
+    <query id="rbs9230_s03" desc="전자카드 금액대별 이용률 조회 (건수)" fetchSize="10">
+        <![CDATA[
+            SELECT  '현금' AS GUBUN,
+			        (SUM(COUNT1)) COUNT1,                           	-- 현금 건수 100~10,000
+			        ROUND(SUM(COUNT1)/SUM(COUNT8)*100,2) COUNT_RATE1,   -- 현금 비율 100~10,000
+			        (SUM(COUNT2)) COUNT2,                           	-- 현금 건수 10,100~20,000
+			        ROUND(SUM(COUNT2)/SUM(COUNT8)*100,2) COUNT_RATE2,   -- 현금 비율 10,100~20,000
+			        (SUM(COUNT3)) COUNT3,                           	-- 현금 건수 20,100~49,900        
+			        ROUND(SUM(COUNT3)/SUM(COUNT8)*100,2) COUNT_RATE3,   -- 현금 비율 20,100~49,900
+			        (SUM(COUNT4)) COUNT4,                           	-- 현금 건수 50,000     
+			        ROUND(SUM(COUNT4)/SUM(COUNT8)*100,2) COUNT_RATE4,   -- 현금 비율 50,000       
+			        (SUM(COUNT5)) COUNT5,                           	-- 현금 건수 50,100~80,000
+			        ROUND(SUM(COUNT5)/SUM(COUNT8)*100,2) COUNT_RATE5,   -- 현금 비율 50,100~80,000
+			        (SUM(COUNT6)) COUNT6,                           	-- 현금 건수 80,100~99,900              
+			        ROUND(SUM(COUNT6)/SUM(COUNT8)*100,2) COUNT_RATE6,   -- 현금 비율 80,100~99,900
+			        (SUM(COUNT7)) COUNT7,                           	-- 현금 건수 100,000             
+			        ROUND(SUM(COUNT7)/SUM(COUNT8)*100,2) COUNT_RATE7,   -- 현금 비율 100,000
+			        (SUM(COUNT8)) COUNT8      
+			 FROM VW_SDL_INFO V,	-- 경주일 정보                                        
+			      VW_PC_SELLST_GSUM T	-- 구간별 매출액                                      
+			 WHERE 1=1
+			   AND T.MEET_CD=V.MEET_CD                               
+			   AND T.STND_YEAR=V.STND_YEAR                           
+			   AND T.TMS=V.TMS                                       
+			   AND T.DAY_ORD=V.DAY_ORD    
+			   AND T.GREEN_YN = 'N'
+			   AND T.SELL_CD IN ('01', '03')
+			   AND V.RACE_DAY >= ?	-- 기간 시작일
+			   AND V.RACE_DAY <= ?	-- 기간 종료일          
+			   AND V.MEET_CD  = NVL(?, V.MEET_CD)	-- 구분 코드
+			   AND T.COMM_NO  = NVL(?, T.COMM_NO) 	-- 지점 코드         
+			
+			UNION ALL
+			    
+			SELECT GUBUN, 
+			       NVL(COUNT1,0) COUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) COUNT_RATE1,   -- 비율 100~10,000
+			       NVL(COUNT2,0) COUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) COUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(COUNT3,0) COUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) COUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(COUNT4,0) COUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) COUNT_RATE4,   -- 비율 50,000
+			       NVL(COUNT5,0) COUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) COUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(COUNT6,0) COUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) COUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(COUNT7,0) COUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) COUNT_RATE7,   -- 비율 100,000
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '전자카드' GUBUN,
+			               SUM(CASE WHEN TF.AMT <= 99900 THEN TF.NUM END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN TF.AMT >= 100000 AND TF.AMT <= 199900 THEN TF.NUM END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN TF.AMT >= 200000 AND TF.AMT <= 499900 THEN TF.NUM END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN TF.AMT = 500000 THEN TF.NUM END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN TF.AMT >= 500100 AND TF.AMT <= 799900 THEN TF.NUM END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN TF.AMT >= 800000 AND TF.AMT <= 999900 THEN TF.NUM END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN TF.AMT >= 1000000 THEN TF.NUM END) COUNT7, -- 건수 100,000     
+			               SUM(TF.NUM) AS COUNT8
+			          FROM TBJI_PC_TELMP_FIXEDSEAT TF, VW_SDL_INFO VS 
+			         WHERE 1 = 1
+			           AND VS.RACE_DAY = TF.RACE_DAY
+			           AND TF.GRN_ZN_CD IN ('002','003')
+			           AND TF.WIN_TYPE = '14'
+			           AND TF.RACE_DAY BETWEEN ? AND ?
+			           AND VS.MEET_CD IN ('001','003')
+			           AND VS.MEET_CD = NVL(?, VS.MEET_CD)
+			           AND TF.COMM_NO = NVL(DECODE(?, '01', '00', ?), TF.COMM_NO)   
+			       )    
+			       
+			UNION ALL
+			
+			SELECT GUBUN, 
+			       NVL(COUNT1,0) COUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) COUNT_RATE1,   -- 비율 100~10,000
+			       NVL(COUNT2,0) COUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) COUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(COUNT3,0) COUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) COUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(COUNT4,0) COUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) COUNT_RATE4,   -- 비율 50,000
+			       NVL(COUNT5,0) COUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) COUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(COUNT6,0) COUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) COUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(COUNT7,0) COUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) COUNT_RATE7,   -- 비율 100,000
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '모바일' AS GUBUN,
+			               SUM(CASE WHEN DEV_SALES_AMT <= 99900 THEN DEV_SALES_CNT END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 100000 AND DEV_SALES_AMT <= 199900 THEN DEV_SALES_CNT END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 200000 AND DEV_SALES_AMT <= 499900 THEN DEV_SALES_CNT END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN DEV_SALES_AMT = 500000 THEN DEV_SALES_CNT END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 500100 AND DEV_SALES_AMT <= 799900 THEN DEV_SALES_CNT END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 800000 AND DEV_SALES_AMT <= 999900 THEN DEV_SALES_CNT END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN DEV_SALES_AMT >= 1000000 THEN DEV_SALES_CNT END) COUNT7, -- 건수 100,000      
+			               SUM(DEV_SALES_CNT) COUNT8
+			          FROM TBRS_MYCAT_TELMP TM, VW_SDL_INFO T6
+			         WHERE 1 = 1
+			           AND T6.RACE_DAY = TM.RACE_DAY
+			           AND TM.CHNL_CD = '002' 
+			           AND TM.MEET_CD IN ('001','003')
+			           AND T6.MEET_CD IN ('001','003')
+			           AND TM.RACE_DAY BETWEEN ? AND ?
+			           AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			           AND COMM_NO = NVL(?, COMM_NO)
+			       )     
+        ]]>
+    </query>
+    
+    <query id="rbs9230_s04" desc="전자카드 금액대별 이용률 조회 (금액)/본장" fetchSize="10">
+        <![CDATA[
+            SELECT  '현금' AS GUBUN,
+			        (SUM(AMOUNT1)*100) AMOUNT1,                          -- 현금 금액 100~10,000
+			        ROUND(SUM(COUNT1)/SUM(COUNT8)*100,2) AMOUNT_RATE1,   -- 현금 비율 100~10,000
+			        (SUM(AMOUNT2)*100) AMOUNT2,                          -- 현금 금액 10,100~20,000
+			        ROUND(SUM(COUNT2)/SUM(COUNT8)*100,2) AMOUNT_RATE2,   -- 현금 비율 10,100~20,000
+			        (SUM(AMOUNT3)*100) AMOUNT3,                          -- 현금 금액 20,100~49,900        
+			        ROUND(SUM(COUNT3)/SUM(COUNT8)*100,2) AMOUNT_RATE3,   -- 현금 비율 20,100~49,900
+			        (SUM(AMOUNT4)*100) AMOUNT4,                          -- 현금 금액 50,000     
+			        ROUND(SUM(COUNT4)/SUM(COUNT8)*100,2) AMOUNT_RATE4,   -- 현금 비율 50,000       
+			        (SUM(AMOUNT5)*100) AMOUNT5,                          -- 현금 금액 50,100~80,000
+			        ROUND(SUM(COUNT5)/SUM(COUNT8)*100,2) AMOUNT_RATE5,   -- 현금 비율 50,100~80,000
+			        (SUM(AMOUNT6)*100) AMOUNT6,                          -- 현금 금액 80,100~99,900              
+			        ROUND(SUM(COUNT6)/SUM(COUNT8)*100,2) AMOUNT_RATE6,   -- 현금 비율 80,100~99,900
+			        (SUM(AMOUNT7)*100) AMOUNT7,                          -- 현금 금액 100,000             
+			        ROUND(SUM(COUNT7)/SUM(COUNT8)*100,2) AMOUNT_RATE7,   -- 현금 비율 100,000
+			        (SUM(AMOUNT8)*100) AMOUNT8,
+              		SUM(COUNT8) COUNT8      
+			 FROM VW_SDL_INFO V,	-- 경주일 정보                                        
+			      VW_PC_SELLST_GSUM T	-- 구간별 매출액                                      
+			 WHERE 1=1
+			   AND T.MEET_CD=V.MEET_CD                               
+			   AND T.STND_YEAR=V.STND_YEAR                           
+			   AND T.TMS=V.TMS                                       
+			   AND T.DAY_ORD=V.DAY_ORD    
+			   AND T.GREEN_YN = 'N'
+			   AND T.SELL_CD IN ('01', '03')
+			   AND V.RACE_DAY >= ?	-- 기간 시작일
+			   AND V.RACE_DAY <= ?	-- 기간 종료일          
+			   AND V.MEET_CD  = NVL(?, V.MEET_CD)	-- 구분 코드
+			   AND T.COMM_NO IN ('01','02','03','04','08')         
+			
+			UNION ALL
+			
+			SELECT GUBUN, 
+			       NVL(AMOUNT1,0) AMOUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) AMOUNT_RATE1,   -- 비율 100~10,000
+			       NVL(AMOUNT2,0) AMOUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) AMOUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(AMOUNT3,0) AMOUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) AMOUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(AMOUNT4,0) AMOUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) AMOUNT_RATE4,   -- 비율 50,000
+			       NVL(AMOUNT5,0) AMOUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) AMOUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(AMOUNT6,0) AMOUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) AMOUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(AMOUNT7,0) AMOUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) AMOUNT_RATE7,   -- 비율 100,000
+			       NVL(AMOUNT8,0) AMOUNT8,
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '전자카드' GUBUN,
+			               SUM(CASE WHEN TF.AMT <= 99900 THEN TF.AMT END) AMOUNT1, -- 금액 100~10,000
+			               SUM(CASE WHEN TF.AMT >= 100000 AND TF.AMT <= 199900 THEN TF.AMT END) AMOUNT2, -- 금액 10,100~20,000
+			               SUM(CASE WHEN TF.AMT >= 200000 AND TF.AMT <= 499900 THEN TF.AMT END) AMOUNT3, -- 금액 20,100~49,900
+			               SUM(CASE WHEN TF.AMT = 500000 THEN TF.AMT END) AMOUNT4, -- 금액 50,000
+			               SUM(CASE WHEN TF.AMT >= 500100 AND TF.AMT <= 799900 THEN TF.AMT END) AMOUNT5, -- 금액 50,100~80,000
+			               SUM(CASE WHEN TF.AMT >= 800000 AND TF.AMT <= 999900 THEN TF.AMT END) AMOUNT6, -- 금액 80,100~99,900
+			               SUM(CASE WHEN TF.AMT >= 1000000 THEN TF.AMT END) AMOUNT7, -- 금액 100,000     
+			               SUM(TF.AMT) AS AMOUNT8,
+			               SUM(CASE WHEN TF.AMT <= 99900 THEN TF.NUM END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN TF.AMT >= 100000 AND TF.AMT <= 199900 THEN TF.NUM END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN TF.AMT >= 200000 AND TF.AMT <= 499900 THEN TF.NUM END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN TF.AMT = 500000 THEN TF.NUM END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN TF.AMT >= 500100 AND TF.AMT <= 799900 THEN TF.NUM END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN TF.AMT >= 800000 AND TF.AMT <= 999900 THEN TF.NUM END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN TF.AMT >= 1000000 THEN TF.NUM END) COUNT7, -- 건수 100,000     
+			               SUM(TF.NUM) AS COUNT8
+			          FROM TBJI_PC_TELMP_FIXEDSEAT TF, VW_SDL_INFO VS
+			         WHERE 1 = 1
+			           AND VS.RACE_DAY = TF.RACE_DAY
+			           AND TF.GRN_ZN_CD IN ('002','003')
+			           AND TF.WIN_TYPE = '14'
+			           AND TF.RACE_DAY BETWEEN ? AND ?
+			           AND VS.MEET_CD IN ('001','003')
+			           AND VS.MEET_CD = NVL(?, VS.MEET_CD)
+			           AND TF.COMM_NO = NVL(DECODE(?, '01', '00', ?), TF.COMM_NO)         
+			       )    
+			       
+			UNION ALL
+			
+			SELECT GUBUN, 
+			       NVL(AMOUNT1,0) AMOUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) AMOUNT_RATE1,   -- 비율 100~10,000
+			       NVL(AMOUNT2,0) AMOUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) AMOUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(AMOUNT3,0) AMOUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) AMOUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(AMOUNT4,0) AMOUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) AMOUNT_RATE4,   -- 비율 50,000
+			       NVL(AMOUNT5,0) AMOUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) AMOUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(AMOUNT6,0) AMOUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) AMOUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(AMOUNT7,0) AMOUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) AMOUNT_RATE7,   -- 비율 100,000
+			       NVL(AMOUNT8,0) AMOUNT8,
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '모바일' AS GUBUN,
+			               SUM(CASE WHEN DEV_SALES_AMT <= 99900 THEN DEV_SALES_AMT END) AMOUNT1, -- 금액 100~10,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 100000 AND DEV_SALES_AMT <= 199900 THEN DEV_SALES_AMT END) AMOUNT2, -- 금액 10,100~20,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 200000 AND DEV_SALES_AMT <= 499900 THEN DEV_SALES_AMT END) AMOUNT3, -- 금액 20,100~49,900
+			               SUM(CASE WHEN DEV_SALES_AMT = 500000 THEN DEV_SALES_AMT END) AMOUNT4, -- 금액 50,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 500100 AND DEV_SALES_AMT <= 799900 THEN DEV_SALES_AMT END) AMOUNT5, -- 금액 50,100~80,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 800000 AND DEV_SALES_AMT <= 999900 THEN DEV_SALES_AMT END) AMOUNT6, -- 금액 80,100~99,900
+			               SUM(CASE WHEN DEV_SALES_AMT >= 1000000 THEN DEV_SALES_AMT END) AMOUNT7, -- 금액 100,000      
+			               SUM(DEV_SALES_AMT) AMOUNT8,
+			               SUM(CASE WHEN DEV_SALES_AMT <= 99900 THEN DEV_SALES_CNT END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 100000 AND DEV_SALES_AMT <= 199900 THEN DEV_SALES_CNT END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 200000 AND DEV_SALES_AMT <= 499900 THEN DEV_SALES_CNT END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN DEV_SALES_AMT = 500000 THEN DEV_SALES_CNT END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 500100 AND DEV_SALES_AMT <= 799900 THEN DEV_SALES_CNT END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 800000 AND DEV_SALES_AMT <= 999900 THEN DEV_SALES_CNT END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN DEV_SALES_AMT >= 1000000 THEN DEV_SALES_CNT END) COUNT7, -- 건수 100,000      
+			               SUM(DEV_SALES_CNT) COUNT8
+			          FROM TBRS_MYCAT_TELMP TM, VW_SDL_INFO T6
+			         WHERE 1 = 1
+			           AND T6.RACE_DAY = TM.RACE_DAY
+			           AND TM.CHNL_CD = '002' 
+			           AND TM.MEET_CD IN ('001','003')
+			           AND T6.MEET_CD IN ('001','003')
+			           AND TM.RACE_DAY BETWEEN ? AND ?
+			           AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			           AND COMM_NO = NVL(?, COMM_NO)
+			       )    
+			         
+        ]]>
+    </query>
+    
+    <query id="rbs9230_s05" desc="전자카드 금액대별 이용률 조회 (건수)/본장" fetchSize="10">
+        <![CDATA[
+            SELECT  '현금' AS GUBUN,
+			        (SUM(COUNT1)) COUNT1,                           	-- 현금 건수 100~10,000
+			        ROUND(SUM(COUNT1)/SUM(COUNT8)*100,2) COUNT_RATE1,   -- 현금 비율 100~10,000
+			        (SUM(COUNT2)) COUNT2,                           	-- 현금 건수 10,100~20,000
+			        ROUND(SUM(COUNT2)/SUM(COUNT8)*100,2) COUNT_RATE2,   -- 현금 비율 10,100~20,000
+			        (SUM(COUNT3)) COUNT3,                           	-- 현금 건수 20,100~49,900        
+			        ROUND(SUM(COUNT3)/SUM(COUNT8)*100,2) COUNT_RATE3,   -- 현금 비율 20,100~49,900
+			        (SUM(COUNT4)) COUNT4,                           	-- 현금 건수 50,000     
+			        ROUND(SUM(COUNT4)/SUM(COUNT8)*100,2) COUNT_RATE4,   -- 현금 비율 50,000       
+			        (SUM(COUNT5)) COUNT5,                           	-- 현금 건수 50,100~80,000
+			        ROUND(SUM(COUNT5)/SUM(COUNT8)*100,2) COUNT_RATE5,   -- 현금 비율 50,100~80,000
+			        (SUM(COUNT6)) COUNT6,                           	-- 현금 건수 80,100~99,900              
+			        ROUND(SUM(COUNT6)/SUM(COUNT8)*100,2) COUNT_RATE6,   -- 현금 비율 80,100~99,900
+			        (SUM(COUNT7)) COUNT7,                           	-- 현금 건수 100,000             
+			        ROUND(SUM(COUNT7)/SUM(COUNT8)*100,2) COUNT_RATE7,   -- 현금 비율 100,000
+			        (SUM(COUNT8)) COUNT8      
+			 FROM VW_SDL_INFO V,	-- 경주일 정보                                        
+			      VW_PC_SELLST_GSUM T	-- 구간별 매출액                                      
+			 WHERE 1=1
+			   AND T.MEET_CD=V.MEET_CD                               
+			   AND T.STND_YEAR=V.STND_YEAR                           
+			   AND T.TMS=V.TMS                                       
+			   AND T.DAY_ORD=V.DAY_ORD    
+			   AND T.GREEN_YN = 'N'
+			   AND T.SELL_CD IN ('01', '03')
+			   AND V.RACE_DAY >= ?	-- 기간 시작일
+			   AND V.RACE_DAY <= ?	-- 기간 종료일          
+			   AND V.MEET_CD  = NVL(?, V.MEET_CD)	-- 구분 코드
+			   AND T.COMM_NO IN ('01','02','03','04','08')         
+			
+			UNION ALL
+			    
+			SELECT GUBUN, 
+			       NVL(COUNT1,0) COUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) COUNT_RATE1,   -- 비율 100~10,000
+			       NVL(COUNT2,0) COUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) COUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(COUNT3,0) COUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) COUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(COUNT4,0) COUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) COUNT_RATE4,   -- 비율 50,000
+			       NVL(COUNT5,0) COUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) COUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(COUNT6,0) COUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) COUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(COUNT7,0) COUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) COUNT_RATE7,   -- 비율 100,000
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '전자카드' GUBUN,
+			               SUM(CASE WHEN TF.AMT <= 99900 THEN TF.NUM END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN TF.AMT >= 100000 AND TF.AMT <= 199900 THEN TF.NUM END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN TF.AMT >= 200000 AND TF.AMT <= 499900 THEN TF.NUM END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN TF.AMT = 500000 THEN TF.NUM END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN TF.AMT >= 500100 AND TF.AMT <= 799900 THEN TF.NUM END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN TF.AMT >= 800000 AND TF.AMT <= 999900 THEN TF.NUM END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN TF.AMT >= 1000000 THEN TF.NUM END) COUNT7, -- 건수 100,000     
+			               SUM(TF.NUM) AS COUNT8
+			          FROM TBJI_PC_TELMP_FIXEDSEAT TF, VW_SDL_INFO VS 
+			         WHERE 1 = 1
+			           AND VS.RACE_DAY = TF.RACE_DAY
+			           AND TF.GRN_ZN_CD IN ('002','003')
+			           AND TF.WIN_TYPE = '14'
+			           AND TF.RACE_DAY BETWEEN ? AND ?
+			           AND VS.MEET_CD IN ('001','003')
+			           AND VS.MEET_CD = NVL(?, VS.MEET_CD)
+			           AND TF.COMM_NO = NVL(DECODE(?, '01', '00', ?), TF.COMM_NO)   
+			       )    
+			       
+			UNION ALL
+			
+			SELECT GUBUN, 
+			       NVL(COUNT1,0) COUNT1, 
+			       NVL(ROUND(COUNT1 / COUNT8 * 100,2),0) COUNT_RATE1,   -- 비율 100~10,000
+			       NVL(COUNT2,0) COUNT2, 
+			       NVL(ROUND(COUNT2 / COUNT8 * 100,2),0) COUNT_RATE2,   -- 비율 10,100~20,000
+			       NVL(COUNT3,0) COUNT3, 
+			       NVL(ROUND(COUNT3 / COUNT8 * 100,2),0) COUNT_RATE3,   -- 비율 20,100~49,900
+			       NVL(COUNT4,0) COUNT4, 
+			       NVL(ROUND(COUNT4 / COUNT8 * 100,2),0) COUNT_RATE4,   -- 비율 50,000
+			       NVL(COUNT5,0) COUNT5, 
+			       NVL(ROUND(COUNT5 / COUNT8 * 100,2),0) COUNT_RATE5,   -- 비율 50,100~80,000
+			       NVL(COUNT6,0) COUNT6, 
+			       NVL(ROUND(COUNT6 / COUNT8 * 100,2),0) COUNT_RATE6,   -- 비율 80,100~99,900
+			       NVL(COUNT7,0) COUNT7,
+			       NVL(ROUND(COUNT7 / COUNT8 * 100,2),0) COUNT_RATE7,   -- 비율 100,000
+			       NVL(COUNT8,0) COUNT8   
+			  FROM (
+			        SELECT '모바일' AS GUBUN,
+			               SUM(CASE WHEN DEV_SALES_AMT <= 99900 THEN DEV_SALES_CNT END) COUNT1, -- 건수 100~10,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 100000 AND DEV_SALES_AMT <= 199900 THEN DEV_SALES_CNT END) COUNT2, -- 건수 10,100~20,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 200000 AND DEV_SALES_AMT <= 499900 THEN DEV_SALES_CNT END) COUNT3, -- 건수 20,100~49,900
+			               SUM(CASE WHEN DEV_SALES_AMT = 500000 THEN DEV_SALES_CNT END) COUNT4, -- 건수 50,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 500100 AND DEV_SALES_AMT <= 799900 THEN DEV_SALES_CNT END) COUNT5, -- 건수 50,100~80,000
+			               SUM(CASE WHEN DEV_SALES_AMT >= 800000 AND DEV_SALES_AMT <= 999900 THEN DEV_SALES_CNT END) COUNT6, -- 건수 80,100~99,900
+			               SUM(CASE WHEN DEV_SALES_AMT >= 1000000 THEN DEV_SALES_CNT END) COUNT7, -- 건수 100,000      
+			               SUM(DEV_SALES_CNT) COUNT8
+			          FROM TBRS_MYCAT_TELMP TM, VW_SDL_INFO T6
+			         WHERE 1 = 1
+			           AND T6.RACE_DAY = TM.RACE_DAY
+			           AND TM.CHNL_CD = '002' 
+			           AND TM.MEET_CD IN ('001','003')
+			           AND T6.MEET_CD IN ('001','003')
+			           AND TM.RACE_DAY BETWEEN ? AND ?
+			           AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			           AND COMM_NO = NVL(?, COMM_NO)
+			       )     
+        ]]>
+    </query>
+    
+</queryMap>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_equip_insp_detail  장비 확정 검사 내역  ">
+    <query id="tbef_equip_insp_detail_ff001" desc="확정검사 내역  조회(저장전)  " fetchSize="50">
+        <![CDATA[
+            -- 확정 검사 상세 내역 조회 
+            SELECT  ROWNUM AS SEQ, -- 순번 
+            		TP.* 
+           	FROM(
+				SELECT 
+				    T1.STND_YEAR,   -- 기준년도
+				    T1.MBR_CD, 	--경정장 
+				    T1.TMS,     -- 회차 
+				    T1.DAY_ORD,     -- 일차 
+				    T1.RACER_NO,    -- 선수 등록 번호 
+				    (SELECT NM_KOR FROM TBEC_RACER_MASTER TRM WHERE TRM.RACER_NO = T1.RACER_NO) AS RACER_NM,  -- 선수명 
+				    T1.MOT_NO,  -- 모터 번호 
+				    T1.BOAT_NO, -- 보트 번호 
+				    SUBSTR(T1.MOT_NO,1,1)||SUBSTR(T1.MOT_NO,6,3) AS MOT_REG_NO,  -- 모터  등록 번호 
+				    SUBSTR(T1.BOAT_NO,1,1)||SUBSTR(T1.BOAT_NO,6,3) AS BOAT_REG_NO, -- 보트 등록 번호 
+				    NVL(T2.RACER_INSP_STAT_CD, '001') AS RACER_INSP_STAT_CD, -- 선수 검사 상태 
+				    NVL(T2.MOT_INSP_STAT_CD, '001') AS MOT_INSP_STAT_CD,  -- 보트 검사 상태 
+				    NVL(T2.BOAT_INSP_STAT_CD, '001') AS BOAT_INSP_STAT_CD,   -- 보트 검사 상태 
+				    T2.INSP_RMK  -- 비고 
+				FROM (
+					-- 주선 0일차 
+				    SELECT 
+		                TA.STND_YEAR, TA.MBR_CD, TA.TMS, 0 AS DAY_ORD, RACER_NO, MOT_NO, BOAT_NO 
+		            FROM TBEB_ARRANGE TA, TBEB_RACE_TMS TRM
+		            WHERE TA.STND_YEAR = TRM.STND_YEAR
+		            AND TA.MBR_CD = TRM.MBR_CD
+		            AND TA.TMS = TRM.TMS
+		            AND TA.STND_YEAR=?
+		            AND TA.MBR_CD = ?
+		            AND TA.TMS= TO_NUMBER(?)
+		            AND 0 = TO_NUMBER(?)
+		            AND TRM.ARRANGE_CMPL_YN >='Y' --주선 배정 확정  이후 
+				    UNION ALL
+				    -- 편성  1,2 일차 
+				    (
+				    	SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, RACER_NO, MOT_NO, BOAT_NO FROM (
+			                SELECT 
+			                    TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, TOR.DAY_ORD, TOR.RACER_NO, TOR.MOT_NO, TOR.BOAT_NO,
+			                    ROW_NUMBER() OVER (PARTITION BY RACER_NO ORDER BY RACE_NO) AS RACER_SEQ
+			                FROM TBEB_ORGAN TOR, TBEB_RACE_TMS TRM
+			                WHERE TOR.STND_YEAR = TRM.STND_YEAR
+			                AND TOR.MBR_CD = TRM.MBR_CD
+			                AND TOR.TMS = TRM.TMS
+			                AND TOR.STND_YEAR=?
+			                AND TOR.MBR_CD = ?
+			                AND TRM.RACE_TMS_STAT_CD >='040' -- 편성 이후 
+			                AND TOR.TMS=TO_NUMBER(?)
+			                AND TOR.DAY_ORD=TO_NUMBER(?)
+			              )
+			              WHERE RACER_SEQ=1
+				    )
+				)T1, TBEF_EQUIP_INSP_DETAIL T2
+				WHERE T1.STND_YEAR = T2.STND_YEAR(+)
+				AND T1.TMS = T2.TMS(+)
+				AND T1.DAY_ORD = T2.DAY_ORD(+)
+				AND T1.RACER_NO = T2.RACER_NO(+)
+				AND T1.MOT_NO = T2.MOT_NO(+)
+				AND T1.BOAT_NO = T2.BOAT_NO(+)
+				AND T1.RACER_NO > ' '
+				ORDER BY T1.RACER_NO
+			)TP
+			
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_insp_detail_mf001" desc="확정검사 내역등록/수정  " fetchSize="10">
+        <![CDATA[
+			-- 확정검사 내역등록/수정 
+			MERGE INTO TBEF_EQUIP_INSP_DETAIL TMP
+			USING (
+				SELECT 
+				   ? AS STND_YEAR,	-- 기준년도
+				   ? AS MBR_CD, 	--경정장 코드 
+				   ? AS TMS, 	-- 회차 
+				   ? AS DAY_ORD, 	-- 일차 
+				   ? AS SEQ,	-- 일련번호
+				   ? AS RACER_NO, 	-- 선수 등록번호 
+				   ? AS MOT_NO, 	-- 모터 번호 
+				   ? AS BOAT_NO, 	-- 보트 번호 
+				   ? AS MOT_REG_NO, 	-- 모터 번호 
+				   ? AS BOAT_REG_NO, 	-- 보트 번호 
+				   ? AS RACER_INSP_STAT_CD, 	-- 선수 검사 상태 
+				   ? AS MOT_INSP_STAT_CD, 	-- 모터 검사 상태 
+				   ? AS BOAT_INSP_STAT_CD, 	-- 보트 검사 상태 
+				   ? AS INSP_RMK, 	-- 비고 
+				   ? AS USER_ID 	-- 작성자ID
+			   FROM DUAL 
+			) TP
+			ON (
+				TMP.STND_YEAR = TP.STND_YEAR	-- 기준년도 
+				AND TMP.MBR_CD = TP.MBR_CD	-- 경정장 코드 
+				AND TMP.TMS = TP.TMS	-- 회차 
+				AND TMP.DAY_ORD = TP.DAY_ORD	-- 일차 
+				AND TMP.RACER_NO = TP.RACER_NO	-- 선수 등록 번호
+				AND TMP.MOT_NO = TP.MOT_NO
+				AND TMP.BOAT_NO = TP.BOAT_NO 
+			    )
+			WHEN MATCHED THEN
+			UPDATE 
+				SET 
+--				   TMP.MOT_NO = TP.MOT_NO, 	-- 모터 번호 
+--				   TMP.BOAT_NO = TP.BOAT_NO,	-- 보트 번호 
+--				   TMP.RACER_NO = TP.RACER_NO,	-- 선수 번호     
+				   TMP.RACER_INSP_STAT_CD = TP.RACER_INSP_STAT_CD,	-- 선수 검사 상태 
+			       TMP.MOT_INSP_STAT_CD = TP.MOT_INSP_STAT_CD,	-- 모터 검사 상태 
+			       TMP.BOAT_INSP_STAT_CD = TP.BOAT_INSP_STAT_CD,	-- 보트 검사 상태 
+			       TMP.INSP_RMK = TP.INSP_RMK,	-- 비고 
+			       TMP.UPDT_ID = TP.USER_ID,	-- 수정자ID
+			       TMP.UPDT_DTM = SYSDATE	-- 수정일시 
+			WHEN NOT MATCHED THEN
+			INSERT (
+				TMP.STND_YEAR,	-- 기준년도
+				TMP.MBR_CD, 	--경정장 코드 
+				TMP.TMS, 	-- 회차 
+				TMP.DAY_ORD, 	-- 일차 
+				TMP.SEQ, 	-- 일련번호 
+				TMP.RACER_NO, 	-- 선수 등록번호 
+				TMP.MOT_NO, 	-- 모터 번호 
+				TMP.BOAT_NO, 	-- 보트 번호 
+				TMP.RACER_INSP_STAT_CD, 	-- 선수 검사 상태 
+				TMP.MOT_INSP_STAT_CD, 	-- 모터 검사 상태 
+				TMP.BOAT_INSP_STAT_CD, 	-- 보트 검사 상태 
+				TMP.INSP_RMK, 	-- 비고 
+				TMP.INST_ID, 	-- 작성자ID
+				TMP.INST_DTM 	-- 작성일시 
+			 )
+			 VALUES(
+				TP.STND_YEAR,	-- 기준년도
+				TP.MBR_CD, 	--경정장 코드 
+				TP.TMS, 	-- 회차 
+				TP.DAY_ORD, 	-- 일차 
+				(
+				SELECT	NVL(MAX(SEQ),0)+1 
+				FROM	TBEF_EQUIP_INSP_DETAIL
+            	WHERE	STND_YEAR = ?
+                        AND MBR_CD = ?
+            			AND TMS = ?
+						AND DAY_ORD = ?
+				), 	-- 일련번호 
+				TP.RACER_NO, 	-- 선수 등록번호 
+				TP.MOT_NO, 	-- 모터 번호 
+				TP.BOAT_NO,	-- 보트 번호 
+				TP.RACER_INSP_STAT_CD, 	-- 선수 검사 상태 
+				TP.MOT_INSP_STAT_CD, 	-- 모터 검사 상태 
+				TP.BOAT_INSP_STAT_CD, 	-- 보트 검사 상태 
+				TP.INSP_RMK, 	-- 비고 
+				TP.USER_ID, 	-- 작성자ID
+				SYSDATE 	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_insp_detail_df001" desc="확정검사 내역 삭제 " fetchSize="10">
+        <![CDATA[
+            -- 확정검사 등록 내역 삭제 
+			DELETE 
+			FROM TBEF_EQUIP_INSP_DETAIL
+			WHERE  STND_YEAR       = ?	-- 기준년도 
+			AND    MBR_CD          = ?	-- 경정장 코드 
+			AND    TMS             = TO_NUMBER(?)	-- 회차 
+			AND    DAY_ORD         = TO_NUMBER(?)	-- 일차 
+			AND    SEQ         = ?	-- 보트 번호 
+        ]]>
+    </query> 
+</queryMap>

@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_edu_data(선수교육자료)">
+    <query id="tbec_racer_edu_data_fc001" desc="경주성석(회차별) 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbec_racer_edu_data_fc001 */
+			          T1.RACER_NO
+					, T2.NM_KOR
+                	, T2.RACER_PERIO_NO
+			    	, T3.RACER_GRD_CD
+			    	, T1.TMS
+			    	, T1.DAY_ORD 
+			    	, SUBSTR(XMLAGG(XMLELEMENT(A,' / ' || T1.RANK) ORDER BY RACE_NO).EXTRACT('//text()'),3) RANK	-- 일차별로 순위를 / 로 구분하여 한 Column으로 표시, Row 를 Column으로 표시하는 함수, 하루에 2경주 이상 참여시.
+			    	, SUM(T1.RANK) RANK_SUM
+			    	, COUNT(T1.RANK) RANK_CNT
+			FROM    TBEB_ORGAN T1, TBEC_RACER_MASTER T2
+        			, (
+        			SELECT DISTINCT T1.RACER_NO, RACER_GRD_CD	-- 선수 등급을 편성Table에서 읽음.
+        			FROM    TBEB_ORGAN T1
+        					, (
+            				SELECT  RACER_NO, MAX(TMS) TMS		-- 검색기간중 선수별 마지막 회차 읽기
+            				FROM    TBEB_ORGAN
+            				WHERE   STND_YEAR = ?
+            						AND MBR_CD = ?
+                					AND TMS BETWEEN ? AND ?
+            				GROUP BY RACER_NO) T2
+        			WHERE   T1.RACER_NO = T2.RACER_NO
+            				AND T1.TMS = T2.TMS
+            				AND T1.STND_YEAR = ?
+        			) T3
+            WHERE	T1.RACER_NO = T2.RACER_NO
+            		AND T1.RACER_NO = T3.RACER_NO
+            		AND T1.STND_YEAR = ?
+            		AND T1.MBR_CD = ?
+            		AND T1.TMS BETWEEN ? AND ?
+            		AND T1.RANK IS NOT NULL
+            		AND T2.NM_KOR LIKE '%' ||NVL(?, T2.NM_KOR)|| '%'
+            GROUP BY  T1.RACER_NO
+					, T2.NM_KOR
+					, T2.RACER_PERIO_NO
+					, T3.RACER_GRD_CD
+					, T1.TMS
+					, T1.DAY_ORD
+            ORDER BY T1.RACER_NO, T1.TMS, T1.DAY_ORD
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_fc002" desc="상담내용(가정사) 조회" fetchSize="10">
+        <![CDATA[
+            SELECT	/* tbec_racer_edu_data_fc002 */
+                      T1.RACER_NO
+                    , T1.NM_KOR
+                    , T1.RACER_PERIO_NO
+                    , T1.RACER_GRD_CD
+                    , T2.TMS
+                    , T2.ETC
+            FROM	TBEC_RACER_MASTER T1, TBEC_RACER_INTERVIEW T2
+			WHERE   T1.RACER_NO = T2.RACER_NO
+					AND T2.STND_YEAR = ?
+					AND T2.MBR_CD = ?
+					AND T2.TMS BETWEEN ? AND ?
+					AND T1.NM_KOR LIKE '%' || NVL(?, T1.NM_KOR) || '%'
+			ORDER BY T1.RACER_NO, T2.TMS
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_fc003" desc="지정연습결과표 조회" fetchSize="10">
+        <![CDATA[
+        	-- 화요일 2R, 수/목요일 1R
+			SELECT  /* tbec_racer_edu_data_fc003 */
+			          T1.RACER_NO
+			        , T2.NM_KOR
+			        , T2.RACER_PERIO_NO
+			        , T2.RACER_GRD_CD
+			        , T1.TMS
+			        , T1.DAY_ORD
+			        , DAY_ORD + 1 SORT_ORD
+			        , TO_CHAR(T1.START_TM_1, '0.99') START_TM_1
+			        , TO_CHAR(T1.START_TM_2, '0.99') START_TM_2
+			        , TO_CHAR(T1.START_TM_3, '0.99') START_TM_3
+			        , TO_CHAR(T1.RUN_TM, '0.99') RUN_TM
+			FROM    TBEC_APPO_EXERC_ORGAN T1, TBEC_RACER_MASTER T2
+			WHERE   T1.RACER_NO = T2.RACER_NO
+			        AND T1.STND_YEAR = ?
+			        AND T1.MBR_CD = ?
+			        AND T1.TMS BETWEEN ? AND ?
+			        AND T2.NM_KOR LIKE '%' || NVL(?, T2.NM_KOR) || '%'
+			UNION
+			-- 화요일 1R			
+			SELECT  T1.RACER_NO
+			        , T2.NM_KOR
+			        , T2.RACER_PERIO_NO
+			        , T2.RACER_GRD_CD
+			        , T1.TMS
+			        , T1.DAY_ORD
+			        , 0 SORT_ORD
+			        , TO_CHAR(T1.START_TM_1_0, '0.99') START_TM_1
+			        , TO_CHAR(T1.START_TM_2_0, '0.99') START_TM_2
+			        , TO_CHAR(T1.START_TM_3_0, '0.99') START_TM_3
+			        , TO_CHAR(T1.RUN_TM_0, '0.99') RUN_TM
+			FROM    TBEC_APPO_EXERC_ORGAN T1, TBEC_RACER_MASTER T2
+			WHERE   T1.RACER_NO = T2.RACER_NO
+			        AND T1.STND_YEAR = ?
+			        AND T1.MBR_CD = ?
+			        AND T1.TMS BETWEEN ? AND ?
+			        AND T2.NM_KOR LIKE '%' || NVL(?, T2.NM_KOR) || '%'
+			        AND T1.DAY_ORD = 0
+			ORDER BY RACER_NO, TMS, SORT_ORD
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_fc004" desc="경주시 스타트타임 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbec_racer_edu_data_fc004 플라잉 경주만 조회 */
+			          T1.RACER_NO
+					, T2.NM_KOR
+                	, T2.RACER_PERIO_NO
+			    	, T3.RACER_GRD_CD
+			    	, T1.TMS
+			    	, T1.DAY_ORD 
+			    	, SUBSTR(XMLAGG(XMLELEMENT(A,' /' || TO_CHAR(T1.STAR_TM,'0.99')) ORDER BY RACE_NO).EXTRACT('//text()'),3) STAR_TM      -- 일차별로 스타트타임을 / 로 구분하여 한 Column으로 표시 Row를 Column으로 바꾸는 함수.
+			    	, SUM(DECODE(T1.ST_MTHD_CD, '001', 0, T1.STAR_TM)) STAR_TM_SUM               -- 선수별 스타트타임 합, 평균 값 계산에 필요
+			    	, SUM(DECODE(T1.ST_MTHD_CD, '001', 0, 1)) STAR_TM_CNT             -- 선수별 스타트타임 수(경주 참여수), 평균값 계산에 필요
+			FROM    TBEB_ORGAN T1, TBEC_RACER_MASTER T2
+        			, (
+        			SELECT DISTINCT T1.RACER_NO, RACER_GRD_CD         -- 선수 등급을 편성Table에서 읽음.
+        			FROM    TBEB_ORGAN T1
+        					, (
+            				SELECT  RACER_NO, MAX(TMS) TMS            -- 검색기간중 선수별 마지막 회차 읽기
+            				FROM    TBEB_ORGAN
+            				WHERE   STND_YEAR = ?
+            						AND MBR_CD = ?
+                					AND TMS BETWEEN ? AND ?
+            				GROUP BY RACER_NO) T2
+        			WHERE   T1.RACER_NO = T2.RACER_NO
+            				AND T1.TMS = T2.TMS
+            				AND T1.STND_YEAR = ?
+        			) T3
+            WHERE	T1.RACER_NO = T2.RACER_NO
+            		AND T1.RACER_NO = T3.RACER_NO
+            		AND T1.STND_YEAR = ?
+            		AND T1.MBR_CD = ?
+            		AND T1.TMS BETWEEN ? AND ?
+            		AND T1.STAR_TM IS NOT NULL
+            		AND T2.NM_KOR LIKE '%' ||NVL(?, T2.NM_KOR)|| '%'
+            GROUP BY  T1.RACER_NO
+					, T2.NM_KOR
+					, T2.RACER_PERIO_NO
+					, T3.RACER_GRD_CD
+					, T1.TMS
+					, T1.DAY_ORD
+            ORDER BY T1.RACER_NO, T1.TMS, T1.DAY_ORD
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_fc005" desc="사고점 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbec_racer_edu_data_fc005 */
+                      TRVA.RACER_NO
+                    , TRM.NM_KOR
+                    , TRM.RACER_PERIO_NO
+                    , TRM.RACER_GRD_CD
+                    , TRVA.VOIL_CD
+                    , TSC.CD_NM VOIL_NM
+                    , NVL(DECODE(TRST.QURT_CD, '001', TRRAS.BF_AVG_ACDNT_SCR, '002', TRRAS.AF_AVG_ACDNT_SCR), 0) AVG_ACDNT_SCR -- 성적반영분기코드에 따라 전/후반기 평균 사고점 표시
+                    , COUNT(TRVA.VOIL_CD) VOIL_CNT
+            FROM    TBED_RACE_VOIL_ACT TRVA
+                    , TBEC_RACER_MASTER TRM
+                    , TBEA_SPEC_CD TSC
+                    , TBEB_RECD_STND_TERM   TRST   -- 성적반영분기코드 
+                    , TBEB_RACE_TMS TRT
+                    , (                    
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+                                           , TRRAS.*
+                                    FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+                                    WHERE  TRRAS.APLY_DT  < (
+                                                                SELECT
+                                                                       MIN(TRDO.RACE_DAY) RACE_DAY
+                                                                FROM   TBEB_RACE_DAY_ORD TRDO
+                                                                WHERE  TRDO.STND_YEAR = ?
+                                                                AND    TRDO.MBR_CD    = ?
+                                                                AND    TRDO.TMS       = ?
+    					                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+						       )
+						WHERE  RANK = 1			        
+                         ) TRRAS -- 선수최근성적
+            WHERE   TRVA.STND_YEAR = ?
+                    AND TRVA.MBR_CD = ?
+                    AND TRVA.TMS BETWEEN ? AND ?
+                    AND TRM.NM_KOR LIKE '%' ||NVL(?, TRM.NM_KOR)|| '%'
+                    AND TSC.GRP_CD = 'E00035'
+                    AND TRVA.RACER_NO = TRM.RACER_NO
+                    AND TRVA.VOIL_CD = TSC.CD
+                    AND TRVA.VOIL_CD IS NOT NULL
+                    AND TRVA.STND_YEAR = TRT.STND_YEAR
+                    AND TRVA.MBR_CD = TRT.MBR_CD
+                    AND TRT.STR_DT >= TRST.STR_DT
+                    AND TRT.END_DT <= TRST.END_DT
+                    AND TRT.TMS = ?
+                    AND TRVA.RACER_NO = TRRAS.RACER_NO
+            GROUP BY TRVA.RACER_NO
+                    , TRM.NM_KOR
+                    , TRM.RACER_PERIO_NO
+                    , TRM.RACER_GRD_CD
+                    , TRVA.VOIL_CD        
+                    , TSC.CD_NM
+                    , NVL(DECODE(TRST.QURT_CD, '001', TRRAS.BF_AVG_ACDNT_SCR, '002', TRRAS.AF_AVG_ACDNT_SCR), 0)
+            ORDER BY TRVA.RACER_NO, TRVA.VOIL_CD
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_fc006" desc="경주성적(경주별)" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbec_racer_edu_data_fc006 */
+			        A.*, B.SUPP_TOT_AMT
+			FROM	(            
+            		-- 화요일 2R, 수,목 1R 성적
+            		SELECT  T1.RACE_NO
+							, T1.RACER_NO
+					        , T2.NM_KOR
+					        , T2.RACER_PERIO_NO
+					        , T1.RACER_GRD_CD
+					        , T1.RACE_REG_NO
+					        , T1.RANK
+					        , TO_CHAR(T1.STAR_TM, '0.99') STAR_TM
+					        , NVL(T3.DAY_ORD, 0) DAY_ORD
+					        , NVL(T3.DAY_ORD, 0) + 1 SORT_ORD
+					        , REPLACE(CASE WHEN START_FLYING_CNT_1 > 0 THEN 'F' WHEN START_LATE_CNT_1 > 0 THEN 'L' END || TO_CHAR(T3.START_TM_1, '0.99'), ' ', '') START_TM_1   --F, L이 있으면 항주타임에 같이 표시
+					        , REPLACE(CASE WHEN START_FLYING_CNT_2 > 0 THEN 'F' WHEN START_LATE_CNT_2 > 0 THEN 'L' END || TO_CHAR(T3.START_TM_2, '0.99'), ' ', '') START_TM_2   --F, L이 있으면 항주타임에 같이 표시
+					        , REPLACE(CASE WHEN START_FLYING_CNT_3 > 0 THEN 'F' WHEN START_LATE_CNT_3 > 0 THEN 'L' END || TO_CHAR(T3.START_TM_3, '0.99'), ' ', '') START_TM_3   --F, L이 있으면 항주타임에 같이 표시
+					        , TO_CHAR(T3.RUN_TM, '0.99') RUN_TM
+                            , T3.RACE_DY
+					FROM    TBEB_ORGAN T1, TBEC_RACER_MASTER T2, 
+                            (SELECT T3.*, 
+                                    TO_CHAR (TO_DATE (T4.RACE_DAY, 'YYYYMMDD'),'DY','NLS_DATE_LANGUAGE = ENGLISH') RACE_DY
+                             FROM   TBEC_APPO_EXERC_ORGAN T3, VW_RACE_DAY_ORD T4
+                             WHERE  T3.STND_YEAR = T4.STND_YEAR
+                             AND T3.MBR_CD    = T4.MBR_CD
+                             AND T3.TMS = T4.TMS
+                             AND T3.DAY_ORD = T4.DAY_ORD
+                             AND T4.ORGAN_STAT_CD = '002'
+                            ) T3
+					WHERE   T1.RACER_NO = T2.RACER_NO
+					        AND T1.RACER_NO = T3.RACER_NO(+)
+					        AND T1.STND_YEAR = T3.STND_YEAR(+)
+					        AND T1.MBR_CD = T3.MBR_CD(+)
+					        AND T1.TMS = T3.TMS(+)
+					        AND T1.STND_YEAR = ?
+					        AND T1.MBR_CD = ?
+					        AND T1.TMS = ?
+					        AND T1.DAY_ORD = ?
+					        AND T1.RACE_NO = ?
+					UNION
+					-- 화요일 1R 성적
+					SELECT	T1.RACE_NO
+							, T1.RACER_NO
+					        , T2.NM_KOR
+					        , T2.RACER_PERIO_NO
+					        , T1.RACER_GRD_CD
+					        , T1.RACE_REG_NO
+					        , T1.RANK
+					        , TO_CHAR(T1.STAR_TM, '0.99') STAR_TM
+					        , NVL(T3.DAY_ORD, 0) DAY_ORD
+					        , 0 SORT_ORD
+					        , REPLACE(CASE WHEN START_FLYING_CNT_1_0 > 0 THEN 'F' WHEN START_LATE_CNT_1_0 > 0 THEN 'L' END || TO_CHAR(T3.START_TM_1_0, '0.99'), ' ', '') START_TM_1 --F, L이 있으면 항주타임에 같이 표시
+					        , REPLACE(CASE WHEN START_FLYING_CNT_2_0 > 0 THEN 'F' WHEN START_LATE_CNT_2_0 > 0 THEN 'L' END || TO_CHAR(T3.START_TM_2_0, '0.99'), ' ', '') START_TM_2 --F, L이 있으면 항주타임에 같이 표시
+					        , REPLACE(CASE WHEN START_FLYING_CNT_3_0 > 0 THEN 'F' WHEN START_LATE_CNT_3_0 > 0 THEN 'L' END || TO_CHAR(T3.START_TM_3_0, '0.99'), ' ', '') START_TM_3 --F, L이 있으면 항주타임에 같이 표시
+					        , TO_CHAR(T3.RUN_TM_0, '0.99') RUN_TM
+                            , T3.RACE_DY
+					FROM    TBEB_ORGAN T1, TBEC_RACER_MASTER T2, 
+                            (SELECT T3.*, 
+                                    TO_CHAR (TO_DATE (T4.RACE_DAY, 'YYYYMMDD'),'DY','NLS_DATE_LANGUAGE = ENGLISH') RACE_DY
+                             FROM   TBEC_APPO_EXERC_ORGAN T3, VW_RACE_DAY_ORD T4
+                             WHERE  T3.STND_YEAR = T4.STND_YEAR
+                             AND T3.MBR_CD    = T4.MBR_CD
+                             AND T3.TMS = T4.TMS
+                             AND T3.DAY_ORD = T4.DAY_ORD
+                             AND T4.ORGAN_STAT_CD = '002'
+                            ) T3
+					WHERE   T1.RACER_NO = T2.RACER_NO
+					        AND T1.RACER_NO = T3.RACER_NO(+)
+					        AND T1.STND_YEAR = T3.STND_YEAR(+)
+					        AND T1.MBR_CD = T3.MBR_CD(+)
+					        AND T1.TMS = T3.TMS(+)
+					        AND T3.DAY_ORD = 0
+					        AND T1.STND_YEAR = ?
+					        AND T1.MBR_CD = ?
+					        AND T1.TMS = ?
+					        AND T1.DAY_ORD = ?
+					        AND T1.RACE_NO = ?
+					) A
+					, (
+					 -- 상금현황
+					SELECT  T3.RACER_NO, 
+        					SUM(SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05 + SUPP_AMT_06 + SUPP_AMT_07 + SUPP_AMT_08 + SUPP_AMT_09) SUPP_TOT_AMT
+					FROM 	TBEB_ORGAN T1, TBEG_MONTH_PAY T3
+					WHERE	T1.STND_YEAR = T3.STND_YEAR
+        					AND PAY_MONTH 
+        					BETWEEN 1
+        					AND     (
+                					SELECT  TO_NUMBER(SUBSTR(RACE_DAY,5,2))
+                					FROM    TBEB_RACE_DAY_ORD
+                					WHERE   STND_YEAR = ?
+                        					AND MBR_CD = ? 
+                        					AND TMS = ? 
+                        					AND DAY_ORD = ?
+               						)
+        					AND PAY_TPE='1'
+        					AND T1.STND_YEAR= ?
+        					AND T1.MBR_CD = ?
+        					AND T1.TMS = ?
+        					AND T1.DAY_ORD = ?
+        					AND T1.RACE_NO = ?
+        					AND T1.RACER_NO = T3.RACER_NO                     
+				GROUP BY T3.RACER_NO
+				) B
+			WHERE  A.RACER_NO = B.RACER_NO            
+			ORDER BY RACE_NO, RACE_REG_NO, SORT_ORD
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_fc007" desc="경주별 사고점 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbec_racer_edu_data_fc007 */
+                      DISTINCT TORGAN.RACE_NO
+                    , TORGAN.RACER_NO
+                    , TRM.NM_KOR
+                    , TRM.RACER_PERIO_NO
+                    , TORGAN.RACER_GRD_CD
+                    , TORGAN.RACE_REG_NO
+                    , GET_LAST_RANK_LIST(TORGAN.STND_YEAR,TORGAN.MBR_CD,TORGAN.TMS,TORGAN.DAY_ORD,TORGAN.RACE_NO,TORGAN.RACER_NO,10) RANK  -- 최근 10경주 성적 불러오는 함수
+                    , TO_CHAR(TORGAN.STAR_TM, '0.99') STAR_TM
+                    , TSC.CD VOIL_CD
+                    , TSC.CD_NM VOIL_NM
+                    , NVL(DECODE(TRST.QURT_CD, '001', TRRAS.BF_AVG_ACDNT_SCR, '002', TRRAS.AF_AVG_ACDNT_SCR), 0) AVG_ACDNT_SCR -- 성적반영분기코드에따라 전반기/후반기 구분
+                    , (
+                    SELECT COUNT(VOIL_CD) 
+			        FROM TBED_RACE_VOIL_ACT VOIL 
+			        WHERE VOIL.STND_YEAR = TORGAN.STND_YEAR
+			        		AND VOIL.MBR_CD = TORGAN.MBR_CD
+			                AND LPAD(VOIL.TMS, 2, '0') || VOIL.DAY_ORD || VOIL.RACE_NO <= LPAD(TORGAN.TMS, 2, '0') || TORGAN.DAY_ORD || TORGAN.RACE_NO
+			                AND VOIL.VOIL_CD = TSC.CD 
+			                AND VOIL.RACER_NO = TORGAN.RACER_NO
+			                AND VOIL.VOIL_CD IS NOT NULL
+			                AND VOIL.VOIL_CD NOT IN ('993','994','998')   -- 결장제외(F퇴소결장, L퇴소결장, 결장(면책))
+			        ) VOIL_CNT
+			FROM    TBEB_ORGAN TORGAN
+                    , TBEC_RACER_MASTER TRM
+                    , TBEA_SPEC_CD TSC
+                    , TBEB_RACE_TMS TRT
+                    , TBEB_RECD_STND_TERM   TRST   -- 성적반영분기코드 
+                    , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+                                           , TRRAS.*
+                                    FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+                                    WHERE  TRRAS.APLY_DT  < (
+                                                                SELECT
+                                                                       MIN(TRDO.RACE_DAY) RACE_DAY
+                                                                FROM   TBEB_RACE_DAY_ORD TRDO
+                                                                WHERE  TRDO.STND_YEAR = ?
+                                                                AND    TRDO.MBR_CD    = ?
+                                                                AND    TRDO.TMS       = ?
+    					                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+						       )
+						WHERE  RANK = 1
+			         ) TRRAS -- 선수최근성적
+			WHERE   TORGAN.STND_YEAR = ?
+					AND TORGAN.MBR_CD = ?
+			        AND TORGAN.TMS = ?
+			        AND TORGAN.DAY_ORD = ?
+			        AND TORGAN.RACE_NO = ?
+			        AND TORGAN.RACER_NO = TRM.RACER_NO
+			        AND TSC.GRP_CD = 'E00035'
+			        AND TSC.CD NOT IN('993','994','998')    -- 결장제외(F퇴소결장, L퇴소결장, 결장(면책))
+                    AND TORGAN.STND_YEAR = TRT.STND_YEAR
+                    AND TORGAN.MBR_CD = TRT.MBR_CD
+                    AND TORGAN.TMS = TRT.TMS
+                    AND TRT.STR_DT >= TRST.STR_DT
+                    AND TRT.END_DT <= TRST.END_DT
+                    AND TORGAN.RACER_NO = TRRAS.RACER_NO
+			ORDER BY TORGAN.RACE_REG_NO, TSC.CD
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_fc008" desc="선수교육자료 특이사항 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbec_racer_edu_data_fc008 */
+			          STND_YEAR
+					, MBR_CD
+					, TMS
+					, DAY_ORD
+					, RACE_NO
+					, CNTNT
+			FROM	TBEC_RACER_EDU_DATA
+			WHERE	STND_YEAR = ?
+					AND MBR_CD = ?
+					AND TMS = ?
+					AND DAY_ORD = ?
+					AND RACE_NO = ?
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_ic001" desc="선수교육자료 특이사항 등록" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbec_racer_edu_data_ic001 */
+			       INTO TBEC_RACER_EDU_DATA
+			( 
+			        STND_YEAR     -- 기준년도    
+			      , MBR_CD        -- 경정장코드
+			      , TMS           -- 회차      
+			      , DAY_ORD       -- 일차
+			      , RACE_NO       -- 경주번호
+			      , CNTNT         -- 특이사항
+			      , INST_ID       -- 작성자ID    
+			      , INST_DTM      -- 작성일시    
+			      , UPDT_ID       -- 수정자ID    
+			      , UPDT_DTM      -- 수정일시    
+			) VALUES (
+			        ?             -- 기준년도    
+			      , ?             -- 경정장코드
+			      , ?             -- 회차      
+			      , ?             -- 일차
+			      , ?             -- 경주번호
+			      , ?             -- 특이사항       
+			      , ?             -- 작성자ID    
+			      , SYSDATE       -- 작성일시    
+			      , ?             -- 수정자ID    
+			      , SYSDATE       -- 수정일시    
+			)
+        ]]>
+    </query>
+    <query id="tbec_racer_edu_data_uc001" desc="선수교육자료 특이사항 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* tbec_racer_edu_data_uc001 */
+			        TBEC_RACER_EDU_DATA SET
+			        CNTNT         = ?         -- 특이사항      
+			      , UPDT_ID       = ?         -- 수정자ID    
+			      , UPDT_DTM      = SYSDATE   -- 수정일시    
+			WHERE   STND_YEAR     = ?         -- 기준년도    
+			AND     MBR_CD        = ?         -- 경정장코드
+			AND     TMS           = ?         -- 회차
+			AND     DAY_ORD       = ?         -- 일차
+			AND     RACE_NO       = ?         -- 경주번호
+        ]]>
+    </query> 
+    <query id="tbec_racer_edu_data_dc001" desc="선수교육자료 특이사항 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  /* tbec_racer_edu_data_dc001 */
+			FROM    TBEC_RACER_EDU_DATA
+			WHERE   STND_YEAR     = ?         -- 기준년도    
+			AND     MBR_CD        = ?         -- 경정장코드
+			AND     TMS           = ?         -- 회차
+			AND     DAY_ORD       = ?         -- 일차
+			AND     RACE_NO       = ?         -- 경주번호
+        ]]>
+    </query> 
+</queryMap>

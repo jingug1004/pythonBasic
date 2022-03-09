@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="552" Id="RSM1090" Left="8" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="그린카드&#32;창구별&#32;수지명세" Top="8" Ver="1.0" Width="788" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsInComCd">
+				<Contents>
+					<colinfo id="DSNAME" size="20" summ="default" type="STRING"/>
+					<colinfo id="CD_GRP_ID" size="6" summ="default" type="STRING"/>
+					<colinfo id="QUERY_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="TERM1" size="256" summ="default" type="STRING"/>
+					<colinfo id="TERM2" size="256" summ="default" type="STRING"/>
+					<colinfo id="TERM3" size="256" summ="default" type="STRING"/>
+					<colinfo id="TERM4" size="256" summ="default" type="STRING"/>
+					<colinfo id="TERM5" size="256" summ="default" type="STRING"/>
+					<colinfo id="DESCRIPTION" size="256" summ="default" type="STRING"/>
+					<colinfo id="ALL_YN" size="1" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsGreenWndBal"></Dataset>
+			<Dataset DataSetType="Dataset" Id="dsGreenCdPwd"></Dataset>
+		</Datasets>
+		<Shape BKColor="user0" Bottom="156" Height="122" Id="Shape1" Left="12" LineColor="user1" LineKind="Vertical" Right="708" RoundHeight="10" RoundUnit="Pixel" RoundWidth="10" TabOrder="3" Top="34" Type="RoundRect" Width="696"></Shape>
+		<Image Height="20" Id="imgFormTitle" ImageID="m_titleblet" Left="8" TabOrder="0" Top="2" Width="11"></Image>
+		<Static Color="user4" Height="20" Id="stFormTitle" Left="20" Style="snis_m_title" TabOrder="0" Text="그린카드&#32;암호&#32;조회" VAlign="Middle" Width="430"></Static>
+		<Div Height="20" Id="divBtnLst" Left="329" TabOrder="0" Text="Div0" Url="common::comButtonType.xml" Width="374">
+			<Contents></Contents>
+		</Div>
+		<Static Align="Center" BindDataset="dsGreenCdPwd" BKColor="user0" Border="Flat" BorderColor="user3" Column="S_PASSWD" Font="굴림,12,Bold" Height="26" Id="stGreenCdPasswd" Left="139" Style="snis_txt" TabOrder="8" Top="92" Width="133"></Static>
+		<Button ButtonStyle="TRUE" Font="Default,10" Height="23" Id="btnGrnCd" ImageID="btn_txt_02" Left="284" OnClick="fcbtnOnClick" TabOrder="7" Text="조회" Top="60" Width="52"></Button>
+		<Edit Align="CENTER" Border="Flat" BorderColor="user3" Font="Default,12" Height="27" Id="edGreenCardNo" Left="139" MaxLength="10" Style="snis_if_input01" TabOrder="6" Top="58" Width="133"></Edit>
+		<Static Align="Right" BKColor="user0" Border="None" Color="user5" Font="Default,10" Height="24" Id="Static3" Left="28" Style="snis_if_lable" TabOrder="5" Text="그린카드&#32;번호" Top="59" VAlign="Middle" Width="104"></Static>
+		<Static Align="Right" BKColor="user0" Border="None" Color="user5" Font="Default,10" Height="24" Id="Static0" Left="28" Style="snis_if_lable" TabOrder="9" Text="그린카드&#32;암호" Top="91" VAlign="Middle" Width="104"></Static>
+		<Static BKColor="user0" Border="None" Color="user5" Font="Default,10" Height="24" Id="Static1" Left="340" Style="snis_if_lable" TabOrder="10" Text="※&#32;그린카드번호&#32;10자리를&#32;전부&#32;입력하세요.&#32;" Top="59" VAlign="Middle" Width="328"></Static>
+	</Form>
+	<Script><![CDATA[
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = 'RSM1090';
+var sBUTTONLIST   = 'TTTFFT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+var sMenuGrpNum     = "0";                         // 메뉴그룹의 갯수보관
+var sMenuListNum    = "0";                          // 메뉴리스트의 갯수보관
+var sMenuUpId       = "";
+var sMenuUpNm       = "";
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {  
+    sBUTTONLIST   = 'FTFFFFT';
+  
+ 	//화면환경 설정
+	sFORMCAPTION  = obj.Title;
+	sFORMLOCATION = "";
+
+	//화면 정보 Display 및 Button 권한 설정
+	fnc_FormLoadSetting(obj, sFORMCAPTION, sFORMLOCATION, sBUTTONLIST, sUSERAUTH);
+	
+}
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 UNLoad時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	// 자료 변경 여부를 체크하고자 하는 DataSet Object를 넘긴다.
+	var sDataset = "dsGreenWndBal";
+	if (   !fnc_FormUnloadCheck(sDataset  , sFormId) ) return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	// Return Key Press時 Next Component focus
+	if ( nChar == 13 ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+
+
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  취소 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInit(obj) {
+	
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearch(obj) {
+
+	if (Length(edGreenCardNo.text) != 10) {
+		fnc_message("그린카드 번호가 10자리가 아닙니다.", "N");
+		return;
+	}
+
+	var sServiceName = "rsm1090-service:searchGreenCdPwd";
+	var sInDataSet   = "";
+	var sOutDataSet  = "dsGreenCdPwd=dsGreenCdPwd ";	
+
+	fcd_AddParam("GREEN_CARD_NO", edGreenCardNo.Text);
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", true);
+}
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	// 화면 종료
+	Close();
+}
+
+/***************************************************************************************************
+*                                      공통 Function 처리 부분                                     *
+***************************************************************************************************/
+
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+	
+	if ( sServiceName == "common-service:searchCode" ) {
+	
+	} else if ( sServicename == "rsm1090-service:searchGreenCdPwd" ) {
+		if (dsGreenCdPwd.RowCount() > 1) {
+			fnc_message("검색결과가 2건이상 존재합니다.\n전산실로 문의하세요", "N");
+		}
+	}
+}
+
+function fcbtnOnClick(obj)
+{
+	if (obj.id == "btnGrnCd") {
+		fcSearch(obj);
+	}
+}
+
+function fcedOnFocus(obj)
+{
+	stGreenCdPasswd.text = "";
+}
+]]></Script>
+</Window>

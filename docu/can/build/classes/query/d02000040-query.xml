@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_exam_bas_mngr(졸업시험)"> 
+  <query id="tbdb_period_exam_fb001" desc="기수조회" fetchSize="10">
+    <![CDATA[
+		
+		SELECT CD_NM AS RACER_PERIO_NO
+			  ,CD_NM AS RACER_PERIO_NM
+		FROM TBDA_SPEC_CD	
+		WHERE GRP_CD = 'A10001'
+		ORDER BY CD DESC
+	]]>
+  </query>    
+  <query id="tbdb_period_exam_fb002" desc="종목구분사용여부" fetchSize="10">
+    <![CDATA[
+   		 SELECT A,B,C,D,E,F
+   		,(SELECT CNT_SND_SELT
+  			FROM TBDB_SELT_BAS A
+		WHERE	A.RACER_PERIO_NO = A1.RACER_PERIO_NO) AS CNT 
+		,(SELECT DT_SND_SELT
+  			FROM TBDB_SELT_BAS A
+		WHERE	A.RACER_PERIO_NO = A1.RACER_PERIO_NO) AS DT_STR
+		,(SELECT DT_SND_SELT_END
+  			FROM TBDB_SELT_BAS A
+		WHERE	A.RACER_PERIO_NO = A1.RACER_PERIO_NO) AS DT_END 
+		FROM(
+		SELECT 
+				MAX(RACER_PERIO_NO) AS RACER_PERIO_NO
+				,SUM(CASE WHEN ITEM_GBN_CD ='001' THEN 1 ELSE 0 END)  AS A 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='002' THEN 1 ELSE 0 END)  AS B 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='003' THEN 1 ELSE 0 END)  AS C 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='004' THEN 1 ELSE 0 END)  AS D 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='005' THEN 1 ELSE 0 END)  AS E 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='006' THEN 1 ELSE 0 END)  AS F
+		FROM TBDB_EXAM_BAS_ITEM 
+		WHERE EXAM_CD = '016'
+		AND RACER_PERIO_NO = ?
+		)A1
+		]]>
+  </query> 
+  <query id="tbdb_period_exam_fb003" desc="종목사용여부" fetchSize="10">
+	<![CDATA[
+	    SELECT   ITEM_GBN_CD
+	    		,ITEM_CD
+	    		,FST_ESTM_YN FROM TBDB_EXAM_BAS_ITEM
+		WHERE RACER_PERIO_NO = ?
+		AND EXAM_CD = '016'
+	]]>
+  </query> 
+  <query id="tbdb_period_exam_fb004" desc="1차선발  배점기준 조회" fetchSize="10">
+    <![CDATA[
+		    SELECT 
+			    	ITEM_GBN_CD
+			       ,ITEM_CD	
+			       ,BAS_SCR
+				   ,START_REC
+				   ,END_REC
+				   ,RATE
+				    FROM TBDB_EXAM_BAS_CHNG
+			WHERE RACER_PERIO_NO = ?
+			AND EXAM_CD = '016'
+			ORDER BY ITEM_CD,BAS_SCR DESC  
+		   ]]>
+ </query>           
+ 
+    <query id="tbdb_period_exam_fb005" desc="자전거실기 조회" fetchSize="10">
+		<![CDATA[
+			 SELECT 
+					 A2.NM_KOR
+					,A2.RACER_PERIO_NO
+					,A2.CAND_NO
+					,A2.DT
+					,'016' AS EXAM_CD
+					,'003' AS ITEM_GBN_CD
+					,A2.REC_200
+					,A2.SCR_200
+					,A2.REC_333
+					,A2.SCR_333
+					,A2.REC_500
+					,A2.SCR_500
+					,A2.REC_1000
+					,A2.SCR_1000
+					,A2.REC_2000
+					,A2.SCR_2000
+					,M1+M2+M3+M4+M5 AS CNT
+					,TOT_SCR
+					,DECODE((M1+M2+M3+M4+M5),0,0,ROUND(TOT_SCR/(M1+M2+M3+M4+M5),2)) AS AVG_SCR
+					,RANK() OVER(ORDER BY TOT_SCR DESC ) AS RANK
+			FROM
+			(
+				SELECT 
+					 A1.NM_KOR
+					,A1.RACER_PERIO_NO
+					,A1.CAND_NO
+					,A1.DT
+					,A1.REC_200
+					,A1.SCR_200
+					,A1.REC_333
+					,A1.SCR_333
+					,A1.REC_500
+					,A1.SCR_500
+					,A1.REC_1000
+					,A1.SCR_1000
+					,A1.REC_2000
+					,A1.SCR_2000
+					,CASE WHEN A1.REC_200  IS NULL THEN 0 ELSE 1 END AS M1		
+					,CASE WHEN A1.REC_333  IS NULL THEN 0 ELSE 1 END AS M2		
+					,CASE WHEN A1.REC_500  IS NULL THEN 0 ELSE 1 END AS M3	
+					,CASE WHEN A1.REC_1000 IS NULL THEN 0 ELSE 1 END AS M4	
+					,CASE WHEN A1.REC_2000 IS NULL THEN 0 ELSE 1 END AS M5
+					,SUM(SCR_200+SCR_333+SCR_500+SCR_1000+SCR_2000) AS TOT_SCR
+				FROM
+				(	
+					SELECT 	
+							A.NM_KOR AS NM_KOR
+							,A.RACER_PERIO_NO AS RACER_PERIO_NO 
+							,A.CAND_NO						
+							,(	SELECT  NVL(MAX(C.DT), null) AS DT
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS DT
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'301', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS REC_200
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'301', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS SCR_200
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'302', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS REC_333
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'302', C.SCR,'')),0)
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS SCR_333
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'303', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS REC_500
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'303', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS SCR_500
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'304', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS REC_1000
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'304', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS SCR_1000
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'305', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS REC_2000
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'305', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.CAND_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('016', C.EXAM_CD)
+							) AS SCR_2000
+					FROM	TBDB_CAND_IDENT A, TBDB_PERIO_EXAM B
+					WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+					AND		A.CAND_NO = B.CAND_NO(+)
+					AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+					AND     A.DEL_YN = 'N'
+					AND		A.GRDU_GBN NOT IN('004','005')
+					GROUP BY A.RACER_PERIO_NO,A.CAND_NO,A.NM_KOR
+				)A1
+				GROUP BY A1.NM_KOR,A1.RACER_PERIO_NO,A1.CAND_NO,A1.DT,A1.REC_200,A1.SCR_200,
+				A1.REC_333,A1.SCR_333,A1.REC_500,A1.SCR_500,A1.REC_1000,A1.SCR_1000,A1.REC_2000,A1.SCR_2000
+			)A2
+			ORDER BY  CAND_NO
+	    ]]>
+    </query>
+    <query id="tbdb_period_exam_fb006" desc="졸업학과 조회" fetchSize="10">
+		<![CDATA[					
+		SELECT 
+					RACER_PERIO_NO
+					,CAND_NO
+					,NM_KOR
+					,DT
+					,LESSON1
+					,LESSON2
+					,LESSON3
+					,LESSON4
+					,LESSON_TOT_SCR
+					,LESSON_AVG_SCR
+				,'' AS ITEM_CD
+				,'016' AS EXAM_CD
+				,'001' AS ITEM_GBN_CD
+				, RANK() OVER(ORDER BY A4.LESSON_TOT_SCR DESC) AS RANK  				
+			FROM
+			(
+				SELECT
+					 A3.RACER_PERIO_NO
+					,A3.CAND_NO
+					,A3.NM_KOR
+					,A3.DT
+					,A3.LESSON1
+					,A3.LESSON2
+					,A3.LESSON3
+					,A3.LESSON4
+					,A3.LESSON_TOT_SCR
+					,A3.LESSON_AVG_SCR
+				FROM
+				(
+					SELECT 
+						A2.RACER_PERIO_NO
+						,A2.CAND_NO
+						,A2.NM_KOR
+						,A2.DT
+						,A2.LESSON1
+						,A2.LESSON2
+						,A2.LESSON3
+						,A2.LESSON4
+						,A2.LESSON_TOT_SCR
+						,A2.LESSON_AVG_SCR
+					FROM
+					(
+						SELECT 
+							A1.RACER_PERIO_NO
+							,A1.CAND_NO
+							,A1.NM_KOR
+							,A1.DT
+							,A1.LESSON1
+							,A1.LESSON2
+							,A1.LESSON3
+							,A1.LESSON4
+							,NVL(A1.LESSON1,0) + NVL(A1.LESSON2,0) + NVL(A1.LESSON3,0) + NVL(A1.LESSON4,0) AS LESSON_TOT_SCR
+							,(NVL(A1.LESSON1,0) + NVL(A1.LESSON2,0) + NVL(A1.LESSON3,0) + NVL(A1.LESSON4,0))/4 AS LESSON_AVG_SCR
+--							,SUM(A1.LESSON5_TIME + A1.LESSON5_SCR) AS LESSON6_SCR
+						FROM
+						(	
+							SELECT 
+									A.RACER_PERIO_NO AS RACER_PERIO_NO 
+									,A.CAND_NO AS CAND_NO
+									,A.NM_KOR AS NM_KOR		
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '101' AND B.EXAM_CD = '016' THEN B.DT END),  null) AS DT
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '101' AND B.EXAM_CD = '016' THEN B.SCR END), '') AS LESSON1
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '102' AND B.EXAM_CD = '016' THEN B.SCR END), '') AS LESSON2
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '103' AND B.EXAM_CD = '016' THEN B.SCR END), '') AS LESSON3
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '104' AND B.EXAM_CD = '016' THEN B.SCR END), '') AS LESSON4								
+							FROM	TBDB_CAND_IDENT A, TBDB_PERIO_EXAM B
+							WHERE	A.RACER_PERIO_NO= B.RACER_PERIO_NO(+)
+							AND		A.CAND_NO		= B.CAND_NO(+)
+							AND		A.RACER_PERIO_NO= NVL(?, A.RACER_PERIO_NO)
+							AND     A.DEL_YN = 'N'
+							AND		A.GRDU_GBN NOT IN('004','005')
+							GROUP BY A.RACER_PERIO_NO,A.CAND_NO,A.NM_KOR
+						)A1
+						GROUP BY A1. RACER_PERIO_NO,A1.CAND_NO,A1.NM_KOR,A1.DT,A1.LESSON1,A1.LESSON2,A1.LESSON3,A1.LESSON4
+					)A2
+				)A3
+				GROUP BY A3.RACER_PERIO_NO, A3.CAND_NO, A3.NM_KOR, A3.DT, A3.LESSON1, A3.LESSON2
+				,A3.LESSON3, A3.LESSON4,A3.LESSON_TOT_SCR,A3.LESSON_AVG_SCR			
+			)A4
+			ORDER BY A4.CAND_NO
+	    ]]>
+    </query>   
+        <query id="tbdb_period_exam_fb007" desc="분해조립 조회" fetchSize="10">
+		<![CDATA[	
+    			SELECT 
+				A4.*
+				,'' AS ITEM_CD
+				,'016' AS EXAM_CD
+				,'003' AS ITEM_GBN_CD
+				,RANK() OVER(ORDER BY A4.TIME_SCR DESC) AS RANK  				
+			FROM
+			(
+				SELECT
+					A3.RACER_PERIO_NO
+					,A3.CAND_NO
+					,A3.NM_KOR
+					,A3.DT
+					,A3.TIME_REC,A3.TIME_SCR,A3.ERROR_REC,A3.ERROR_SCR
+					,A3.TOT_TIME_REC_TMP AS TOT_TIME_REC
+				FROM
+				(
+					SELECT 
+						A2.RACER_PERIO_NO
+						,A2.CAND_NO
+						,A2.NM_KOR
+						,A2.DT
+						,A2.TIME_REC
+						,A2.TIME_SCR
+						,A2.ERROR_REC
+						,A2.ERROR_SCR
+						,A2.TOT_TIME_REC
+						,TRIM(TO_CHAR(TRUNC((SUBSTR(A2.TOT_TIME_REC,0,2) * 60+NVL(SUBSTR(A2.TOT_TIME_REC,3,2),0))/60,0),'00'))||
+						 TRIM(TO_CHAR(MOD(SUBSTR(A2.TOT_TIME_REC,0,2) * 60+NVL(SUBSTR(A2.TOT_TIME_REC,3,2),0),60),'00'))AS TOT_TIME_REC_TMP
+						--,TRUNC((SUBSTR(A2.TOT_TIME_REC,0,2) * 60+NVL(SUBSTR(A2.TOT_TIME_REC,3,2),0))/60,0)||':'||
+						-- DECODE(MOD(SUBSTR(A2.TOT_TIME_REC,0,2) * 60+NVL(SUBSTR(A2.TOT_TIME_REC,3,2),0),60),0,'00'
+						--,MOD(SUBSTR(A2.TOT_TIME_REC,0,2) * 60+NVL(SUBSTR(A2.TOT_TIME_REC,3,2),0),60) ) AS TOT_TIME_REC_TMP
+					FROM
+					(
+						SELECT 
+							A1.RACER_PERIO_NO
+							,A1.CAND_NO
+							,A1.NM_KOR
+							,A1.DT
+							,A1.TIME_REC
+							,A1.TIME_SCR
+							,A1.ERROR_REC
+							,A1.ERROR_SCR
+							,NVL(A1.TIME_REC,0) + NVL(A1.ERROR_REC,0) AS TOT_TIME_REC
+						FROM
+						(	
+							SELECT 
+									A.RACER_PERIO_NO AS RACER_PERIO_NO 
+									,A.CAND_NO AS CAND_NO
+									,A.NM_KOR AS NM_KOR		
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '001' AND B.EXAM_CD = '016' THEN B.DT END),  null) AS DT
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '306' AND B.EXAM_CD = '016' THEN B.REC END), '') AS TIME_REC
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '306' AND B.EXAM_CD = '016' THEN B.SCR END), '') AS TIME_SCR
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '307' AND B.EXAM_CD = '016' THEN B.REC END), '') AS ERROR_REC
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '308' AND B.EXAM_CD = '016' THEN B.SCR END), '') AS ERROR_SCR									
+							FROM	TBDB_CAND_IDENT A, TBDB_PERIO_EXAM B
+							WHERE	A.RACER_PERIO_NO= B.RACER_PERIO_NO(+)
+							AND		A.CAND_NO		= B.CAND_NO(+)
+							AND		A.RACER_PERIO_NO= NVL(?, A.RACER_PERIO_NO)
+							AND     A.DEL_YN = 'N'
+							AND		A.GRDU_GBN NOT IN('004','005')
+							GROUP BY A.RACER_PERIO_NO,A.CAND_NO,A.NM_KOR
+						)A1
+						GROUP BY A1. RACER_PERIO_NO,A1.CAND_NO,A1.NM_KOR,A1.DT
+						,A1.TIME_REC,A1.TIME_SCR,A1.ERROR_REC,A1.ERROR_SCR
+					)A2
+				)A3
+				GROUP BY A3.RACER_PERIO_NO, A3.CAND_NO, A3.NM_KOR, A3.DT
+				,A3.TIME_REC,A3.TIME_SCR,A3.ERROR_REC,A3.ERROR_SCR
+				,A3.TIME_SCR,A3.TOT_TIME_REC,A3.TOT_TIME_REC_TMP	
+			)A4
+			ORDER BY A4.CAND_NO
+		    ]]>
+    </query>
+    <query id="tbdb_period_exam_fb008" desc="종합성적집계표 조회" fetchSize="10">
+		<![CDATA[					
+				SELECT
+				 A4.NM_KOR
+				,A4.RACER_PERIO_NO
+				,A4.CAND_NO
+				,A4.PERIO_EXAM1_TOT_SCR
+				,A4.PERIO_EXAM2_TOT_SCR
+				,A4.PERIO_EXAM3_TOT_SCR
+				,(A4.PERIO_EXAM1_TOT_SCR+A4.PERIO_EXAM2_TOT_SCR+A4.PERIO_EXAM3_TOT_SCR) AS TOTAL_SCR
+				,(A4.PERIO_EXAM1_TOT_SCR+A4.PERIO_EXAM2_TOT_SCR+A4.PERIO_EXAM3_TOT_SCR) AS TOTAL_AVG_SCR
+				,'' AS SUCCESS_YN	
+				,RANK() OVER(ORDER BY A4.PERIO_EXAM1_TOT_SCR+A4.PERIO_EXAM2_TOT_SCR+A4.PERIO_EXAM3_TOT_SCR DESC ) AS RANK  					
+			FROM
+			(
+				SELECT
+					A3.NM_KOR
+					,A3.RACER_PERIO_NO
+					,A3.CAND_NO
+					,A3.SCR_200
+					,A3.SCR_333
+					,A3.SCR_500
+					,A3.SCR_1000
+					,A3.SCR_2000
+					,A3.LESSON1
+					,A3.LESSON2
+					,A3.LESSON3
+					,A3.LESSON4
+					,A3.LESSON5_TIME
+					,A3.LESSON6_TIME
+					,ROUND((A3.PERIO_EXAM1_TOT_SCR+A3.TIME_SCR)/4*0.3,2) AS PERIO_EXAM1_TOT_SCR
+					,ROUND(((A3.PERIO_EXAM2_TOT_SCR)/4)*0.1,2) AS PERIO_EXAM2_TOT_SCR
+					--,ROUND((A3.PERIO_EXAM1_TOT_SCR/3)*0.3,2) AS PERIO_EXAM1_TOT_SCR
+					--,ROUND(((A3.PERIO_EXAM2_TOT_SCR + A3.TIME_SCR)/6)*0.1,2) AS PERIO_EXAM2_TOT_SCR
+					,ROUND(A3.PERIO_EXAM3_TOT_SCR*0.6,2) AS PERIO_EXAM3_TOT_SCR
+				FROM
+				(
+					SELECT 
+						 A2.NM_KOR
+						,A2.RACER_PERIO_NO
+						,A2.CAND_NO
+						,A2.SCR_200
+						,A2.SCR_333
+						,A2.SCR_500
+						,A2.SCR_1000
+						,A2.SCR_2000
+						,A2.LESSON1
+						,A2.LESSON2
+						,A2.LESSON3
+						,A2.LESSON4
+						,A2.LESSON5_TIME
+						,A2.LESSON6_TIME
+						,A2.TIME_SCR
+						,SUM(A2.SCR_200+A2.SCR_333+A2.SCR_500+A2.SCR_1000+A2.SCR_2000) AS PERIO_EXAM1_TOT_SCR
+						,SUM(A2.LESSON1 + A2.LESSON2 + A2.LESSON3 + A2.LESSON4) AS PERIO_EXAM2_TOT_SCR
+						,PERIO_EXAM3_TOT_SCR
+					FROM
+					(
+						SELECT 
+							A1.NM_KOR
+							,A1.RACER_PERIO_NO
+							,A1.CAND_NO
+							,NVL(A1.SCR_200,0) AS SCR_200
+							,NVL(A1.SCR_333,0) AS SCR_333 
+							,NVL(A1.SCR_500,0) AS SCR_500
+							,NVL(A1.SCR_1000,0) AS SCR_1000
+							,NVL(A1.SCR_2000,0) AS SCR_2000
+							,NVL(A1.LESSON1,0) AS LESSON1
+							,NVL(A1.LESSON2,0) AS LESSON2
+							,NVL(A1.LESSON3,0) AS LESSON3
+							,NVL(A1.LESSON4,0) AS LESSON4
+							,NVL(A1.LESSON5_TIME,0) AS LESSON5_TIME
+							,NVL(A1.LESSON6_TIME,0) AS LESSON6_TIME
+							,NVL(A1.TIME_SCR,0) AS TIME_SCR
+							,A1.PERIO_EXAM3_TOT_SCR
+						FROM
+						(	
+							SELECT 	
+									A.NM_KOR AS NM_KOR
+									,A.RACER_PERIO_NO AS RACER_PERIO_NO 
+									,A.CAND_NO AS CAND_NO
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '301' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_200
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '302' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_333
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '303' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_500
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '304' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_1000
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '305' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_2000
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '101' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON1
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '102' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON2
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '103' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON3
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '104' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON4
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '002' AND B.ITEM_CD = '201' AND B.EXAM_CD = '016' THEN B.REC END),'') AS LESSON5_TIME
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '306' AND B.EXAM_CD = '016' THEN B.REC END),'') AS LESSON6_TIME
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '306' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS TIME_SCR
+									,NVL(ROUND(C.YY_AVG_RACE_SCR,2),0) AS PERIO_EXAM3_TOT_SCR			  
+							FROM	TBDB_CAND_IDENT A, TBDB_PERIO_EXAM B,TBDB_REC_TOT C
+							WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+							AND		A.CAND_NO = B.CAND_NO(+)
+							AND 	A.CAND_NO = C.CAND_NO
+							AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)	
+							AND     A.DEL_YN = 'N'		
+							AND		A.GRDU_GBN NOT IN('004','005')					
+							GROUP BY A.RACER_PERIO_NO,A.CAND_NO,A.NM_KOR,C.YY_AVG_RACE_SCR
+						)A1
+					)A2
+					GROUP BY A2.NM_KOR,A2.RACER_PERIO_NO,A2.CAND_NO,A2.SCR_200,A2.SCR_333,A2.SCR_500,A2.SCR_1000
+					,A2.SCR_2000,A2.LESSON1,A2.LESSON2,A2.LESSON3,A2.LESSON4,A2.LESSON5_TIME,A2.LESSON6_TIME,A2.TIME_SCR
+					,A2.PERIO_EXAM3_TOT_SCR
+				)A3
+				GROUP BY A3.NM_KOR,A3.RACER_PERIO_NO,A3.CAND_NO,A3.SCR_200,A3.SCR_333,A3.SCR_500,A3.SCR_1000,A3.SCR_2000
+				,A3.LESSON1,A3.LESSON2,A3.LESSON3,A3.LESSON4,A3.LESSON5_TIME,A3.LESSON6_TIME,A3.TIME_SCR
+				,A3.PERIO_EXAM1_TOT_SCR,A3.PERIO_EXAM2_TOT_SCR
+				,A3.PERIO_EXAM3_TOT_SCR
+			)A4
+			ORDER BY A4.CAND_NO	
+	    ]]>
+    </query>           
+    <query id="tbdb_period_exam_fb009" desc="졸업성적집계표 조회" fetchSize="10">
+		<![CDATA[					
+				SELECT
+				 A4.NM_KOR    			--성명
+				,A4.RACER_PERIO_NO      --기수
+				,A4.CAND_NO             --후보생번호
+				,A4.PERIO_EXAM1_TOT_SCR --
+				,A4.PERIO_EXAM2_TOT_SCR
+				,(A4.PERIO_EXAM1_TOT_SCR+A4.PERIO_EXAM2_TOT_SCR) AS TOTAL_SCR
+				,ROUND((A4.PERIO_EXAM1_TOT_SCR+A4.PERIO_EXAM2_TOT_SCR)/8,2) AS  TOTAL_AVG_SCR
+				,RANK() OVER(ORDER BY A4.PERIO_EXAM1_TOT_SCR+A4.PERIO_EXAM2_TOT_SCR DESC ) AS RANK
+			FROM
+			(
+				SELECT
+					A3.NM_KOR
+					,A3.RACER_PERIO_NO
+					,A3.CAND_NO
+					,A3.SCR_200
+					,A3.SCR_333
+					,A3.SCR_500
+					,A3.SCR_1000
+					,A3.SCR_2000
+					,A3.LESSON1
+					,A3.LESSON2
+					,A3.LESSON3
+					,A3.LESSON4
+					,A3.LESSON5_TIME
+					,A3.LESSON6_TIME
+					,SUM(A3.PERIO_EXAM1_TOT_SCR+A3.TIME_SCR) AS PERIO_EXAM1_TOT_SCR
+					,PERIO_EXAM2_TOT_SCR
+				FROM
+				(
+					SELECT
+						 A2.NM_KOR
+						,A2.RACER_PERIO_NO
+						,A2.CAND_NO
+						,A2.SCR_200
+						,A2.SCR_333
+						,A2.SCR_500
+						,A2.SCR_1000
+						,A2.SCR_2000
+						,A2.LESSON1
+						,A2.LESSON2
+						,A2.LESSON3
+						,A2.LESSON4
+						,A2.LESSON5_TIME
+						,A2.LESSON6_TIME
+						,A2.TIME_SCR
+						,SUM(A2.SCR_200+A2.SCR_333+A2.SCR_500+A2.SCR_1000+A2.SCR_2000) AS PERIO_EXAM1_TOT_SCR
+						,SUM(A2.LESSON1 + A2.LESSON2 + A2.LESSON3 + A2.LESSON4) AS PERIO_EXAM2_TOT_SCR
+
+					FROM
+					(
+						SELECT
+							A1.NM_KOR
+							,A1.RACER_PERIO_NO
+							,A1.CAND_NO
+							,NVL(A1.SCR_200,0) AS SCR_200  		--200미터 기록
+							,NVL(A1.SCR_333,0) AS SCR_333       --333미터 기록
+							,NVL(A1.SCR_500,0) AS SCR_500    	--500미터 기록
+							,NVL(A1.SCR_1000,0) AS SCR_1000		--1000미터 기록
+							,NVL(A1.SCR_2000,0) AS SCR_2000		--2000미터 기록
+							,NVL(A1.LESSON1,0) AS LESSON1		--학과 1(법규)
+							,NVL(A1.LESSON2,0) AS LESSON2       --학과 2(이론)
+							,NVL(A1.LESSON3,0) AS LESSON3       --학과 3(의학)
+							,NVL(A1.LESSON4,0) AS LESSON4		--학과 4(일반상식)
+							,NVL(A1.LESSON5_TIME,0) AS LESSON5_TIME
+							,NVL(A1.LESSON6_TIME,0) AS LESSON6_TIME
+							,NVL(A1.TIME_SCR,0) AS TIME_SCR 	--자전거 분해조립
+							,A1.PERIO_EXAM3_TOT_SCR 			--경주성적
+						FROM
+						(
+							SELECT
+									A.NM_KOR AS NM_KOR
+									,A.RACER_PERIO_NO AS RACER_PERIO_NO
+									,A.CAND_NO AS CAND_NO
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '301' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_200
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '302' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_333
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '303' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_500
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '304' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_1000
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '305' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS SCR_2000
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '101' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON1
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '102' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON2
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '103' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON3
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '001' AND B.ITEM_CD = '104' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS LESSON4
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '002' AND B.ITEM_CD = '201' AND B.EXAM_CD = '016' THEN B.REC END),'') AS LESSON5_TIME
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '306' AND B.EXAM_CD = '016' THEN B.REC END),'') AS LESSON6_TIME
+									,NVL(MAX(CASE WHEN B.ITEM_GBN_CD = '003' AND B.ITEM_CD = '306' AND B.EXAM_CD = '016' THEN B.SCR END),'') AS TIME_SCR
+									,NVL(ROUND(C.YY_AVG_RACE_SCR,2),0) AS PERIO_EXAM3_TOT_SCR
+							FROM	TBDB_CAND_IDENT A, TBDB_PERIO_EXAM B,TBDB_REC_TOT C
+							WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+							AND		A.CAND_NO = B.CAND_NO(+)
+							AND 	A.CAND_NO = C.CAND_NO
+							AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+							AND     A.DEL_YN = 'N'
+							AND		A.GRDU_GBN NOT IN('004','005')
+							GROUP BY A.RACER_PERIO_NO,A.CAND_NO,A.NM_KOR,C.YY_AVG_RACE_SCR
+						)A1
+					)A2
+					GROUP BY A2.NM_KOR,A2.RACER_PERIO_NO,A2.CAND_NO,A2.SCR_200,A2.SCR_333,A2.SCR_500,A2.SCR_1000
+					,A2.SCR_2000,A2.LESSON1,A2.LESSON2,A2.LESSON3,A2.LESSON4,A2.LESSON5_TIME,A2.LESSON6_TIME,A2.TIME_SCR
+					,A2.PERIO_EXAM3_TOT_SCR
+				)A3
+				GROUP BY A3.NM_KOR,A3.RACER_PERIO_NO,A3.CAND_NO,A3.SCR_200,A3.SCR_333,A3.SCR_500,A3.SCR_1000,A3.SCR_2000
+				,A3.LESSON1,A3.LESSON2,A3.LESSON3,A3.LESSON4,A3.LESSON5_TIME,A3.LESSON6_TIME,A3.TIME_SCR
+				,A3.PERIO_EXAM1_TOT_SCR,A3.PERIO_EXAM2_TOT_SCR
+			)A4
+			ORDER BY A4.CAND_NO
+	    ]]>
+    </query>           
+    <query id="tbdb_period_exam_ib001" desc="정기시험 입력" fetchSize="10">  
+     <![CDATA[ 
+        MERGE INTO TBDB_PERIO_EXAM TPE
+			            USING   DUAL
+			            ON        (     TPE.RACER_PERIO_NO  		= ?     	
+			            			AND TPE.EXAM_CD					= ?		  
+			            			AND TPE.ITEM_GBN_CD   			= ?   	 	
+									AND TPE.ITEM_CD  				= ? 
+									AND TPE.CAND_NO			        = ? 
+			                      )
+						WHEN MATCHED THEN
+						 UPDATE  SET
+ 						     REC                 = ?
+						    , SCR                 = ?
+						    , UPDT_ID             = ?
+						    , UPDT_DTM            = SYSDATE
+						 WHEN NOT MATCHED THEN
+							INSERT (
+									      RACER_PERIO_NO
+									    , EXAM_CD
+									    , ITEM_GBN_CD
+									    , ITEM_CD
+									    , CAND_NO
+									    , REC
+									    , SCR			   
+									    , INST_ID
+									    , INST_DTM
+										)VALUES (
+											 ?
+											,?
+											,?
+											,?
+											,?
+											,?
+											,? 
+											,?
+											,SYSDATE								
+										)
+     		]]>
+    </query>      
+</queryMap>

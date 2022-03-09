@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_fd_exp(선수식비등록)">
+    <query id="tbec_racer_fd_exp_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBEC_RACER_FD_EXP TRFE
+            USING   DUAL
+            ON        (    TRFE.STND_YEAR   = ?  -- 기준년도
+            				AND TRFE.SEQ   = ?  -- 일련번호
+                       )
+            WHEN MATCHED THEN
+                    UPDATE  SET
+							MBR_CD			= ?			-- 경정장코드
+        			      , TMS				= ?			-- 회차
+                    	  ,	FD_EXP_DT		= ? 		-- 급식일자
+                    	  , RACER_NO		= ?			-- 등록번호
+        			      , BRKF_PRC  		= ?         -- 조식가격
+        			      , LUNCH_PRC 		= ?         -- 중식가격      
+        			      , DINN_PRC      	= ?     	-- 석식가격    
+        			      , SNCK_PRC1       = ?    		-- 간식가격1  
+        			      , SNCK_PRC2       = ?    		-- 간식가격2 
+        			      , SUM_AMT			= ?			-- 합계금  
+        			      , UPDT_ID   		= ?         -- 수정자ID    
+        			      , UPDT_DTM  		= SYSDATE   -- 수정일시      
+            WHEN NOT MATCHED THEN
+                    INSERT (
+        			        SEQ        			-- 일련번호
+        			      , STND_YEAR        	-- 기준년도    
+        			      , MBR_CD				-- 경정장코드
+        			      , TMS					-- 회차
+        			      , FD_EXP_DT			-- 급식일자
+        			      , RACER_NO			-- 등록번호
+        			      , BRKF_PRC         	-- 조식가격
+        			      , LUNCH_PRC         	-- 중식가격
+        			      , DINN_PRC        	-- 석식가격      
+        			      , SNCK_PRC1           -- 간식가격    
+        			      , SNCK_PRC2           -- 간식가격
+        			      , SUM_AMT				-- 합계금액
+        			      , INST_ID          	-- 작성자ID    
+        			      , INST_DTM         	-- 작성일시   
+        			      , UPDT_ID          	-- 수정자ID    
+        			      , UPDT_DTM         	-- 수정일시
+        			)VALUES(
+						  ?						--일련번호
+        			      , ?                	-- 기준년도   
+        			      , ?					-- 경정장코드   
+        			      , ?					-- 회차   
+        			      , ?					-- 급식일자   
+        			      , ?					-- 등록번호   
+        			      , ?                	-- 조식가격
+        			      , ?                	-- 중식가격
+        			      , ?                	-- 석식가격      
+        			      , ?                	-- 간식가격1   
+        			      , ?                	-- 간식가격2
+        			      , ?                	-- 합계금액        			       
+        			      , ?                	-- 작성자ID    
+        			      , SYSDATE          	-- 작성일시   
+        			      , ?                	-- 수정자ID    
+        			      , SYSDATE          	-- 수정일시
+					)
+        ]]>
+    </query> 
+    <query id="tbec_racer_fd_exp_fc001" desc="선수식비  시퀀스조회" fetchSize="10">
+        <![CDATA[
+            /* 선수식비  시퀀스조회 */
+			SELECT 											
+    		NVL(MAX(SEQ)+1,1) SEQ			--시퀀스	 
+			FROM TBEC_RACER_FD_EXP
+			WHERE STND_YEAR  		= ?		-- 기준년도
+        ]]>
+    </query> 
+    <query id="tbec_racer_fd_exp_fc003" desc="일자별 급식 내역 조회(월)" fetchSize="10">
+        <![CDATA[
+		    SELECT STND_YEAR /*tbec_racer_fd_exp-query > tbec_racer_fd_exp_fc003 일자별 급식 내역 조회(월) */
+		        ,MBR_CD
+		        ,TMS
+		    	,FD_EXP_DT
+			    ,TO_CHAR(TO_DATE(FD_EXP_DT, 'YYYYMMDD'), 'DAY') DAY -- 요일
+			    ,SUBSTR(FD_EXP_DT,5,2)||'.'||SUBSTR(FD_EXP_DT,7,2)||'('||SUBSTR(TO_CHAR(TO_DATE(FD_EXP_DT, 'YYYYMMDD'), 'DAY'),0,1)||')' FD_DATE
+			    ,COUNT(RACER_NO) RACER_CNT
+			    ,DECODE(SUM(BRKF_PRC),NULL,'X',0,'X','O') BRKF_CHK
+			    ,DECODE(SUM(LUNCH_PRC),NULL,'X',0,'X','O') LUNCH_CHK
+			    ,DECODE(SUM(DINN_PRC),NULL,'X',0,'X','O') DINN_CHK
+			    ,DECODE(SUM(SNCK_PRC1),NULL,'X',0,'X','O') SNCK_CHK1
+			    ,DECODE(SUM(SNCK_PRC2),NULL,'X',0,'X','O') SNCK_CHK2
+			    ,(SUM(BRKF_PRC)+SUM(LUNCH_PRC)+SUM(DINN_PRC)) RICE_SUM
+			    ,SUM(SNCK_PRC1) SNCK_SUM1
+			    ,SUM(SNCK_PRC2) SNCK_SUM2
+			    ,(SUM(DECODE(BRKF_PRC,0,0,1))+SUM(DECODE(LUNCH_PRC,0,0,1))+SUM(DECODE(DINN_PRC,0,0,1))) RICE_CNT
+			    ,SUM(DECODE(SNCK_PRC1,0,0,1)) SNCK_CNT1
+			    ,SUM(DECODE(SNCK_PRC2,0,0,1)) SNCK_CNT2
+			    ,(SELECT BRKF_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR 	= ? AND MBR_CD	= ?) BRKF_PRC
+			    ,(SELECT LUNCH_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR = ? AND MBR_CD	= ?) LUNCH_PRC
+			    ,(SELECT DINN_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR 	= ? AND MBR_CD	= ?) DINN_PRC
+			    ,(SELECT SNCK_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR 	= ? AND MBR_CD	= ?) SNCK_PRC
+			FROM TBEC_RACER_FD_EXP
+			WHERE STND_YEAR 		= 	?
+				AND MBR_CD			=   ?
+				AND SUBSTR(FD_EXP_DT,0,6) = ? || ?
+				AND SUM_AMT > 0
+			GROUP BY STND_YEAR, MBR_CD, TMS, FD_EXP_DT
+			ORDER BY STND_YEAR, MBR_CD, TMS, FD_EXP_DT
+        ]]>
+    </query>
+    
+    <query id="tbec_racer_fd_exp_fc006" desc="일자별 급식 내역 조회(회차)" fetchSize="10">
+        <![CDATA[
+		    SELECT STND_YEAR /*tbec_racer_fd_exp-query > tbec_racer_fd_exp_fc006 일자별 급식 내역 조회(회차) */
+		        ,MBR_CD
+		        ,TMS
+		    	,FD_EXP_DT
+			    ,TO_CHAR(TO_DATE(FD_EXP_DT, 'YYYYMMDD'), 'DAY') DAY -- 요일
+			    ,SUBSTR(FD_EXP_DT,5,2)||'.'||SUBSTR(FD_EXP_DT,7,2)||'('||SUBSTR(TO_CHAR(TO_DATE(FD_EXP_DT, 'YYYYMMDD'), 'DAY'),0,1)||')' FD_DATE
+			    ,COUNT(RACER_NO) RACER_CNT
+			    ,DECODE(SUM(BRKF_PRC),NULL,'X',0,'X','O') BRKF_CHK
+			    ,DECODE(SUM(LUNCH_PRC),NULL,'X',0,'X','O') LUNCH_CHK
+			    ,DECODE(SUM(DINN_PRC),NULL,'X',0,'X','O') DINN_CHK
+			    ,DECODE(SUM(SNCK_PRC1),NULL,'X',0,'X','O') SNCK_CHK1
+			    ,DECODE(SUM(SNCK_PRC2),NULL,'X',0,'X','O') SNCK_CHK2
+			    ,(SUM(BRKF_PRC)+SUM(LUNCH_PRC)+SUM(DINN_PRC)) RICE_SUM
+			    ,SUM(SNCK_PRC1) SNCK_SUM1
+			    ,SUM(SNCK_PRC2) SNCK_SUM2
+			    ,(SUM(DECODE(BRKF_PRC,0,0,1))+SUM(DECODE(LUNCH_PRC,0,0,1))+SUM(DECODE(DINN_PRC,0,0,1))) RICE_CNT
+			    ,SUM(DECODE(SNCK_PRC1,0,0,1)) SNCK_CNT1
+			    ,SUM(DECODE(SNCK_PRC2,0,0,1)) SNCK_CNT2
+			    ,(SELECT BRKF_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR 	= ? AND MBR_CD	= ?) BRKF_PRC
+			    ,(SELECT LUNCH_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR = ? AND MBR_CD	= ?) LUNCH_PRC
+			    ,(SELECT DINN_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR 	= ? AND MBR_CD	= ?) DINN_PRC
+			    ,(SELECT SNCK_PRC FROM TBEC_FD_EXP_BAS WHERE STND_YEAR 	= ? AND MBR_CD	= ?) SNCK_PRC
+			FROM TBEC_RACER_FD_EXP
+			WHERE STND_YEAR 		= 	?
+				AND MBR_CD			=   ?
+				AND TMS				=   ?
+				AND SUM_AMT > 0
+			GROUP BY STND_YEAR, MBR_CD, TMS, FD_EXP_DT
+			ORDER BY STND_YEAR, MBR_CD, TMS, FD_EXP_DT
+        ]]>
+    </query> 
+     
+    <query id="tbec_racer_fd_exp_fc004" desc="선수급식명부 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  NVL(NULL,?) STND_YEAR
+                    ,TRF.RACER_NO
+                    ,TRM.NM_KOR
+                    ,NVL(SUM(TMS1),0) TMS1
+                    ,NVL(SUM(TMS2),0) TMS2
+                    ,NVL(SUM(TMS3),0) TMS3
+                    ,NVL(SUM(TMS4),0) TMS4
+                    ,NVL(SUM(TMS5),0) TMS5
+            FROM (
+                    SELECT STND_YEAR, 
+                            TMS, 
+                            NVL(TRM.RACER_NO, TRFE.RACER_NO) RACER_NO, 
+                            TMS1,
+                            TMS2,
+                            TMS3,
+                            TMS4,
+                            TMS5
+                    FROM 
+                        (SELECT STND_YEAR, TMS, RACER_NO
+                        , DECODE(TMS, ?, SUM(BRKF_PRC)+SUM(LUNCH_PRC)+SUM(DINN_PRC)+SUM(SNCK_PRC1+SNCK_PRC2), '0') TMS1
+                        , DECODE(TMS, ?, SUM(BRKF_PRC)+SUM(LUNCH_PRC)+SUM(DINN_PRC)+SUM(SNCK_PRC1+SNCK_PRC2), '0') TMS2
+                        , DECODE(TMS, ?, SUM(BRKF_PRC)+SUM(LUNCH_PRC)+SUM(DINN_PRC)+SUM(SNCK_PRC1+SNCK_PRC2), '0') TMS3
+                        , DECODE(TMS, ?, SUM(BRKF_PRC)+SUM(LUNCH_PRC)+SUM(DINN_PRC)+SUM(SNCK_PRC1+SNCK_PRC2), '0') TMS4
+                        , DECODE(TMS, ?, SUM(BRKF_PRC)+SUM(LUNCH_PRC)+SUM(DINN_PRC)+SUM(SNCK_PRC1+SNCK_PRC2), '0') TMS5
+                        FROM TBEC_RACER_FD_EXP TRFE
+                         WHERE TRFE.STND_YEAR       = ?
+                             AND TRFE.MBR_CD        = ?
+                             AND SUBSTR(TRFE.FD_EXP_DT,0,6) = ? || ?
+                        GROUP BY STND_YEAR, TMS, RACER_NO
+                        ORDER BY RACER_NO, STND_YEAR, TMS) TRFE 
+                        FULL OUTER JOIN
+                        (SELECT RACER_NO, NM_KOR 
+                        FROM TBEC_RACER_MASTER 
+                        WHERE RACER_STAT_CD != '003') TRM
+                        ON TRM.RACER_NO = TRFE.RACER_NO
+            ) TRF, TBEC_RACER_MASTER TRM
+            WHERE TRF.RACER_NO = TRM.RACER_NO(+)
+            GROUP BY STND_YEAR,
+                    TRF.RACER_NO,
+                    TRM.NM_KOR
+            ORDER BY TRF.RACER_NO            
+        ]]>
+    </query>
+    <query id="tbec_racer_fd_exp_fc005" desc="월 회차 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  NVL(MIN(TMS),0) F_TMS
+			        , NVL(MAX(TMS),0) L_TMS
+			FROM    TBEC_RACER_FD_EXP
+			WHERE   STND_YEAR = ? 
+			        AND MBR_CD = ? 
+			        AND SUBSTR(FD_EXP_DT,0,6) = ? || ?
+		]]>
+    </query>
+</queryMap>

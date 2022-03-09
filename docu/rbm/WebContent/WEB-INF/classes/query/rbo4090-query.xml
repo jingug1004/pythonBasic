@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4090(지점부품사용등록)">
+    <query id="rbo4090_s01" desc="지점부품사용 정보 조회" fetchSize="10">
+      <![CDATA[
+			SELECT  /* rbo4090_s01 */
+			        C.PARTS_CD             -- 부품코드
+			       ,B.PARTS_NM             -- 부품명 
+			       ,C.BRNC_CD              -- 지점코드
+			       ,B.PARTS_LCD            -- 발매기코드
+			       ,FC_CODE_NM('097',  B.PARTS_LCD)    AS PARTS_LCD_NM -- 발매기명                 
+			       ,B.PARTS_MCD            -- 부품그룹코드    
+			       ,FC_CODE_NM('098',  B.PARTS_MCD)    AS PARTS_MCD_NM -- 부품그룹명
+			       ,NVL(SUM(STK_CNT),0) AS HCNT   -- 현재고                          
+			 FROM   TBRB_PARTS_MODEL B
+			      , TBRB_PARTS_STOCK C
+			WHERE  1=1
+			  AND  C.PARTS_CD     = B.PARTS_CD(+)
+			  AND  C.BRNC_CD <> '00'
+			  AND  C.BRNC_CD    LIKE '%' || NVL(?, C.BRNC_CD)   || '%'
+			  AND  C.PARTS_CD   LIKE '%' || NVL(?, C.PARTS_CD)  || '%'
+			  AND  B.PARTS_LCD  LIKE '%' || NVL(?, B.PARTS_LCD) || '%'
+			  AND  B.PARTS_MCD  LIKE '%' || NVL(?, B.PARTS_MCD) || '%'
+		 GROUP BY  C.PARTS_CD ,B.PARTS_NM,C.BRNC_CD  ,B.PARTS_LCD ,B.PARTS_MCD
+		 ORDER BY  B.PARTS_LCD ,B.PARTS_MCD,C.PARTS_CD
+      ]]>
+    </query>
+    
+    <query id="rbo4090_s02" desc="지점부품 세부사용 정보 조회" fetchSize="10">
+      <![CDATA[
+			SELECT 
+			       '0' AS CHK
+			      ,A.PARTS_CD    -- 부품코드
+			      ,A.BRNC_CD    -- 지점코드 
+			      ,B.PARTS_LCD    -- 발매기
+			      ,B.PARTS_MCD    -- 부품그룹
+			      ,B.PARTS_NM    -- 부품명칭
+			      ,NVL(A.SEQ, 0) AS SEQ        -- 순번
+			      ,A.USE_DT        -- 사용일자
+			      ,A.USE_NO        -- 사용자
+			      ,A.USE_CNT    -- 사용수량
+			      ,A.USE_RSN    -- 사용내역
+			FROM  TBRB_PARTS_BRNC_USE A
+			     ,TBRB_PARTS_MODEL B
+			WHERE  1 = 1
+			 AND A.USE_DT BETWEEN NVL(?, '19000101') AND NVL(?, '99991231')   --    
+			 AND A.PARTS_CD = B.PARTS_CD
+			 AND A.PARTS_CD = ?                 
+			 AND A.BRNC_CD  = ?    
+	    ORDER BY A.SEQ ASC 
+      ]]>
+    </query>
+    
+    <query id="rbo4090_s03" desc="현재고 조회" fetchSize="10">
+      <![CDATA[
+      	    SELECT /* rbo4090_s03 */
+      	    	   STK_CNT
+      	      FROM TBRB_PARTS_STOCK
+      	     WHERE 1=1
+      	       AND PARTS_CD = ?
+			   AND BRNC_CD  = ?
+      ]]>
+    </query>
+    
+    <query id="rbo4090_i01" desc="지점부품사용 정보 등록" fetchSize="10">
+      <![CDATA[
+      
+			INSERT 	/* rbo4090_i01 */
+			INTO    TBRB_PARTS_BRNC_USE
+			(
+			      PARTS_CD		-- 부품코드
+			    , BRNC_CD		-- 지점코드
+			    , SEQ			-- 순번
+			    , USE_DT		-- 사용일자
+			    , USE_NO		-- 사용자
+			    , USE_CNT		-- 사용수량
+			    , USE_RSN		-- 사용내역
+			    , INST_ID		-- 작성자ID
+			    , INST_DT		-- 작성일시
+			)
+			VALUES
+			(
+			      ? 			-- PARTS_CD
+			    , ? 			-- BRNC_CD
+			    , (SELECT NVL(MAX(SEQ), 0) + 1
+			         FROM TBRB_PARTS_BRNC_USE 
+			        WHERE PARTS_CD = ?
+			          AND BRNC_CD = ?
+			      ) 			-- SEQ
+			    , ?				-- USE_DT
+			    , ?				-- USE_NO
+			    , NVL(?, 0)		-- USE_CNT
+			    , ?				-- USE_RSN
+			    , ?				-- INST_ID
+			    , SYSDATE		-- INST_DT
+			)
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4090_u01" desc="지점부품사용 정보 수정" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  TBRB_PARTS_BRNC_USE
+			SET
+			        USE_DT 		= ?         -- 사용일자
+			      , USE_NO 		= ?         -- 사용자
+			      , USE_CNT 	= NVL(?, 0) -- 사용수량
+			      , USE_RSN 	= ?         -- 사용내역
+			      , UPDT_ID 	= ?         -- 수정자ID
+			      , UPDT_DT 	= SYSDATE   -- 수정일시
+			WHERE   PARTS_CD 	= ?    		-- 부품코드
+			AND     BRNC_CD 	= ?     	-- 지점코드
+			AND     SEQ 		= ?         -- 순번
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4090_u02" desc="현재고 수정" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  TBRB_PARTS_STOCK    /* rbo4090_u02 */
+			SET
+			      STK_CNT = STK_CNT - NVL(?, 0)			       
+			    , UPDT_ID = ?
+			    , UPDT_DT = SYSDATE
+			WHERE PARTS_CD = ?
+			AND   BRNC_CD = ?
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4090_u03" desc="현재고 수정(delete)" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  TBRB_PARTS_STOCK    /* rbo4090_u02 */
+			SET
+			      STK_CNT = STK_CNT + NVL(?, 0)			       
+			    , UPDT_ID = ?
+			    , UPDT_DT = SYSDATE
+			WHERE PARTS_CD = ?
+			AND   BRNC_CD = ?
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4090_u04" desc="지점부품사용 수정" fetchSize="10">
+      <![CDATA[
+			UPDATE  TBRB_PARTS_BRNC_USE    /* rbo4090_u04 */
+			   SET  USE_DT  = ?  --사용일자
+			       ,USE_RSN = ?  --사용내역 	       
+			       ,UPDT_ID = ?
+			       ,UPDT_DT = SYSDATE
+			 WHERE  1=1
+			   AND  PARTS_CD = ?
+			   AND  BRNC_CD  = ?
+      		   AND  SEQ      = ?
+      ]]>
+    </query>
+    
+    <query id="rbo4090_d01" desc="지점부품사용 정보 삭제" fetchSize="10">
+      <![CDATA[
+      
+			DELETE  TBRB_PARTS_BRNC_USE  	/* rbo4090_d01 */
+			WHERE   PARTS_CD = ?    -- 부품코드
+			AND     BRNC_CD = ?     -- 지점코드
+			AND		SEQ = ?			-- 순번
+      
+      ]]>
+    </query>  
+</queryMap>

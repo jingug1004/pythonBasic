@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs8020(하계휴양소 추첨 )">
+  <query id="rbs8020_s01" desc="하계휴양소 신청자 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs8020_s01 */
+                    A.RSV_YEAR
+			       ,A.RSV_TMS
+			       ,A.RST_ID
+			       ,A.RST_SEQ
+			       ,A.RST_NAME
+			       ,A.RSV_MAX_NUM
+			       ,COUNT(B.USER_ID) OVER(PARTITION BY A.RSV_YEAR, A.RSV_TMS, A.RST_ID, A.RST_SEQ) APPLY_CNT
+			       ,A.USE_STR_DT
+			       ,A.USE_END_DT
+			       ,A.DAY_NUM
+			       ,B.DEPT_NAME AS DEPT_NM
+			       ,B.USER_ID
+			       ,B.USER_NAME AS USER_NM
+			       ,B.REG_DT
+			       ,B.WEIGHT_VAL,10
+			       ,B.APPR_YN AS WIN_YN
+                   ,(SELECT CASE WHEN ENTR_DT <= '20030612' THEN '001' ELSE '002' END 
+                     FROM   TBRK_USER_TEMP 
+                     WHERE  B.USER_ID = EMP_NO 
+                        AND CO_WRK_GBN = '001') AS WK_TERM_TYPE	-- 20130612기준 10년이상 근무자 여부
+			FROM  TBRF_APP_RST_MASTER A, TBRF_APP_RST_DETL B 
+			WHERE 1=1                                        
+			AND A.RSV_YEAR = ?                               
+			AND A.RSV_TMS  = ?                               
+			AND A.RSV_YEAR = B.RSV_YEAR(+)                   
+			AND A.RSV_TMS  = B.RSV_TMS(+)                     
+			AND A.RST_ID   = B.RST_ID(+)                       
+			AND A.RST_SEQ  = B.RST_SEQ(+)                  
+			ORDER BY A.RSV_YEAR, A.RSV_TMS, A.RST_ID, A.RST_SEQ, B.USER_ID 
+        ]]>
+    </query>       
+    
+    <query id="rbs8020_s02" desc="하계휴양소 당첨자 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs8020_s01 */
+                    A.RSV_YEAR
+			       ,A.RSV_TMS
+			       ,A.RST_ID
+			       ,A.RST_SEQ
+			       ,A.RST_NAME
+			       ,A.RSV_MAX_NUM
+			       ,A.USE_STR_DT
+			       ,A.USE_END_DT
+			       ,A.DAY_NUM
+			       ,B.DEPT_NAME AS DEPT_NM
+			       ,B.USER_ID
+			       ,B.USER_NAME AS USER_NM
+			       ,B.REG_DT
+			       ,B.WEIGHT_VAL
+			       ,B.APPR_YN AS WIN_YN
+                   ,(SELECT CASE WHEN ENTR_DT <= '20030612' THEN '001' ELSE '002' END 
+                     FROM   TBRK_USER_TEMP 
+                     WHERE  B.USER_ID = EMP_NO 
+                        AND CO_WRK_GBN = '001') AS WK_TERM_TYPE	-- 20130612기준 10년이상 근무자 여부
+                   ,E.CELPON_NO AS HP_NO
+                   ,D.CD_NM AS WK_JOB_NM
+			FROM  TBRF_APP_RST_MASTER A, TBRF_APP_RST_DETL B, 
+			      TBRK_USER_TEMP C, TBRK_SPEC_CD D, 
+			      USHUM.VW_EMP_ETC_D12@VENUSLINK E 
+			WHERE 1=1                                        
+			AND A.RSV_YEAR = ?                               
+			AND A.RSV_TMS  = ?                               
+			AND A.RSV_YEAR = B.RSV_YEAR                   
+			AND A.RSV_TMS  = B.RSV_TMS                     
+			AND A.RST_ID   = B.RST_ID                       
+			AND A.RST_SEQ  = B.RST_SEQ
+			AND B.APPR_YN = 'Y' -- 당첨자 여부
+			AND B.USER_ID = E.EMP_NO
+			AND B.USER_ID = C.EMP_NO
+			AND C.WK_JOB_CD = D.CD(+)
+			AND D.GRP_CD(+) = '156'
+			AND C.CO_WRK_GBN = '001'
+			ORDER BY A.RSV_YEAR, A.RSV_TMS, A.RST_ID, A.RST_SEQ, B.USER_ID 
+        ]]>
+    </query>       
+    
+    <query id="rbs8020_s03" desc="하계휴양소 기간별 내역 조회 " fetchSize="10">
+      <![CDATA[
+			SELECT   /* rbs8020_s03 */
+			         RSV_YEAR || LPAD(RSV_TMS,2,'0') AS CD,
+			         RSV_YEAR || '년 ' || RSV_TMS|| '차' AS DATA,
+			         RSV_YEAR,
+			         RSV_TMS
+			FROM     TBRF_APP_RST_INFO
+			ORDER BY CD DESC
+        ]]> 
+    </query>    
+    
+    
+    <query id="rbs8020_u01" desc="하계휴양소 추첨결과 저장 " fetchSize="10">
+      <![CDATA[
+           
+           UPDATE  /* rbs8020_u01 */      
+                   TBRF_APP_RST_DETL 
+           SET     APPR_YN    = ?
+                  ,WEIGHT_VAL = ?
+           WHERE   RSV_YEAR   = ?
+               AND RSV_TMS    = ?
+               AND USER_ID    = ?      
+        ]]>
+    </query>    
+        
+</queryMap>

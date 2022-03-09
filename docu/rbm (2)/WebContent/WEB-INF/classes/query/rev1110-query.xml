@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV1110(KCSI평가점수 등록)">
+    
+    <query id="rev1110_s01" desc="그리드조회" fetchSize="10">
+        <![CDATA[			
+			SELECT   /* rev1110_s01 */ 
+                     A.ESTM_YEAR,  
+                     A.ESTM_NUM,  
+                     A.DEPT_CD,
+                     A.DEPT_NM,  
+                     A.KCSI_ESTM_SCR, 	-- 부서별 KCSI평가점수
+                     A.SALES_ESTM_SCR  -- 부서별 매출실적 점수
+            FROM     TBRF_EV_DEPT A
+                    ,TBRF_EV_EMP B  
+            WHERE    1 = 1  
+            AND      A.ESTM_YEAR = B.ESTM_YEAR
+            AND      A.ESTM_NUM = B.ESTM_NUM
+            AND      A.DEPT_CD = B.ESTM_DEPT
+            AND      B.ESTM_ESC_GBN = 'Y' 
+            AND      A.ESTM_YEAR 	= ?        -- 1.년
+			AND      A.ESTM_NUM  	= ?        -- 2.회차 
+			GROUP BY  A.ESTM_YEAR,  
+                     A.ESTM_NUM,  
+                     A.DEPT_CD,
+                     A.DEPT_NM,  
+                     A.KCSI_ESTM_SCR,                  
+                     A.SALES_ESTM_SCR 
+            HAVING COUNT(*) > 0          
+            ORDER BY A.DEPT_CD
+        ]]>
+    </query>
+    
+    <query id="rev1110_s02" desc="부서별 평가자 조회" fetchSize="10">    
+        <![CDATA[   
+			SELECT   /* rev1110_s02 */ 
+                     A.ESTM_YEAR,  
+                     A.ESTM_NUM,  
+                     A.ESTM_DEPT AS DEPT_CD,  
+                     (SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.DEPT_CD) AS DEPT_NM,  
+                     (SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = (DECODE(A.ESTM_DEPT, NULL, A.DEPT_CD, A.ESTM_DEPT))) AS ESTM_DEPT_NM,  
+                     B.CNTR_ITM_CD,  
+                     B.CNTR_JOB_NM,  
+                     A.ESTM_WK_JOB,  
+                     (SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND WK_JOB_CD = A.ESTM_WK_JOB) AS WK_JOB_NM,  
+                     A.EMP_NO,  
+                     A.EMP_NM,  
+                     A.MULT_ESTM_GRP,
+                     CASE WHEN A.CO_WRK_GBN IN ('001', '002', '003') THEN 'Y' END AS CO_WRK,
+                     E.KCSI_ESTM_SCR,
+                     E.SALES_ESTM_SCR,
+                     NVL(A.COMM_NO, D.COMM_NO) ||
+                     (SELECT DIV_NM FROM TBRF_PC_DIV WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.ESTM_DEPT AND COMM_NO = NVL(A.COMM_NO, D.COMM_NO) AND DIV_NO = NVL(A.DIV_NO, D.DIV_NO) ) AS DIV_NM
+            FROM     TBRF_EV_EMP A  
+                    ,(SELECT A.ESTM_YEAR  
+                            ,A.ESTM_NUM  
+                            ,A.CNTR_ITM_CD  
+                            ,MIN(A.CNTR_JOB_NM) AS CNTR_JOB_NM  
+                            ,B.CNTR_ITM_DTL
+                        FROM TBRF_EV_JOB_ITEM A,
+                             TBRF_EV_JOB_ITM_DTL B  
+                       WHERE 1 = 1
+                         AND A.ESTM_ITEM_CD = '4'
+                         AND A.ESTM_ITEM_CD = B.ESTM_ITEM_CD
+                         AND A.CNTR_ITM_CD 	= B.CNTR_ITM_CD   
+                         AND A.ESTM_YEAR =  ?     --1.평가년도
+                         AND A.ESTM_NUM  =  ?     --2.평가회차
+                        GROUP BY A.ESTM_YEAR, A.ESTM_NUM, A.CNTR_ITM_CD, B.CNTR_ITM_DTL                   
+                     ) B  
+                     ,(SELECT
+                            D.ESTM_YEAR AS ESTM_YEAR,
+                            D.ESTM_NUM AS ESTM_NUM,
+                            B.EMP_NO AS EMP_NO,
+                            D.TICK_CD AS DIV_NO,
+                            D.BRNC_CD AS COMM_NO,
+                            B.TELLER_ID AS TELLER_ID,
+                            B.DEPT_CD AS DEPT_CD
+                        FROM  TBRF_EV_RELEA_RSLT B, TBRF_EV_RELEA_SPOT D
+                        WHERE 1 = 1
+                        AND B.ESTM_YEAR = D.ESTM_YEAR 
+                        AND B.ESTM_NUM = D.ESTM_NUM 
+                        AND D.TELLER_ID = B.TELLER_ID
+                        AND D.DEPT_CD = B.DEPT_CD
+                        AND D.ESTM_YEAR =  ?     --1.평가년도
+                        AND D.ESTM_NUM  =  ?     --2.평가회차
+                    ) D
+                    , TBRF_EV_DEPT E 
+            WHERE    1 = 1  
+            AND      A.ESTM_YEAR 	= B.ESTM_YEAR(+)  
+            AND      A.ESTM_NUM 	= B.ESTM_NUM(+)
+            AND      A.ESTM_WK_JOB 	= B.CNTR_ITM_DTL(+) 
+            AND      A.ESTM_ESC_GBN = 'Y'  
+            AND      A.PERM_TEMP_GBN = '002' 
+            AND      A.ESTM_YEAR 	= D.ESTM_YEAR(+)
+            AND      A.ESTM_NUM 	= D.ESTM_NUM(+)
+            AND      A.EMP_NO 		= D.EMP_NO(+)
+            AND      A.ESTM_DEPT 	= D.DEPT_CD(+)        
+            AND      A.ESTM_YEAR    = E.ESTM_YEAR
+            AND      A.ESTM_NUM     = E.ESTM_NUM
+            AND      A.DEPT_CD      = E.DEPT_CD                
+            AND      A.ESTM_YEAR 	= ?        -- 1.년
+			AND      A.ESTM_NUM  	= ?        -- 2.회차    
+            ORDER BY E.DEPT_CD, A.EMP_NO  
+        ]]>
+    </query> 
+   
+    <query id="rev1110_u01" desc="KCSI평가 및 매출기여도 점수 저장" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev1110_u01 */ 
+			         TBRF_EV_DEPT 
+			SET      KCSI_ESTM_SCR = ?,     	-- 1. KCSI평가점수  
+			         SALES_ESTM_SCR = ?,  	    -- 2. 매출기여도 점수
+	                 UPDT_ID       = ?,			-- 3. 사용자 ID		
+					 UPDT_DT       = SYSDATE
+            WHERE    ESTM_YEAR     = ?        	-- 4. 년
+            AND      ESTM_NUM      = ?        	-- 5. 회차
+            AND      DEPT_CD       = ?        	-- 6. 부서 
+        ]]>
+    </query>
+    
+
+    <query id="rev1110_u02" desc="서비스평가항목에 일괄 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rev1110_u02 */ 
+			       TBRF_EV_WK_SRV A
+			SET    KCSI_ESTM_SCR = (
+				           SELECT KCSI_ESTM_SCR
+				           FROM   TBRF_EV_DEPT B
+				           WHERE B.ESTM_YEAR = A.ESTM_YEAR
+				           AND   B.ESTM_NUM  = B.ESTM_NUM
+				           AND   B.DEPT_CD   = A.ESTM_DEPT)
+			WHERE  ESTM_YEAR = ?
+			AND    ESTM_NUM  = ?           
+
+        ]]>
+    </query>
+    
+    <query id="rev1110_u03" desc="근무실적평가항목에 일괄 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rev1110_u02 */ 
+			       TBRF_EV_WK_PRM A
+			SET    FST_RELEA_RSLT = (
+				           SELECT SALES_ESTM_SCR
+				           FROM   TBRF_EV_DEPT B
+				           WHERE B.ESTM_YEAR = A.ESTM_YEAR
+				           AND   B.ESTM_NUM  = B.ESTM_NUM
+				           AND   B.DEPT_CD   = A.ESTM_DEPT)
+			WHERE  ESTM_YEAR = ?
+			AND    ESTM_NUM  = ?           
+
+        ]]>
+    </query>
+    
+</queryMap>

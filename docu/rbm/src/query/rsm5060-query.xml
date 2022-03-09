@@ -1,0 +1,723 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm5060(기타소득세 검증)">
+    <query id="rsm5060_i01" desc="기타소득세 추가" fetchSize="10">
+      <![CDATA[
+            INSERT INTO TBRD_GITA_CNTNT (   --기타소득세내역
+                /* rsm5060_i01 */
+                
+                 SELL_CD        --운영처
+				,MEET_CD        --경륜장코드
+				,PERF_NO        --퍼포먼스번호
+				,BRNC_CD        --발매지점
+				,DIV_NO         --투표소
+				
+				,REFUND_AMT     --환급금액
+				,SELL_AMT       --판매금액
+				,TSN_NO         --경주권번호
+				,PAY_AMT        --지급금액
+				,COST           --필요경비
+				
+				,INCO_TAX       --소득세
+				,INHA_TAX       --주민세
+				,DIF_PAY_AMT    --차인지급액
+				,PAY_YEAR       --지급년도
+				,PAY_MM         --지급월
+				
+				,INST_ID        --작성자
+				,INST_DT        --작성일시
+            )
+            VALUES (
+                 ?        --SELL_CD
+                ,?        --MEET_CD
+                ,?        --PERF_NO
+                ,?        --BRNC_CD
+                ,?        --DIV_NO
+                
+                ,?        --REFUND_AMT
+                ,?        --SELL_AMT
+                ,?        --TSN
+                ,?        --PAY_AMT
+                ,?        --COST
+                
+                ,?        --INCO_TAX
+                ,?        --INHA_TAX
+                ,?        --DIF_PAY_AMT
+                ,?        --PAY_YEAR
+                ,?        --PAY_MM
+                
+                ,?        --INST_ID
+                ,SYSDATE  --INST_DT
+            )
+        ]]>
+    </query>
+    
+    <query id="rsm5060_i02" desc="기타소득세(그린카드) 추가" fetchSize="10">
+      <![CDATA[
+			INSERT      /* rsm5060_i02 */
+			            INTO  TBJI_PC_GITA_GRN
+			            (MEET_CD, SELL_CD, TSN,      PAY_YEAR,  PAY_MM,     PERF_NO, 
+			             COMM_NO, DIV_NO,  REFUND,   SELL_AMT,  JIGEUP_AMT, COST, 
+			             GITA1,   GITA2,   GITA_PAY, JIGEUP_DT, INST_ID,    INST_DT)
+			SELECT A.C_MEET_NO AS MEET_CD,
+			            C.C_ASSOC_NO AS SELL_CD, 
+			            SUBSTR(UPPER(S_TSN_NO),1,4)||'-'||SUBSTR(UPPER(S_TSN_NO),5,4)||'-'||SUBSTR(UPPER(S_TSN_NO),9,4) AS TSN,
+			            SUBSTR(B.C_RACE_DATE,1,4) AS PAY_YEAR,
+			            SUBSTR(B.C_RACE_DATE,5,2) AS PAY_MM,
+			            NULL AS PERF_NO, 
+			            C_COMM_NO AS COMM_NO,
+			            '01' AS DIV_NO,
+			            NULL AS REFUND,
+			            NULL AS SELL_AMT,
+			            N_GITA_PAYOFF_AMT+N_GITA1_AMT + N_GITA2_AMT AS JIGRUP_AMT,    --지급금액
+			            N_WINNING_AMT AS COST,  			--필요경비 
+			            N_GITA1_AMT AS GITA1,    			--기타소득세
+			            N_GITA2_AMT AS GITA2,       		--주민세
+			            N_GITA_PAYOFF_AMT AS GITA_PAY,       --차인지급액
+			            TO_CHAR(A.D_ATL_DATE,'YYYYMMDD') AS JIGEUP_DT,
+			            ? AS INST_ID,
+			            SYSDATE AS INST_DT
+			FROM T_CAT_BUYING@CYBETLINK A,
+			         T_RACE_INFO@CYBETLINK B,
+			         T_CODE@CYBETLINK C
+			WHERE N_GITA_PAYOFF_AMT > 0
+			AND     A.C_RACE_CODE = B.C_RACE_CODE
+			AND     C.c_big_code = '68'
+			AND     A.C_MAIN_CODE = C.C_SMALL_CODE
+			AND    TO_CHAR(D_ATL_DATE, 'YYYYMMDD') LIKE ?||'%'
+                
+        ]]>
+    </query>
+    
+    <query id="rsm5060_s01" desc="기타소득세 검증 조회" fetchSize="10">
+      <![CDATA[
+      		SELECT	/* rsm5060_s01 */
+				CHK_VALID		-- 일치, 불일치
+				, PC_MEET_CD            --경륜장코드
+				, PC_SELL_CD            --운영처코드
+				, PC_TSN                    --경주권번호
+				, PC_PAY_YEAR          --지급년도
+				, PC_PAY_MM              --지급월		            
+				, PC_PERF_NO            --퍼포먼스번호
+				, PC_DIV_NO              --투표소
+				, PC_COMM_NO            --발매지점
+				, CC.CD_NM AS PC_BRNC_NM	--발매지점 이름								
+				, PC_REFUND              --환급금액
+				, PC_SELL_AMT          --판매금액
+				, PC_JIGEUP_AMT      --지급금액
+				, PC_COST                  --필요경비
+				, PC_GITA1                --소득세
+				, PC_GITA2                --주민세
+				, PC_GITA_PAY          --차인지급액
+				, GITA_MEET_CD          --경륜장코드
+				, GITA_SELL_CD          --운영처코드
+				, GITA_TSN_NO            --경주권번호
+				, GITA_PAY_YEAR        --지급년도
+				, GITA_PAY_MM            --지급월
+				, GITA_PERF_NO          --퍼포먼스번호
+				, GITA_DIV_NO            --투표소
+				, GITA_BRNC_CD          --발매지점
+				, GITA_REFUND_AMT    --환급금액
+				, GITA_SELL_AMT        --판매금액
+				, GITA_PAY_AMT          --지급금액
+				, GITA_COST                --필요경비
+				, GITA_INCO_TAX        --소득세
+				, GITA_INHA_TAX        --주민세
+				, GITA_DIF_PAY_AMT  --차인지급액
+				, PAY_YEAR   --지급년도
+				, PAY_MM     --지급월
+      		
+      		FROM
+      		(
+	            SELECT  /* rsm5060_s01 */ 
+	                    DECODE(
+						    DECODE(A.MEET_CD || A.SELL_CD || A.TSN    || A.PAY_YEAR || A.PAY_MM || A.DIV_NO || A.COMM_NO,
+						           B.MEET_CD || B.SELL_CD || B.TSN_NO || B.PAY_YEAR || B.PAY_MM || B.DIV_NO || B.BRNC_CD, 0, 1)+ 
+						    DECODE(A.JIGEUP_AMT + A.COST + A.GITA1    + A.GITA2    + A.GITA_PAY,
+						           B.PAY_AMT    + B.COST + B.INCO_TAX + B.INHA_TAX + B.DIF_PAY_AMT, 0, 1), 0, '001', '002') AS CHK_VALID   
+			            
+			            ,A.MEET_CD AS PC_MEET_CD            --경륜장코드
+			            ,A.SELL_CD AS PC_SELL_CD            --운영처코드
+			            ,A.TSN AS PC_TSN                    --경주권번호
+			            ,A.PAY_YEAR AS PC_PAY_YEAR          --지급년도
+			            ,A.PAY_MM AS PC_PAY_MM              --지급월
+			            
+			            ,A.PERF_NO AS PC_PERF_NO            --퍼포먼스번호
+			            ,A.DIV_NO AS PC_DIV_NO              --투표소
+			            ,A.COMM_NO AS PC_COMM_NO            --발매지점
+			            ,A.REFUND AS PC_REFUND              --환급금액
+			            ,A.SELL_AMT AS PC_SELL_AMT          --판매금액
+			            
+			            ,A.JIGEUP_AMT AS PC_JIGEUP_AMT      --지급금액
+			            ,A.COST AS PC_COST                  --필요경비
+			            ,A.GITA1 AS PC_GITA1                --소득세
+			            ,A.GITA2 AS PC_GITA2                --주민세
+			            ,A.GITA_PAY AS PC_GITA_PAY          --차인지급액
+			
+			            ,B.MEET_CD AS GITA_MEET_CD          --경륜장코드
+			            ,B.SELL_CD AS GITA_SELL_CD          --운영처코드
+			            ,B.TSN_NO AS GITA_TSN_NO            --경주권번호
+			            ,B.PAY_YEAR AS GITA_PAY_YEAR        --지급년도
+			            ,B.PAY_MM AS GITA_PAY_MM            --지급월
+			            
+			            ,B.PERF_NO AS GITA_PERF_NO          --퍼포먼스번호
+			            ,B.DIV_NO AS GITA_DIV_NO            --투표소
+			            ,B.BRNC_CD AS GITA_BRNC_CD          --발매지점
+			            ,B.REFUND_AMT AS GITA_REFUND_AMT    --환급금액
+			            ,B.SELL_AMT AS GITA_SELL_AMT        --판매금액
+			            
+			            ,B.PAY_AMT AS GITA_PAY_AMT          --지급금액
+			            ,B.COST AS GITA_COST                --필요경비
+			            ,B.INCO_TAX AS GITA_INCO_TAX        --소득세
+			            ,B.INHA_TAX AS GITA_INHA_TAX        --주민세
+			            ,B.DIF_PAY_AMT AS GITA_DIF_PAY_AMT  --차인지급액
+			            
+			            ,A.PAY_YEAR   --지급년도
+			            ,A.PAY_MM     --지급월
+			     
+			      FROM  (SELECT  *
+			               FROM  TBJI_PC_GITA 
+			              WHERE  1=1
+			                AND  PAY_YEAR = ?
+			                AND  PAY_MM   = ?
+			                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+			                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+			            ) A
+			            
+			            FULL OUTER JOIN
+			            
+			            (SELECT  *
+			               FROM  TBRD_GITA_CNTNT
+			              WHERE  1=1
+			                AND  PAY_YEAR = ?
+			                AND  PAY_MM   = ?
+			                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+			                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+			            ) B
+			              
+			                ON (
+			                      A.MEET_CD  = B.MEET_CD
+			                  AND A.SELL_CD  = B.SELL_CD 
+			                  AND A.TSN      = B.TSN_NO
+			                  AND A.PAY_YEAR = B.PAY_YEAR
+			                  AND A.PAY_MM   = B.PAY_MM)
+			     WHERE  1=1 
+			)AA,
+			(
+			SELECT CD,CD_NM
+                 FROM 
+                 	TBRK_SPEC_CD C                      
+                 WHERE  1=1    
+                 	AND C.GRP_CD IN ('018')
+			)CC
+			WHERE 1=1
+			AND AA.PC_COMM_NO=CC.CD(+)
+			AND CHK_VALID = '002'	-- 불일치 건수만 조회
+        ]]>
+    </query>
+    
+    <query id="rsm5060_s02" desc="기타소득세 일치여부 조회(0:일치 0초과:불일치)" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rsm5060_s02 */
+                        SUM(ERR_CHECK.CHK_VALID) AS CNT
+              FROM (
+                        SELECT  
+                                 DECODE(
+                                    DECODE(A.MEET_CD || A.SELL_CD || A.TSN    || A.PAY_YEAR || A.PAY_MM || A.DIV_NO || A.COMM_NO,
+                                           B.MEET_CD || B.SELL_CD || B.TSN_NO || B.PAY_YEAR || B.PAY_MM || B.DIV_NO || B.BRNC_CD, 0, 1)+ 
+                                    DECODE( A.JIGEUP_AMT + A.COST + A.GITA1    + A.GITA2    + A.GITA_PAY,
+                                             B.PAY_AMT    + B.COST + B.INCO_TAX + B.INHA_TAX + B.DIF_PAY_AMT, 0, 1), 0, 0, 1) AS CHK_VALID
+                          
+                          FROM  (SELECT
+                                         *
+                                   FROM  TBJI_PC_GITA 
+                                  WHERE  1=1
+                                    AND  PAY_YEAR = ?
+                                    AND  PAY_MM   = ? 
+                                ) A          
+                          
+                                FULL OUTER JOIN 
+                                
+                                (SELECT  *
+                                   FROM  TBRD_GITA_CNTNT 
+                                  WHERE  1=1
+                                    AND  PAY_YEAR = ?
+                                    AND  PAY_MM   = ? 
+                                 )B 
+                                          ON (
+                                              A.MEET_CD  = B.MEET_CD
+                                          AND A.SELL_CD  = B.SELL_CD 
+                                          AND A.TSN      = B.TSN_NO
+                                          AND A.PAY_YEAR = B.PAY_YEAR
+                                          AND A.PAY_MM   = B.PAY_MM  )
+                         WHERE  1=1
+                  ) ERR_CHECK
+        ]]>
+    </query>
+    
+    <query id="rsm5060_s03" desc="년도/월의 기타소득세 개수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rsm5060_s03 */
+                COUNT(*) AS CNT
+              FROM  TBJI_PC_GITA
+             WHERE  1=1
+               AND  PAY_YEAR = ?
+               AND  PAY_MM   = ?
+        ]]>
+    </query>
+    
+    <query id="rsm5060_s04" desc="기타소득세 년도 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /*rsm5060_s04*/
+                A.START_YEAR - 1 + LEVEL AS STND_YEAR 
+               
+               
+              FROM
+                     (SELECT  
+                             NVL(MIN(PAY_YEAR), TO_CHAR(SYSDATE, 'yyyy')) AS START_YEAR       
+                            ,NVL(MAX(PAY_YEAR), TO_CHAR(SYSDATE, 'yyyy')) AS END_YEAR
+                       FROM  TBJI_PC_GITA --기타소득세내역          
+                      WHERE  1=1) A
+             
+             WHERE  1=1
+        CONNECT BY  LEVEL <= (A.END_YEAR - START_YEAR + 1)
+          ORDER BY  STND_YEAR DESC
+        ]]>
+    </query>
+    
+    <query id="rsm5060_s05" desc="확정여부 조회" fetchSize="10">
+      <![CDATA[
+              SELECT  /* rsm5060_s05 */
+                      CFM_CD
+			    FROM  TBRD_GITA_CFM_CNTNT
+			   WHERE  1=1
+			     AND  PAY_YEAR = ?
+			     AND  PAY_MM   = ?
+			     AND  CFM_CD IS NOT NULL
+			GROUP BY  CFM_CD
+        ]]>
+    </query>
+    
+    <query id="rsm5060_s06" desc="확정여부 조회" fetchSize="10">
+      <![CDATA[
+              SELECT  /* rsm5060_s05 */
+                      COUNT(CFM_CD) AS CFMCNT
+			    FROM  TBRD_GITA_CFM_CNTNT
+			   WHERE  1=1
+			     AND  PAY_YEAR = ?
+			     AND  PAY_MM   = ?
+			     AND  (CFM_CD IS NOT NULL OR CFM_CD <> '002') 			
+        ]]>
+    </query>
+    
+    <query id="rsm5060_u01" desc="그린카드DB의 지점코드로 분리" fetchSize="10">
+      <![CDATA[
+				UPDATE /* rsm5060_u01 */
+				       TBRD_GITA_CNTNT A
+				SET (SELL_CD, BRNC_CD) = 
+				                   (SELECT SELL_CD, DECODE(B.SELL_CD, '03','98', B.COMM_NO)
+				                           FROM TBJI_PC_GITA_GRN B 
+				                           WHERE  A.PAY_YEAR = B.PAY_YEAR 
+				                           AND A.PAY_MM = B.PAY_MM
+				                           AND A.MEET_CD = B.MEET_CD
+				                           AND A.TSN_NO = B.TSN
+				                    )
+				      ,DIV_NO = '01' 
+				      ,UPDT_ID = ?
+				      ,UPDT_DT = SYSDATE
+				WHERE PAY_YEAR = ?
+				AND    PAY_MM  = ?
+				AND    BRNC_CD = '06'			
+        ]]>
+    </query>
+    
+    <query id="rsm5060_d01" desc="입력받은 년도/월의 기타소득세 삭제" fetchSize="10">
+      <![CDATA[
+            DELETE  /* rsm5060_d01 */
+              FROM  TBRD_GITA_CNTNT  --기타소득세 내역
+             WHERE  1=1
+               AND  PAY_YEAR = ?
+               AND  PAY_MM   = ?
+        ]]>
+    </query>
+     <query id="rsm5060_d02" desc="입력받은 년도/월의 기타소득세 삭제(확정취소)" fetchSize="10">
+      <![CDATA[
+            DELETE  /* rsm5060_d02 */
+              FROM  TBRD_GITA_CFM_CNTNT  --기타소득세 내역
+             WHERE  1=1
+               AND  PAY_YEAR = ?
+               AND  PAY_MM   = ?
+        ]]>
+    </query>
+    
+    <query id="rsm5060_d03" desc="입력받은 년도/월의 기타소득세 삭제" fetchSize="10">
+      <![CDATA[
+            DELETE  /* rsm5060_d03 */
+              FROM  TBJI_PC_GITA_GRN  --기타소득세 내역(그린카드)
+             WHERE  1=1
+               AND  PAY_YEAR = ?
+               AND  PAY_MM   = ?
+        ]]>
+    </query>
+    <query id="rsm5060_m01" desc="기타소득세 확정내역 입력,수정" fetchSize="10">
+      <![CDATA[
+            MERGE INTO TBRD_GITA_CFM_CNTNT A  --기타소득세 확정내역
+                    /* rsm5060_m01 */
+            USING
+                    (SELECT
+                             ? AS MEET_CD     --경륜장코드
+                            ,? AS SELL_CD     --운영처코드
+                            ,? AS TSN         --경주권번호
+                            ,? AS PAY_YEAR    --지급년도
+                            ,? AS PAY_MM      --지급월
+                            
+                            ,? AS CFM_CD      --확정코드
+                            ,? AS INST_ID     --작성자
+                            ,? AS UPDT_ID     --수정자
+    
+                       FROM    DUAL ) B
+                ON (
+                        A.MEET_CD  = B.MEET_CD    --경륜장코드
+                    AND A.SELL_CD  = B.SELL_CD    --운영처코드
+                    -- AND A.TSN_NO   = B.TSN        --경주권번호
+                    AND A.PAY_YEAR = B.PAY_YEAR   --지급년도
+                    AND A.PAY_MM   = B.PAY_MM     --지급월
+            )
+            
+            WHEN MATCHED THEN
+                UPDATE SET 
+                     A.CFM_CD  = B.CFM_CD    --확정코드
+                    ,A.UPDT_ID = B.UPDT_ID   --수정자
+                    ,A.UPDT_DT = SYSDATE     --수정일시
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+            
+                     A.MEET_CD      --경륜장코드
+                    ,A.SELL_CD      --운영처코드
+                    -- ,A.TSN_NO       --경주권번호
+                    ,A.PAY_YEAR     --지급년도
+                    ,A.PAY_MM       --지급월
+                    
+                    ,A.CFM_CD       --확정코드
+                    ,A.INST_ID      --작성자
+                    ,A.INST_DT      --작성일자
+                    
+                ) VALUES (
+                     B.MEET_CD      --경륜장코드
+                    ,B.SELL_CD      --운영처코드
+                    -- ,B.TSN          --경주권번호
+                    ,B.PAY_YEAR     --지급년도
+                    ,B.PAY_MM       --지급월
+                    
+                    ,'001'          --확정코드
+                    ,B.INST_ID      --작성자
+                    ,SYSDATE        --작성일자
+                )
+        ]]>
+    </query>
+    
+   
+    
+    <query id="rsm5060_s07" desc="기타소득세 검증 조회" fetchSize="10">
+      <![CDATA[
+	      SELECT /* rsm5060_s07 */
+	      		DECODE(
+		    	    DECODE(A.MEET_CD || A.SELL_CD || A.TSN    || A.PAY_YEAR || A.PAY_MM || A.DIV_NO || A.COMM_NO,
+		    	           B.MEET_CD || B.SELL_CD || B.TSN_NO || B.PAY_YEAR || B.PAY_MM || B.DIV_NO || B.BRNC_CD, 0, 1)+ 
+		    	    DECODE( A.JIGEUP_AMT + A.COST + A.GITA1    + A.GITA2    + A.GITA_PAY,
+		    	             B.PAY_AMT    + B.COST + B.INCO_TAX + B.INHA_TAX + B.DIF_PAY_AMT, 0, 1), 0, '001', '002') AS CHK_VALID   
+		        
+		        ,A.MEET_CD AS PC_MEET_CD            --경륜장코드
+		        ,A.SELL_CD AS PC_SELL_CD            --운영처코드
+		        ,A.TSN AS PC_TSN                    --경주권번호
+		        ,A.PAY_YEAR AS PC_PAY_YEAR          --지급년도
+		        ,A.PAY_MM AS PC_PAY_MM              --지급월
+		        
+		        ,A.PERF_NO AS PC_PERF_NO            --퍼포먼스번호
+		        ,A.DIV_NO AS PC_DIV_NO              --투표소
+		        ,A.COMM_NO AS PC_COMM_NO            --발매지점
+		        ,A.REFUND AS PC_REFUND              --환급금액
+		        ,A.SELL_AMT AS PC_SELL_AMT          --판매금액
+		        
+		        ,A.JIGEUP_AMT AS PC_JIGEUP_AMT      --지급금액
+		        ,A.COST AS PC_COST                  --필요경비
+		        ,A.GITA1 AS PC_GITA1                --소득세
+		        ,A.GITA2 AS PC_GITA2                --주민세
+		        ,A.GITA_PAY AS PC_GITA_PAY          --차인지급액
+		    
+		        ,B.MEET_CD AS GITA_MEET_CD          --경륜장코드
+		        ,B.SELL_CD AS GITA_SELL_CD          --운영처코드
+		        ,B.TSN_NO AS GITA_TSN_NO            --경주권번호
+		        ,B.PAY_YEAR AS GITA_PAY_YEAR        --지급년도
+		        ,B.PAY_MM AS GITA_PAY_MM            --지급월
+		        
+		        ,B.PERF_NO AS GITA_PERF_NO          --퍼포먼스번호
+		        ,B.DIV_NO AS GITA_DIV_NO            --투표소
+		        ,B.BRNC_CD AS GITA_BRNC_CD          --발매지점
+		        ,B.REFUND_AMT AS GITA_REFUND_AMT    --환급금액
+		        ,B.SELL_AMT AS GITA_SELL_AMT        --판매금액
+		        
+		        ,B.PAY_AMT AS GITA_PAY_AMT          --지급금액
+		        ,B.COST AS GITA_COST                --필요경비
+		        ,B.INCO_TAX AS GITA_INCO_TAX        --소득세
+		        ,B.INHA_TAX AS GITA_INHA_TAX        --주민세
+		        ,B.DIF_PAY_AMT AS GITA_DIF_PAY_AMT  --차인지급액
+		        
+		        ,A.PAY_YEAR   --지급년도
+		        ,A.PAY_MM     --지급월
+		 FROM TBRD_GITA_CNTNT B, TBJI_PC_GITA A
+		WHERE 1=1
+		  AND B.MEET_CD  = A.MEET_CD(+)
+		  AND B.SELL_CD  = A.SELL_CD(+)
+		  AND B.TSN_NO   = A.TSN(+)
+		  AND B.PAY_YEAR = A.PAY_YEAR(+)
+		  AND B.PAY_MM   = A.PAY_MM(+)
+		  AND B.MEET_CD	LIKE '%' || NVL(?, B.MEET_CD) || '%'	-- 0:MEET_CD	경륜 경정 구분 코드
+		  AND B.SELL_CD	LIKE '%' || NVL(?, B.SELL_CD) || '%'	-- 1:SELL_CD 
+		  AND B.PAY_YEAR = ?	-- 2:PAY_YEAR	년도	
+          AND B.PAY_MM   = ?	-- 3:PAY_MM		월
+       ]]>
+    </query>
+    
+    
+    <query id="rsm5060_s08" desc="지급조서 일치,불일치 건수 조회" fetchSize="10">
+      <![CDATA[
+	      	SELECT /* rsm5060_s08 */
+		  	 	 COUNT(CASE WHEN CHK_VALID='001' THEN CHK_VALID END) AS CNT_CHK_VALID_T,
+			     COUNT(CASE WHEN CHK_VALID='002' THEN CHK_VALID END) AS CNT_CHK_VALID_F
+			FROM 
+			(   
+			      SELECT   
+                    DECODE(
+					    DECODE(A.MEET_CD || A.SELL_CD || A.TSN    || A.PAY_YEAR || A.PAY_MM || A.DIV_NO || A.COMM_NO,
+					           B.MEET_CD || B.SELL_CD || B.TSN_NO || B.PAY_YEAR || B.PAY_MM || B.DIV_NO || B.BRNC_CD, 0, 1)+ 
+					    DECODE( A.JIGEUP_AMT + A.COST + A.GITA1    + A.GITA2    + A.GITA_PAY,
+					             B.PAY_AMT    + B.COST + B.INCO_TAX + B.INHA_TAX + B.DIF_PAY_AMT, 0, 1), 0, '001', '002') AS CHK_VALID
+		            
+				      FROM  (SELECT  *
+				               FROM  TBJI_PC_GITA 
+				              WHERE  1=1
+				                AND  PAY_YEAR = ?
+				                AND  PAY_MM   = ?
+				                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+				                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+				            ) A
+				            
+				            FULL OUTER JOIN
+				            
+				            (SELECT  *
+				               FROM  TBRD_GITA_CNTNT
+				              WHERE  1=1
+				                AND  PAY_YEAR = ?
+				                AND  PAY_MM   = ?
+				                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+				                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+				            ) B
+				              
+				                ON (
+				                      A.MEET_CD  = B.MEET_CD
+				                  AND A.SELL_CD  = B.SELL_CD 
+				                  AND A.TSN      = B.TSN_NO
+				                  AND A.PAY_YEAR = B.PAY_YEAR
+				                  AND A.PAY_MM   = B.PAY_MM)
+				     WHERE  1=1 
+		       )
+          
+       ]]>
+    </query>
+    
+    
+    <query id="rsm5060_s09" desc="지급조서 확정시킬 일치 건수 조회" fetchSize="10">
+      <![CDATA[
+	      	SELECT	/* rsm5060_s09 */
+	        	DISTINCT
+					CHK_VALID		-- 일치, 불일치
+					, PC_MEET_CD            --경륜장코드
+					, PC_SELL_CD            --운영처코드
+					, PC_PAY_YEAR          --지급년도
+					, PC_PAY_MM              --지급월
+      		FROM
+      		(
+	            SELECT   
+	                    DECODE(
+						    DECODE(A.MEET_CD || A.SELL_CD || A.TSN    || A.PAY_YEAR || A.PAY_MM || A.DIV_NO || A.COMM_NO,
+						           B.MEET_CD || B.SELL_CD || B.TSN_NO || B.PAY_YEAR || B.PAY_MM || B.DIV_NO || B.BRNC_CD, 0, 1)+ 
+						    DECODE( A.JIGEUP_AMT + A.COST + A.GITA1    + A.GITA2    + A.GITA_PAY,
+						             B.PAY_AMT    + B.COST + B.INCO_TAX + B.INHA_TAX + B.DIF_PAY_AMT, 0, 1), 0, '001', '002') AS CHK_VALID   
+			            
+			            ,A.MEET_CD AS PC_MEET_CD            --경륜장코드
+			            ,A.SELL_CD AS PC_SELL_CD            --운영처코드
+			            ,A.TSN AS PC_TSN                    --경주권번호
+			            ,A.PAY_YEAR AS PC_PAY_YEAR          --지급년도
+			            ,A.PAY_MM AS PC_PAY_MM              --지급월
+			            
+			            ,A.PERF_NO AS PC_PERF_NO            --퍼포먼스번호
+			            ,A.DIV_NO AS PC_DIV_NO              --투표소
+			            ,A.COMM_NO AS PC_COMM_NO            --발매지점
+			            ,A.REFUND AS PC_REFUND              --환급금액
+			            ,A.SELL_AMT AS PC_SELL_AMT          --판매금액
+			            
+			            ,A.JIGEUP_AMT AS PC_JIGEUP_AMT      --지급금액
+			            ,A.COST AS PC_COST                  --필요경비
+			            ,A.GITA1 AS PC_GITA1                --소득세
+			            ,A.GITA2 AS PC_GITA2                --주민세
+			            ,A.GITA_PAY AS PC_GITA_PAY          --차인지급액
+			
+			            ,B.MEET_CD AS GITA_MEET_CD          --경륜장코드
+			            ,B.SELL_CD AS GITA_SELL_CD          --운영처코드
+			            ,B.TSN_NO AS GITA_TSN_NO            --경주권번호
+			            ,B.PAY_YEAR AS GITA_PAY_YEAR        --지급년도
+			            ,B.PAY_MM AS GITA_PAY_MM            --지급월
+			            
+			            ,B.PERF_NO AS GITA_PERF_NO          --퍼포먼스번호
+			            ,B.DIV_NO AS GITA_DIV_NO            --투표소
+			            ,B.BRNC_CD AS GITA_BRNC_CD          --발매지점
+			            ,B.REFUND_AMT AS GITA_REFUND_AMT    --환급금액
+			            ,B.SELL_AMT AS GITA_SELL_AMT        --판매금액
+			            
+			            ,B.PAY_AMT AS GITA_PAY_AMT          --지급금액
+			            ,B.COST AS GITA_COST                --필요경비
+			            ,B.INCO_TAX AS GITA_INCO_TAX        --소득세
+			            ,B.INHA_TAX AS GITA_INHA_TAX        --주민세
+			            ,B.DIF_PAY_AMT AS GITA_DIF_PAY_AMT  --차인지급액
+			            
+			            ,A.PAY_YEAR   --지급년도
+			            ,A.PAY_MM     --지급월
+			     
+			      FROM  (SELECT  *
+			               FROM  TBJI_PC_GITA 
+			              WHERE  1=1
+			                AND  PAY_YEAR = ?
+			                AND  PAY_MM   = ?
+			                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+			                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+			            ) A
+			            
+			            FULL OUTER JOIN
+			            
+			            (SELECT  *
+			               FROM  TBRD_GITA_CNTNT
+			              WHERE  1=1
+			                AND  PAY_YEAR = ?
+			                AND  PAY_MM   = ?
+			                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+			                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+			            ) B
+			              
+			                ON (
+			                      A.MEET_CD  = B.MEET_CD
+			                  AND A.SELL_CD  = B.SELL_CD 
+			                  AND A.TSN      = B.TSN_NO
+			                  AND A.PAY_YEAR = B.PAY_YEAR
+			                  AND A.PAY_MM   = B.PAY_MM)
+			     WHERE  1=1 
+			)AA,
+			(
+			SELECT CD,CD_NM
+                 FROM 
+                 	TBRK_SPEC_CD C                      
+                 WHERE  1=1    
+                 	AND C.GRP_CD IN ('018')
+			)CC
+			WHERE 1=1
+			AND AA.PC_COMM_NO=CC.CD(+)
+			AND CHK_VALID = '001'	-- 일치 건수만 조회
+       ]]>
+    </query>
+    
+    
+    <query id="rsm5060_s10" desc="지급조서 일치 건수 조회" fetchSize="10">
+      <![CDATA[
+	      	SELECT	/* rsm5060_s10 */
+	      		COUNT(CHK_VALID) AS CNT
+      		FROM
+      		(
+	            SELECT   
+	                    DECODE(
+						    DECODE(A.MEET_CD || A.SELL_CD || A.TSN    || A.PAY_YEAR || A.PAY_MM || A.DIV_NO || A.COMM_NO,
+						           B.MEET_CD || B.SELL_CD || B.TSN_NO || B.PAY_YEAR || B.PAY_MM || B.DIV_NO || B.BRNC_CD, 0, 1)+ 
+						    DECODE( A.JIGEUP_AMT + A.COST + A.GITA1    + A.GITA2    + A.GITA_PAY,
+						             B.PAY_AMT    + B.COST + B.INCO_TAX + B.INHA_TAX + B.DIF_PAY_AMT, 0, 1), 0, '001', '002') AS CHK_VALID   
+			            
+			            ,A.MEET_CD AS PC_MEET_CD            --경륜장코드
+			            ,A.SELL_CD AS PC_SELL_CD            --운영처코드
+			            ,A.TSN AS PC_TSN                    --경주권번호
+			            ,A.PAY_YEAR AS PC_PAY_YEAR          --지급년도
+			            ,A.PAY_MM AS PC_PAY_MM              --지급월
+			            
+			            ,A.PERF_NO AS PC_PERF_NO            --퍼포먼스번호
+			            ,A.DIV_NO AS PC_DIV_NO              --투표소
+			            ,A.COMM_NO AS PC_COMM_NO            --발매지점
+			            ,A.REFUND AS PC_REFUND              --환급금액
+			            ,A.SELL_AMT AS PC_SELL_AMT          --판매금액
+			            
+			            ,A.JIGEUP_AMT AS PC_JIGEUP_AMT      --지급금액
+			            ,A.COST AS PC_COST                  --필요경비
+			            ,A.GITA1 AS PC_GITA1                --소득세
+			            ,A.GITA2 AS PC_GITA2                --주민세
+			            ,A.GITA_PAY AS PC_GITA_PAY          --차인지급액
+			
+			            ,B.MEET_CD AS GITA_MEET_CD          --경륜장코드
+			            ,B.SELL_CD AS GITA_SELL_CD          --운영처코드
+			            ,B.TSN_NO AS GITA_TSN_NO            --경주권번호
+			            ,B.PAY_YEAR AS GITA_PAY_YEAR        --지급년도
+			            ,B.PAY_MM AS GITA_PAY_MM            --지급월
+			            
+			            ,B.PERF_NO AS GITA_PERF_NO          --퍼포먼스번호
+			            ,B.DIV_NO AS GITA_DIV_NO            --투표소
+			            ,B.BRNC_CD AS GITA_BRNC_CD          --발매지점
+			            ,B.REFUND_AMT AS GITA_REFUND_AMT    --환급금액
+			            ,B.SELL_AMT AS GITA_SELL_AMT        --판매금액
+			            
+			            ,B.PAY_AMT AS GITA_PAY_AMT          --지급금액
+			            ,B.COST AS GITA_COST                --필요경비
+			            ,B.INCO_TAX AS GITA_INCO_TAX        --소득세
+			            ,B.INHA_TAX AS GITA_INHA_TAX        --주민세
+			            ,B.DIF_PAY_AMT AS GITA_DIF_PAY_AMT  --차인지급액
+			            
+			            ,A.PAY_YEAR   --지급년도
+			            ,A.PAY_MM     --지급월
+			     
+			      FROM  (SELECT  *
+			               FROM  TBJI_PC_GITA 
+			              WHERE  1=1
+			                AND  PAY_YEAR = ?
+			                AND  PAY_MM   = ?
+			                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+			                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+			            ) A
+			            
+			            FULL OUTER JOIN
+			            
+			            (SELECT  *
+			               FROM  TBRD_GITA_CNTNT
+			              WHERE  1=1
+			                AND  PAY_YEAR = ?
+			                AND  PAY_MM   = ?
+			                AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+			                AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+			            ) B
+			              
+			                ON (
+			                      A.MEET_CD  = B.MEET_CD
+			                  AND A.SELL_CD  = B.SELL_CD 
+			                  AND A.TSN      = B.TSN_NO
+			                  AND A.PAY_YEAR = B.PAY_YEAR
+			                  AND A.PAY_MM   = B.PAY_MM)
+			     WHERE  1=1 
+			)AA,
+			(
+			SELECT CD,CD_NM
+                 FROM 
+                 	TBRK_SPEC_CD C                      
+                 WHERE  1=1    
+                 	AND C.GRP_CD IN ('018')
+			)CC
+			WHERE 1=1
+			AND AA.PC_COMM_NO=CC.CD(+)
+			AND CHK_VALID = '001'	-- 일치 건수만 조회
+       ]]>
+    </query>
+    
+</queryMap>

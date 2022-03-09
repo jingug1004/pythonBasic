@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbo2020(올림픽 일일매표 관리)">
+    <query id="rbo2020_s01" desc="일일매표 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo2020_s01 */
+                 '0' AS CHK
+                 
+                ,SALES_DT   --판매일자
+                ,BRNC_CD    --지점코드
+                ,SALES_NO   --판매번호
+                ,AREA       --구역
+                ,SEAT_NO    --좌석번호
+                
+                ,UNIT_PRICE --단가
+                ,CUST_KD_CD --고객구분코드
+                ,SAVE_AMT   --입금액
+                
+                ,SELL_DTM   --매표시간
+                ,TO_CHAR(SELL_DTM,'HH24:MI') SELL_TM    -- 매표시간
+                
+                ,GRN_CRD_NO --그린카드번호
+                ,RMK        --비고
+                
+                ,INST_ID    --작성자
+                ,INST_DT    --작성일시
+                ,UPDT_ID    --수정자
+                ,UPDT_DT    --수정일시
+
+
+            FROM    TBRB_APPO_SEAT_MANA
+
+            WHERE SALES_DT LIKE  '%' || NVL(? , SALES_DT) || '%'  -- 판매일자    
+                AND BRNC_CD LIKE  '%' || NVL(? , BRNC_CD) || '%'  -- 지점코드
+            ORDER BY SALES_NO desc,AREA,SEAT_NO
+            
+        ]]>
+    </query>
+     
+    <query id="rbo2020_s02" desc="일일매표 판매번호별   조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo2020_s02 */
+                 '0' AS CHK
+                ,SALES_DT   --판매일자
+                ,BRNC_CD    --지점코드
+                ,SALES_NO   --판매번호
+                ,AREA       --구역
+                ,SEAT_NO    --좌석번호
+                
+                ,UNIT_PRICE --단가
+                ,CUST_KD_CD --고객구분코드
+                ,SAVE_AMT   --입금액
+                
+                ,SELL_DTM   --매표시간
+                ,TO_CHAR(SELL_DTM,'HH24:MI') SELL_TM    -- 매표시간
+                
+                ,GRN_CRD_NO --그린카드번호
+                ,RMK        --비고
+                
+                ,INST_ID    --작성자
+                ,INST_DT    --작성일시
+                ,UPDT_ID    --수정자
+                ,UPDT_DT    --수정일시
+
+                ,TO_CHAR(SELL_DTM,'DY')  DAY
+                ,(SELECT CD_NM FROM TBRK_SPEC_CD B
+                        WHERE B.GRP_CD ='018' 
+                            AND B.CD = BRNC_CD) || '스피존' BRNC_NM
+                ,(SELECT CD_NM FROM TBRK_SPEC_CD B
+                        WHERE B.GRP_CD ='037' 
+                            AND B.CD = CUST_KD_CD) CUST_KD_NM
+
+            FROM    TBRB_APPO_SEAT_MANA
+
+            WHERE SALES_DT  =   ?  -- 판매일자    
+                AND BRNC_CD =   ?  -- 지점코드
+                AND SALES_NO =  ?  -- 판매번호
+            ORDER BY AREA,SEAT_NO
+        ]]>
+     </query>
+          
+     <query id="rbo2020_s03" desc="좌석번호별 판매여부   조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo2020_s03 */
+                 SUBSTR(A.CD,3,3) SEAT_NO                            -- 좌석번호
+                ,A.CD_TERM1 AREA                                     -- 구역
+                ,A.CD AREA_SEAT_NO                                   -- 구역 + 좌석 번호
+                ,A.CD_TERM2 SALE_SEAT_GBN                            -- 판매가능좌석코드 
+                ,(SELECT C.CD_NM FROM TBRK_SPEC_CD C 
+                     WHERE GRP_CD ='034'
+                             AND C.CD = A.CD_TERM2)  SALE_SEAT_GBN_NM    -- 판매가능좌석코드
+                ,(SELECT COUNT(SEAT_NO) 
+                    FROM TBRB_APPO_SEAT_MANA B
+                    WHERE B.BRNC_CD = ?
+                        AND B.SALES_DT = ?
+                        AND B.AREA = A.CD_TERM1
+                        AND B.SEAT_NO = SUBSTR(A.CD,3,2) ) APPO_CNT  -- 지정좌석건수
+                
+            FROM TBRK_SPEC_CD A
+            WHERE GRP_CD ='048' 
+            
+        ]]>
+    </query>
+    
+    <query id="rbo2020_s04" desc="판매번호    조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo2020_s04 */
+                (NVL(MAX(SALES_NO),0) + 1) SALES_NO
+            FROM TBRB_APPO_SEAT_MANA A
+            WHERE BRNC_CD = ?
+               AND SUBSTR(SALES_DT,0,4) = TO_CHAR(SYSDATE,'YYYY')
+            
+        ]]>
+    </query>  
+ 
+    <query id="rbo2020_i01" desc="일일매표 저장" fetchSize="10">
+        <![CDATA[
+        
+            INSERT INTO TBRB_APPO_SEAT_MANA (  /* rbo2020_i01 */
+
+                 SALES_DT   --판매일자
+                ,BRNC_CD    --지점코드
+                ,SALES_NO   --판매번호
+                ,AREA       --구역
+                ,SEAT_NO    --좌석번호
+                
+                ,UNIT_PRICE --단가
+                ,CUST_KD_CD --고객구분코드
+                ,SAVE_AMT   --입금액               
+                ,SELL_DTM   --매표시간
+                ,RMK        --비고
+                
+                
+                ,GRN_CRD_NO --그린카드번호
+                ,REFUND_YN    --환불여부
+                ,INST_ID    --작성자
+                ,INST_DT    --작성일시
+
+            ) VALUES (
+
+                  ?             -- SALES_DT
+                , ?             -- BRNC_CD
+                , ?             -- SALES_NO
+                , ?             -- AREA
+                , ?             -- SEAT_NO
+
+
+                , ?             -- UNIT_PRICE
+                , ?             -- CUST_KD_CD
+                , ?             -- SAVE_AMT               
+                , SYSDATE       -- SELL_DTM                
+                , ?             -- RMK
+                
+                , ?             -- GRN_CRD_NO
+                ,'N'
+                , ?             -- 작성자
+                , SYSDATE       -- INST_DT
+
+            )
+                
+        
+        ]]>
+
+    </query>    
+    
+    
+   <query id="rbo2020_u01" desc="일일매표 수정 " fetchSize="10">
+
+        <![CDATA[
+        
+            UPDATE TBRB_APPO_SEAT_MANA SET  /* rbo2020_u01 */
+            
+                 UNIT_PRICE = ?             --단가
+                ,CUST_KD_CD = ?             --고객구분코드
+                ,SAVE_AMT   = ?             --입금액               
+                ,SELL_DTM   = SYSDATE       --매표시간
+                ,GRN_CRD_NO = ?             --그린카드번호
+                ,RMK        = ?             --비고
+                ,UPDT_ID    = ?             --수정자
+                ,UPDT_DT    = SYSDATE       --수정일시
+
+            WHERE SALES_DT = ?
+                AND BRNC_CD = ?
+                AND SALES_NO = ?
+                AND AREA = ?
+                AND SEAT_NO = ?
+        
+        ]]>
+
+    </query> 
+    
+    <query id="rbo2020_u03" desc="일일매표 Marster 수정 " fetchSize="10">
+
+        <![CDATA[
+        
+            UPDATE TBRB_APPO_SEAT_MANA SET  /* rbo2020_u03 */
+            
+                 RMK        = ?             --비고
+                ,UPDT_ID    = ?             --수정자
+                ,UPDT_DT    = SYSDATE       --수정일시
+
+            WHERE SALES_DT = ?
+                AND BRNC_CD = ?
+                AND SALES_NO = ?
+                AND AREA = ?
+                AND SEAT_NO = ?
+        
+        ]]>
+
+    </query>    
+   
+    <query id="rbo2020_d01" desc="일일매표 삭제" fetchSize="10">
+        <![CDATA[
+
+            DELETE TBRB_APPO_SEAT_MANA   /* rbo2020_d01 */ 
+
+            WHERE SALES_DT = ?
+                AND BRNC_CD = ?
+                AND SALES_NO = ?
+                AND AREA = ?
+                AND SEAT_NO = ?
+
+        ]]>
+
+    </query>
+    
+    
+    <query id="rbo2020_u04" desc="좌석정보 수정 " fetchSize="10">
+        <![CDATA[
+        
+            UPDATE TBRK_SPEC_CD SET  /* rbo2020_u04 */
+            
+                 CD_TERM2       = ?             --좌석구분
+                ,UPDT_ID        = ?             --수정자
+                ,UPDT_DT        = SYSDATE       --수정일시
+
+            WHERE GRP_CD = ?
+                AND CD = ? 
+        
+        ]]>
+    </query>   
+    
+
+</queryMap>

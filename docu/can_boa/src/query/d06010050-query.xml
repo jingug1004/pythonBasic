@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="출주표"> 
+    <query id="tbdn_cand_race_fn501" desc="기수 조회" fetchSize="10">
+		<![CDATA[
+            SELECT
+			         TCI .RACER_PERIO_NO     -- 기수      
+			       , TCI .CAND_NO            -- 후보생번호
+			       , TCI .NM_KOR             -- 후보생명
+			       , TCR .WIN_RATE      -- 승정시간
+			       , TCR .TWO_RATE      -- 승정시간
+			       , TCR .THR_RATE      -- 승정시간
+			       , TCR .RANK_1      -- 승정시간
+			       , TCR .RANK_2      -- 승정시간
+			       , TCR .RANK_3      -- 승정시간
+            FROM     (
+                        SELECT
+                                 TCRO.CAND_NO
+                               , COUNT(*) CNT
+                               , ROUND(SUM(DECODE(ARRIV_ORD, 1, 1)) / COUNT(*) * 100            , 2) WIN_RATE
+                               , ROUND(SUM(DECODE(ARRIV_ORD, 1, 1, 2, 1)) / COUNT(*) * 100      , 2) TWO_RATE
+                               , ROUND(SUM(DECODE(ARRIV_ORD, 1, 1, 2, 1, 3, 1)) / COUNT(*) * 100, 2) THR_RATE
+                               , SUM(DECODE(ARRIV_ORD, 1, 1))                        RANK_1
+                               , SUM(DECODE(ARRIV_ORD, 2, 1))                        RANK_2
+                               , SUM(DECODE(ARRIV_ORD, 3, 1))                        RANK_3
+                        FROM     TBDN_CAND_RACE_ORGAN TCRO
+                               , TBDN_CAND_RACE_RACE  TCR
+            			WHERE  TCR .RACER_PERIO_NO   = TCRO.RACER_PERIO_NO       -- 기수      
+            			AND    TCR .DAY_NO           = TCRO.DAY_NO               -- 출주번호  
+            			AND    TCR .ROUND            = TCRO.ROUND                -- 라운드    
+            			AND    TCR .GBN              = NVL(?, TCR .GBN)          -- 구분    
+            			AND    TCRO.RACER_PERIO_NO   = ?                         -- 기수      
+                        GROUP BY TCRO.CAND_NO                                    -- 훈련생번호
+                     ) TCR
+                   , TBDN_CAND_IDENT TCI
+            WHERE  TCI .CAND_NO          = TCR .CAND_NO(+)
+			AND    TCI .RACER_PERIO_NO   = ?       -- 기수
+            ORDER BY TCI .CAND_NO
+	    ]]>
+    </query>
+</queryMap>

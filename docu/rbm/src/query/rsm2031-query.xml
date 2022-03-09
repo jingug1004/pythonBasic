@@ -1,0 +1,1317 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM2031(경주개최결과)">
+	<query id="rsm2031_s01" desc="경주 정보 조회" fetchSize="10">
+        <![CDATA[        
+           SELECT  /* rsm2031_s01 */                                                        
+			     MEET_CD,		-- 경주 구분 코드
+			     DECODE(MEET_CD,'003','경정','경륜') AS MEET_NM,	-- 경주 구분 이름                                                    
+			     STND_YEAR,     -- 년도                               
+			     (STND_YEAR-1) B_STND_YEAR,	-- 이전년도                                  
+			     TMS,                       -- 회차
+			     (TMS-1) B_TMS,             -- 이전회차                           
+			     DAY_ORD,
+			     RACE_DAY,					-- 경주일                                                    
+			    '제 '||TMS||'회차 '||DAY_ORD||'일차 '||                      
+			    CASE                                                         
+			        WHEN MEET_CD='001' THEN '경륜'                           
+			        WHEN MEET_CD='003' THEN '경정'                           
+			    END                                                          
+			    ||'개최결과자료('||                                          
+			    TO_CHAR(TO_DATE(RACE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD')||', '|| 
+			    TO_CHAR(TO_DATE(RACE_DAY,'YYYY-MM-DD'),'DY')||')' INFO, -- 경주정보      
+			     RACE_YOIL                                               -- 요일
+			 FROM                                                            
+			     VW_SDL_INFO         -- 경주일 정보                                        
+			 WHERE 1=1                                                           
+			     AND RACE_DAY	= ?     -- 0:RACE_DAY 경주일                            
+			     AND MEET_CD= ?         -- 1:MEET_CD 구분코드                                                                                                                                                             
+			            
+        ]]>
+    </query>
+
+
+	<query id="rsm2031_s02" desc="회차별 합계" fetchSize="10">
+        <![CDATA[
+        
+          SELECT /* rsm2031_s02 */                                                                                           
+			     C.TOTAL C_TOTAL,		-- 누계                                                                             
+			     B.TOTAL B_TOTAL,		-- 전회차                                                                             
+			     C.TOTAL - B.TOTAL CHA, -- 증감                                                                  
+			     C.D_1, -- 일요일                                                                                      
+			     C.D_2,	-- 월요일                                                                                       
+			     C.D_3, -- 화요일                                                                                      
+			     C.D_4,	-- 수요일                                                                                       
+			     C.D_5, -- 목요일                                                                                       
+			     C.D_6, -- 금요일                                                                                      
+			     C.D_7  -- 토요일                                                                                      
+			 FROM                                                                                             
+			 (                                                                                                
+			     SELECT                                                                                       
+			         SUM(POOL_TOTAL) TOTAL,                                                                   
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=1 THEN P.POOL_TOTAL END) D_1,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=2 THEN P.POOL_TOTAL END) D_2,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=3 THEN P.POOL_TOTAL END) D_3,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=4 THEN P.POOL_TOTAL END) D_4,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=5 THEN P.POOL_TOTAL END) D_5,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=6 THEN P.POOL_TOTAL END) D_6,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=7 THEN P.POOL_TOTAL END) D_7 
+			     FROM                                                                                         
+			         VW_SDL_INFO V,                                                                           
+			         VW_SDL_PT P                                                                            
+			     WHERE  1=1                                                                                      
+			          AND V.MEET_CD		= ?		-- 0:MEET_CD 경륜 경정 구분 코드                                                                      
+			          AND V.STND_YEAR	= ?		-- 1:STND_YEAR 기준년도                                                              
+			          AND V.TMS			= ?		-- 2:TMS 회차                                                                          
+			          AND P.MEET_CD=V.MEET_CD                                                                 
+			          AND P.STND_YEAR=V.STND_YEAR                                                             
+			          AND P.TMS=V.TMS                                                                         
+			          AND P.DAY_ORD=V.DAY_ORD                                                                 
+			 ) C,                                                                                             
+			 (                                                                                                
+			     SELECT                                                                                       
+			         SUM(POOL_TOTAL) TOTAL                                                                    
+			     FROM                                                                                         
+			         VW_SDL_PT                                                                              
+			     WHERE 1=1                                                                                       
+			         AND MEET_CD	= ?	-- 3:MEET_CD 경륜 경정 구분 코드                                                                         
+			         AND STND_YEAR	= ? -- 4:STND_YEAR 기준년도                                                                
+			         AND TMS		= ? -1  -- 5:TMS 회차                                                                       
+			 ) B                                                                                                                                      
+            
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2031_s03" desc="경주별현황" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2031_s03 */                                                                            
+				C.MEET_CD,		-- 경륜 경정 구분 코드
+				C.TMS,			-- 회차
+				C.DAY_ORD,		-- 일차
+				C.RACE_NO,		-- 경주                                          
+				FC_GET_RSLT_RANK(C.STND_YEAR,C.MEET_CD,C.TMS,C.DAY_ORD,C.RACE_NO) RS_RANK,	-- 착순 
+			
+				RUNNER_1ST_001, -- 단승 착순			     
+				'('||RUNNER_1ST_001||')' AS RUNNER_1ST_001_DESC,        -- 단승 착순 표현
+				DECODE(R.PAYOFF_001,NULL,'-',R.PAYOFF_001) PAYOFF_001,  -- 단승      
+				DECODE(R.PAYOFF_001,NULL,'-',R.PAYOFF_001) AS PAYOFF_001_DESC,        -- 단승 표현
+			
+				RUNNER_1ST_002_1,   -- 연승 착순 1
+				'('||RUNNER_1ST_002_1||')' AS RUNNER_1ST_002_1_DESC,           -- 연승 착순 1 표현
+				DECODE(R.PAYOFF_002_1,NULL,'-',R.PAYOFF_002_1) PAYOFF_002_1,	-- 연승 1
+				DECODE(R.PAYOFF_002_1,NULL,'-',R.PAYOFF_002_1) AS PAYOFF_002_1_DESC,   -- 연승 1 표현
+			
+				RUNNER_1ST_002_2,   -- 연승 착순 2
+				'('||RUNNER_1ST_002_2||')' AS RUNNER_1ST_002_2_DESC,           -- 연승 착순 2 표현
+				DECODE(R.PAYOFF_002_2,NULL,'-',R.PAYOFF_002_2) PAYOFF_002_2,	-- 연승 2
+				DECODE(R.PAYOFF_002_2,NULL,'-',R.PAYOFF_002_2) AS PAYOFF_002_2_DESC, -- 연승 2 표현
+			
+				RUNNER_1ST_004,   -- 쌍승 착순 1
+				RUNNER_2ND_004,   -- 쌍승 착순 2
+				'('||RUNNER_1ST_004||'-'||RUNNER_2ND_004||')' AS RUNNER_004_DESC,    -- 쌍승 착순 표현
+				DECODE(R.PAYOFF_004,NULL,'-',R.PAYOFF_004) PAYOFF_004,      	      -- 쌍승
+				DECODE(R.PAYOFF_004,NULL,'-',R.PAYOFF_004) AS PAYOFF_004_DESC,   -- 쌍승 표현
+			
+				RUNNER_1ST_005,   -- 복승 착순 1                
+				RUNNER_2ND_005,   -- 복승 착순 2
+				'('||RUNNER_1ST_005||'-'||RUNNER_2ND_005||')' AS RUNNER_005_DESC,    -- 복승 착순 표현
+				DECODE(R.PAYOFF_005,NULL,'-',R.PAYOFF_005) PAYOFF_005,			-- 복승      
+				DECODE(R.PAYOFF_005,NULL,'-',R.PAYOFF_005) AS PAYOFF_005_DESC,  -- 복승 표현
+			
+				RUNNER_1ST_006_1,  -- 삼복승 착순 1-1
+				RUNNER_2ND_006_1,  -- 삼복승 착순 1-2
+				RUNNER_3RD_006_1,  -- 삼복승 착순 1-3
+			
+				'('||RUNNER_1ST_006_1||'-'||RUNNER_2ND_006_1||'-'||RUNNER_3RD_006_1||')' AS RUNNER_006_1_DESC,    -- 삼복승 1 착순 표현
+				DECODE(R.PAYOFF_006_1,NULL,'-',R.PAYOFF_006_1) AS PAYOFF_006_1,			-- 삼복 1
+				DECODE(R.PAYOFF_006_1,NULL,'-',R.PAYOFF_006_1) AS PAYOFF_006_1_DESC,  -- 삼복 1 표현 
+			
+				C.TOT,			--	계                                                                  
+				C.BONGJANG,	-- 본장                                                            
+				C.JIJUM,		-- 지점                                                               
+				NVL(B.TOT,0) AS B_TOT,	-- 전회차                                                                        
+				NVL(Y.TOT,0) AS Y_TOT,	-- 전년
+				ROUND(                                                           
+				CASE                                                                   
+				WHEN B.TOT>0 THEN (C.TOT-B.TOT)/B.TOT*100                           
+				ELSE 0                                                              
+				END
+				,2) 
+				B_PLUS_MINUS,	-- 증감율     
+				ROUND(                                                 
+				CASE                                                                   
+				WHEN Y.TOT>0 THEN (C.TOT-Y.TOT)/Y.TOT*100                           
+				ELSE 0                                                              
+				END
+				,2) AS	Y_PLUS_MINUS,	-- 전년 증감율
+				SAME_PAYOFF_TOTAL,		-- 동착 존재 여부
+				SAME_PAYOFF_001, -- 단승 동착
+				SAME_PAYOFF_002, -- 연승 동착
+				SAME_PAYOFF_004, -- 쌍승 동착
+				SAME_PAYOFF_005, -- 복승 동착
+				SAME_PAYOFF_006 -- 삼복승 동착
+			FROM
+			(
+				SELECT                                                                         
+					D.STND_YEAR, D.MEET_CD,                                            
+					D.TMS,                                                                    
+					D.DAY_ORD,                                                                
+					D.RACE_NO,
+					SUM(D.DIV_TOTAL) TOT,                                                     
+			
+					SUM(                                                                                              
+						CASE
+							WHEN D.MEET_CD='001' AND D.SELL_CD = '01' AND D.COMM_NO IN ('01','02','03','04','08') THEN D.DIV_TOTAL 
+							WHEN D.MEET_CD='003' AND D.SELL_CD = '03' AND D.COMM_NO  IN ('01','02','03','04','08') THEN D.DIV_TOTAL
+						END                                                                                            
+					) AS BONGJANG,
+			
+					SUM(CASE WHEN SELL_CD NOT IN('01','03') OR COMM_NO NOT IN ('01','02','03','04','08')  THEN D.DIV_TOTAL END) JIJUM 
+				FROM                                                                          
+				VW_SDL_DT D                                                             
+				WHERE  1=1                                                                       
+				AND D.MEET_CD	= ?	-- 0:MEET_CD 경륜:001 ,경정:003                                                        
+				AND D.STND_YEAR	= ?	-- 1:STND_YEAR 기준년도                                                 
+				AND D.TMS		= ? -- 2:TMS 회차                                                            
+				AND D.DAY_ORD	= ? -- 3:DAY_ORD 일차
+				GROUP BY                                                                      
+				D.STND_YEAR, D.MEET_CD,                                              
+				D.TMS,                                                                    
+				D.DAY_ORD,
+				D.RACE_NO                                                                
+				
+			)C,
+			(
+				SELECT                                                                        
+					D.MEET_CD,                                                                
+					D.TMS,                                                                    
+					D.DAY_ORD,                                                                
+					D.RACE_NO,
+					SUM(D.DIV_TOTAL) TOT                                    
+				FROM                                                                          
+				VW_SDL_DT D                                                             
+				WHERE  1=1                                                                       
+				AND D.MEET_CD	= ?		-- 4:MEET_CD 경륜:001 ,경정:003                                                        
+				AND D.STND_YEAR	= ?     -- 5:STND_YEAR 기준년도                                           
+				AND D.TMS		= ? -1  -- 6:TMS 회차                                                       
+				AND D.DAY_ORD	= ?     -- 7:DAY_ORD 일차                                               
+				GROUP BY                                                                      
+				D.MEET_CD,                                                                
+				D.TMS,                                                                    
+				D.DAY_ORD,      
+				D.RACE_NO                  
+			)B,
+			(                                                                                 
+				SELECT                                                                        
+					D.MEET_CD,                                                                
+					D.TMS,                                                                    
+					D.DAY_ORD,                                                                
+					DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+					SUM(D.DIV_TOTAL) TOT                  
+				FROM                                                                          
+				VW_SDL_DT D                                                             
+				WHERE 1=1                                                                        
+				AND D.MEET_CD	= ?		-- 8:MEET_CD 경륜:001 ,경정:003                                                        
+				AND D.STND_YEAR	= ? -1   -- 9:STND_YEAR 기준년도                                           
+				AND D.TMS		= ?     -- 10:TMS 회차                                                       
+				AND D.DAY_ORD	= ?     -- 11:DAY_ORD 일차                                               
+				GROUP BY                                                                      
+				D.MEET_CD,                                                                
+				D.TMS,                                                                    
+				D.DAY_ORD,         
+				D.RACE_NO                                                       
+			) Y,                                                                               
+			(                                                                                  
+				SELECT                                                                         
+					DECODE(RACE_NO,NULL,'TOTAL',RACE_NO) RACE_NO,                
+			
+					AVG(CASE WHEN POOL_CD = '001' THEN RUNNER_1ST END) AS RUNNER_1ST_001, -- 단승 착순
+			
+					AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN RUNNER_1ST END) AS RUNNER_1ST_002_1,   -- 연승 착순 1
+					AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN RUNNER_1ST END) AS RUNNER_1ST_002_2,   -- 연승 착순 2
+			
+					AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_1ST END) RUNNER_1ST_004,   -- 쌍승 착순 1
+					AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_2ND END) RUNNER_2ND_004,   -- 쌍승 착순 2
+			
+					AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_1ST END) RUNNER_1ST_005,   -- 복승 착순 1                
+					AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_2ND END) RUNNER_2ND_005,   -- 복승 착순 2
+			
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_1ST END) RUNNER_1ST_006_1,  -- 삼복승 착순 1-1
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_2ND END) RUNNER_2ND_006_1,  -- 삼복승 착순 1-2
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_3RD END) RUNNER_3RD_006_1,  -- 삼복승 착순 1-3
+			
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_1ST END) RUNNER_1ST_006_2,  -- 삼복승 착순 2-1
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_2ND END) RUNNER_2ND_006_2,  -- 삼복승 착순 2-2
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_3RD END) RUNNER_3RD_006_2,  -- 삼복승 착순 2-3
+			
+			
+					ROUND(AVG(CASE WHEN POOL_CD = '001' THEN PAYOFF END),2) PAYOFF_001,                   
+					ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN PAYOFF END),2) PAYOFF_002_1,  
+					ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN PAYOFF END),2) PAYOFF_002_2,  
+					ROUND(AVG(CASE WHEN POOL_CD = '004' THEN PAYOFF END),2) PAYOFF_004,                   
+					ROUND(AVG(CASE WHEN POOL_CD = '005' THEN PAYOFF END),2) PAYOFF_005,                   
+					ROUND(AVG(CASE WHEN POOL_CD = '006' THEN PAYOFF END),2) PAYOFF_006_1,
+			
+					SUM(CASE 
+					WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF 
+					WHEN POOL_CD = '002' AND RS_SEQ >= '3' THEN PAYOFF 
+					WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF 
+					WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF 
+					WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF 
+					END) AS SAME_PAYOFF_TOTAL, -- 동착 존재 여부 확인
+			
+					SUM(CASE WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_001, -- 단승 동착
+					SUM(CASE WHEN POOL_CD = '002' AND RS_SEQ >= '3' THEN PAYOFF END) AS SAME_PAYOFF_002, -- 연승 동착
+					SUM(CASE WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_004, -- 쌍승 동착
+					SUM(CASE WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_005, -- 복승 동착
+					SUM(CASE WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_006 -- 삼복승 동착 
+			
+			
+				FROM TBES_SDL_RS                                                                
+				WHERE 1=1                                                                          
+				AND MEET_CD		= ?		-- 12:MEET_CD 경륜:001 ,경정:003                                                            
+				AND STND_YEAR	= ?     -- 13:STND_YEAR 기준년도                                               
+				AND TMS			= ?     -- 14:TMS 회차                                                           
+				AND DAY_ORD		= ?     -- 15:DAY_ORD 일차                                                   
+				GROUP BY          
+				RACE_NO                                                              
+				-- ROLLUP(RACE_NO)	-- 최종 레코드의  TOTAL, SUM 생성용                                                              
+			) R
+			WHERE 1=1                   
+			AND C.RACE_NO=B.RACE_NO(+)         
+			AND C.RACE_NO=Y.RACE_NO(+)
+			AND C.RACE_NO=R.RACE_NO(+)
+			ORDER BY C.RACE_NO
+        ]]>
+    </query>
+    
+    
+    
+    
+    
+    
+    <query id="rsm2031_select03" desc="경주별 현황(SELECT)" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rsm2031_select03 */                                                                            
+			     C.MEET_CD,		-- 경륜 경정 구분 코드
+			     C.TMS,			-- 회차
+			     C.DAY_ORD,		-- 일차
+			     Z.RACE_NO,		-- 경주                                          
+			     FC_GET_RSLT_RANK(C.STND_YEAR,C.MEET_CD,C.TMS,C.DAY_ORD,C.RACE_NO) RS_RANK,	-- 착순 
+			     
+			     RUNNER_1ST_001, -- 단승 착순			     
+			     '('||RUNNER_1ST_001||')' AS RUNNER_1ST_001_DESC,        -- 단승 착순 표현
+			     DECODE(R.PAYOFF_001,NULL,'-',R.PAYOFF_001) PAYOFF_001,  -- 단승      
+			     DECODE(R.PAYOFF_001,NULL,'-',R.PAYOFF_001) AS PAYOFF_001_DESC,        -- 단승 표현
+			        
+                 RUNNER_1ST_002_1,   -- 연승 착순 1
+                 '('||RUNNER_1ST_002_1||')' AS RUNNER_1ST_002_1_DESC,           -- 연승 착순 1 표현
+                 DECODE(R.PAYOFF_002_1,NULL,'-',R.PAYOFF_002_1) PAYOFF_002_1,	-- 연승 1
+                 DECODE(R.PAYOFF_002_1,NULL,'-',R.PAYOFF_002_1) AS PAYOFF_002_1_DESC,   -- 연승 1 표현
+                 
+                 RUNNER_1ST_002_2,   -- 연승 착순 2
+                 '('||RUNNER_1ST_002_2||')' AS RUNNER_1ST_002_2_DESC,           -- 연승 착순 2 표현
+			     DECODE(R.PAYOFF_002_2,NULL,'-',R.PAYOFF_002_2) PAYOFF_002_2,	-- 연승 2
+			     DECODE(R.PAYOFF_002_2,NULL,'-',R.PAYOFF_002_2) AS PAYOFF_002_2_DESC, -- 연승 2 표현
+                
+                 RUNNER_1ST_002_3,   -- 연승 착순 2
+                 '('||RUNNER_1ST_002_3||')' AS RUNNER_1ST_002_3_DESC,           -- 연승 착순 2 표현
+			     DECODE(R.PAYOFF_002_3,NULL,'-',R.PAYOFF_002_3) PAYOFF_002_3,	-- 연승 2
+			     DECODE(R.PAYOFF_002_3,NULL,'-',R.PAYOFF_002_3) AS PAYOFF_002_3_DESC, -- 연승 2 표현
+                
+                 RUNNER_1ST_004,   -- 쌍승 착순 1
+                 RUNNER_2ND_004,   -- 쌍승 착순 2
+                 '('||RUNNER_1ST_004||'-'||RUNNER_2ND_004||')' AS RUNNER_004_DESC,    -- 쌍승 착순 표현
+                 DECODE(R.PAYOFF_004,NULL,'-',R.PAYOFF_004) PAYOFF_004,      	      -- 쌍승
+                 DECODE(R.PAYOFF_004,NULL,'-',R.PAYOFF_004) AS PAYOFF_004_DESC,   -- 쌍승 표현
+                
+                 RUNNER_1ST_005,   -- 복승 착순 1                
+                 RUNNER_2ND_005,   -- 복승 착순 2
+                 '('||RUNNER_1ST_005||'-'||RUNNER_2ND_005||')' AS RUNNER_005_DESC,    -- 복승 착순 표현
+                 DECODE(R.PAYOFF_005,NULL,'-',R.PAYOFF_005) PAYOFF_005,			-- 복승      
+                 DECODE(R.PAYOFF_005,NULL,'-',R.PAYOFF_005) AS PAYOFF_005_DESC,  -- 복승 표현
+                
+                 RUNNER_1ST_006_1,  -- 삼복승 착순 1-1
+                 RUNNER_2ND_006_1,  -- 삼복승 착순 1-2
+                 RUNNER_3RD_006_1,  -- 삼복승 착순 1-3
+                 
+                 '('||RUNNER_1ST_006_1||'-'||RUNNER_2ND_006_1||'-'||RUNNER_3RD_006_1||')' AS RUNNER_006_1_DESC,    -- 삼복승 1 착순 표현
+                 DECODE(R.PAYOFF_006_1,NULL,'-',R.PAYOFF_006_1) AS PAYOFF_006_1,			-- 삼복 1
+                 DECODE(R.PAYOFF_006_1,NULL,'-',R.PAYOFF_006_1) AS PAYOFF_006_1_DESC,  -- 삼복 1 표현 
+			     
+			     C.TOT,			--	계                                                                  
+			     C.BONGJANG,	-- 본장                                                            
+			     C.JIJUM,		-- 지점                                                               
+			     B.TOT B_TOT,	-- 전회차                                                                        
+			     Y.TOT Y_TOT,	-- 전년
+			     ROUND(                                                           
+				     CASE                                                                   
+				        WHEN B.TOT>0 THEN (C.TOT-B.TOT)/B.TOT*100                           
+				        ELSE 0                                                              
+				     END
+			     ,2) 
+			     B_PLUS_MINUS,	-- 증감율     
+			     ROUND(                                                 
+				     CASE                                                                   
+				        WHEN Y.TOT>0 THEN (C.TOT-Y.TOT)/Y.TOT*100                           
+				        ELSE 0                                                              
+				     END
+			     ,2) AS	Y_PLUS_MINUS,	-- 전년 증감율
+			     SAME_PAYOFF_TOTAL,		-- 동착 존재 여부
+			     SAME_PAYOFF_001, -- 단승 동착
+				 SAME_PAYOFF_002, -- 연승 동착
+				 SAME_PAYOFF_004, -- 쌍승 동착
+				 SAME_PAYOFF_005, -- 복승 동착
+				 SAME_PAYOFF_006 -- 삼복승 동착                                                      					     
+		]]>
+    </query>
+    
+    
+    <query id="rsm2031_from01" desc="경주별 현황 (FROM)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2031_from01 경주별 현황  */
+         	FROM                                                                              
+			 (                                                                                 
+			    SELECT                                                                         
+			         D.STND_YEAR, D.MEET_CD,                                            
+			         D.TMS,                                                                    
+			         D.DAY_ORD,                                                                
+			         DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+			         SUM(D.DIV_TOTAL) TOT,                                                     
+			
+			         SUM(                                                                                              
+			            CASE
+			                WHEN D.MEET_CD='001' AND D.SELL_CD = '01' AND D.COMM_NO IN ('01','02','03','04','08') THEN D.DIV_TOTAL 
+			                WHEN D.MEET_CD='003' AND D.SELL_CD = '03' AND D.COMM_NO IN ('01','02','03','04','08') THEN D.DIV_TOTAL
+			            END                                                                                            
+			         ) AS BONGJANG,
+	 
+			         --SUM(CASE WHEN SELL_CD NOT IN('01','03') OR COMM_NO NOT IN ('01','02','03','04','08')  THEN D.DIV_TOTAL END) JIJUM 
+			         SUM(CASE WHEN SUBSTR(MEET_CD,2,2) = SELL_CD AND COMM_NO IN ('01','02','03','04','08') THEN 0 ELSE D.DIV_TOTAL END) JIJUM 
+			     FROM                                                                          
+			         VW_SDL_DT D                                                             
+			     WHERE  1=1                                                                       
+			         AND D.MEET_CD		= ?	-- 0:MEET_CD 경륜:001 ,경정:003                                                        
+			         AND D.STND_YEAR	= ?	-- 1:STND_YEAR 기준년도                                                 
+			         AND D.TMS			= ? -- 2:TMS 회차                                                            
+			         AND D.DAY_ORD		= ? -- 3:DAY_ORD 일차
+			     GROUP BY                                                                      
+			         D.STND_YEAR, D.MEET_CD,                                              
+			         D.TMS,                                                                    
+			         D.DAY_ORD,
+			         D.RACE_NO                                                                
+			        -- ROLLUP(D.RACE_NO) -- 최종 레코드의  TOTAL, SUM 생성용
+			                                                                  
+			     ORDER BY D.RACE_NO                                                            
+			 ) C,                                                                              
+			 (                                                                                 
+			     SELECT                                                                        
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,                                                                
+			         DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+			         SUM(D.DIV_TOTAL) TOT,
+			         I.RACE_YOIL                                    
+			     FROM                                                                          
+			         VW_SDL_DT D, VW_SDL_INFO I                                                             
+			     WHERE  1=1                                                                       
+			         AND D.MEET_CD		= ?		-- 4:MEET_CD 경륜:001 ,경정:003                                                        
+			         AND D.STND_YEAR	= ?     -- 5:STND_YEAR 기준년도                                           
+			         AND D.TMS			= ? -1  -- 6:TMS 회차                      
+                     AND D.MEET_CD = I.MEET_CD
+                     AND D.STND_YEAR = I.STND_YEAR
+                     AND D.TMS = I.TMS
+                     AND D.DAY_ORD = I.DAY_ORD
+                     AND I.RACE_YOIL = ? 	--   7:RACE_YOIL 요일                                           
+			     GROUP BY                                                                      
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,      
+			         D.RACE_NO,
+			         I.RACE_YOIL                                                          
+			         -- ROLLUP(D.RACE_NO)	-- 최종 레코드의  TOTAL, SUM 생성용                                                         
+			     ORDER BY D.RACE_NO                                                            
+			 ) B,                                                                              
+			 (                                                                                 
+			     SELECT                                                                        
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,                                                                
+			         DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+			         SUM(D.DIV_TOTAL) TOT,
+			         I.RACE_YOIL                  
+			     FROM                                                                          
+			         VW_SDL_DT D, VW_SDL_INFO I                                                             
+			     WHERE 1=1                                                                        
+			         AND D.MEET_CD		= ?		-- 8:MEET_CD 경륜:001 ,경정:003                                                        
+			         AND D.STND_YEAR	= ?-1   -- 9:STND_YEAR 기준년도                                           
+			         AND D.TMS			= ?     -- 10:TMS 회차                   
+                     AND D.MEET_CD = I.MEET_CD
+                     AND D.STND_YEAR = I.STND_YEAR
+                     AND D.TMS = I.TMS
+                     AND D.DAY_ORD = I.DAY_ORD
+                     AND I.RACE_YOIL = ? 	--   11:RACE_YOIL 요일                                                 
+			     GROUP BY                                                                      
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,         
+			         D.RACE_NO,
+			         I.RACE_YOIL                                                       
+			         -- ROLLUP(D.RACE_NO) -- 최종 레코드의  TOTAL, SUM 생성용                                               
+			     ORDER BY D.RACE_NO                                                            
+			 ) Y,                                                                               
+			 (                                                                                  
+			     SELECT                                                                         
+			        DECODE(R.RACE_NO,NULL,'TOTAL',R.RACE_NO) RACE_NO,                
+			        
+			        AVG(CASE WHEN POOL_CD = '001' THEN RUNNER_1ST END) AS RUNNER_1ST_001, -- 단승 착순
+			        
+			        AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN RUNNER_1ST END) AS RUNNER_1ST_002_1,   -- 연승 착순 1
+			        AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN RUNNER_1ST END) AS RUNNER_1ST_002_2,   -- 연승 착순 2
+			        AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='3' THEN RUNNER_1ST END) AS RUNNER_1ST_002_3,   -- 연승 착순 2
+			        
+			        AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_1ST END) RUNNER_1ST_004,   -- 쌍승 착순 1
+			        AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_2ND END) RUNNER_2ND_004,   -- 쌍승 착순 2
+			        
+			        AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_1ST END) RUNNER_1ST_005,   -- 복승 착순 1                
+			        AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_2ND END) RUNNER_2ND_005,   -- 복승 착순 2
+			        
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_1ST END) RUNNER_1ST_006_1,  -- 삼복승 착순 1-1
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_2ND END) RUNNER_2ND_006_1,  -- 삼복승 착순 1-2
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_3RD END) RUNNER_3RD_006_1,  -- 삼복승 착순 1-3
+			        
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_1ST END) RUNNER_1ST_006_2,  -- 삼복승 착순 2-1
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_2ND END) RUNNER_2ND_006_2,  -- 삼복승 착순 2-2
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_3RD END) RUNNER_3RD_006_2,  -- 삼복승 착순 2-3
+			        
+			        
+			        ROUND(AVG(CASE WHEN POOL_CD = '001' THEN PAYOFF END),2) PAYOFF_001,                   
+                   ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN PAYOFF END),2) PAYOFF_002_1,  
+                   ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN PAYOFF END),2) PAYOFF_002_2,  
+                   ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='3' THEN PAYOFF END),2) PAYOFF_002_3,  
+                   ROUND(AVG(CASE WHEN POOL_CD = '004' THEN PAYOFF END),2) PAYOFF_004,                   
+                   ROUND(AVG(CASE WHEN POOL_CD = '005' THEN PAYOFF END),2) PAYOFF_005,                   
+                   ROUND(AVG(CASE WHEN POOL_CD = '006' THEN PAYOFF END),2) PAYOFF_006_1,
+                   
+                   SUM(CASE 
+                            WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF 
+                            WHEN POOL_CD = '002' AND RS_SEQ >= '3' AND NVL(O.CNT,7) = 7 THEN PAYOFF 
+                            WHEN POOL_CD = '002' AND RS_SEQ >= '4' AND NVL(O.CNT,7) = 8 THEN PAYOFF 
+                            WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF 
+                            WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF 
+                            WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF 
+                   END) AS SAME_PAYOFF_TOTAL, -- 동착 존재 여부 확인
+                                      
+                   SUM(CASE WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_001, -- 단승 동착
+                   SUM(CASE WHEN POOL_CD = '002' AND RS_SEQ >= '3' AND NVL(O.CNT,7) = 7 THEN PAYOFF 
+                            WHEN POOL_CD = '002' AND RS_SEQ >= '4' AND NVL(O.CNT,7) = 8 THEN PAYOFF 
+                            END) AS SAME_PAYOFF_002, -- 연승 동착
+                   SUM(CASE WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_004, -- 쌍승 동착
+                   SUM(CASE WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_005, -- 복승 동착
+                   SUM(CASE WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_006 -- 삼복승 동착 
+                                       
+			                        
+			    FROM TBES_SDL_RS R,  
+                    (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO, COUNT(*) AS CNT 
+                      FROM   US_CRA.TBJB_CFM_ORGAN
+                      GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO) O                                                                  
+			    WHERE 1=1                                                                          
+			        AND R.MEET_CD		= ?		-- 12:MEET_CD 경륜:001 ,경정:003                                                            
+			        AND R.STND_YEAR	= ?     -- 13:STND_YEAR 기준년도                                               
+			        AND R.TMS			= ?     -- 14:TMS 회차                                                           
+			        AND R.DAY_ORD		= ?     -- 15:DAY_ORD 일차         
+			        AND R.STATUS = 'N'     
+                    AND R.STND_YEAR = O.STND_YEAR(+)
+                    AND R.MEET_CD = O.MEET_CD(+)
+                    AND R.TMS     = O.TMS(+)
+                    AND R.DAY_ORD = O.DAY_ORD(+)
+                    AND R.RACE_NO = O.RACE_NO(+) 
+			    GROUP BY          
+			    	R.RACE_NO                                                              
+			        -- ROLLUP(RACE_NO)	-- 최종 레코드의  TOTAL, SUM 생성용                                                              
+			 ) R,                    
+			
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2031_from02" desc="경주별 현황 경정 (FROM)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2031_from02  경주별 현황 경정 (FROM)  */
+			 	-- 경정일 경우 조건
+		 	 (                                       
+		 		SELECT DISTINCT RACE_NO           
+		 		FROM MRASYS.TBEB_RACE_DOC D        
+		 	   WHERE 1=1                          
+		 	       AND D.STND_YEAR	= ?    -- 16:STND_YEAR 년도
+		 	       AND D.TMS		= ?    -- 17:TMS 회차           
+		  	       AND D.DAY_ORD	= ?    -- 18:DAY_ORD 일차
+		  	--   UNION SELECT 'TOTAL' FROM DUAL     
+		 	) Z                                     
+			
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2031_from03" desc="경주별 현황 경륜 (FROM)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2031_from03  경주별 현황 경륜 (FROM)  */
+			 	-- 경륜일 경우 조건
+			 	 (                                       
+			 		SELECT DISTINCT RACE_NO           
+			 		FROM US_CRA.TBJB_CFM_ORGAN D       
+			 	   WHERE 1=1                          
+			 	       AND D.STND_YEAR	= ?					-- 16:STND_YEAR 년도     
+			 	       AND D.MEET_CD	= ?         		-- 17:MEET_CD 경륜:001 ,경정:003
+			 	       AND D.TMS		= LPAD( ? ,2,'0')   -- 18:TMS 회차  
+			  	       AND D.DAY_ORD	=  ?         		-- 19:DAY_ORD 일차
+			  	       AND D.CFM_YN		= '1'             
+			  --	   UNION SELECT 'TOTAL' FROM DUAL     
+			 	) Z                                
+			
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2031_where01" desc="경주별 현황 WHERE" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2031_where01 경주별 현황 */
+         	WHERE 1=1                            
+			     AND B.RACE_NO(+)=Z.RACE_NO        
+			     AND Y.RACE_NO(+)=Z.RACE_NO    
+			     AND R.RACE_NO(+)=C.RACE_NO    
+			     AND Z.RACE_NO=C.RACE_NO(+)    
+			 ORDER BY Z.RACE_NO 
+        ]]>
+    </query>
+        
+    
+    
+    <query id="rsm2031_s05" desc="지점별 매출액" fetchSize="10">
+        <![CDATA[
+        
+         SELECT /* rsm2031_s05 */                                                                                             
+		     SUM(CASE WHEN COMM_NO = '07' THEN A.DIV_TOTAL END) DIV_TOTAL,                
+		     SUM(                                                                                          
+		        CASE                                                                                       
+		            WHEN MEET_CD='001' AND SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		            WHEN MEET_CD='003' AND SELL_CD = '03' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		        END                                                                                        
+		     ) BONGJANG, -- 본장
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN A.DIV_TOTAL END) JANG11,	-- 수원 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN A.DIV_TOTAL END) JANG12,	-- 상봉                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN A.DIV_TOTAL END) JANG13,	-- 일산                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN A.DIV_TOTAL END) JANG14,	-- 분당
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN A.DIV_TOTAL END) JANG15,	-- 동대문 (경정 X)                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN A.DIV_TOTAL END) JANG16,	-- 장안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN A.DIV_TOTAL END) JANG17,	-- 산본 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN A.DIV_TOTAL END) JANG18,	-- 부천 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN A.DIV_TOTAL END) JANG19,	-- 관악                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN A.DIV_TOTAL END) JANG20,	-- 길음                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN A.DIV_TOTAL END) JANG21,	-- 당산 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN A.DIV_TOTAL END) JANG22,	-- 유성                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN A.DIV_TOTAL END) JANG23,	-- 인천                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN A.DIV_TOTAL END) JANG24,	-- 시흥                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN A.DIV_TOTAL END) JANG25,	-- 논현                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN A.DIV_TOTAL END) JANG26,	-- 천안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN A.DIV_TOTAL END) JANG27,	-- 올림픽              
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN A.DIV_TOTAL END) JANG28,	-- 의정부              
+		     SUM(CASE WHEN SUBSTR(MEET_CD,2,2) != SELL_CD AND SELL_CD IN ('01','03') AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL END) JANG99,	-- 공동활용본장              
+		     SUM(CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN A.DIV_TOTAL END) GYEJWA,      -- 마이켓(계좌)              
+		     SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN A.DIV_TOTAL END) GYOCHA               -- 교차                                                       
+		 FROM VW_SDL_DT_SUM A                                                                                 
+		 WHERE 1 = 1
+		     AND A.MEET_CD		= ?		-- 0:MEET_CD 경륜 경정 구분 코드                                                                       
+		     AND A.STND_YEAR	= ?		-- 1:STND_YEAR 기준년도                                                                   
+		     AND A.TMS			= ?     -- 2:TMS 회차                                                                         
+		     AND A.DAY_ORD		= ?     -- 3:DAY_ORD 일차
+		     
+		     
+		 GROUP BY A.MEET_CD, A.STND_YEAR
+		   
+        ]]>
+    </query>
+
+
+    <query id="rsm2031_s05_2" desc="지점별 매출액(그린카드포함)" fetchSize="10">
+        <![CDATA[
+        
+         SELECT /* rsm2031_s05 */                                                                                             
+		     SUM(CASE WHEN COMM_NO = '07' THEN A.DIV_TOTAL END) DIV_TOTAL,                
+		     SUM(                                                                                          
+		        CASE                                                                                       
+		            WHEN MEET_CD='001' AND SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		            WHEN MEET_CD='003' AND SELL_CD = '03' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		        END                                                                                        
+		     ) BONGJANG, -- 본장
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN A.DIV_TOTAL END) JANG11,	-- 수원 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN A.DIV_TOTAL END) JANG12,	-- 상봉                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN A.DIV_TOTAL END) JANG13,	-- 일산                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN A.DIV_TOTAL END) JANG14,	-- 분당
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN A.DIV_TOTAL END) JANG15,	-- 동대문 (경정 X)                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN A.DIV_TOTAL END) JANG16,	-- 장안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN A.DIV_TOTAL END) JANG17,	-- 산본 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN A.DIV_TOTAL END) JANG18,	-- 부천 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN A.DIV_TOTAL END) JANG19,	-- 관악                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN A.DIV_TOTAL END) JANG20,	-- 길음                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN A.DIV_TOTAL END) JANG21,	-- 당산 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN A.DIV_TOTAL END) JANG22,	-- 유성                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN A.DIV_TOTAL END) JANG23,	-- 인천                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN A.DIV_TOTAL END) JANG24,	-- 시흥                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN A.DIV_TOTAL END) JANG25,	-- 논현                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN A.DIV_TOTAL END) JANG26,	-- 천안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN A.DIV_TOTAL END) JANG27,	-- 올림픽              
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN A.DIV_TOTAL END) JANG28,	-- 의정부              
+		     SUM(CASE WHEN SUBSTR(MEET_CD,2,2) != SELL_CD AND SELL_CD IN ('01','03') AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL END) JANG99,	-- 공동활용본장              
+		     NULL GYEJWA,      -- 마이켓(계좌)              
+		     SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN A.DIV_TOTAL END) GYOCHA               -- 교차                                                       
+		 FROM VW_SDL_DT_SUM_GSUM A                                                                                 
+		 WHERE 1 = 1
+		     AND A.MEET_CD		= ?		-- 0:MEET_CD 경륜 경정 구분 코드                                                                       
+		     AND A.STND_YEAR	= ?		-- 1:STND_YEAR 기준년도                                                                   
+		     AND A.TMS			= ?     -- 2:TMS 회차                                                                         
+		     AND A.DAY_ORD		= ?     -- 3:DAY_ORD 일차		     		    
+		 GROUP BY A.MEET_CD, A.STND_YEAR
+		   
+        ]]>
+    </query>
+
+    
+    <query id="rsm2031_s06" desc="지점별 입장인원" fetchSize="10">
+        <![CDATA[
+        
+           SELECT	/* rsm2031_s06 */
+           		NVL(SUM(CASE WHEN R.TMS=DU.TMS THEN E.ENT_PRSN_NUM END),0) AS TOT_INWON,	-- 금회 전체
+		        NVL(SUM(CASE WHEN R.TMS=DU.B_TMS THEN E.ENT_PRSN_NUM END),0) AS B_TOT_INWON,	-- 전회 전체
+                NVL(SUM(CASE WHEN R.TMS=DU.TMS   AND R.MEET_CD||E.BRNC_CD     IN ('00100', '00398') THEN E.ENT_PRSN_NUM END),0) AS BONG_INWON,    -- 본장 금회
+                NVL(SUM(CASE WHEN R.TMS=DU.B_TMS AND R.MEET_CD||E.BRNC_CD     IN ('00100', '00398') THEN E.ENT_PRSN_NUM END),0) AS B_BONG_INWON,    -- 본장 전회
+                NVL(SUM(CASE WHEN R.TMS=DU.TMS   AND R.MEET_CD||E.BRNC_CD NOT IN ('00100', '00398') THEN E.ENT_PRSN_NUM END),0) AS JIJUM_INWON,    -- 지점 금회
+                NVL(SUM(CASE WHEN R.TMS=DU.B_TMS AND R.MEET_CD||E.BRNC_CD NOT IN ('00100', '00398') THEN E.ENT_PRSN_NUM END),0) AS B_JIJUM_INWON    -- 지점 전회
+			 FROM                                                   
+			 	VW_SDL_INFO R       -- 경주일 정보                       
+			 	,TBRC_STAY_MANA E,	-- 체류인원관리                      
+			 	TBRK_SPEC_CD C,
+			 	(SELECT  ? AS TMS,(? -1) AS B_TMS FROM DUAL)DU	-- 0:TMS ,1:TMS
+			 WHERE  1=1
+			    AND R.MEET_CD		= E.MEET_CD
+			    AND R.RACE_DAY      = E.RACE_DT
+			    AND E.BRNC_CD      = C.CD
+			 	AND C.GRP_CD IN ('018','032')                      
+			    AND R.MEET_CD		= ?	-- 2:MEET_CD 
+				AND R.STND_YEAR	= ? -- 3:STND_YEAR '2009'
+			  	AND R.TMS 		IN (?,(?-1)) -- 4:TMS '2',5:TMS
+			  	AND R.RACE_YOIL = ? 	 -- 6:RACE_YOIL '2'
+        ]]>
+    </query>    
+    
+    <query id="rsm2031_s07" desc="특이사항" fetchSize="10">
+        <![CDATA[
+        
+            SELECT   /* rsm2031_s07 */                          
+			      MEET_CD,		-- 경륜 경정 구분 코드	                    
+			      STND_YEAR,	-- 기준년도                  
+			      TMS,			-- 회차                        
+			      DAY_ORD,		-- 일차
+			      SPEC_DESC 	-- 특이사항 내용       
+			 FROM                               
+			      TBRD_RACE_SPEC_DESC             
+			 WHERE 1=1                              
+			      AND MEET_CD	= ?	-- 0:MEET_CD  경륜 경정 구분 코드	    
+			      AND STND_YEAR	= ?	-- 1:STND_YEAR  기준년도
+			      AND TMS		= ?	-- 2:TMS  회차            
+			      AND DAY_ORD	= ? -- 3:DAY_ORD  일차   
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2031_s08" desc="개최지별 요일 조회" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rsm2031_s08 */ 
+			    B.RACE_YOIL -- 요일
+			FROM VW_SDL_INFO B
+			WHERE 1=1
+			  AND B.MEET_CD		= ?		-- 0:MEET_CD:개최지 코드
+			  AND B.STND_YEAR	= ?		-- 1:STND_YEAR:기준년도							     
+			  AND B.TMS			= ?    	-- 2:TMS 시작 일                                     		     
+			                             
+			GROUP BY RACE_YOIL 
+
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2031_s09" desc="경주별 착순 상세보기" fetchSize="10">
+        <![CDATA[
+        	SELECT	/* rsm2031_s09 */                                                                         
+			    RACE_NO, 	-- 경주번호 
+			    POOL_CD,	-- 승식 코드
+			    CASE 
+			        WHEN POOL_CD = '001' THEN '단승식'
+			        WHEN POOL_CD = '002' THEN '연승식'
+			        WHEN POOL_CD = '004' THEN '쌍승식'
+			        WHEN POOL_CD = '005' THEN '복승식'
+			        WHEN POOL_CD = '006' THEN '삼복승식'
+			    END AS POOL_NM,	-- 승식 이름
+			    RS_SEQ, 	-- 착순
+			    RUNNER_1ST, -- 선택 1 
+			    RUNNER_2ND,	-- 선택 2
+			    RUNNER_3RD, -- 선택 3			    
+			    RUNNER_1ST||DECODE(RUNNER_2ND,'0','','-'||RUNNER_2ND)||DECODE(RUNNER_3RD,'0','','-'||RUNNER_3RD)  AS RUNNER_RESULT, -- 승자			    			    
+			    PAYOFF, 	-- 확정 배당률
+			    STATUS		-- 배당 종류
+			FROM TBES_SDL_RS                                                                
+			WHERE 1=1                                                                          
+			    AND MEET_CD		= ?		-- 0:MEET_CD 경륜:001 ,경정:003                                                            
+			    AND STND_YEAR	= ?     -- 1:STND_YEAR 기준년도                                               
+			    AND TMS			= ?     -- 2:TMS 회차                                                           
+			    AND DAY_ORD		= ?     -- 3:DAY_ORD 일차                                                   
+			    AND RACE_NO     = ?		-- 4:RACE_NO 경주번호
+			ORDER BY RACE_NO,POOL_CD,RS_SEQ			         
+
+        ]]>
+    </query>
+    
+    
+    
+    <!-- 오늘 경주일 경우  -->
+    
+    <query id="rsm2031_s02Today" desc="회차별 합계" fetchSize="10">
+        <![CDATA[
+        
+          SELECT /* rsm2031_s02Today */                                                                                           
+			     C.TOTAL C_TOTAL,		-- 누계                                                                             
+			     B.TOTAL B_TOTAL,		-- 전회차                                                                             
+			     C.TOTAL - B.TOTAL CHA, -- 증감                                                                  
+			     C.D_1, -- 일요일                                                                                      
+			     C.D_2,	-- 월요일                                                                                       
+			     C.D_3, -- 화요일                                                                                      
+			     C.D_4,	-- 수요일                                                                                       
+			     C.D_5, -- 목요일                                                                                       
+			     C.D_6, -- 금요일                                                                                      
+			     C.D_7  -- 토요일                                                                                                    
+			 FROM                                                                                             
+			 (                                                                                                
+			     SELECT                                                                                       
+			         SUM(POOL_TOTAL) TOTAL,                                                                   
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=1 THEN P.POOL_TOTAL END) D_1,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=2 THEN P.POOL_TOTAL END) D_2,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=3 THEN P.POOL_TOTAL END) D_3,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=4 THEN P.POOL_TOTAL END) D_4,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=5 THEN P.POOL_TOTAL END) D_5,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=6 THEN P.POOL_TOTAL END) D_6,
+			         SUM(CASE WHEN TO_CHAR(TO_DATE(V.RACE_DAY,'YYYY-MM-DD'),'D')=7 THEN P.POOL_TOTAL END) D_7 
+			     FROM                                                                                         
+			         VW_SDL_INFO V,                                                                           
+			         TBES_SDL_PT P                                                                            
+			     WHERE  1=1                                                                                      
+			          AND V.MEET_CD		= ?		-- 0:MEET_CD 경륜 경정 구분 코드                                                                      
+			          AND V.STND_YEAR	= ?		-- 1:STND_YEAR 기준년도                                                              
+			          AND V.TMS			= ?		-- 2:TMS 회차                                                                          
+			          AND P.MEET_CD=V.MEET_CD                                                                 
+			          AND P.STND_YEAR=V.STND_YEAR                                                             
+			          AND P.TMS=V.TMS                                                                         
+			          AND P.DAY_ORD=V.DAY_ORD                                                                 
+			 ) C,                                                                                             
+			 (                                                                                                
+			     SELECT                                                                                       
+			         SUM(POOL_TOTAL) TOTAL                                                                    
+			     FROM                                                                                         
+			         TBES_SDL_PT                                                                              
+			     WHERE 1=1                                                                                       
+			         AND MEET_CD	= ?		-- 3:MEET_CD 경륜 경정 구분 코드                                                                         
+			         AND STND_YEAR	= ?		-- 4:STND_YEAR 기준년도                                                                 
+			         AND TMS		= ?-1     -- 5:TMS 회차                                                                                 
+			 ) B                                                                                                                                      
+            
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2031_s03Today" desc="경주별현황" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2031_s03Today */                                                                            
+				C.MEET_CD,		-- 경륜 경정 구분 코드
+				C.TMS,			-- 회차
+				C.DAY_ORD,		-- 일차
+				C.RACE_NO,		-- 경주                                          
+				FC_GET_RSLT_RANK(C.STND_YEAR,C.MEET_CD,C.TMS,C.DAY_ORD,C.RACE_NO) RS_RANK,	-- 착순 
+			
+				RUNNER_1ST_001, -- 단승 착순			     
+				'('||RUNNER_1ST_001||')' AS RUNNER_1ST_001_DESC,        -- 단승 착순 표현
+				DECODE(R.PAYOFF_001,NULL,'-',R.PAYOFF_001) PAYOFF_001,  -- 단승      
+				DECODE(R.PAYOFF_001,NULL,'-',R.PAYOFF_001) AS PAYOFF_001_DESC,        -- 단승 표현
+			
+				RUNNER_1ST_002_1,   -- 연승 착순 1
+				'('||RUNNER_1ST_002_1||')' AS RUNNER_1ST_002_1_DESC,           -- 연승 착순 1 표현
+				DECODE(R.PAYOFF_002_1,NULL,'-',R.PAYOFF_002_1) PAYOFF_002_1,	-- 연승 1
+				DECODE(R.PAYOFF_002_1,NULL,'-',R.PAYOFF_002_1) AS PAYOFF_002_1_DESC,   -- 연승 1 표현
+			
+				RUNNER_1ST_002_2,   -- 연승 착순 2
+				'('||RUNNER_1ST_002_2||')' AS RUNNER_1ST_002_2_DESC,           -- 연승 착순 2 표현
+				DECODE(R.PAYOFF_002_2,NULL,'-',R.PAYOFF_002_2) PAYOFF_002_2,	-- 연승 2
+				DECODE(R.PAYOFF_002_2,NULL,'-',R.PAYOFF_002_2) AS PAYOFF_002_2_DESC, -- 연승 2 표현
+			
+				RUNNER_1ST_004,   -- 쌍승 착순 1
+				RUNNER_2ND_004,   -- 쌍승 착순 2
+				'('||RUNNER_1ST_004||'-'||RUNNER_2ND_004||')' AS RUNNER_004_DESC,    -- 쌍승 착순 표현
+				DECODE(R.PAYOFF_004,NULL,'-',R.PAYOFF_004) PAYOFF_004,      	      -- 쌍승
+				DECODE(R.PAYOFF_004,NULL,'-',R.PAYOFF_004) AS PAYOFF_004_DESC,   -- 쌍승 표현
+			
+				RUNNER_1ST_005,   -- 복승 착순 1                
+				RUNNER_2ND_005,   -- 복승 착순 2
+				'('||RUNNER_1ST_005||'-'||RUNNER_2ND_005||')' AS RUNNER_005_DESC,    -- 복승 착순 표현
+				DECODE(R.PAYOFF_005,NULL,'-',R.PAYOFF_005) PAYOFF_005,			-- 복승      
+				DECODE(R.PAYOFF_005,NULL,'-',R.PAYOFF_005) AS PAYOFF_005_DESC,  -- 복승 표현
+			
+				RUNNER_1ST_006_1,  -- 삼복승 착순 1-1
+				RUNNER_2ND_006_1,  -- 삼복승 착순 1-2
+				RUNNER_3RD_006_1,  -- 삼복승 착순 1-3
+			
+				'('||RUNNER_1ST_006_1||'-'||RUNNER_2ND_006_1||'-'||RUNNER_3RD_006_1||')' AS RUNNER_006_1_DESC,    -- 삼복승 1 착순 표현
+				DECODE(R.PAYOFF_006_1,NULL,'-',R.PAYOFF_006_1) AS PAYOFF_006_1,			-- 삼복 1
+				DECODE(R.PAYOFF_006_1,NULL,'-',R.PAYOFF_006_1) AS PAYOFF_006_1_DESC,  -- 삼복 1 표현 
+			
+				C.TOT,			--	계                                                                  
+				C.BONGJANG,	-- 본장                                                            
+				C.JIJUM,		-- 지점                                                               
+				NVL(B.TOT,0) AS B_TOT,	-- 전회차                                                                        
+				NVL(Y.TOT,0) AS Y_TOT,	-- 전년
+				ROUND(                                                           
+				CASE                                                                   
+				WHEN B.TOT>0 THEN (C.TOT-B.TOT)/B.TOT*100                           
+				ELSE 0                                                              
+				END
+				,2) 
+				B_PLUS_MINUS,	-- 증감율     
+				ROUND(                                                 
+				CASE                                                                   
+				WHEN Y.TOT>0 THEN (C.TOT-Y.TOT)/Y.TOT*100                           
+				ELSE 0                                                              
+				END
+				,2) AS	Y_PLUS_MINUS,	-- 전년 증감율
+				SAME_PAYOFF_TOTAL,		-- 동착 존재 여부
+				SAME_PAYOFF_001, -- 단승 동착
+				SAME_PAYOFF_002, -- 연승 동착
+				SAME_PAYOFF_004, -- 쌍승 동착
+				SAME_PAYOFF_005, -- 복승 동착
+				SAME_PAYOFF_006 -- 삼복승 동착
+			FROM
+			(
+				SELECT                                                                         
+					D.STND_YEAR, D.MEET_CD,                                            
+					D.TMS,                                                                    
+					D.DAY_ORD,                                                                
+					D.RACE_NO,
+					SUM(D.DIV_TOTAL) TOT,                                                     
+			
+					SUM(                                                                                              
+						CASE
+							WHEN D.MEET_CD='001' AND D.SELL_CD = '01' AND D.COMM_NO IN ('01','02','03','04','08') THEN D.DIV_TOTAL 
+							WHEN D.MEET_CD='003' AND D.SELL_CD = '03' AND D.COMM_NO  IN ('01','02','03','04','08') THEN D.DIV_TOTAL
+						END                                                                                            
+					) AS BONGJANG,
+			
+					SUM(CASE WHEN SELL_CD NOT IN('01','03') OR COMM_NO NOT IN ('01','02','03','04','08')  THEN D.DIV_TOTAL END) JIJUM 
+				FROM                                                                          
+				TBES_SDL_DT D                                                             
+				WHERE  1=1                                                                       
+				AND D.MEET_CD	= ?	-- 0:MEET_CD 경륜:001 ,경정:003                                                        
+				AND D.STND_YEAR	= ?	-- 1:STND_YEAR 기준년도                                                 
+				AND D.TMS		= ? -- 2:TMS 회차                                                            
+				AND D.DAY_ORD	= ? -- 3:DAY_ORD 일차
+				GROUP BY                                                                      
+				D.STND_YEAR, D.MEET_CD,                                              
+				D.TMS,                                                                    
+				D.DAY_ORD,
+				D.RACE_NO                                                                
+				
+			)C,
+			(
+				SELECT                                                                        
+					D.MEET_CD,                                                                
+					D.TMS,                                                                    
+					D.DAY_ORD,                                                                
+					D.RACE_NO,
+					SUM(D.DIV_TOTAL) TOT                                    
+				FROM                                                                          
+				TBES_SDL_DT D                                                             
+				WHERE  1=1                                                                       
+				AND D.MEET_CD	= ?		-- 4:MEET_CD 경륜:001 ,경정:003                                                        
+				AND D.STND_YEAR	= ?     -- 5:STND_YEAR 기준년도                                           
+				AND D.TMS		= ? -1  -- 6:TMS 회차                                                       
+				AND D.DAY_ORD	= ?     -- 7:DAY_ORD 일차                                               
+				GROUP BY                                                                      
+				D.MEET_CD,                                                                
+				D.TMS,                                                                    
+				D.DAY_ORD,      
+				D.RACE_NO                  
+			)B,
+			(                                                                                 
+				SELECT                                                                        
+					D.MEET_CD,                                                                
+					D.TMS,                                                                    
+					D.DAY_ORD,                                                                
+					DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+					SUM(D.DIV_TOTAL) TOT                  
+				FROM                                                                          
+				TBES_SDL_DT D                                                             
+				WHERE 1=1                                                                        
+				AND D.MEET_CD	= ?		-- 8:MEET_CD 경륜:001 ,경정:003                                                        
+				AND D.STND_YEAR	= ? -1   -- 9:STND_YEAR 기준년도                                           
+				AND D.TMS		= ?     -- 10:TMS 회차                                                       
+				AND D.DAY_ORD	= ?     -- 11:DAY_ORD 일차                                               
+				GROUP BY                                                                      
+				D.MEET_CD,                                                                
+				D.TMS,                                                                    
+				D.DAY_ORD,         
+				D.RACE_NO                                                       
+			) Y,                                                                               
+			(                                                                                  
+				SELECT                                                                         
+					DECODE(RACE_NO,NULL,'TOTAL',RACE_NO) RACE_NO,                
+			
+					AVG(CASE WHEN POOL_CD = '001' THEN RUNNER_1ST END) AS RUNNER_1ST_001, -- 단승 착순
+			
+					AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN RUNNER_1ST END) AS RUNNER_1ST_002_1,   -- 연승 착순 1
+					AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN RUNNER_1ST END) AS RUNNER_1ST_002_2,   -- 연승 착순 2
+			
+					AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_1ST END) RUNNER_1ST_004,   -- 쌍승 착순 1
+					AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_2ND END) RUNNER_2ND_004,   -- 쌍승 착순 2
+			
+					AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_1ST END) RUNNER_1ST_005,   -- 복승 착순 1                
+					AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_2ND END) RUNNER_2ND_005,   -- 복승 착순 2
+			
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_1ST END) RUNNER_1ST_006_1,  -- 삼복승 착순 1-1
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_2ND END) RUNNER_2ND_006_1,  -- 삼복승 착순 1-2
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_3RD END) RUNNER_3RD_006_1,  -- 삼복승 착순 1-3
+			
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_1ST END) RUNNER_1ST_006_2,  -- 삼복승 착순 2-1
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_2ND END) RUNNER_2ND_006_2,  -- 삼복승 착순 2-2
+					AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_3RD END) RUNNER_3RD_006_2,  -- 삼복승 착순 2-3
+			
+			
+					ROUND(AVG(CASE WHEN POOL_CD = '001' THEN PAYOFF END),2) PAYOFF_001,                   
+					ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN PAYOFF END),2) PAYOFF_002_1,  
+					ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN PAYOFF END),2) PAYOFF_002_2,  
+					ROUND(AVG(CASE WHEN POOL_CD = '004' THEN PAYOFF END),2) PAYOFF_004,                   
+					ROUND(AVG(CASE WHEN POOL_CD = '005' THEN PAYOFF END),2) PAYOFF_005,                   
+					ROUND(AVG(CASE WHEN POOL_CD = '006' THEN PAYOFF END),2) PAYOFF_006_1,
+			
+					SUM(CASE 
+					WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF 
+					WHEN POOL_CD = '002' AND RS_SEQ >= '3' THEN PAYOFF 
+					WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF 
+					WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF 
+					WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF 
+					END) AS SAME_PAYOFF_TOTAL, -- 동착 존재 여부 확인
+			
+					SUM(CASE WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_001, -- 단승 동착
+					SUM(CASE WHEN POOL_CD = '002' AND RS_SEQ >= '3' THEN PAYOFF END) AS SAME_PAYOFF_002, -- 연승 동착
+					SUM(CASE WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_004, -- 쌍승 동착
+					SUM(CASE WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_005, -- 복승 동착
+					SUM(CASE WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_006 -- 삼복승 동착 
+			
+			
+				FROM TBES_SDL_RS                                                                
+				WHERE 1=1                                                                          
+				AND MEET_CD		= ?		-- 12:MEET_CD 경륜:001 ,경정:003                                                            
+				AND STND_YEAR	= ?     -- 13:STND_YEAR 기준년도                                               
+				AND TMS			= ?     -- 14:TMS 회차                                                           
+				AND DAY_ORD		= ?     -- 15:DAY_ORD 일차                                                   
+				GROUP BY          
+				RACE_NO                                                              
+				-- ROLLUP(RACE_NO)	-- 최종 레코드의  TOTAL, SUM 생성용                                                              
+			) R
+			WHERE 1=1                   
+			AND C.RACE_NO=B.RACE_NO(+)         
+			AND C.RACE_NO=Y.RACE_NO(+)
+			AND C.RACE_NO=R.RACE_NO(+)
+			ORDER BY C.RACE_NO
+        ]]>
+    </query>
+    
+    
+    
+    
+    
+    <query id="rsm2031_from01Today" desc="경주별 현황 (FROM)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2031_from01Today 경주별 현황  */
+         	FROM                                                                              
+			 (                                                                                 
+			    SELECT                                                                         
+			         D.STND_YEAR, D.MEET_CD,                                            
+			         D.TMS,                                                                    
+			         D.DAY_ORD,                                                                
+			         DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+			         SUM(D.DIV_TOTAL) TOT,                                                     
+			
+			         SUM(                                                                                              
+			            CASE
+			                WHEN D.MEET_CD='001' AND D.SELL_CD = '01' AND D.COMM_NO IN ('01','02','03','04','08') THEN D.DIV_TOTAL 
+			                WHEN D.MEET_CD='003' AND D.SELL_CD = '03' AND D.COMM_NO IN ('01','02','03','04','08') THEN D.DIV_TOTAL
+			            END                                                                                            
+			         ) AS BONGJANG,
+	 
+			         --SUM(CASE WHEN SELL_CD NOT IN('01','03') OR COMM_NO NOT IN ('01','02','03','04','08')  THEN D.DIV_TOTAL END) JIJUM
+			         SUM(CASE WHEN SUBSTR(MEET_CD,2,2) = SELL_CD AND COMM_NO IN ('01','02','03','04','08') THEN 0 ELSE D.DIV_TOTAL END) AS JIJUM 
+			     FROM                                                                          
+			         TBES_SDL_DT D                                                             
+			     WHERE  1=1                                                                       
+			         AND D.MEET_CD		= ?	-- 0:MEET_CD 경륜:001 ,경정:003                                                        
+			         AND D.STND_YEAR	= ?	-- 1:STND_YEAR 기준년도                                                 
+			         AND D.TMS			= ? -- 2:TMS 회차                                                            
+			         AND D.DAY_ORD		= ? -- 3:DAY_ORD 일차
+			     GROUP BY                                                                      
+			         D.STND_YEAR, D.MEET_CD,                                              
+			         D.TMS,                                                                    
+			         D.DAY_ORD,
+			         D.RACE_NO                                                                
+			        -- ROLLUP(D.RACE_NO) -- 최종 레코드의  TOTAL, SUM 생성용
+			                                                                  
+			     ORDER BY D.RACE_NO                                                            
+			 ) C,                                                                              
+			 (                                                                                 
+			     SELECT                                                                        
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,                                                                
+			         DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+			         SUM(D.DIV_TOTAL) TOT,
+			         I.RACE_YOIL                                    
+			     FROM                                                                          
+			         TBES_SDL_DT D, VW_SDL_INFO I                                                             
+			     WHERE  1=1                                                                       
+			         AND D.MEET_CD		= ?		-- 4:MEET_CD 경륜:001 ,경정:003                                                        
+			         AND D.STND_YEAR	= ?     -- 5:STND_YEAR 기준년도                                           
+			         AND D.TMS			= ? -1  -- 6:TMS 회차                                
+                     AND D.MEET_CD = I.MEET_CD
+                     AND D.STND_YEAR = I.STND_YEAR
+                     AND D.TMS = I.TMS
+                     AND D.DAY_ORD = I.DAY_ORD
+                     AND I.RACE_YOIL = ? 	--   7:RACE_YOIL 요일                                            
+			     GROUP BY                                                                      
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,      
+			         D.RACE_NO,
+			         I.RACE_YOIL                                                          
+			         -- ROLLUP(D.RACE_NO)	-- 최종 레코드의  TOTAL, SUM 생성용                                                         
+			     ORDER BY D.RACE_NO                                                            
+			 ) B,                                                                              
+			 (                                                                                 
+			     SELECT                                                                        
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,                                                                
+			         DECODE(D.RACE_NO,NULL,'TOTAL',D.RACE_NO) RACE_NO,                         
+			         SUM(D.DIV_TOTAL) TOT,
+			         I.RACE_YOIL                  
+			     FROM                                                                          
+			         TBES_SDL_DT D, VW_SDL_INFO I                                                             
+			     WHERE 1=1                                                                        
+			         AND D.MEET_CD		= ?		-- 8:MEET_CD 경륜:001 ,경정:003                                                        
+			         AND D.STND_YEAR	= ?-1   -- 9:STND_YEAR 기준년도                                           
+			         AND D.TMS			= ?     -- 10:TMS 회차          
+                     AND D.MEET_CD = I.MEET_CD
+                     AND D.STND_YEAR = I.STND_YEAR
+                     AND D.TMS = I.TMS
+                     AND D.DAY_ORD = I.DAY_ORD
+                     AND I.RACE_YOIL = ? 	--   11:RACE_YOIL 요일                                                      
+			     GROUP BY                                                                      
+			         D.MEET_CD,                                                                
+			         D.TMS,                                                                    
+			         D.DAY_ORD,         
+			         D.RACE_NO,
+			         I.RACE_YOIL                                                       
+			         -- ROLLUP(D.RACE_NO) -- 최종 레코드의  TOTAL, SUM 생성용                                               
+			     ORDER BY D.RACE_NO                                                            
+			 ) Y,                                                                               
+			 (                                                                                  
+			     SELECT                                                                         
+			        DECODE(R.RACE_NO,NULL,'TOTAL',R.RACE_NO) RACE_NO,                
+			        
+			        AVG(CASE WHEN POOL_CD = '001' THEN RUNNER_1ST END) AS RUNNER_1ST_001, -- 단승 착순
+			        
+			        AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN RUNNER_1ST END) AS RUNNER_1ST_002_1,   -- 연승 착순 1
+			        AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN RUNNER_1ST END) AS RUNNER_1ST_002_2,   -- 연승 착순 2
+			        AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='3' THEN RUNNER_1ST END) AS RUNNER_1ST_002_3,   -- 연승 착순 3
+			        
+			        AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_1ST END) RUNNER_1ST_004,   -- 쌍승 착순 1
+			        AVG(CASE WHEN POOL_CD = '004' THEN RUNNER_2ND END) RUNNER_2ND_004,   -- 쌍승 착순 2
+			        
+			        AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_1ST END) RUNNER_1ST_005,   -- 복승 착순 1                
+			        AVG(CASE WHEN POOL_CD = '005' THEN RUNNER_2ND END) RUNNER_2ND_005,   -- 복승 착순 2
+			        
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_1ST END) RUNNER_1ST_006_1,  -- 삼복승 착순 1-1
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_2ND END) RUNNER_2ND_006_1,  -- 삼복승 착순 1-2
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='1' THEN RUNNER_3RD END) RUNNER_3RD_006_1,  -- 삼복승 착순 1-3
+			        
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_1ST END) RUNNER_1ST_006_2,  -- 삼복승 착순 2-1
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_2ND END) RUNNER_2ND_006_2,  -- 삼복승 착순 2-2
+			        AVG(CASE WHEN POOL_CD = '006' AND RS_SEQ='2' THEN RUNNER_3RD END) RUNNER_3RD_006_2,  -- 삼복승 착순 2-3
+			        
+			        
+			        ROUND(AVG(CASE WHEN POOL_CD = '001' THEN PAYOFF END),2) PAYOFF_001,                   
+                   ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='1' THEN PAYOFF END),2) PAYOFF_002_1,  
+                   ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='2' THEN PAYOFF END),2) PAYOFF_002_2,  
+                   ROUND(AVG(CASE WHEN POOL_CD = '002' AND RS_SEQ='3' THEN PAYOFF END),2) PAYOFF_002_3,  
+                   ROUND(AVG(CASE WHEN POOL_CD = '004' THEN PAYOFF END),2) PAYOFF_004,                   
+                   ROUND(AVG(CASE WHEN POOL_CD = '005' THEN PAYOFF END),2) PAYOFF_005,                   
+                   ROUND(AVG(CASE WHEN POOL_CD = '006' THEN PAYOFF END),2) PAYOFF_006_1,
+                   
+                   SUM(CASE 
+                            WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF 
+                            WHEN POOL_CD = '002' AND RS_SEQ >= '3' AND NVL(O.CNT,7) = 7 THEN PAYOFF 
+                            WHEN POOL_CD = '002' AND RS_SEQ >= '4' AND NVL(O.CNT,7) = 8 THEN PAYOFF 
+                            WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF 
+                            WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF 
+                            WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF 
+                   END) AS SAME_PAYOFF_TOTAL, -- 동착 존재 여부 확인
+                                      
+                   SUM(CASE WHEN POOL_CD = '001' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_001, -- 단승 동착
+                   SUM(CASE WHEN POOL_CD = '002' AND RS_SEQ >= '3' AND NVL(O.CNT,7) = 7 THEN PAYOFF 
+                            WHEN POOL_CD = '002' AND RS_SEQ >= '4' AND NVL(O.CNT,7) = 8 THEN PAYOFF 
+                            END) AS SAME_PAYOFF_002, -- 연승 동착
+                   SUM(CASE WHEN POOL_CD = '004' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_004, -- 쌍승 동착
+                   SUM(CASE WHEN POOL_CD = '005' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_005, -- 복승 동착
+                   SUM(CASE WHEN POOL_CD = '006' AND RS_SEQ >= '2' THEN PAYOFF END) AS SAME_PAYOFF_006 -- 삼복승 동착 
+                                       
+			                        
+			    FROM TBES_SDL_RS  R,  
+                    (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO, COUNT(*) AS CNT 
+                      FROM   US_CRA.TBJB_CFM_ORGAN
+                      GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO) O                                                                    
+			    WHERE 1=1                                                                          
+			        AND R.MEET_CD		= ?		-- 12:MEET_CD 경륜:001 ,경정:003                                                            
+			        AND R.STND_YEAR	= ?     -- 13:STND_YEAR 기준년도                                               
+			        AND R.TMS			= ?     -- 14:TMS 회차                                                           
+			        AND R.DAY_ORD		= ?     -- 15:DAY_ORD 일차
+			        AND R.STATUS = 'N'       
+                    AND R.STND_YEAR = O.STND_YEAR(+)
+                    AND R.MEET_CD   = O.MEET_CD(+)
+                    AND R.TMS       = O.TMS(+)
+                    AND R.DAY_ORD   = O.DAY_ORD(+)
+                    AND R.RACE_NO   = O.RACE_NO(+)                                                   
+			    GROUP BY          
+			    	R.RACE_NO                                                              
+			        -- ROLLUP(RACE_NO)	-- 최종 레코드의  TOTAL, SUM 생성용                                                              
+			 ) R,                                  
+			
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2031_s05Today" desc="지점별 매출액" fetchSize="10">
+        <![CDATA[
+        
+         SELECT /* rsm2031_s05Today */                                                                                             
+		     SUM(CASE WHEN COMM_NO = '07' THEN A.DIV_TOTAL END) DIV_TOTAL,                
+		     SUM(                                                                                          
+		        CASE                                                                                       
+		            WHEN MEET_CD='001' AND SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		            WHEN MEET_CD='003' AND SELL_CD = '03' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		        END                                                                                        
+		     ) BONGJANG, -- 본장
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN A.DIV_TOTAL END) JANG11,	-- 수원 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN A.DIV_TOTAL END) JANG12,	-- 상봉                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN A.DIV_TOTAL END) JANG13,	-- 일산                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN A.DIV_TOTAL END) JANG14,	-- 분당
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN A.DIV_TOTAL END) JANG15,	-- 동대문 (경정 X)                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN A.DIV_TOTAL END) JANG16,	-- 장안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN A.DIV_TOTAL END) JANG17,	-- 산본 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN A.DIV_TOTAL END) JANG18,	-- 부천 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN A.DIV_TOTAL END) JANG19,	-- 관악                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN A.DIV_TOTAL END) JANG20,	-- 길음                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN A.DIV_TOTAL END) JANG21,	-- 당산 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN A.DIV_TOTAL END) JANG22,	-- 유성                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN A.DIV_TOTAL END) JANG23,	-- 인천                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN A.DIV_TOTAL END) JANG24,	-- 시흥                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN A.DIV_TOTAL END) JANG25,	-- 논현                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN A.DIV_TOTAL END) JANG26,	-- 천안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN A.DIV_TOTAL END) JANG27,	-- 올림픽              
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN A.DIV_TOTAL END) JANG28,	-- 의정부              
+		     SUM(CASE WHEN SUBSTR(MEET_CD,2,2) != SELL_CD AND SELL_CD IN ('01','03') AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL END) JANG99,	-- 공동활용본장              
+		     SUM(CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN A.DIV_TOTAL END) GYEJWA,      -- 마이켓(계좌)              
+		     SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN A.DIV_TOTAL END) GYOCHA               -- 교차                                                       
+		 FROM TBES_SDL_DT A                                                                                 
+		 WHERE 1 = 1                                                                                        
+		     AND A.MEET_CD		= ?		-- 0:MEET_CD 경륜 경정 구분 코드                                                                       
+		     AND A.STND_YEAR	= ?		-- 1:STND_YEAR 기준년도                                                                   
+		     AND A.TMS			= ?     -- 2:TMS 회차                                                                         
+		     AND A.DAY_ORD		= ?     -- 3:DAY_ORD 일차                                                                   
+		 GROUP BY A.MEET_CD, A.STND_YEAR
+		   
+        ]]>
+    </query>
+
+    
+        <query id="rsm2031_s05Today_2" desc="지점별 매출액(그린카드 포함)" fetchSize="10">
+        <![CDATA[
+        
+         SELECT /* rsm2031_s05Today */                                                                                             
+		     SUM(CASE WHEN COMM_NO = '07' THEN A.DIV_TOTAL END) DIV_TOTAL,                
+		     SUM(                                                                                          
+		        CASE                                                                                       
+		            WHEN MEET_CD='001' AND SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		            WHEN MEET_CD='003' AND SELL_CD = '03' AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL   
+		        END                                                                                        
+		     ) BONGJANG, -- 본장
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN A.DIV_TOTAL END) JANG11,	-- 수원 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN A.DIV_TOTAL END) JANG12,	-- 상봉                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN A.DIV_TOTAL END) JANG13,	-- 일산                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN A.DIV_TOTAL END) JANG14,	-- 분당
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN A.DIV_TOTAL END) JANG15,	-- 동대문 (경정 X)                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN A.DIV_TOTAL END) JANG16,	-- 장안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN A.DIV_TOTAL END) JANG17,	-- 산본 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN A.DIV_TOTAL END) JANG18,	-- 부천 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN A.DIV_TOTAL END) JANG19,	-- 관악                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN A.DIV_TOTAL END) JANG20,	-- 길음                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN A.DIV_TOTAL END) JANG21,	-- 당산 (경정 X)       
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN A.DIV_TOTAL END) JANG22,	-- 유성                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN A.DIV_TOTAL END) JANG23,	-- 인천                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN A.DIV_TOTAL END) JANG24,	-- 시흥                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN A.DIV_TOTAL END) JANG25,	-- 논현                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN A.DIV_TOTAL END) JANG26,	-- 천안                
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN A.DIV_TOTAL END) JANG27,	-- 올림픽              
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN A.DIV_TOTAL END) JANG28,	-- 의정부              
+		     SUM(CASE WHEN SUBSTR(MEET_CD,2,2) != SELL_CD AND SELL_CD IN ('01','03') AND COMM_NO IN ('01','02','03','04','08') THEN A.DIV_TOTAL END) JANG99,	-- 공동활용본장              
+		     NULL GYEJWA,      -- 마이켓(계좌)              
+		     SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN A.DIV_TOTAL END) GYOCHA               -- 교차                                                       
+		 FROM VW_SDL_DT_GSUM_REAL A                                                                                 
+		 WHERE 1 = 1                                                                                        
+		     AND A.MEET_CD		= ?		-- 0:MEET_CD 경륜 경정 구분 코드                                                                       
+		     AND A.STND_YEAR	= ?		-- 1:STND_YEAR 기준년도                                                                   
+		     AND A.TMS			= ?     -- 2:TMS 회차                                                                         
+		     AND A.DAY_ORD		= ?     -- 3:DAY_ORD 일차                                                                   
+		 GROUP BY A.MEET_CD, A.STND_YEAR
+		   
+        ]]>
+    </query>
+    
+    
+	<query id="rsm2031_s11" desc="경주 정보 조회" fetchSize="10">
+        <![CDATA[        
+           SELECT  /* rsm2031_s11 */                                                        
+                   MAX(RACER_CNT) AS RACER_MAX_CNT
+           FROM (
+                   SELECT RACE_NO, COUNT(BACK_NO) RACER_CNT
+                   FROM   US_CRA.TBJB_CFM_ORGAN
+                   WHERE  MEET_CD   = ?
+                   AND    STND_YEAR = ?
+                   AND    TMS       = ?
+                   AND    DAY_ORD   = ?
+                   GROUP BY RACE_NO
+                 )                                                                                                                                                           
+			            
+        ]]>
+    </query>
+    
+    
+</queryMap>

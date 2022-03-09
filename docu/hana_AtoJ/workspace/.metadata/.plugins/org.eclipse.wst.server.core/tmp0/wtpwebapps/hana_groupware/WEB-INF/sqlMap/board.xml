@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http#{//mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : board.xml
+  * @메뉴명 : 게시판 
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="board"> 
+	
+	<resultMap type="com.hanaph.gw.of.board.vo.BoardCommentVO" id="BoardCommentVO">
+		<result property="comments" column="COMMENTS" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+
+	<resultMap type="com.hanaph.gw.of.board.vo.BoardVO" id="BoardVO">
+		<result property="seq" column="SEQ"/>
+		<result property="subject" column="SUBJECT"/>
+		<result property="cd_nm" column="CD_NM"/>
+		<result property="read_cnt" column="READ_CNT"/>
+		<result property="comment_cnt" column="COMMENT_CNT"/>
+		<result property="read_yn" column="READ_YN"/>
+		<result property="attach_cnt" column="ATTACH_CNT"/>
+		<result property="start_ymd" column="START_YMD"/>
+		<result property="end_ymd" column="END_YMD"/>
+		<result property="create_dt" column="CREATE_DT"/>
+		<result property="create_no" column="CREATE_NO"/>
+		<result property="delete_yn" column="DELETE_YN"/>
+		<result property="contents" column="CONTENTS" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+	
+	<select id="getBoardCount" parameterType="hashmap" resultType="int">
+	SELECT COUNT(*)
+	  FROM (
+		SELECT ORAGMP.F_GET_EMP_KO_NM (GOB.CREATE_NO) EMP_KO_NM, GOB.SUBJECT, GOB.START_YMD, GOB.END_YMD, GOB.CD
+		  FROM GW_OF_BOARD GOB, GW_OF_BOARD_TARGET GOBT		
+		 WHERE DELETE_YN = #{delete_yn}		
+		   AND GOB.SEQ = GOBT.SEQ
+           AND GOBT.EMP_NO = #{emp_no}) TA
+		<if test="search_start_ymd!=null and search_end_ymd!=null">
+		<![CDATA[ 
+	  	   WHERE ((TA.START_YMD <= TO_DATE(#{search_end_ymd},'yyyy-mm-dd') AND TA.END_YMD >= TO_DATE(#{search_start_ymd},'yyyy-mm-dd'))      
+  	          OR (TA.START_YMD <= TO_DATE(#{search_start_ymd},'yyyy-mm-dd') AND TA.END_YMD >= TO_DATE(#{search_end_ymd},'yyyy-mm-dd')))
+		]]>
+	    </if>
+		<if test="boardType != null">
+	  	   AND TA.CD = #{boardType}
+		</if>
+		<if test="searchKeyword != null">
+			<choose>
+				<when test="searchType == 'subject'">
+ 					AND TA.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'create_no'">
+ 					AND TA.EMP_KO_NM LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+	</select>
+	
+	<select id="getBoardList" parameterType="hashmap" resultMap="BoardVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+			  SELECT * 
+				FROM(
+				 SELECT GOB.SEQ, GOB.CD, GCC.CD_NM, GOB.SUBJECT, GOB.CONTENTS, GOB.READ_CNT, TA.COMMENT_CNT, GOBT.READ_YN ,TB.ATTACH_CNT,       
+				        SUBSTR(GOB.START_YMD,1,4)||'-'|| SUBSTR(GOB.START_YMD,5,2)||'-'||SUBSTR(GOB.START_YMD,7,2) START_YMD,
+				        SUBSTR(GOB.END_YMD,1,4)||'-'|| SUBSTR(GOB.END_YMD,5,2)||'-'||SUBSTR(GOB.END_YMD,7,2) END_YMD,
+				        TO_CHAR (GOB.CREATE_DT, 'YYYY-MM-DD HH24:MI:SS') CREATE_DT,       
+				        ORAGMP.F_GET_EMP_KO_NM(GOB.CREATE_NO) EMP_KO_NM, GOB.DELETE_YN, GOB.CREATE_NO     
+				   FROM GW_OF_BOARD GOB, GW_CO_CODE GCC, GW_OF_BOARD_TARGET GOBT				   
+				        ,(SELECT GONC.SEQ, COUNT (*) AS COMMENT_CNT
+				            FROM GW_OF_BOARD_COMMENT GONC
+				           WHERE DELETE_YN = 'N'
+				           GROUP BY SEQ) TA       
+				        ,(SELECT OFA.SEQ, COUNT(*) AS ATTACH_CNT 
+						    FROM GW_OF_FILE_ATTACH OFA
+						   WHERE OFA.DELETE_YN='N'
+						   <if test="boardType != null">
+						     AND OFA.CD = #{boardType}
+						   </if>
+						   GROUP BY OFA.SEQ) TB
+				  WHERE GOB.DELETE_YN = 'N'   
+				    AND GOB.SEQ = GOBT.SEQ				   
+				    AND GOB.CD = GCC.CD
+				    AND GOBT.EMP_NO = #{emp_no}
+				    AND GOB.SEQ = TA.SEQ(+)
+				    AND GOB.SEQ = TB.SEQ(+)
+       			<if test="boardType != null">
+					AND GOB.CD = #{boardType}
+				</if>
+                )TC
+			    <![CDATA[ 
+		 		  WHERE ((START_YMD <= TO_DATE(#{search_end_ymd},'yyyy-mm-dd') AND END_YMD >= TO_DATE(#{search_start_ymd},'yyyy-mm-dd'))      
+		    	     OR (START_YMD <= TO_DATE(#{search_start_ymd},'yyyy-mm-dd') AND END_YMD >= TO_DATE(#{search_end_ymd},'yyyy-mm-dd')))
+        		]]>
+			<if test="searchKeyword != null">
+				<choose>
+					<when test="searchType == 'subject'">
+	 					AND TC.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+					</when>
+					<when test="searchType == 'create_no'">
+	 					AND TC.EMP_KO_NM LIKE '%' || #{searchKeyword} || '%'
+					</when>
+				</choose>
+			</if>
+			ORDER BY CREATE_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	
+	</select>
+	
+	<select id="getBoardDetail" parameterType="hashmap" resultType="com.hanaph.gw.of.board.vo.BoardVO">
+		SELECT GB.SEQ, GB.REPLY_GRP, GB.REPLY_LEVEL, GB.REPLY_STEP,
+		       GC.CD, GC.CD_NM, ORAGMP.F_GET_EMP_KO_NM(GB.CREATE_NO) EMP_KO_NM, 
+		       GB.CREATE_NO, GB.SUBJECT, GB.CONTENTS, GB.READ_CNT,
+		       TO_CHAR(TO_DATE(GB.START_YMD,'YYYY-MM-DD'),'YYYY-MM-DD') START_YMD, 
+		       TO_CHAR(TO_DATE(GB.END_YMD,'YYYY-MM-DD'),'YYYY-MM-DD') END_YMD,        
+		       TO_CHAR(GB.CREATE_DT,'YYYY-MM-DD HH24:MI:SS') CREATE_DT, GB.MODIFY_DT,
+		       GB.DELETE_YN
+		  FROM GW_OF_BOARD GB, GW_CO_CODE GC		     
+		 WHERE SEQ = #{seq}
+		   AND GB.CD = GC.CD		 
+	</select>
+	
+	<select id="getBoardSeq" resultType="int">
+   		SELECT MAX(SEQ) SEQ FROM GW_OF_BOARD
+	</select>
+	
+	<insert id="insertBoard" parameterType="com.hanaph.gw.of.board.vo.BoardVO">
+		<selectKey keyProperty="seq" resultType="string" order="BEFORE">
+    		SELECT SEQ_GW_OF_BOARD.NEXTVAL seq FROM DUAL
+  		</selectKey>
+			INSERT INTO GW_OF_BOARD 
+			(
+				SEQ,
+				REPLY_GRP,
+				REPLY_LEVEL,
+				REPLY_STEP,
+				CD, 
+				CREATE_NO, 
+				SUBJECT, 
+				CONTENTS, 
+				READ_CNT, 
+				START_YMD, 
+				END_YMD, 
+				DELETE_YN,
+				CREATE_DT
+			)
+			VALUES 
+			(
+				#{seq},
+				<if test="reply_grp == 0">#{seq},</if>
+				<if test="reply_grp != 0">#{reply_grp},</if>
+			 	#{reply_level},
+			 	#{reply_step},
+				#{cd}, 
+				#{create_no},
+				#{subject}, 
+				#{contents,jdbcType=CLOB}, 
+				#{read_cnt},
+				TO_CHAR(TO_DATE(#{start_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+				TO_CHAR(TO_DATE(#{end_ymd},'yyyy-mm-dd'),'yyyymmdd'), 
+				#{delete_yn},
+				SYSDATE
+			)
+	</insert>
+	
+	<update id="updateBoard" parameterType="com.hanaph.gw.of.board.vo.BoardVO">
+		UPDATE GW_OF_BOARD
+		   SET SUBJECT = #{subject},
+			   CONTENTS = #{contents,jdbcType=CLOB},
+			   START_YMD = TO_CHAR(TO_DATE(#{start_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+			   END_YMD = TO_CHAR(TO_DATE(#{end_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+  			   MODIFY_NO = #{modify_no},
+			   MODIFY_DT = SYSDATE
+		 WHERE SEQ = #{seq}
+	</update>
+	
+	<update id="deleteBoard" parameterType="com.hanaph.gw.of.board.vo.BoardVO">
+		UPDATE GW_OF_BOARD
+	  	   SET DELETE_YN = #{delete_yn},
+	  	       MODIFY_NO = #{modify_no}, 
+	  	       MODIFY_DT = SYSDATE
+		 WHERE SEQ = #{seq}
+	</update>
+	
+	<insert id="insertComment" parameterType="com.hanaph.gw.of.board.vo.BoardCommentVO">
+		INSERT INTO GW_OF_BOARD_COMMENT
+	            (
+		            COMMENT_SEQ, SEQ, COMMENTS, CREATE_DT, CREATE_NO, DELETE_YN
+	            )
+	     VALUES (
+	     			SEQ_GW_OF_BOARD_COMMENT.NEXTVAL, #{seq}, #{comments}, SYSDATE, #{create_no}, 'N'
+	             )
+	</insert>
+	
+	<update id="updateComment" parameterType="com.hanaph.gw.of.board.vo.BoardCommentVO">
+		UPDATE GW_OF_BOARD_COMMENT
+		   SET COMMENTS = #{comments,jdbcType=CLOB}
+		 WHERE COMMENT_SEQ = #{comment_seq}
+		   AND SEQ = #{seq}
+	</update>
+	
+	<update id="deleteComment" parameterType="com.hanaph.gw.of.board.vo.BoardCommentVO">
+		UPDATE GW_OF_BOARD_COMMENT
+		   SET DELETE_YN = #{delete_yn}
+	     WHERE COMMENT_SEQ = #{comment_seq}
+	</update>
+	
+	
+	<select id="getCommentLsit" resultMap="BoardCommentVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+				SELECT NC.COMMENT_SEQ, NC.SEQ, NC.COMMENTS, TO_CHAR (NC.CREATE_DT, 'YYYY-MM-DD HH24:MI:SS') CREATE_DT,
+				       ORAGMP.F_GET_EMP_KO_NM(NC.CREATE_NO) CREATE_NO,
+					   NC.CREATE_NO EMP_NO, NC.DELETE_YN
+				  FROM GW_OF_BOARD_COMMENT NC				       
+				 WHERE DELETE_YN = 'N' 
+				   AND SEQ = #{seq}
+				 ORDER BY COMMENT_SEQ DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<insert id="insertBoardEmpNo" parameterType="com.hanaph.gw.of.board.vo.BoardTargetVO">
+		MERGE INTO GW_OF_BOARD_TARGET
+		     USING DUAL
+		        ON (EMP_NO = #{emp_no} AND SEQ = #{seq})
+		      WHEN NOT MATCHED THEN
+		    INSERT (EMP_NO, SEQ, READ_YN)
+		    VALUES (#{emp_no}, #{seq}, #{read_yn})
+	</insert>
+	
+	<select id="getBoardMemberList" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT NT.EMP_NO AS EMP_NO
+		,EMP.EMPNAME AS EMP_KO_NM 
+		,EMP.DEPTCODE AS DEPT_CD
+		,DEPT.DEPTCODE AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		,ORAGMP.F_GET_SORT_SEQ(EMP.EMPCODE) AS EMP_SORT
+		FROM GW_OF_BOARD_TARGET NT
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE NT.EMP_NO = EMP.EMPCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE 
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.RETIREDT IS NULL
+		AND NT.SEQ = #{board_seq}
+		ORDER BY EMP_SORT ASC	
+	</select>
+	
+	<select id="getBoardReadData" parameterType="hashmap" resultType="com.hanaph.gw.of.board.vo.BoardTargetVO">
+		SELECT EMP_NO, SEQ, READ_YN, READ_DT
+		  FROM GW_OF_BOARD_TARGET
+		 WHERE EMP_NO = #{emp_no}
+		   AND SEQ = #{seq}
+	</select>
+	
+	<update id="updateBoardRead" parameterType="hashmap">
+		UPDATE GW_OF_BOARD_TARGET
+		   SET READ_YN = #{read_yn}, 
+		       READ_DT = SYSDATE
+		 WHERE EMP_NO = #{emp_no} 
+		   AND SEQ = #{seq}
+	</update>
+	
+	<update id="updateBoardReadAdd" parameterType="hashmap">
+		UPDATE GW_OF_BOARD 
+		   SET READ_CNT = READ_CNT+1 
+		 WHERE SEQ= #{seq}
+	</update>
+	
+	<update id="updateBoardSetReadCnt" parameterType="com.hanaph.gw.of.board.vo.BoardTargetVO">
+		UPDATE GW_OF_BOARD SET READ_CNT = 0 WHERE SEQ= #{seq}
+	</update>
+	
+	<select id="getBoardCommentCount" parameterType="int" resultType="int">
+		SELECT COUNT(*) 
+		  FROM GW_OF_BOARD_COMMENT
+		 WHERE DELETE_YN = 'N' 
+		   AND SEQ = #{seq}
+	</select>
+	
+	<select id="getBoardReadDataList" parameterType="hashmap" resultType="com.hanaph.gw.of.common.vo.CommonTargetVO">
+		SELECT BT.EMP_NO AS EMP_NO
+		,EMP.EMPNAME AS EMP_KO_NM 
+		,EMP.DEPTCODE AS DEPT_CD
+		,DEPT.DEPTCODE AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		,TO_CHAR (READ_DT, 'YYYY-MM-DD HH24:MI:SS') AS READ_DT
+		,READ_YN
+		,ORAGMP.F_GET_SORT_SEQ(EMP.EMPCODE) AS EMP_SORT
+		FROM GW_OF_BOARD_TARGET BT
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE BT.EMP_NO = EMP.EMPCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE 
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.RETIREDT IS NULL
+		AND BT.SEQ = #{board_seq} 
+		ORDER BY EMP_SORT ASC
+	</select>
+	
+	<delete id="deleteBoardTarget" parameterType="com.hanaph.gw.of.board.vo.BoardTargetVO">
+		DELETE GW_OF_BOARD_TARGET WHERE SEQ = #{seq}
+	</delete>
+</mapper>
+	

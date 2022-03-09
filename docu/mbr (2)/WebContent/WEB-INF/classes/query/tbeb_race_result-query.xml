@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_race_result(경주결과)">
+    <query id="tbeb_race_result_fb001" desc="경주결과조회" fetchSize="10">
+        <![CDATA[
+	SELECT  /* tbeb_race_result_fb001 */
+			  RACER_NO
+			, NM_KOR
+			, RACER_GRD_CD
+			, RACE_CNT
+			, AMU_RANK_SCR
+			, ACDNT_SCR
+			, AVG_RANK_SCR
+			, AVG_SCR
+			, RACE_TM
+			, RANK() OVER (ORDER BY AVG_SCR DESC, RANK) RANK
+			, RANK_RANK
+			, F_CNT         
+			, L_CNT           
+			, ABSE_CNT        
+			, RACE_ESC_1_CNT  
+			, RACE_ESC_2_CNT  
+			, FOUL_ELIM_CNT   
+			, ELIM_CNT        
+			, FOUL_WARN_CNT   
+			, WARN_CNT        
+			, ATTEN_CNT       
+			, RACE_1_1
+			, RACE_1_2
+			, RACE_2_1
+			, RACE_2_2
+			, RACE_3_1
+			, RACE_3_2
+			, RACE_4_1
+			, RACE_4_2
+			, RACE_5_1
+			, RACE_5_2
+			, RACE_6_1
+			, RACE_6_2
+			, RACE_7_1
+			, RACE_7_2
+			, CNT
+	FROM     (
+            SELECT
+			         TRM  .RACER_NO
+			       , TRM  .NM_KOR
+			       , NVL(RECD .RACER_GRD_CD, TRM.RACER_GRD_CD) RACER_GRD_CD
+			       , RECD .RACE_CNT
+			       , RECD .AMU_RANK_SCR
+			       , RECD .ACDNT_SCR
+			       , RECD .AVG_RANK_SCR
+			       , DECODE(RACE.tms_6_avg_scr,0,RECD.AVG_SCR, RACE.tms_6_avg_scr) AVG_SCR
+			       , RECD .RACE_TM
+			       , RECD .RANK
+			       , RECD .RANK_RANK
+                   , RECD .F_CNT         
+                   , RECD .L_CNT           
+                   , RECD .ABSE_CNT        
+                   , RECD .RACE_ESC_1_CNT  
+                   , RECD .RACE_ESC_2_CNT  
+                   , RECD .FOUL_ELIM_CNT   
+                   , RECD .ELIM_CNT        
+                   , RECD .FOUL_WARN_CNT   
+                   , RECD .WARN_CNT        
+                   , RECD .ATTEN_CNT       
+                   , RACE .RACE_1_1
+                   , RACE .RACE_1_2
+                   , RACE .RACE_2_1
+                   , RACE .RACE_2_2
+                   , RACE .RACE_3_1
+                   , RACE .RACE_3_2
+                   , RACE .RACE_4_1
+                   , RACE .RACE_4_2
+                   , RACE .RACE_5_1
+                   , RACE .RACE_5_2
+                   , RACE .RACE_6_1
+                   , RACE .RACE_6_2
+                   , RACE .RACE_7_1
+                   , RACE .RACE_7_2
+                   , SPEC .CNT
+            FROM     TBEC_RACER_MASTER  TRM
+                   , (
+            			SELECT
+            			         TOR  .RACER_NO
+            			       , TOR  .RACER_GRD_CD
+            			       , COUNT(*)                       RACE_CNT
+            			       , NVL(SUM(TRS .RACE_SCR ), 0)    AMU_RANK_SCR
+            			       , NVL(SUM(TRVA.ACDNT_SCR), 0)    ACDNT_SCR
+            			       , TO_CHAR( NVL(SUM(TRS .RACE_SCR ), 0) / COUNT(*), '90.99') AVG_RANK_SCR
+            			       , ROUND((NVL(SUM(TRS .RACE_SCR ), 0) - NVL(SUM(TRVA.ACDNT_SCR), 0)) / COUNT(*), 2) AVG_SCR
+            			       , MIN(TOR.RACE_TM) RACE_TM
+            			       , RANK() OVER (ORDER BY (NVL(SUM(TRS .RACE_SCR ), 0) - NVL(SUM(TRVA.ACDNT_SCR), 0)) / COUNT(*) DESC, RANK.RANK, MIN(TOR.RACE_TM)) RANK
+                               , RANK.RANK RANK_RANK
+                               , SUM(TRVA .F_CNT         ) F_CNT         
+                               , SUM(TRVA .L_CNT         ) L_CNT           
+                               , SUM(TRVA .ABSE_CNT      ) ABSE_CNT        
+                               , SUM(TRVA .RACE_ESC_1_CNT) RACE_ESC_1_CNT  
+                               , SUM(TRVA .RACE_ESC_2_CNT) RACE_ESC_2_CNT  
+                               , SUM(TRVA .FOUL_ELIM_CNT ) FOUL_ELIM_CNT   
+                               , SUM(TRVA .ELIM_CNT      ) ELIM_CNT        
+                               , SUM(TRVA .FOUL_WARN_CNT ) FOUL_WARN_CNT   
+                               , SUM(TRVA .WARN_CNT      ) WARN_CNT        
+                               , SUM(TRVA .ATTEN_CNT     ) ATTEN_CNT       
+            			FROM     TBEB_ORGAN         TOR
+            			       , TBEB_RACE          TR
+            			       , TBEB_RANK_SCR      TRS
+            			       , (
+                                    SELECT
+            			                     TRVA.STND_YEAR
+            			                   , TRVA.MBR_CD
+            			                   , TRVA.TMS
+            			                   , TRVA.DAY_ORD
+            			                   , TRVA.RACE_NO
+            			                   , TRVA.RACE_REG_NO
+            			                   , TRVA.RACER_NO
+            			                   , NVL(TRVB.ACDNT_SCR, TRVA.ACDNT_SCR) ACDNT_SCR
+                                           , TRVA .F_CNT          F_CNT         
+                                           , TRVA .L_CNT          L_CNT             
+                                           , TRVA .ABSE_CNT       ABSE_CNT          
+                                           , TRVA .RACE_ESC_1_CNT RACE_ESC_1_CNT    
+                                           , TRVA .RACE_ESC_2_CNT RACE_ESC_2_CNT    
+                                           , TRVA .FOUL_ELIM_CNT  FOUL_ELIM_CNT     
+                                           , TRVA .ELIM_CNT       ELIM_CNT          
+                                           , TRVA .FOUL_WARN_CNT  FOUL_WARN_CNT     
+                                           , TRVA .WARN_CNT       WARN_CNT          
+                                           , TRVA .ATTEN_CNT      ATTEN_CNT         
+                                    FROM     (
+                        			            SELECT
+                                                         TRVA.STND_YEAR
+                                                       , TRVA.MBR_CD   
+                                                       , TRVA.TMS      
+                                                       , TRVA.DAY_ORD  
+                                                       , TRVA.RACE_NO  
+                                                       , TRVA.RACE_REG_NO  
+                                                       , TRVA.RACER_NO  
+                        			                   , SUM(ACDNT_SCR) ACDNT_SCR
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '110', 1, NULL)) F_CNT                
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '120', 1, NULL)) L_CNT                
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '130', 1, NULL)) ABSE_CNT             
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '995', 1, NULL)) RACE_ESC_1_CNT       
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '997', 1, NULL)) RACE_ESC_2_CNT       
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '125', 1, NULL)) FOUL_ELIM_CNT        
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '140', 1, NULL)) ELIM_CNT             
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '150', 1, NULL)) FOUL_WARN_CNT        
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '210', 1, NULL)) WARN_CNT             
+                                                       , SUM(DECODE(TRVA.VOIL_CD, '220', 1, NULL)) ATTEN_CNT            
+                        			            FROM     TBED_RACE_VOIL_ACT TRVA
+                        			                   , TBEB_ACDNT_SCR     TAS
+                        			            WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+                        			            AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+            						            AND    TRVA.STND_YEAR    = ?
+            						            AND    TRVA.MBR_CD       = ?
+            						            AND    TRVA.TMS          = ?
+            						            AND    TRVA.DAY_ORD      = DECODE(?, 0, TRVA.DAY_ORD, ?)
+                                                GROUP BY
+                                                         TRVA.STND_YEAR
+                                                       , TRVA.MBR_CD   
+                                                       , TRVA.TMS      
+                                                       , TRVA.DAY_ORD  
+                                                       , TRVA.RACE_NO  
+                                                       , TRVA.RACE_REG_NO  
+                                                       , TRVA.RACER_NO  
+            			                     ) TRVA -- 선수별사고점및사고횟수조회
+            			                   , (
+                        			            SELECT
+                                                         TRVA.STND_YEAR
+                                                       , TRVA.MBR_CD   
+                                                       , TRVA.TMS      
+                                                       , TRVA.DAY_ORD  
+                                                       , TRVA.RACE_NO  
+                                                       , TRVA.RACE_REG_NO  
+                                                       , TRVA.RACER_NO  
+                        			                   , TAS .ACDNT_SCR
+                        			            FROM     TBED_RACE_VOIL_ACT TRVA
+                        			                   , TBEB_ACDNT_SCR     TAS
+                        			            WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+                        			            AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+            						            AND    TRVA.STND_YEAR    = ?
+            						            AND    TRVA.MBR_CD       = ?
+            						            AND    TRVA.TMS          = ?
+            						            AND    TRVA.DAY_ORD      = DECODE(?, 0, TRVA.DAY_ORD, ?)
+                        			            AND    TRVA.VOIL_CD      IN ('110', '120')
+                                             ) TRVB -- F,L사고점 조회
+                                    WHERE  TRVA.STND_YEAR   = TRVB.STND_YEAR  (+)
+            			            AND    TRVA.MBR_CD      = TRVB.MBR_CD     (+)
+            			            AND    TRVA.TMS         = TRVB.TMS        (+)
+            			            AND    TRVA.DAY_ORD     = TRVB.DAY_ORD    (+)
+            			            AND    TRVA.RACE_NO     = TRVB.RACE_NO    (+)
+            			            AND    TRVA.RACE_REG_NO = TRVB.RACE_REG_NO(+)
+            			         ) TRVA -- 선수별사고점
+                               , (
+                                    SELECT
+                                             RACER_NO
+                                           , RANK
+                                    FROM   (
+                                                SELECT
+                                                         RACER_NO
+                                                       , RANK
+                                                       , ROW_NUMBER() OVER (PARTITION BY RACER_NO
+                                                                                ORDER BY RANK) SEQ
+                                                FROM   TBEB_ORGAN
+                                                WHERE  STND_YEAR = ?
+                                                AND    MBR_CD    = ?
+                                                AND    TMS       = ?
+            						            AND    DAY_ORD   = DECODE(?, 0, DAY_ORD, ?)
+                                                AND    RANK      > 0
+                                           )
+                                    WHERE SEQ = 1
+                                 ) RANK -- 선수별최상위착위
+            			WHERE  TOR .STND_YEAR    = TR   .STND_YEAR
+            			AND    TOR .MBR_CD       = TR   .MBR_CD
+            			AND    TOR .TMS          = TR   .TMS
+            			AND    TOR .DAY_ORD      = TR   .DAY_ORD
+            			AND    TOR .RACE_NO      = TR   .RACE_NO
+            			AND    TOR .STND_YEAR    = TRS  .STND_YEAR   
+            			AND    TR  .RACE_DGRE_CD = TRS  .RACE_DGRE_CD
+            			AND    TOR .RANK         = TRS  .RANK        
+                        AND    TOR.STND_YEAR     = TRVA.STND_YEAR  (+)
+                        AND    TOR.MBR_CD        = TRVA.MBR_CD     (+)
+                        AND    TOR.TMS           = TRVA.TMS        (+)
+                        AND    TOR.DAY_ORD       = TRVA.DAY_ORD    (+)
+                        AND    TOR.RACE_NO       = TRVA.RACE_NO    (+)
+                        AND    TOR.RACE_REG_NO   = TRVA.RACE_REG_NO(+)
+                        AND    TOR.RACER_NO      = TRVA.RACER_NO   (+)
+                        AND    TOR.RACER_NO      = RANK.RACER_NO   (+)
+            			AND    TOR .ABSE_CD     <> '003'   -- 면책결장이 아닌 경우
+            			AND    TOR .IMMT_CLS_CD <> '003'   -- 면책이 아닌 경우
+            			AND    TOR .STND_YEAR    = ?
+            			AND    TOR .MBR_CD       = ?
+            			AND    TOR .TMS          = ?
+            			AND    TOR .DAY_ORD      = DECODE(?, 0, TOR .DAY_ORD, ?)
+            			AND    TOR .ST_MTHD_CD   = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+            			GROUP BY TOR  .RACER_NO
+            			       , TOR  .RACER_GRD_CD
+            			       , RANK .RANK
+                     ) RECD -- 선수성적
+                   , (
+                        SELECT
+                                 RACER_NO
+                               , MIN(DECODE(DAY_ORD, 1, DECODE(RACE, 1, RACE_DESC))) RACE_1_1
+                               , MIN(DECODE(DAY_ORD, 1, DECODE(RACE, 2, RACE_DESC))) RACE_1_2
+                               , MIN(DECODE(DAY_ORD, 2, DECODE(RACE, 1, RACE_DESC))) RACE_2_1
+                               , MIN(DECODE(DAY_ORD, 2, DECODE(RACE, 2, RACE_DESC))) RACE_2_2
+                               , MIN(DECODE(DAY_ORD, 3, DECODE(RACE, 1, RACE_DESC))) RACE_3_1
+                               , MIN(DECODE(DAY_ORD, 3, DECODE(RACE, 2, RACE_DESC))) RACE_3_2
+                               , MIN(DECODE(DAY_ORD, 4, DECODE(RACE, 1, RACE_DESC))) RACE_4_1
+                               , MIN(DECODE(DAY_ORD, 4, DECODE(RACE, 2, RACE_DESC))) RACE_4_2
+                               , MIN(DECODE(DAY_ORD, 5, DECODE(RACE, 1, RACE_DESC))) RACE_5_1
+                               , MIN(DECODE(DAY_ORD, 5, DECODE(RACE, 2, RACE_DESC))) RACE_5_2
+                               , MIN(DECODE(DAY_ORD, 6, DECODE(RACE, 1, RACE_DESC))) RACE_6_1
+                               , MIN(DECODE(DAY_ORD, 6, DECODE(RACE, 2, RACE_DESC))) RACE_6_2
+                               , MIN(DECODE(DAY_ORD, 7, DECODE(RACE, 1, RACE_DESC))) RACE_7_1
+                               , MIN(DECODE(DAY_ORD, 7, DECODE(RACE, 2, RACE_DESC))) RACE_7_2
+                               , MIN(DECODE(RACE, 1, tms_6_avg_scr, 0)) tms_6_avg_scr			-- 면책이면서 한경주 일때 최근 6회차 평균득점
+                        FROM   (
+                                    SELECT
+                                              TOR.RACER_NO
+                                            , TOR.DAY_ORD
+                                            , TOR.RACE_NO
+                                            , TOR.RANK
+                                            , TOR.RACE_NO || '-' || TOR.RANK || '(' || DECODE(TOR .IMMT_CLS_CD, '003', '면책', TO_CHAR(TRS .RACE_SCR, '90')) || '/' || TO_CHAR(NVL(ACDNT_SCR, 0), '90.9') || ')' RACE_DESC
+                                            , RANK() OVER (PARTITION BY TOR.RACER_NO, TOR.DAY_ORD ORDER BY TOR.RACE_NO) RACE
+                                            , DECODE(TOR .IMMT_CLS_CD, '003', TRD.tms_6_avg_scr, 0) tms_6_avg_scr  -- 면책일때 최근 6회차 평균득점
+                                    FROM      TBEB_ORGAN    TOR
+                                            , TBEB_RACE     TR
+                                            , TBEB_RANK_SCR TRS
+                                            , TBEB_RACE_DOC TRD
+                                            , (
+                                                SELECT
+                        			                     TRVA.STND_YEAR
+                        			                   , TRVA.MBR_CD
+                        			                   , TRVA.TMS
+                        			                   , TRVA.DAY_ORD
+                        			                   , TRVA.RACE_NO
+                        			                   , TRVA.RACE_REG_NO
+                        			                   , TRVA.RACER_NO
+                        			                   , NVL(TRVB.ACDNT_SCR, TRVA.ACDNT_SCR) ACDNT_SCR
+                                                FROM     (
+                                                            SELECT
+                                                                     TRVA.STND_YEAR
+                                                                   , TRVA.MBR_CD   
+                                                                   , TRVA.TMS      
+                                                                   , TRVA.DAY_ORD  
+                                                                   , TRVA.RACE_NO  
+                                                                   , TRVA.RACE_REG_NO  
+                                                                   , TRVA.RACER_NO  
+                                                                   , SUM(TAS .ACDNT_SCR) ACDNT_SCR
+                                                            FROM     TBED_RACE_VOIL_ACT TRVA
+                                                                   , TBEB_ACDNT_SCR     TAS
+                                                            WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+                                                            AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+                                                            AND    TRVA.STND_YEAR    = ?
+                                                            AND    TRVA.MBR_CD       = ?
+                                                            AND    TRVA.TMS          = ?
+                                                            AND    TRVA.DAY_ORD      = DECODE(?, 0, TRVA.DAY_ORD, ?)
+                                                            GROUP BY
+                                                                     TRVA.STND_YEAR
+                                                                   , TRVA.MBR_CD   
+                                                                   , TRVA.TMS      
+                                                                   , TRVA.DAY_ORD  
+                                                                   , TRVA.RACE_NO  
+                                                                   , TRVA.RACE_REG_NO  
+                                                                   , TRVA.RACER_NO  
+                                                         ) TRVA
+                                                       , (
+                                                            SELECT
+                                                                     TRVA.STND_YEAR
+                                                                   , TRVA.MBR_CD   
+                                                                   , TRVA.TMS      
+                                                                   , TRVA.DAY_ORD  
+                                                                   , TRVA.RACE_NO  
+                                                                   , TRVA.RACE_REG_NO  
+                                                                   , TRVA.RACER_NO  
+                                                                   , TAS .ACDNT_SCR
+                                                            FROM     TBED_RACE_VOIL_ACT TRVA
+                                                                   , TBEB_ACDNT_SCR     TAS
+                                                            WHERE  TRVA.STND_YEAR     = TAS.STND_YEAR
+                                                            AND    TRVA.VOIL_CD       = TAS.VOIL_CD
+                                                            AND    TRVA.STND_YEAR     = ?
+                                                            AND    TRVA.MBR_CD        = ?
+                                                            AND    TRVA.TMS           = ?
+                                                            AND    TRVA.DAY_ORD       = DECODE(?, 0, TRVA.DAY_ORD, ?)
+                                                            AND    TRVA.VOIL_CD      IN ('110', '120')
+                                                         ) TRVB
+                                                WHERE  TRVA.STND_YEAR   = TRVB.STND_YEAR  (+)
+                        			            AND    TRVA.MBR_CD      = TRVB.MBR_CD     (+)
+                        			            AND    TRVA.TMS         = TRVB.TMS        (+)
+                        			            AND    TRVA.DAY_ORD     = TRVB.DAY_ORD    (+)
+                        			            AND    TRVA.RACE_NO     = TRVB.RACE_NO    (+)
+                        			            AND    TRVA.RACE_REG_NO = TRVB.RACE_REG_NO(+)
+                                              ) TRVA
+                                    WHERE   TOR.STND_YEAR    = TR  .STND_YEAR
+                                    AND     TOR.MBR_CD       = TR  .MBR_CD
+                                    AND     TOR.TMS          = TR  .TMS
+                                    AND     TOR.DAY_ORD      = TR  .DAY_ORD
+                                    AND     TOR.RACE_NO      = TR  .RACE_NO
+                        			AND     TOR.STND_YEAR    = TRS .STND_YEAR
+                        			AND     TR .RACE_DGRE_CD = TRS .RACE_DGRE_CD
+                        			AND     TOR.RANK         = TRS .RANK
+                                    AND     TOR.STND_YEAR    = TRVA.STND_YEAR  (+)
+                                    AND     TOR.MBR_CD       = TRVA.MBR_CD     (+)
+                                    AND     TOR.TMS          = TRVA.TMS        (+)
+                                    AND     TOR.DAY_ORD      = TRVA.DAY_ORD    (+)
+                                    AND     TOR.RACE_NO      = TRVA.RACE_NO    (+)
+                                    AND     TOR.RACE_REG_NO  = TRVA.RACE_REG_NO(+)
+                                    AND     TOR.RACER_NO     = TRVA.RACER_NO   (+)
+                                    AND     TOR.STND_YEAR    = TRD.STND_YEAR
+                                    AND     TOR.MBR_CD       = TRD.MBR_CD
+                                    AND     TOR.TMS          = TRD.TMS
+                                    AND     TOR.DAY_ORD      = TRD.DAY_ORD
+                                    AND     TOR.RACE_NO      = TRD.RACE_NO
+                                    AND     TOR.RACE_REG_NO  = TRD.RACE_REG_NO 
+                                    AND     TOR.RACER_NO     = TRD.RACER_NO 
+                                    AND     TOR.STND_YEAR    = ?
+                                    AND     TOR.MBR_CD       = ?
+                                    AND     TOR.TMS          = ?
+                                    AND     TOR.DAY_ORD      = DECODE(?, 0, TOR.DAY_ORD, ?)
+									AND     TRD.ORGAN_STAT_CD = '002'
+									AND     TOR .ST_MTHD_CD   = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+                               )
+                        GROUP BY RACER_NO
+                     ) RACE -- 경주별결과및사고점
+                   , (
+                        SELECT
+                                 TOR.RACER_NO
+                               , COUNT(*) CNT
+                        FROM     TBEB_ORGAN TOR
+                               , TBEB_RACE  TR
+                        WHERE  TOR.STND_YEAR    = TR  .STND_YEAR
+                        AND    TOR.MBR_CD       = TR  .MBR_CD
+                        AND    TOR.TMS          = TR  .TMS
+                        AND    TOR.DAY_ORD      = TR  .DAY_ORD
+                        AND    TOR.RACE_NO      = TR  .RACE_NO
+                        AND    TOR.STND_YEAR    = ?
+                        AND    TOR.MBR_CD       = ?
+                        AND    TOR.TMS          = ?
+                        AND    TOR.DAY_ORD      = ?
+                        AND    TR .RACE_DGRE_CD IN ('701','702','703','704','705','706','707','901', '902', '903', '904', '905')
+                        AND    TOR .ST_MTHD_CD  = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+                        GROUP BY TOR.RACER_NO
+                     ) SPEC -- 특별경주선수
+            WHERE  TRM .RACER_NO  = RECD.RACER_NO(+)
+            AND    TRM .RACER_NO  = RACE.RACER_NO(+)
+            AND    TRM .RACER_NO  = SPEC.RACER_NO(+)
+			AND    TRM .RACER_NO IN (
+										SELECT
+										       RACER_NO
+										FROM   TBEB_ORGAN
+										WHERE  STND_YEAR = ?
+										AND    MBR_CD    = ?
+										AND    TMS       = ?
+										AND    ST_MTHD_CD  = DECODE(?, '000', ST_MTHD_CD, ?)
+			                        )
+		)
+	ORDER BY AVG_SCR DESC, RANK
+        ]]>
+    </query> 
+</queryMap>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbr1016(장비및설비 관리)">
+    <query id="rbr1016_s01" desc="장비및설비   조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbr1016_s01 */
+                     '0' AS CHK
+                
+                    ,A.BRNC_CD      --지점코드
+                    ,A.STND_YEAR    --년도
+                    ,A.EQUIP_CD     --장비코드
+                    ,(SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '004' AND CD = A.EQUIP_CD ) AS EQUIP_NM
+                    ,A.FLOOR        --층수              
+                    ,A.QTY          --수량
+                    
+                    ,A.RMK          --비고
+                    ,A.INST_ID      --작성자
+                    ,A.INST_DT      --작성일시
+
+
+            FROM  TBRA_EQUIP_FACI A
+            WHERE
+                   1 = 1
+                 AND A.BRNC_CD LIKE  '%' || NVL(? , A.BRNC_CD) || '%'   
+                 AND A.STND_YEAR LIKE  '%' || NVL(? , A.STND_YEAR) || '%'
+            ORDER BY A.FLOOR,A.EQUIP_CD           
+            
+        ]]>
+    </query>       
+
+
+    <query id="rbr1016_m01" desc=" 장비및설비  입력/수정" fetchSize="10">
+
+        <![CDATA[
+            MERGE INTO TBRA_EQUIP_FACI  A /* rbr1016_m01 */
+            USING   
+                    (SELECT
+                        
+                         ? AS BRNC_CD       --지점코드
+                        ,? AS STND_YEAR     --년도
+                        ,? AS EQUIP_CD      --장비코드
+                        ,? AS FLOOR         --층수              
+                        ,? AS QTY           --수량
+                        
+                        ,? AS RMK           --비고
+                        ,? AS INST_ID       --작성자
+                        ,? AS UPDT_ID       --수정자   
+                    FROM    DUAL ) B  
+                
+            ON (    
+                        A.BRNC_CD = B.BRNC_CD       -- 지점코드
+                    AND A.STND_YEAR = B.STND_YEAR   -- 년도
+                    AND A.EQUIP_CD = B.EQUIP_CD     -- 장비코드
+                    AND A.FLOOR = B.FLOOR           -- 층수
+            )           
+            
+            WHEN MATCHED THEN
+                UPDATE SET
+                      A.QTY        = B.QTY       --수량         
+                     ,A.RMK        = B.RMK       --비고       
+                     ,A.UPDT_ID    = B.UPDT_ID   --수정자               
+                     ,A.UPDT_DT    = SYSDATE     --수정일시                  
+            WHEN NOT MATCHED THEN 
+                INSERT (
+                     A.BRNC_CD      --지점코드
+                    ,A.STND_YEAR    --년도
+                    ,A.EQUIP_CD     --장비코드
+                    ,A.FLOOR        --층수              
+                    ,A.QTY          --수량
+                    
+                    ,A.RMK          --비고
+                    ,A.INST_ID      --작성자
+                    ,A.INST_DT      --작성일시
+                    
+                ) VALUES (
+                     B.BRNC_CD      --지점코드
+                    ,B.STND_YEAR    --년도
+                    ,B.EQUIP_CD     --장비코드              
+                    ,B.FLOOR        --층수
+                    ,B.QTY          --수량
+                    
+                    ,B.RMK          --RMK
+                    ,B.INST_ID      --작성자
+                    ,SYSDATE        --작성일시
+                )
+
+        ]]>
+
+    </query>    
+
+    <query id="rbr1016_d01" desc="장비및설비  삭제" fetchSize="10">
+        <![CDATA[
+
+            DELETE   /* rbr1016_d01 */
+            FROM  TBRA_EQUIP_FACI    
+            WHERE BRNC_CD = ?           -- 지점코드
+                AND STND_YEAR = ?       -- 년도
+                AND EQUIP_CD = ?        -- 장비코드
+                AND FLOOR = ?           -- 층수
+
+        ]]>
+    </query>  
+
+</queryMap>

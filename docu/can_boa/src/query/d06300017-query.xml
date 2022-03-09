@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_edu_abs_mngr(교육이수현황)">
+
+    <query id="tbdb_edu_isu_fb001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			SELECT CD_NM AS RACER_PERIO_NO
+			FROM TBDM_SPEC_CD	
+			WHERE GRP_CD = 'D10000'
+			ORDER BY CD DESC	
+		]]>
+    </query>   
+    
+    <query id="tbdb_edu_isu_fb002" desc="교육이수 연도/월  조회" fetchSize="10">
+    <![CDATA[
+     		SELECT 
+					 SUBSTR(B.DT,1,6) AS YY
+					 ,SUM(B.EDU_TIME) AS EDU_TIME
+					 ,(SELECT COUNT(*) AS  TOT_COUNT FROM TBDN_CAND_IDENT WHERE RACER_PERIO_NO = ? AND DEL_YN = 'N') AS CAND_COUNT
+			FROM    
+					 TBDN_CAND_IDENT       A
+					 ,TBDN_DETL_EDU_ASSIGN B 
+			WHERE
+					 A.RACER_PERIO_NO = B.RACER_PERIO_NO 	
+			AND
+					 A.RACER_PERIO_NO = ? AND A.DEL_YN='N' 		 		 
+			GROUP BY 
+					 B.RACER_PERIO_NO, A.CAND_NO, SUBSTR(B.DT,1,6)
+			ORDER BY 		 
+					 A.CAND_NO, SUBSTR(B.DT,1,6)		 
+	]]>
+    </query>  
+    				 
+    <query id="tbdb_edu_isu_fb004" desc="교육시간 조회" fetchSize="10">
+        <![CDATA[
+        	SELECT  /* tbdb_edu_isu_fb004 */
+					RACER_PERIO_NO
+					,CAND_NO
+					,NM_KOR
+					,DT
+					,TOT_EDU_TIME --종합교육일정
+					,EDU_TIME	  --교육시간
+					,NVL((
+						SELECT SUM(EDU_TIME) FROM TBDN_TRNG_DIARY_ABS
+						WHERE 1=1
+						AND RACER_PERIO_NO = T.RACER_PERIO_NO
+						AND CAND_NO = T.CAND_NO
+						AND SUBSTR(DT,1,6) = T.DT
+						GROUP BY RACER_PERIO_NO
+					 ),0) ASB_TIME --미이수시간
+					FROM (
+						SELECT
+							 B.RACER_PERIO_NO  RACER_PERIO_NO
+							,A.CAND_NO         CAND_NO
+							,A.NM_KOR          NM_KOR
+							,SUBSTR(B.DT,1,6)  DT
+							,SUM(B.EDU_TIME)   EDU_TIME
+							,(
+								SELECT SUM(EDU_TIME) AS TOT_EDU_TIME
+								FROM TBDN_DETL_EDU_ASSIGN
+								WHERE RACER_PERIO_NO = ?
+							  ) AS TOT_EDU_TIME
+						FROM TBDN_CAND_IDENT A, TBDN_TRNG_DIARY_DETL B, TBDN_TRNG_DIARY_MST C
+						WHERE 1=1
+						AND A.RACER_PERIO_NO = ? AND A.DEL_YN = 'N'
+						AND A.RACER_PERIO_NO = B.RACER_PERIO_NO
+						AND B.RACER_PERIO_NO = C.RACER_PERIO_NO
+						AND B.DT = C.DT
+						AND C.CFG_YN = 'Y'
+						GROUP BY B.RACER_PERIO_NO, A.CAND_NO, A.NM_KOR, SUBSTR(B.DT,1,6)
+					) T
+					ORDER BY CAND_NO, DT
+		]]>
+    </query>
+    
+    <query id="tbdb_edu_isu_fb005" desc="결석내용 조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+				 A.RACER_PERIO_NO   RACER_PERIO_NO
+				,A.CAND_NO         CAND_NO
+				,SUBSTR(A.DT,1,6)  DT
+				,SUM(A.EDU_TIME)   EDU_TIME
+			FROM TBDN_TRNG_DIARY_ABS A, TBDN_TRNG_DIARY_MST B
+			WHERE 1=1
+			AND A.RACER_PERIO_NO = ?
+			AND A.RACER_PERIO_NO = B.RACER_PERIO_NO
+			AND A.DT = B.DT
+			AND B.CFG_YN = 'Y'
+			GROUP BY A.RACER_PERIO_NO, A.CAND_NO, SUBSTR(A.DT,1,6)
+			ORDER BY A.CAND_NO, SUBSTR(A.DT,1,6)			        				
+        ]]>
+    </query>
+
+    <query id="tbdb_edu_month_list_se001" desc="월별 교육시간 조회" fetchSize="10">
+        <![CDATA[
+			SELECT RACER_PERIO_NO,
+		           SUBSTR(YYMM, 1, 4) || '년  ' || SUBSTR(YYMM, 5, 2) || '월' AS YYMM,
+		           SUM(NVL(M01, 0) + NVL(M02, 0) + NVL(M03, 0) + NVL(M04, 0) + NVL(M05, 0) + NVL(M06, 0) + NVL(M07, 0) + NVL(M08, 0)) AS EDU_TIME,
+		           MAX(NVL(M01, 0)) AS M01,
+		           MAX(NVL(M02, 0)) AS M02,
+		           MAX(NVL(M03, 0)) AS M03,
+		           MAX(NVL(M04, 0)) AS M04,
+		           MAX(NVL(M05, 0)) AS M05,
+		           MAX(NVL(M06, 0)) AS M06,
+		           MAX(NVL(M07, 0)) AS M07,
+		           MAX(NVL(M08, 0)) AS M08
+			FROM (           
+			            SELECT A.RACER_PERIO_NO,
+		                       SUBSTR(A.DT, 1, 6) AS YYMM,
+		                       A.SECTN_CD,
+		                       DECODE(A.CRS_CD, '101', SUM(EDU_TIME))  AS M01,
+		                       DECODE(A.CRS_CD, '107', SUM(EDU_TIME))  AS M02,
+		                       DECODE(A.CRS_CD, '108', SUM(EDU_TIME))  AS M03,
+		                       DECODE(A.CRS_CD, '109', SUM(EDU_TIME))  AS M04,
+		                       DECODE(A.CRS_CD, '201', SUM(EDU_TIME))  AS M05,
+		                       DECODE(A.CRS_CD, '202', SUM(EDU_TIME))  AS M06,
+		                       DECODE(A.CRS_CD, '301', SUM(EDU_TIME))  AS M07,
+		                       DECODE(A.CRS_CD, '304', SUM(EDU_TIME))  AS M08
+			            FROM TBDN_DETL_EDU_ASSIGN A, TBDM_SPEC_CD B           
+			            WHERE 1=1
+		                      AND A.CRS_CD = B.CD
+		                      AND A.RACER_PERIO_NO= ?
+		                      AND B.DEL_YN = 'N'
+		                      AND B.GRP_CD IN ('D10030','D10064','D10010')
+			            GROUP BY A.RACER_PERIO_NO, SUBSTR(A.DT, 1, 6), A.SECTN_CD, A.CRS_CD)
+			GROUP BY RACER_PERIO_NO, YYMM       
+			ORDER BY RACER_PERIO_NO, YYMM
+        ]]>
+    </query>
+</queryMap>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_appo_exerc_trng_stat(지정연습 훈련상태)">
+    <query id="tbec_appo_exerc_trng_stat_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT TAEO.STND_YEAR
+					, TAEO.MBR_CD
+					, TAEO.TMS
+					, TAEO.RACER_NO
+			        , TRM.NM_KOR
+			        , TAEO.MOT_NO
+			        , SUBSTR(TAEO.MOT_NO, 6, 3) VIEW_MOT_NO
+			        , TAETS.MOT_LINE_ACCE_CD
+			        , TAETS.MOT_TURN_CD
+			        , TAETS.START_SENSE_CD
+			        , TAETS.PROP_REPR_CD
+			        , TAETS.RMK
+			        , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E30001' AND CD = TAETS.MOT_LINE_ACCE_CD) MOT_LINE_ACCE_NM
+			        , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E30002' AND CD = TAETS.MOT_TURN_CD) MOT_TURN_NM
+			        , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E30003' AND CD = TAETS.START_SENSE_CD) START_SENSE_NM
+			        , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E30004' AND CD = TAETS.PROP_REPR_CD) PROP_REPR_NM
+			FROM 
+			    TBEC_APPO_EXERC_TRNG_STAT TAETS,
+			    TBEC_APPO_EXERC_ORGAN TAEO,
+			    TBEC_RACER_MASTER TRM
+			WHERE TAEO.STND_YEAR            = ?
+			        AND TAEO.MBR_CD         = ?
+			        AND TAEO.TMS            = ?
+			        AND TAEO.DAY_ORD        = 0
+			        AND TAEO.STND_YEAR      = TAETS.STND_YEAR(+)
+			        AND TAEO.MBR_CD         = TAETS.MBR_CD(+)
+			        AND TAEO.TMS            = TAETS.TMS(+)
+			        AND TAEO.RACER_NO       = TAETS.RACER_NO(+)			        
+			        AND TAEO.RACER_NO       = TRM.RACER_NO
+			ORDER BY TAEO.RACE_NO, TAEO.RACE_REG_NO
+        ]]>
+    </query> 
+    <query id="tbec_appo_exerc_trng_stat_uc001" desc="저장" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBEC_APPO_EXERC_TRNG_STAT TAETS
+            USING   DUAL
+            ON        (     TAETS.STND_YEAR     		= ?     -- 기준년도
+            				AND TAETS.MBR_CD			= ?		-- 경정장코드
+            				AND TAETS.TMS				= ?		-- 회차
+            				AND TAETS.RACER_NO			= ?		-- 선수번호      				
+                    )
+            WHEN MATCHED THEN
+                    UPDATE  SET
+                      MOT_LINE_ACCE_CD        		= ?         -- 모터직선가속도코드
+                      , MOT_TURN_CD          		= ?         -- 모터선회력코드
+                      , START_SENSE_CD         		= ?         -- 스타트감각코드
+                      , PROP_REPR_CD				= ?			-- 프로펠라정비코드
+                      , RMK							= ?			-- 특이사항
+                      , UPDT_ID         			= ?         -- 수정자ID    
+                      , UPDT_DTM        			= SYSDATE   -- 수정일시    
+            WHEN NOT MATCHED THEN
+                    INSERT (
+                      STND_YEAR             -- 기준년도    
+                      , MBR_CD            	-- 경정장코드
+                      , TMS              	-- 회차
+                      , RACER_NO			-- 등록번호
+                      , MOT_LINE_ACCE_CD	-- 모터직선가속도코드
+                      , MOT_TURN_CD			-- 모터선회력코드
+                      , START_SENSE_CD      -- 스타트감각코드
+                      , PROP_REPR_CD		-- 프로펠라정비코드
+                      , RMK					-- 특이사항
+                      , INST_ID             -- 작성자ID    
+                      , INST_DTM            -- 작성일시   
+                      , UPDT_ID          	-- 수정자ID    
+				      , UPDT_DTM         	-- 수정일시
+					) VALUES (	
+	                    ?           	-- 기준년도
+	                  , ?               -- 경정장코드
+	                  , ?     			-- 회차
+                      , ?				-- 등록번호
+                      , ?				-- 모터직선가속도코드
+                      , ?				-- 모터선회력코드
+                      , ?				-- 스타트감각코드
+                      , ?				-- 프로펠라정비코드
+                      , ?				-- 특이사항            
+				      , ?          		-- 작성자ID    
+				      , SYSDATE         -- 작성일시   
+				      , ?          		-- 수정자ID    
+				      , SYSDATE         -- 수정일시				
+					)
+        ]]>
+    </query>   
+</queryMap>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="656" Id="E06010120" Left="8" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="그래프" Top="8" Ver="1.0" Width="1014" WorkArea="true">
+		<UbiReport Bottom="640" Height="600" Id="uCntGrp" Left="8" Right="998" scale="100" toolbar="false" Top="40" Width="990">
+			<_PersistData>&#13;&#10;/6wQh1/d/wAAAQBSZgAAdwM+APjy//7//fL4/fYLDwACBVQAWQBfUABFADD48gH+8MsDMS4AMO/wEwgCXssAbkkEdPr5/vALMhsA&#13;&#10;NWoALABpC2UPbwXJAfv0mAb/qgQ0AgdE/wBlAGYAYQB1AwBsVwMBAw==&#13;&#10;</_PersistData>
+		</UbiReport>
+		<Div Height="20" Id="divBtnLst" Left="655" TabOrder="4" Text="Div0" Top="8" Url="common::comButtonType.xml" Width="336">
+			<Contents></Contents>
+		</Div>
+		<Image Height="20" Id="imgFormTitle" ImageID="m_titleblet" Left="10" TabOrder="1" Top="10" Width="17"></Image>
+		<Static Font="굴림,10,Bold" Height="22" Id="stFormTitle" Left="32" Style="snis_m_title" TabOrder="1" Text="조회조건" Top="8" VAlign="Middle" Width="314"></Static>
+		<Button Align="Left" ButtonStyle="TRUE" Height="18" Id="btnNext" ImageID="btn_pa_next" Left="876" LeftMargin="15" OnClick="btnNext_OnClick" Style="snis_btn" TabOrder="5" Top="12" Transparent="TRUE" Width="38"></Button>
+		<Button Align="Left" ButtonStyle="TRUE" Height="18" Id="btnPre" ImageID="btn_pa_pre" Left="832" LeftMargin="15" OnClick="btnPre_OnClick" Style="snis_btn" TabOrder="6" Top="12" Transparent="TRUE" Width="38"></Button>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::boa_common_script.js";
+#include "lib::boa_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = 'E06010120';
+var sBUTTONLIST   = 'FFFFFT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+var sMot          = "";
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {  
+    sBUTTONLIST   = 'FFFFFT';
+    
+ 	//화면환경 설정
+	//sFORMCAPTION  = obj.Title;
+	sMot = Arg_sMot;
+	sFORMCAPTION = "모터 : " + sMot + " " + obj.Title;
+	sFORMLOCATION = "";
+
+	//화면 정보 Display 및 Button 권한 설정
+	fnc_FormLoadSetting(obj, sFORMCAPTION, sFORMLOCATION, sBUTTONLIST, sUSERAUTH);
+	
+	//초기 화면 BK Color설정 
+	fnc_SetBKColor(this);
+	
+	fcGraph();
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 UNLoad時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+
+function fcFormUnloadProcess(obj) {
+	//자료 변경 여부를 체크하고자 하는  DataSet Object를 넘긴다.
+	var sDataset = "";
+	if ( !fnc_FormUnloadCheck(sDataset , sFormId) ) return false;
+}
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+//화면 종료
+	dsOutWinRatioGraph.UnFilter();
+	Close();
+ }
+function fcGraph(){
+    
+    uCntGrp.ServletURL1 = "";
+    uCntGrp.servletURL2 = "";
+    uCntGrp.setJrfFileDir(GBL_REPORT_URL);
+	uCntGrp.setJrfFileName("e06010120_graph.jrf");
+	uCntGrp.setdataset("dsOutWinRatioGraph", "dsOutWinRatioGraph");
+	dsOutWinRatioGraph.Filter("MOT_NO= '"+sMot+"'");
+	uCntGrp.Retrieve();
+}
+
+function btnPre_OnClick(obj)
+{
+	var tmpMot = "";
+
+	dsOutWinRatioGraph.UnFilter();
+	dsOutWinRatioGraph.Sort("MOT_NO:A,TMS:D,GBN:A");
+	dsOutWinRatioGraph.Row = dsOutWinRatioGraph.FindRow("MOT_NO", sMot);
+
+	while (1) {
+		dsOutWinRatioGraph.Row = dsOutWinRatioGraph.PrevRow;
+
+		if ( (dsOutWinRatioGraph.CurRow < 1) || (dsOutWinRatioGraph.CurRow == dsOutWinRatioGraph.FirstRow) ) {
+			dsOutWinRatioGraph.Row = dsOutWinRatioGraph.LastRow;
+		}
+
+		tmpMot = dsOutWinRatioGraph.GetColumn(dsOutWinRatioGraph.CurRow, "MOT_NO");
+		if ( sMot != tmpMot ) {
+			sMot = tmpMot;
+			dsOutWinRatioGraph.Filter("MOT_NO= '"+sMot+"'");
+			Window.Title    = "모터 : " + sMot + " 그래프";          //화면 Title Display
+			stFormTitle     = "모터 : " + sMot + " 그래프";          //화면 정보 Display
+			uCntGrp.Retrieve();
+
+			break;
+		}
+	}
+}
+
+function btnNext_OnClick(obj)
+{
+	var tmpMot = "";
+
+	dsOutWinRatioGraph.UnFilter();
+	dsOutWinRatioGraph.Sort("MOT_NO:A,TMS:D,GBN:A");
+	dsOutWinRatioGraph.Row = dsOutWinRatioGraph.FindRow("MOT_NO", sMot);
+
+	while (1) {
+		dsOutWinRatioGraph.Row = dsOutWinRatioGraph.NextRow;
+
+		if ( (dsOutWinRatioGraph.CurRow < 1) || (dsOutWinRatioGraph.CurRow == dsOutWinRatioGraph.LastRow) ) {
+			dsOutWinRatioGraph.Row = dsOutWinRatioGraph.FirstRow;
+		}
+
+		tmpMot = dsOutWinRatioGraph.GetColumn(dsOutWinRatioGraph.CurRow, "MOT_NO");
+		if ( sMot != tmpMot ) {
+			sMot = tmpMot;
+			dsOutWinRatioGraph.Filter("MOT_NO= '"+sMot+"'");
+			Window.Title    = "모터 : " + sMot + " 그래프";	//화면 Title Display
+			stFormTitle     = "모터 : " + sMot + " 그래프";	//화면 정보 Display
+			uCntGrp.Retrieve();
+
+			break;
+		}
+	}
+}
+]]></Script>
+</Window>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : newReportE01015.xml
+  * @메뉴명 : 물품 구입 청구서
+  * @최초작성일 : 2015/12/11            
+  * @author : 전산팀                  
+  * @수정내역 :	
+-->
+<mapper namespace="newReportE01015">
+	<!-- 물품 구입 청구서 -->
+	<insert id="insertRequisition" parameterType="com.hanaph.gw.ea.newReport.vo.RequisitionVO" >
+		INSERT INTO GW_EA_REQUISITION
+        (
+        	SEQ, APPROVAL_SEQ, REQ_YMD, REQ_NO, MATERIAL_ID, 
+        	MATERIAL_NM, STANDARD, UNIT,
+        	QTY, DANGA, AMT, IMPORT_YN, HYUNJAEGO_QTY, 
+        	USAGE, IPGO_YMD, BIGO
+        )
+     	VALUES
+     	(
+     		SEQ_GW_EA_REQUISITION.nextval, #{approval_seq}, #{req_ymd}, #{req_no}, #{material_id}, 
+     		#{material_nm}, #{standard}, #{unit}, 
+     		#{qty}, #{danga}, #{amt}, #{import_yn}, #{hyunjaego_qty}, 
+     		#{usage}, #{ipgo_ymd}, #{bigo}
+        )
+	</insert>
+	
+	<select id="requisitionDetail" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.RequisitionVO">
+		SELECT SEQ, APPROVAL_SEQ, REQ_YMD, REQ_NO, MATERIAL_ID, 
+				MATERIAL_NM, STANDARD, UNIT, CUST_ID, CUST_NM, 
+				TO_CHAR(QTY, '999,999,999.00') QTY, TO_CHAR(DANGA, '999,999,999.00') DANGA, TO_CHAR(AMT, '999,999,999.00') AMT, IMPORT_YN, TO_CHAR(HYUNJAEGO_QTY, '999,999,999.00') HYUNJAEGO_QTY, 
+				USAGE, IPGO_YMD, BIGO
+		  FROM GW_EA_REQUISITION
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</select>
+	
+	<delete id="deleteRequisition" parameterType="com.hanaph.gw.ea.newReport.vo.RequisitionVO">
+		DELETE FROM GW_EA_REQUISITION WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	
+	<!--물품 구입 청구서 CHOE 20151214 다른 결재 문서와 다른 점 : 2.청구번호로 data 조회하기  -->
+	<select id="searchReqNo" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.RequisitionVO">
+		   SELECT REQ_NO ,REQ_YMD ,SALE.F_GET_NAME('SALE0007' ,SAWON_ID, '') SAWON_NM
+           FROM SALE.BUY0301 
+           WHERE REQ_YMD = REPLACE(#{search_req_ymd} ,'-','')  
+           ORDER BY REQ_NO
+	</select>
+	
+	<!--물품 구입 청구서 CHOE 20151214 다른 결재 문서와 다른 점 : 2.청구번호로 data 조회하기  -->
+	<select id="searchReqData" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.RequisitionVO">
+        SELECT REQ.REQ_YMD REQ_YMD  
+        ,REQ_D.REQ_NO  REQ_NO
+        ,REQ_D.MATERIAL_ID MATERIAL_ID
+        ,MATERIAL.MATERIAL_NM MATERIAL_NM
+        ,MATERIAL.UNIT UNIT
+        ,MATERIAL.STANDARD STANDARD				
+        ,REQ_D.CUST_ID CUST_ID
+        ,CUST.CUST_NM CUST_NM
+        ,TO_CHAR(REQ_D.QTY, '999,999,999.00') QTY
+        ,TO_CHAR(REQ_D.DANGA, '999,999,999.00') DANGA
+        ,TO_CHAR(REQ_D.AMT, '999,999,999.00') AMT       
+        ,REQ_D.IMPORT_YN IMPORT_YN
+        ,TO_CHAR(REQ_D.HYUNJAEGO_QTY, '999,999,999.00') HYUNJAEGO_QTY        
+        ,REQ_D.USAGE USAGE
+        ,REQ_D.IPGO_YMD IPGO_YMD
+        ,REQ_D.BIGO BIGO 
+        ,SALE.F_GET_NAME('SALE0007' ,REQ.SAWON_ID, '') SAWON_NM       
+        FROM SALE.BUY0301 REQ
+        ,SALE.BUY0302 REQ_D
+        ,SALE.INV0003 MATERIAL
+        ,SALE.INV0011 CUST
+        WHERE REQ_D.REQ_NO = #{searcd_req_no} 
+        AND REQ.REQ_NO =  REQ_D.REQ_NO       
+        AND MATERIAL.MATERIAL_ID = REQ_D.MATERIAL_ID
+        AND REQ_D.CUST_ID = CUST.CUST_ID(+)
+	</select>
+</mapper>

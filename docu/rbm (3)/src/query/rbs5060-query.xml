@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5060(점수별 인상률 관리 )">
+  <query id="rbs5060_s01" desc="점수별 인상률 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5060_s01 */
+                   '0' AS CHK
+                   ,R.GAME_CD					-- 종목코드
+		           ,R.PAY_RATE					-- 인상률
+		           ,R.STR_SCR					-- 시작점수
+		           ,R.END_SCR					-- 종료점수
+		           ,R.RMK						-- 비고
+			FROM TBRS_PAY_ADJ_RATE_RULE R
+			WHERE   R.GAME_CD LIKE ?||'%'
+			ORDER BY R.GAME_CD, R.PAY_RATE 
+        ]]>
+    </query>       
+    
+    <query id="rbs5060_m01" desc="점수별 인상률 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5060_m01 */
+                  TBRS_PAY_ADJ_RATE_RULE DST
+           USING (
+                     SELECT   ? AS GAME_CD
+                             ,? AS PAY_RATE
+                             ,? AS STR_SCR
+                             ,? AS END_SCR
+                             ,? AS RMK
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.GAME_CD    = SRC.GAME_CD
+                     AND DST.PAY_RATE  	= SRC.PAY_RATE
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.STR_SCR 		= SRC.STR_SCR
+                        ,DST.END_SCR   		= SRC.END_SCR
+                        ,DST.RMK   			= SRC.RMK
+                        ,DST.UPDT_ID 		= SRC.USER_ID
+                        ,DST.UPDT_DT 		= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  GAME_CD
+                , PAY_RATE
+                , STR_SCR
+                , END_SCR
+                , RMK
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.GAME_CD
+                , SRC.PAY_RATE
+                , SRC.STR_SCR
+                , SRC.END_SCR
+                , SRC.RMK
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5060_d01" desc="점수별 인상률 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5060_d01 */
+            FROM TBRS_PAY_ADJ_RATE_RULE
+           WHERE GAME_CD = ?
+             AND PAY_RATE = ? 
+        ]]>
+    </query>    
+    
+</queryMap>

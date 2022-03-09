@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbee_sdl_analysis(경주SDL분석결과등록)">
+    <query id="tbee_sdl_analysis_fe001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   RACE_DT
+			       , POOL_CD
+			       , RACE_NO || '경주' RACE
+			       , RACE_NO
+			       , CASE WHEN POOL_CD = '004' THEN '쌍승식'
+			       	      WHEN POOL_CD = '005' THEN '복승식'
+			              ELSE '삼복승식'
+			         END POOL
+			       , SUM(NVL(CNT, 0)) CNT
+			  FROM   TBEE_SDL_ANALYSIS TSA
+			 WHERE   RACE_DT BETWEEN ? AND ?
+			   AND   MBR_CD = '001'
+			   AND   POOL_CD LIKE '%' || ? || '%'
+		    GROUP BY RACE_DT
+			       , RACE_NO
+			       , POOL_CD
+			ORDER BY RACE_DT DESC
+			       , RACE_NO DESC
+			       , POOL_CD ASC
+        ]]>
+    </query>
+    <query id="tbee_sdl_analysis_fe002" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   JANGSO
+			       , SUM(CNT_10) CNT_10
+			       , SUM(CNT_9) CNT_9
+			       , SUM(CNT_8) CNT_8
+			       , SUM(CNT_7) CNT_7
+			       , SUM(CNT_6) CNT_6
+			       , SUM(CNT_5) CNT_5
+			       , SUM(CNT_4) CNT_4
+			       , SUM(CNT_3) CNT_3
+			       , SUM(CNT_2) CNT_2
+			       , SUM(CNT_1) CNT_1
+			       , SUM(SUMEND) SUMEND
+			       , WINDOW
+			FROM	 (
+						SELECT *
+						FROM (
+								SELECT   '미사리본장' JANGSO
+--										, (CASE WHEN SUBSTR(WIN_NO,3) BETWEEN '2100' AND '2199' THEN '2-1 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '2200' AND '2299' THEN '2-2 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '2300' AND '2399' THEN '2-3 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '2400' AND '2499' THEN '2-4 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '3100' AND '3199' THEN '3-1 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '3200' AND '3299' THEN '3-2 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '3300' AND '3399' THEN '3-3 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '3400' AND '3499' THEN '3-4 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '4100' AND '4199' THEN '4-1 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '4200' AND '4299' THEN '4-2 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '4300' AND '4399' THEN '4-3 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '4400' AND '4499' THEN '4-4 투'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '4500' AND '5099' THEN '크리스탈'
+--											   WHEN SUBSTR(WIN_NO,3) BETWEEN '5100' AND '7099' THEN '에매랄드'
+--										  END) JANGSO
+										, NVL(SUM(CNT_10),0) CNT_10
+										, NVL(SUM(CNT_9),0) CNT_9
+										, NVL(SUM(CNT_8),0) CNT_8
+										, NVL(SUM(CNT_7),0) CNT_7
+										, NVL(SUM(CNT_6),0) CNT_6
+										, NVL(SUM(CNT_5),0) CNT_5
+										, NVL(SUM(CNT_4),0) CNT_4
+										, NVL(SUM(CNT_3),0) CNT_3
+										, NVL(SUM(CNT_2),0) CNT_2
+										, NVL(SUM(CNT_1),0) CNT_1
+										, NVL(SUM(CNT_10)*10,0)+NVL(SUM(CNT_9)*9,0)+NVL(SUM(CNT_8)*8,0)+NVL(SUM(CNT_7)*7,0)+NVL(SUM(CNT_6)*6,0)+
+										  NVL(SUM(CNT_5)*5,0)  +NVL(SUM(CNT_4)*4,0)+NVL(SUM(CNT_3)*3,0)+NVL(SUM(CNT_2)*2,0)+NVL(SUM(CNT_1),0) SUMEND
+										, '' WINDOW
+								FROM  TBEE_SDL_ANALYSIS
+								WHERE RACE_DT = ? 
+								  AND MBR_CD = '001' 
+								  AND RACE_NO = ? 
+								  AND POOL_CD = ? 
+								  AND (SUBSTR(WIN_NO,3) BETWEEN '1100' AND '1999') -- 경륜본장 '2100' ~ '7099'
+								GROUP BY   RACE_DT
+								         , RACE_NO
+								         , POOL_CD
+								         , WIN_NO
+--								         , (CASE WHEN SUBSTR(WIN_NO,3) BETWEEN '2100' AND '2199' THEN '2-1 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '2200' AND '2299' THEN '2-2 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '2300' AND '2399' THEN '2-3 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '2400' AND '2499' THEN '2-4 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '3100' AND '3199' THEN '3-1 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '3200' AND '3299' THEN '3-2 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '3300' AND '3399' THEN '3-3 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '3400' AND '3499' THEN '3-4 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '4100' AND '4199' THEN '4-1 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '4200' AND '4299' THEN '4-2 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '4300' AND '4399' THEN '4-3 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '4400' AND '4499' THEN '4-4 투'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '4500' AND '5099' THEN '크리스탈'
+--												 WHEN SUBSTR(WIN_NO,3) BETWEEN '5100' AND '7099' THEN '에매랄드'
+--											END)
+						)
+						UNION ALL
+						(
+							SELECT   JANGSO
+								   , NVL(SUM(CNT_10),0) CNT_10
+								   , NVL(SUM(CNT_9),0) CNT_9
+								   , NVL(SUM(CNT_8),0) CNT_8
+								   , NVL(SUM(CNT_7),0) CNT_7
+								   , NVL(SUM(CNT_6),0) CNT_6
+								   , NVL(SUM(CNT_5),0) CNT_5
+								   , NVL(SUM(CNT_4),0) CNT_4
+								   , NVL(SUM(CNT_3),0) CNT_3
+								   , NVL(SUM(CNT_2),0) CNT_2
+								   , NVL(SUM(CNT_1),0) CNT_1
+								   , NVL(SUM(CNT_10)*10,0)+NVL(SUM(CNT_9)*9,0)+NVL(SUM(CNT_8)*8,0)+NVL(SUM(CNT_7)*7,0)+NVL(SUM(CNT_6)*6,0)+
+								     NVL(SUM(CNT_5)*5,0)  +NVL(SUM(CNT_4)*4,0)+NVL(SUM(CNT_3)*3,0)+NVL(SUM(CNT_2)*2,0)+NVL(SUM(CNT_1),0) SUMEND
+								   , WINDOW
+							FROM (
+									SELECT   CASE WHEN SUBSTR(WIN_NO,3,2)='71' OR (SUBSTR(WIN_NO,3) BETWEEN '9001' AND '9050') THEN '수  원'
+												  WHEN SUBSTR(WIN_NO,3,2)='72' OR (SUBSTR(WIN_NO,3) BETWEEN '9051' AND '9100') THEN '상  봉'
+												  WHEN SUBSTR(WIN_NO,3,2)='73' OR (SUBSTR(WIN_NO,3) BETWEEN '9101' AND '9150') THEN '일  산'
+												  WHEN SUBSTR(WIN_NO,3,2)='74' OR (SUBSTR(WIN_NO,3) BETWEEN '9201' AND '9250') THEN '동대문'
+												  WHEN SUBSTR(WIN_NO,3,2)='75' OR (SUBSTR(WIN_NO,3) BETWEEN '9251' AND '9300') THEN '장  안'
+												  WHEN SUBSTR(WIN_NO,3,2)='76' OR (SUBSTR(WIN_NO,3) BETWEEN '9151' AND '9200') THEN '분  당'
+												  WHEN SUBSTR(WIN_NO,3,2)='77' OR (SUBSTR(WIN_NO,3) BETWEEN '9301' AND '9350') THEN '산  본'
+												  WHEN SUBSTR(WIN_NO,3,2)='78' OR (SUBSTR(WIN_NO,3) BETWEEN '9351' AND '9400') THEN '부  천'
+												  WHEN SUBSTR(WIN_NO,3,2)='79' OR (SUBSTR(WIN_NO,3) BETWEEN '9401' AND '9450') THEN '관  악'
+												  WHEN SUBSTR(WIN_NO,3,2)='80' OR (SUBSTR(WIN_NO,3) BETWEEN '9451' AND '9500') THEN '길  음'
+												  WHEN SUBSTR(WIN_NO,3,2)='81' OR (SUBSTR(WIN_NO,3) BETWEEN '9501' AND '9550') THEN '당  산'
+												  WHEN SUBSTR(WIN_NO,3,2)='82' OR (SUBSTR(WIN_NO,3) BETWEEN '9551' AND '9600') THEN '유  성'
+												  WHEN SUBSTR(WIN_NO,3,2)='83' OR (SUBSTR(WIN_NO,3) BETWEEN '9601' AND '9650') THEN '인  천'
+												  WHEN SUBSTR(WIN_NO,3,2)='84' OR (SUBSTR(WIN_NO,3) BETWEEN '9651' AND '9700') THEN '시  흥'
+												  WHEN SUBSTR(WIN_NO,3,2)='85' OR (SUBSTR(WIN_NO,3) BETWEEN '9701' AND '9750') THEN '논  현'
+												  WHEN SUBSTR(WIN_NO,3,2)='86' OR (SUBSTR(WIN_NO,3) BETWEEN '9751' AND '9800') THEN '천  안'
+												  WHEN SUBSTR(WIN_NO,3,2)='87' OR (SUBSTR(WIN_NO,3) BETWEEN '9801' AND '9900') THEN '올림픽'
+												  WHEN SUBSTR(WIN_NO,3,2)='88' OR (SUBSTR(WIN_NO,3) BETWEEN '9901' AND '9950') THEN '의정부'
+											 ELSE ''
+											 END JANGSO
+										   , CNT_10
+										   , CNT_9
+										   , CNT_8
+										   , CNT_7
+										   , CNT_6
+										   , CNT_5
+										   , CNT_4
+										   , CNT_3
+										   , CNT_2
+										   , CNT_1
+										   , CASE WHEN SUBSTR(WIN_NO,3,2)='71' OR (SUBSTR(WIN_NO,3) BETWEEN '9001' AND '9050') THEN '5.3'
+												  WHEN SUBSTR(WIN_NO,3,2)='72' OR (SUBSTR(WIN_NO,3) BETWEEN '9051' AND '9100') THEN '6.8'
+												  WHEN SUBSTR(WIN_NO,3,2)='73' OR (SUBSTR(WIN_NO,3) BETWEEN '9101' AND '9150') THEN '4.7'
+												  WHEN SUBSTR(WIN_NO,3,2)='74' OR (SUBSTR(WIN_NO,3) BETWEEN '9201' AND '9250') THEN '4.0'
+												  WHEN SUBSTR(WIN_NO,3,2)='75' OR (SUBSTR(WIN_NO,3) BETWEEN '9251' AND '9300') THEN '8.3'
+												  WHEN SUBSTR(WIN_NO,3,2)='76' OR (SUBSTR(WIN_NO,3) BETWEEN '9151' AND '9200') THEN '7.0'
+												  WHEN SUBSTR(WIN_NO,3,2)='77' OR (SUBSTR(WIN_NO,3) BETWEEN '9301' AND '9350') THEN '4.6'
+												  WHEN SUBSTR(WIN_NO,3,2)='78' OR (SUBSTR(WIN_NO,3) BETWEEN '9351' AND '9400') THEN '5.6'
+												  WHEN SUBSTR(WIN_NO,3,2)='79' OR (SUBSTR(WIN_NO,3) BETWEEN '9401' AND '9450') THEN '4.6'
+												  WHEN SUBSTR(WIN_NO,3,2)='80' OR (SUBSTR(WIN_NO,3) BETWEEN '9451' AND '9500') THEN '5.4'
+												  WHEN SUBSTR(WIN_NO,3,2)='81' OR (SUBSTR(WIN_NO,3) BETWEEN '9501' AND '9550') THEN '7.1'
+												  WHEN SUBSTR(WIN_NO,3,2)='82' OR (SUBSTR(WIN_NO,3) BETWEEN '9551' AND '9600') THEN '3.1'
+												  WHEN SUBSTR(WIN_NO,3,2)='83' OR (SUBSTR(WIN_NO,3) BETWEEN '9601' AND '9650') THEN '2.4'
+												  WHEN SUBSTR(WIN_NO,3,2)='84' OR (SUBSTR(WIN_NO,3) BETWEEN '9651' AND '9700') THEN '4.5'
+												  WHEN SUBSTR(WIN_NO,3,2)='85' OR (SUBSTR(WIN_NO,3) BETWEEN '9701' AND '9750') THEN '4.4'
+												  WHEN SUBSTR(WIN_NO,3,2)='86' OR (SUBSTR(WIN_NO,3) BETWEEN '9751' AND '9800') THEN ''
+												  WHEN SUBSTR(WIN_NO,3,2)='87' OR (SUBSTR(WIN_NO,3) BETWEEN '9801' AND '9900') THEN ''
+												  WHEN SUBSTR(WIN_NO,3,2)='88' OR (SUBSTR(WIN_NO,3) BETWEEN '9901' AND '9950') THEN ''
+											 ELSE ''
+											 END WINDOW
+									FROM     TBEE_SDL_ANALYSIS
+									WHERE    RACE_DT = ?
+									  AND    MBR_CD = '001' 
+									  AND    RACE_NO = ?
+									  AND    POOL_CD = ?
+							)
+						WHERE JANGSO IS NOT NULL
+						GROUP BY JANGSO, WINDOW
+						)
+			)
+			GROUP BY JANGSO,WINDOW
+			ORDER BY JANGSO
+        ]]>
+    </query>
+    <query id="tbee_sdl_analysis_ie001" desc="저장" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBEE_SDL_ANALYSIS TRA
+			USING   DUAL
+			ON		(
+					RACE_DT 		= ?			--경주일자
+			AND		MBR_CD 			= '001'		--경정장코드
+			AND		RACE_NO 		= ? 		--경주번호
+			AND		POOL_CD 		= ? 		--승식
+			AND		WIN_NO 			= ? 		--창구번호
+					)
+            WHEN MATCHED THEN
+				UPDATE	SET
+						CNT			= ?,		--발매건수    
+						AMOUNT		= ?,		--금액    
+						CNT_10		= ?,		--10만원    
+						CNT_9		= ?,		--9만원    
+						CNT_8		= ?,		--8만원    
+						CNT_7		= ?,		--7만원    
+						CNT_6		= ?,		--6만원    
+						CNT_5		= ?,		--5만원    
+						CNT_4		= ?,		--4만원    
+						CNT_3		= ?,		--3만원    
+						CNT_2		= ?,		--2만원    
+						CNT_1		= ?,		--1만원    
+						UPDT_ID		= ?,		--수정자ID    
+						UPDT_DTM	= SYSDATE	--수정일시 
+			WHEN NOT MATCHED THEN
+				INSERT
+					(	 
+						RACE_DT, 				--경주일자
+						MBR_CD,					--경정장코드
+						RACE_NO, 				--경주번호
+						POOL_CD,				--승식   
+						WIN_NO,					--창구번호    
+						CNT,					--발매건수    
+						AMOUNT,					--금액    
+						CNT_10,					--10만원     
+						CNT_9,					--9만원    
+						CNT_8,					--8만원    
+						CNT_7,					--7만원    
+						CNT_6,					--6만원    
+						CNT_5,					--5만원    
+						CNT_4,					--4만원    
+						CNT_3,					--3만원    
+						CNT_2,					--2만원
+						CNT_1,					--1만원
+						INST_ID,				--입력자   
+						INST_DTM				--작성일시
+					)
+					VALUES
+					(
+						?, 						-- RACE_DT 경주일자
+						'001',           		-- MBR_CD  경정장코드
+						?,               		-- RACE_NO 경주번호
+						?,               		-- POOL_CD 승식    
+						LPAD(?, 6, '0'), 		-- WIN_NO  창구번호 
+						TO_NUMBER(?),    		-- CNT     발매건수
+						TO_NUMBER(?),    		-- AMOUNT  금액    
+						TO_NUMBER(?),    		-- CNT_10  10만원  
+						TO_NUMBER(?),    		-- CNT_9   9만원   
+						TO_NUMBER(?),    		-- CNT_8   8만원   
+						TO_NUMBER(?),    		-- CNT_7   7만원   
+						TO_NUMBER(?),    		-- CNT_6   6만원   
+						TO_NUMBER(?),    		-- CNT_5   5만원   
+						TO_NUMBER(?),    		-- CNT_4   4만원   
+						TO_NUMBER(?),    		-- CNT_3   3만원   
+						TO_NUMBER(?),    		-- CNT_2   2만원   
+						TO_NUMBER(?),    		-- CNT_1   1만원   
+						?,               		-- INST_ID 작성자ID
+						SYSDATE          		-- INST_DTM 작성일시
+					)
+        ]]>
+    </query> 
+    <query id="tbee_sdl_analysis_de001" desc="삭제" fetchSize="10">
+        <![CDATA[
+			DELETE TBEE_SDL_ANALYSIS
+			 WHERE RACE_DT	= ?
+			   AND MBR_CD	= '001'
+			   AND RACE_NO	= ?
+			   AND POOL_CD	= ?
+			
+        ]]>
+    </query> 
+
+    <query id="tbee_customer_guess_in001" desc="고객 예상순위 저장" fetchSize="10">
+            <![CDATA[
+            /* 고객 예상순위 저장 */
+			MERGE INTO TBEE_CUSTOMER_GUESS A
+			USING DUAL
+			ON (A.STND_YEAR = ?
+			      AND A.MBR_CD = ?
+			      AND A.TMS = ?
+			      AND DAY_ORD = ?
+			      AND RACE_NO = ?
+			     )
+			WHEN MATCHED THEN
+			UPDATE SET 
+			                 BET_CON   = ?
+			                ,ETC_INFO  = ?
+			                ,UPDT_ID    = ?
+			                ,UPDT_DTM = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (
+			             STND_YEAR 
+			            ,MBR_CD    
+			            ,TMS       
+			            ,DAY_ORD   
+			            ,RACE_NO   
+			            ,BET_CON   
+			            ,ETC_INFO  
+			            ,INST_ID   
+			            ,INST_DTM  
+			)
+			VALUES( 
+			             ?
+			            ,?
+			            ,?
+			            ,?
+			            ,?
+			            ,?
+			            ,?
+			            ,?
+			            ,SYSDATE
+			            ) 
+        ]]>
+    </query>			
+
+    <query id="tbee_special_docu_in001" desc="공정관리-경주상황보고 특이사항 INSERT" fetchSize="10">
+            <![CDATA[ 
+				INSERT INTO TBEE_RACE_SPECIAL_DOC   
+					  ( STND_YEAR,
+			            MBR_CD,                
+			            TMS,                      
+			            DAY_ORD,      
+			            SPECIAL_DOC,
+			            INST_ID,
+			            INST_DTM)
+				VALUES( ?,
+			            ?,
+			            ?,
+			            ?,
+			            ?,
+			            ?,
+			            SYSDATE)			                           				         
+        ]]>
+    </query>	
+
+    <query id="tbee_special_docu_up001" desc="공정관리-경주상황보고 특이사항 UPDATE" fetchSize="10">
+            <![CDATA[  
+				UPDATE TBEE_RACE_SPECIAL_DOC
+				SET SPECIAL_DOC = ?,
+				    UPDT_ID     = ?,
+				    UPDT_DTM = SYSDATE
+				WHERE STND_YEAR = ?
+  					  AND MBR_CD  = ?
+					  AND TMS     = ?  
+					  AND DAY_ORD = ?  
+        ]]>
+    </query>	
+
+    <query id="tbee_special_docu_me001" desc="공정관리-경주상황보고 특이사항 저장" fetchSize="10">
+            <![CDATA[                
+				MERGE INTO TBEE_RACE_SPECIAL_DOC A
+				USING DUAL
+				ON (A.STND_YEAR     = ?
+				      AND A.MBR_CD  = ?
+				      AND A.TMS     = ?
+				      AND A.DAY_ORD = ?)
+				WHEN MATCHED THEN
+				UPDATE SET
+				                SPECIAL_DOC = ?,
+				                UPDT_ID     = ?,
+				                UPDT_DTM = SYSDATE
+				WHEN NOT MATCHED THEN
+				INSERT( STND_YEAR,
+			            MBR_CD,                
+			            TMS,                      
+			            DAY_ORD,      
+			            SPECIAL_DOC,
+			            INST_ID,
+			            INST_DTM)
+				VALUES( ?,
+			            ?,
+			            ?,
+			            ?,
+			            ?,
+			            ?,
+			            SYSDATE)			                           
+        ]]>
+    </query>
+
+    <query id="tbee_special_docu_de001" desc="공정관리-경주상황보고 특이사항 DELETE" fetchSize="10">
+            <![CDATA[  
+				DELETE FROM TBEE_RACE_SPECIAL_DOC
+				WHERE STND_YEAR = ?
+  					  AND MBR_CD  = ?
+					  AND TMS     = ?  
+					  AND DAY_ORD = ?  
+        ]]>
+    </query>	
+    			
+</queryMap>

@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs6010(기동요원관리 )">
+  <query id="rbs6010_s01" desc="기동요원 기본정보 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs6010_s01 */
+                   '0' AS CHK
+		           ,B.USER_ID
+		           ,B.USER_NM
+		           ,B.EMAIL
+		           ,B.DEPT_CD
+		           ,B.TEAM_CD
+		           ,B.DEPT_NM
+		           ,B.TEAM_NM
+		           ,B.FLOC
+		           ,B.FGRADE
+		           ,B.EMAIL
+		           ,B.HP_NO
+		           ,B.TEL_NO
+		           ,B.RETIRE_GBN
+		           ,B.JOIN_DATE AS JOIN_DATE
+		           ,NULL AS WORK_TODT           
+			FROM   TBRS_SUPTR A, TBRK_USER B 
+			WHERE  A.USER_ID = B.USER_ID
+			  AND  NVL(A.DEL_YN,'N') = 'N'
+			ORDER BY A.USER_ID
+        ]]>
+    </query>       
+    
+    <query id="rbs6010_s02" desc="기동요원별 지원 이력 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs6010_s02 */                   
+			        SEQ_NO                    --요청번호
+			       ,STR_DT                    --시작일자
+			       ,END_DT                    --종료일자
+			       ,REQ_AREA                  --요청분야
+			       ,REQ_RSN                   --요청사유
+			       ,SUPTR_ID                  --기동요원 사번
+			       ,STAT_CD                   --상태코드
+			       ,REQ_TEAM_CD               --요청부서코드
+			       ,B.GROUP_NAME AS REQ_TEAM_NM -- 요청부서명
+			       ,REQ_ID                    --요청자 사번
+			       ,BRNC_APRV_ID              --요청부서
+			       ,BRNC_APRV_DT              --지점 승인일시
+			       ,MNGR_APRV_ID              --관리부서 결재자 사번
+			       ,MNGR_APRV_DT              --관리부서 최종 승인일시
+			       ,CNCL_RSN                  --취소시 사유
+			       ,CONDUCT                   --근태사항
+			       ,SUPRT_CONT                --지원내용
+			       ,BRNC_OPINN                --부서 의견
+			       ,RSLT_REPTR_ID             --결과보고서 작성자
+			       ,RSLT_APRV_ID              --보고서 최종 결재자 사번
+			       ,INPT_ID                   --입력자 사번
+			       ,INPT_DT                   --입력일시
+			       ,UPDT_ID                   --수정자 사번
+			       ,UPDT_DT                   --수정일시
+			 FROM  TBRS_SUPRT A, V_GROUP B
+			 WHERE SUPTR_ID = ?        
+			 AND   A.REQ_TEAM_CD = B.GROUP_ID(+)
+			 AND   ROWNUM < 50
+			 ORDER BY SEQ_NO DESC
+        ]]>
+    </query>       
+    
+    <query id="rbs6010_s03" desc="기동요원 인적자원 근태사항 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs6010_s03 */                   
+			        '0' AS CHK
+		           ,EMP_NO AS USER_ID
+			       ,EMP_NM AS USER_NM
+			       ,DEPT_NM
+			       ,ATT_DT
+			       ,ATT_NM
+			 FROM  USHUM.VW_DAILY_ATT_D12
+			 WHERE ATT_DT BETWEEN TO_CHAR(SYSDATE -120, 'YYYYMMDD') AND TO_CHAR(SYSDATE + 60, 'YYYYMMDD')
+			 AND   EMP_NO = ?        
+			 AND   ATT_CD > 'A10'
+			 ORDER BY EMP_NO, ATT_DT
+        ]]>
+    </query>    
+    
+  <query id="rbs6010_s04" desc="전체 부서 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs6010_s04 */
+		            A.GROUP_ID AS CD
+		           ,A.GROUP_NAME AS CD_NM
+			FROM   V_GROUP A 
+			WHERE  GROUP_ID LIKE 'GA12%'
+			  --AND  GROUP_INDENT = '4'
+			ORDER BY A.GROUP_ORDER
+        ]]>
+    </query>       
+    
+    
+    <query id="rbs6010_m01" desc="기동요원 기본정보 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs6010_m01 */
+                  TBRS_SUPTR DST
+           USING (
+                     SELECT   ? AS USER_ID
+                             ,? AS USER_NM
+                             ,? AS DEL_YN
+                             ,? AS UPDT_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.USER_ID = SRC.USER_ID
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.DEL_YN  = SRC.DEL_YN
+                        ,DST.UPDT_ID = SRC.UPDT_ID
+                        ,DST.UPDT_DT = SYSDATE 
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  USER_ID
+                , USER_NM
+                , DEL_YN
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.USER_ID
+                , SRC.USER_NM
+                , 'N'
+                , SRC.UPDT_ID                
+                , SYSDATE  
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs6010_d01" desc="기동요원 기본정보 삭제 " fetchSize="10">
+      <![CDATA[           
+           UPDATE /* rbs6010_d01 */
+                  TBRS_SUPTR
+             SET  DEL_YN = 'Y'
+           WHERE USER_ID = ? 
+        ]]>
+    </query>    
+    
+    
+</queryMap>

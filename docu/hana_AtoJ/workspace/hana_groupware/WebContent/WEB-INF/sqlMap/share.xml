@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : share.xml
+  * @메뉴명 : 공유문서조회
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="share">
+
+	<select id="getShareList" parameterType="hashmap" resultType="com.hanaph.gw.ea.share.vo.ShareReportVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+			SELECT MASTER.APPROVAL_SEQ, MASTER.DOCU_SEQ, MASTER.SUBJECT, MASTER.MAKE_DT,
+			       MASTER.STATE, F_GW_GET_CD_NM(MASTER.STATE) STATE_NM,
+			       MASTER.REJECTION_REASON, MASTER.SECURITY_YN,
+			       MASTER.DECIDE_YN, MASTER.STEP_STATE, MASTER.CREATE_DT,
+			       MASTER.CREATE_NO, MASTER.MODIFY_DT, MASTER.MODIFY_NO, MASTER.DELETE_YN,
+			       TO_CHAR(MASTER.REQ_DT, 'YYYY-MM-DD') REQ_DT,
+			       TARGET.READ_YN, TARGET.READ_DT, F_GW_GET_CD_NM(DOCU.DOCU_CD) DOCU_NM, 
+			       DOCU.DOCU_CD, EMP.EMPNAME AS EMP_KO_NM,
+			       ORAGMP.F_GW_GET_LAST_LINE_NM(MASTER.APPROVAL_SEQ) LAST_LINE_NM
+              FROM ORAGMP.CMEMPM EMP,
+                   GW_EA_APPROVAL_MASTER MASTER,
+                   GW_EA_DOCU DOCU, 
+                   GW_EA_SHARE_TARGET TARGET 
+			 WHERE MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+			   AND MASTER.CREATE_NO = EMP.EMPCODE 
+               AND MASTER.APPROVAL_SEQ = TARGET.APPROVAL_SEQ
+               AND MASTER.DELETE_YN = 'N'
+               AND TARGET.EMP_NO = #{emp_no}
+               AND MASTER.STATE = 'E02004'
+		<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		 	   AND TO_CHAR(REQ_DT, 'YYYYMMDD') BETWEEN #{search_start_dt} AND #{search_end_dt}
+		</if>
+		<if test="search_docu_cd != null and search_docu_cd !=''">
+	 		   AND DOCU.DOCU_CD = #{search_docu_cd}
+	 	</if>
+		<if test="search_condition == 'SEQ' and search_text !='' and search_text != null">
+	 		   AND MASTER.APPROVAL_SEQ LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'SBJECT' and search_text !='' and search_text != null">
+	 		   AND MASTER.SUBJECT LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'NAME' and search_text !='' and search_text != null">
+	 		   AND EMP.EMPNAME LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_read_yn !='' and search_read_yn != null">
+	 		   AND TARGET.READ_YN = #{search_read_yn}        
+	 	</if>
+
+		<if test='checkMustOpinion == "N"'>
+			AND MASTER.MUSTOPINION = 'N'
+		</if>
+		<if test='checkMustOpinion == "Y"'>
+			AND MASTER.MUSTOPINION = 'Y'
+		</if>
+
+	 		ORDER BY MASTER.REQ_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getShareCount" parameterType="hashmap" resultType="int">
+		 SELECT COUNT(*)
+			  FROM ORAGMP.CMEMPM EMP,
+                   GW_EA_APPROVAL_MASTER MASTER,
+                   GW_EA_DOCU DOCU, 
+                   GW_EA_SHARE_TARGET TARGET 
+			 WHERE MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+			   AND MASTER.CREATE_NO = EMP.EMPCODE 
+               AND MASTER.APPROVAL_SEQ = TARGET.APPROVAL_SEQ
+               AND MASTER.DELETE_YN = 'N'
+               AND TARGET.EMP_NO = #{emp_no}
+               AND MASTER.STATE IN ('E02004', 'E02005')
+		<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		 	   AND TO_CHAR(REQ_DT, 'YYYYMMDD') BETWEEN #{search_start_dt} AND #{search_end_dt}
+		</if>
+		<if test="search_docu_cd != null and search_docu_cd !=''">
+	 		   AND DOCU.DOCU_CD = #{search_docu_cd}
+	 	</if>
+		<if test="search_condition == 'SEQ' and search_text !='' and search_text != null">
+	 		   AND MASTER.APPROVAL_SEQ LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'SBJECT' and search_text !='' and search_text != null">
+	 		   AND MASTER.SUBJECT LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'NAME' and search_text !='' and search_text != null">
+	 		   AND EMP.EMPNAME LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_read_yn !='' and search_read_yn != null">
+	 		   AND TARGET.READ_YN = #{search_read_yn}        
+	 	</if>
+
+		<if test='checkMustOpinion == "N"'>
+			AND MASTER.MUSTOPINION = 'N'
+		</if>
+		<if test='checkMustOpinion == "Y"'>
+			AND MASTER.MUSTOPINION = 'Y'
+		</if>
+
+	</select>
+	
+	<select id="getShareTargetList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT TARGET.EMP_NO
+		,EMP.EMPNAME AS EMP_KO_NM
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		,TARGET.READ_YN
+		,TO_CHAR(TARGET.READ_DT, 'YYYY-MM-DD hh24:mi:ss ') AS READ_DT
+		,TARGET.CREATE_DT
+		,ORAGMP.F_GET_SORT_SEQ(EMP.EMPCODE) EMP_SORT
+		FROM GW_EA_SHARE_TARGET TARGET
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'
+		) CO
+		WHERE APPROVAL_SEQ = #{approval_seq}
+		AND TARGET.EMP_NO = EMP.EMPCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.RETIREDT IS NULL
+		ORDER BY EMP_SORT  ASC 	   
+	</select>
+	
+	<insert id="insertShareTarget" parameterType="com.hanaph.gw.ea.share.vo.ShareReportVO">
+		INSERT INTO GW_EA_SHARE_TARGET
+	            (APPROVAL_SEQ, EMP_NO, READ_YN, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (#{approval_seq}, #{emp_no}, 'N', SYSDATE, #{create_no}
+	            )
+	</insert>
+	
+	<delete id="deleteShareTarget" parameterType="hashmap" >
+		DELETE FROM GW_EA_SHARE_TARGET WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	
+	<select id="getShareTargetDetail" parameterType="hashmap" resultType="com.hanaph.gw.ea.share.vo.ShareReportVO">
+		SELECT APPROVAL_SEQ, EMP_NO, READ_YN, READ_DT, CREATE_DT, CREATE_NO
+		  FROM GW_EA_SHARE_TARGET
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}
+	</select>
+	
+	<update id="updateShareTargetReadYn" parameterType="com.hanaph.gw.ea.share.vo.ShareReportVO">
+		UPDATE GW_EA_SHARE_TARGET 
+	      SET READ_YN = #{read_yn} , READ_DT = sysdate
+	    WHERE APPROVAL_SEQ = #{approval_seq}
+	      AND EMP_NO = #{emp_no}
+	</update>
+</mapper>

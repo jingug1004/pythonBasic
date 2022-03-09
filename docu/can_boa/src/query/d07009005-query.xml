@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdo_racer_race_detld(각종출력)">
+	<query id="tbdo_racer_race_detld_fb001" desc="선수별 결과 집계 조회" fetchSize="10">
+        <![CDATA[
+		--선수별 결과 집계 조회
+		SELECT
+			  ROWNUM AS NUM,
+			  DECODE(RACER_NO,'','합계',RACER_NO) AS RACER_NO,
+			  DECODE(RACER_NO,'','',NM_KOR) AS NM_KOR,
+			  EDU_DAY,
+			  RACE_SEQ,
+			  VIOLCNT_3,
+			  VIOLCNT_4,
+			  VIOLCNT_5,
+			  BOAT_TIME,
+			  VIOL_3,
+			  VIOL_2,
+			  VIOL_4,
+			  VIOL_1,
+			  VIOL_5
+	    FROM(
+	    	SELECT
+			  	  RACER_NO,
+				  MAX(NM_KOR) AS NM_KOR,
+				  NVL(SUM(EDU_DAY),0) AS EDU_DAY,
+				  NVL(SUM(RACE_SEQ),0) AS RACE_SEQ,
+				  NVL(SUM(VIOLCNT_3),0) AS VIOLCNT_3,
+				  NVL(SUM(VIOLCNT_4),0) AS VIOLCNT_4,
+				  NVL(SUM(VIOLCNT_5),0) AS VIOLCNT_5,
+				  NVL(SUM(BOAT_TIME),0) AS BOAT_TIME,
+				  NVL(SUM(VIOL_3),0) AS VIOL_3,
+				  NVL(SUM(VIOL_2),0) AS VIOL_2,
+				  NVL(SUM(VIOL_4),0) AS VIOL_4,
+				  NVL(SUM(VIOL_1),0) AS VIOL_1,
+				  NVL(SUM(VIOL_5),0) AS VIOL_5					  
+			  FROM(		
+			 SELECT
+			  	  RACER_NO,
+				  MAX(NM_KOR) AS NM_KOR,
+				  NVL(COUNT(DISTINCT DT),0) AS EDU_DAY,
+				  NVL(COUNT(RACER_NO),0) AS RACE_SEQ,
+				  NVL(SUM(VIOLCNT_3),0) AS VIOLCNT_3,
+				  NVL(SUM(VIOLCNT_4),0) AS VIOLCNT_4,
+				  NVL(SUM(VIOLCNT_5),0) AS VIOLCNT_5,
+				  NVL(SUM(to_number(SUBSTR(boat_time,0,2))* 60 +to_number(SUBSTR(boat_time,3,2))),0) AS BOAT_TIME,
+				  NVL(SUM(VIOL_3),0) AS VIOL_3,
+				  NVL(SUM(VIOL_2),0) AS VIOL_2,
+				  NVL(SUM(VIOL_4),0) AS VIOL_4,
+				  NVL(SUM(VIOL_1),0) AS VIOL_1,
+				  NVL(SUM(VIOL_5),0) AS VIOL_5					  
+			  FROM(	
+			  		SELECT 
+						  A.RACER_NO,
+						  B.NM_KOR,
+						  DT,						  
+						  BOAT_TIME,
+						   CASE WHEN GBN = '004' THEN COUNT(GBN)	 
+						        ELSE 0 
+								END AS VIOLCNT_3,
+						   CASE WHEN GBN = '005' THEN COUNT(GBN)	 
+						        ELSE 0 
+								END AS VIOLCNT_4,
+						   CASE WHEN GBN = '006' THEN COUNT(GBN)	 
+						        ELSE 0 
+								END AS VIOLCNT_5,		
+						   CASE WHEN VIOL_CNTNT = '003' THEN COUNT(VIOL_CNTNT)	 
+						        ELSE 0 
+								END AS VIOL_3,	
+						   CASE WHEN VIOL_CNTNT = '002' THEN COUNT(VIOL_CNTNT)	 
+						        ELSE 0 
+								END AS VIOL_2,
+						   CASE WHEN VIOL_CNTNT = '004' THEN COUNT(VIOL_CNTNT)	 
+						        ELSE 0 
+								END AS VIOL_4,
+						   CASE WHEN VIOL_CNTNT = '001' THEN COUNT(VIOL_CNTNT)	 
+						        ELSE 0 
+								END AS VIOL_1,
+						   CASE WHEN VIOL_CNTNT = '005' THEN COUNT(VIOL_CNTNT)	 
+						        ELSE 0 
+								END AS VIOL_5					 
+					FROM  TBDO_RACER_RACE_DETL A, MRASYS.TBEC_RACER_MASTER B  
+					WHERE A.RACER_NO = B.RACER_NO
+					AND   B.NM_KOR LIKE ? ||'%'
+					AND   DT BETWEEN ? AND ?
+					AND   SUBSTR(A.RACER_NO,1,2) LIKE ? ||'%'
+					GROUP BY A.RACER_NO,B.NM_KOR,DT,BOAT_TIME,GBN,VIOL_CNTNT				
+					)	
+				 GROUP BY RACER_NO	
+				 )		
+				 GROUP BY ROLLUP (RACER_NO)		 
+				 ORDER BY RACER_NO				 
+			)
+		]]>
+    </query>
+    
+    
+    <query id="tbdo_racer_race_detld_fb002" desc="기간별 스타트 기록 조회" fetchSize="10">
+        <![CDATA[
+		--기간별 스타트 기록 조회
+		SELECT
+			  ROWNUM AS NUM,
+			  DECODE(RACER_NO,'','합계',RACER_NO) AS RACER_NO,
+			  DECODE(RACER_NO,'','',NM_KOR) AS NM_KOR,
+			  VIOLCNT_5,
+			  RACE_TIME,			  
+			  VIOL_5,
+			  VIOL_6,
+			  VIOL_1			  
+	    FROM(
+			 SELECT
+			  	  RACER_NO,
+				  MAX(NM_KOR) AS NM_KOR,				  
+				  NVL(SUM(VIOLCNT_5),0) AS VIOLCNT_5,
+				  NVL(AVG(RACE_TIME),0) AS RACE_TIME,
+				  NVL(SUM(VIOL_5),0) AS VIOL_5,
+				  NVL(SUM(VIOL_6),0) AS VIOL_6,
+				  NVL(SUM(VIOL_1),0) AS VIOL_1				  					  
+			  FROM(	
+			  		SELECT 
+						  A.RACER_NO,
+						  B.NM_KOR,
+						  COUNT(GBN) AS VIOLCNT_5,
+						  RACE_TIME,	
+						  CASE WHEN VIOL_CNTNT = '005' THEN COUNT(VIOL_CNTNT)	 
+						       ELSE 0 
+							   END AS VIOL_5,
+						  CASE WHEN VIOL_CNTNT = '006' THEN COUNT(VIOL_CNTNT)	 
+						       ELSE 0 
+							   END AS VIOL_6,
+						  CASE WHEN VIOL_CNTNT = '005' OR VIOL_CNTNT = '006'  THEN 0	 
+						       ELSE COUNT(VIOL_CNTNT)	 
+							   END AS VIOL_1				 
+					FROM  TBDO_RACER_RACE_DETL A, MRASYS.TBEC_RACER_MASTER B  
+					WHERE A.RACER_NO = B.RACER_NO
+					AND   B.NM_KOR LIKE ? ||'%'
+					AND   DT BETWEEN ? AND ?
+					AND   GBN = '005'			
+					GROUP BY A.RACER_NO,B.NM_KOR,RACE_TIME,GBN,VIOL_CNTNT				
+				 )		
+				 GROUP BY ROLLUP (RACER_NO)		 
+				 ORDER BY RACER_NO				 
+			)	
+		]]>
+    </query> 
+    
+    <query id="tbdo_racer_race_detld_fb003" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+					 DISTINCT(SUBSTR(RACER_NO,1,2)) RACER_PERIO_NO
+			FROM
+					 MRASYS.TBEC_RACER_MASTER
+			ORDER BY 
+					 SUBSTR(RACER_NO,1,2) DESC				
+		]]>
+    </query>   
+      
+    
+    <query id="d07009005-s01" desc="연도별 훈련인원 조회" fetchSize="10">
+        <![CDATA[
+		SELECT /* d07009005-s01 */
+		            STND_YEAR 
+		           ,SUM(RSN_001) AS RSN_01
+		           ,SUM(RSN_002) AS RSN_02
+		           ,SUM(RSN_003) AS RSN_03
+		           ,SUM(RSN_004) AS RSN_04
+		           ,SUM(RSN_005) AS RSN_05
+		           ,SUM(RSN_006) AS RSN_06
+		           ,SUM(RSN_007) AS RSN_07
+		           ,COUNT(RACER_NO) AS RSN_CNT
+		FROM (                                   
+		            SELECT  SUBSTR(A.TRNG_ASK_STR_DT,1,4) AS STND_YEAR
+		                         ,DECODE(TRNG_RSN_CD, '001', 1, 0) AS RSN_001
+		                         ,DECODE(TRNG_RSN_CD, '002', 1, 0) AS RSN_002
+		                         ,DECODE(TRNG_RSN_CD, '003', 1, 0) AS RSN_003
+		                         ,DECODE(TRNG_RSN_CD, '004', 1, 0) AS RSN_004
+		                         ,DECODE(TRNG_RSN_CD, '005', 1, 0) AS RSN_005
+		                         ,DECODE(TRNG_RSN_CD, '006', 1, 0) AS RSN_006
+		                         ,DECODE(TRNG_RSN_CD, '007', 1, 0) AS RSN_007
+		                         ,C.RACER_NO   
+		            FROM  MRASYS.TBEB_TRNG_ASK  A
+		                 ,MRASYS.TBEB_TRNG_ASK_RACER B
+		                 ,MRASYS.TBEB_TRNG_EXPT_RACER  C
+		                 ,MRASYS.TBEC_RACER_MASTER D
+		            WHERE A.TRNG_ASK_SEQ = B.TRNG_ASK_SEQ
+		                AND B.TRNG_EXPT_SEQ = C.TRNG_EXPT_SEQ
+		                AND A.TRNG_ASK_STAT_CD LIKE '%'
+		                AND B.RACER_NO = D.RACER_NO
+		                AND NVL(B.COMMUTE_YN,'0') LIKE DECODE(?, '1','1','%') 
+		                AND A.TRNG_ASK_STR_DT BETWEEN ? AND ?
+		          )
+		GROUP BY STND_YEAR          
+		ORDER BY STND_YEAR DESC
+		                    
+		]]>
+    </query> 
+    
+    <query id="d07009005-s02" desc="기수별 훈련인원 조회" fetchSize="10">
+        <![CDATA[
+        SELECT     /* d07009005-s02 */
+                    RACER_PERIO_NO 
+                   ,SUM(RSN_001) AS RSN_01
+                   ,SUM(RSN_002) AS RSN_02
+                   ,SUM(RSN_003) AS RSN_03
+                   ,SUM(RSN_004) AS RSN_04
+                   ,SUM(RSN_005) AS RSN_05
+                   ,SUM(RSN_006) AS RSN_06
+                   ,SUM(RSN_007) AS RSN_07
+                   ,COUNT(RACER_NO) AS RSN_CNT
+        FROM (                                   
+                    SELECT  D.RACER_PERIO_NO
+                                 ,DECODE(TRNG_RSN_CD, '001', 1, 0) AS RSN_001
+                                 ,DECODE(TRNG_RSN_CD, '002', 1, 0) AS RSN_002
+                                 ,DECODE(TRNG_RSN_CD, '003', 1, 0) AS RSN_003
+                                 ,DECODE(TRNG_RSN_CD, '004', 1, 0) AS RSN_004
+                                 ,DECODE(TRNG_RSN_CD, '005', 1, 0) AS RSN_005
+                                 ,DECODE(TRNG_RSN_CD, '006', 1, 0) AS RSN_006
+                                 ,DECODE(TRNG_RSN_CD, '007', 1, 0) AS RSN_007
+                                 ,C.RACER_NO   
+                    FROM  MRASYS.TBEB_TRNG_ASK  A
+                             ,MRASYS.TBEB_TRNG_ASK_RACER B
+                             ,MRASYS.TBEB_TRNG_EXPT_RACER  C
+                             ,MRASYS.TBEC_RACER_MASTER D
+                    WHERE A.TRNG_ASK_SEQ = B.TRNG_ASK_SEQ
+                        AND B.TRNG_EXPT_SEQ = C.TRNG_EXPT_SEQ
+                        AND A.TRNG_ASK_STAT_CD LIKE '%'
+                        AND B.RACER_NO = D.RACER_NO 
+		                AND NVL(B.COMMUTE_YN,'0') LIKE DECODE(?, '1','1','%') 
+		                AND A.TRNG_ASK_STR_DT BETWEEN ? AND ?
+                  )
+        GROUP BY RACER_PERIO_NO          
+        ORDER BY TO_NUMBER(RACER_PERIO_NO)		                    
+		]]>
+    </query> 
+    
+    <query id="d07009005-s03" desc="기수별 기간별 훈련증감 조회" fetchSize="10">
+        <![CDATA[
+		SELECT     /* d07009005-s03 */
+		                    RACER_PERIO_NO 
+		                   ,SUM(RSN_001_CUR) AS CUR_01
+		                   ,SUM(RSN_002_CUR) AS CUR_02
+		                   ,SUM(RSN_003_CUR) AS CUR_03
+		                   ,SUM(RSN_004_CUR) AS CUR_04
+		                   ,SUM(RSN_005_CUR) AS CUR_05
+		                   ,SUM(RSN_006_CUR) AS CUR_06
+		                   ,SUM(RSN_007_CUR) AS CUR_07
+		                   ,SUM(RSN_001_PRV) AS PRV_01
+		                   ,SUM(RSN_002_PRV) AS PRV_02
+		                   ,SUM(RSN_003_PRV) AS PRV_03
+		                   ,SUM(RSN_004_PRV) AS PRV_04
+		                   ,SUM(RSN_005_PRV) AS PRV_05
+		                   ,SUM(RSN_006_PRV) AS PRV_06
+		                   ,SUM(RSN_007_PRV) AS PRV_07
+		                   ,SUM(RSN_CUR) AS RSN_CUR
+		                   ,SUM(RSN_PRV) AS RSN_PRV
+                           ,DECODE(SUM(RSN_001_PRV),0,0,ROUND((SUM(RSN_001_CUR)-SUM(RSN_001_PRV))/SUM(RSN_001_PRV)*100,1)) AS RSN_01_RATIO
+                           ,DECODE(SUM(RSN_002_PRV),0,0,ROUND((SUM(RSN_002_CUR)-SUM(RSN_002_PRV))/SUM(RSN_002_PRV)*100,1)) AS RSN_02_RATIO
+                           ,DECODE(SUM(RSN_003_PRV),0,0,ROUND((SUM(RSN_003_CUR)-SUM(RSN_003_PRV))/SUM(RSN_003_PRV)*100,1)) AS RSN_03_RATIO
+                           ,DECODE(SUM(RSN_004_PRV),0,0,ROUND((SUM(RSN_004_CUR)-SUM(RSN_004_PRV))/SUM(RSN_004_PRV)*100,1)) AS RSN_04_RATIO
+                           ,DECODE(SUM(RSN_005_PRV),0,0,ROUND((SUM(RSN_005_CUR)-SUM(RSN_005_PRV))/SUM(RSN_005_PRV)*100,1)) AS RSN_05_RATIO
+                           ,DECODE(SUM(RSN_006_PRV),0,0,ROUND((SUM(RSN_006_CUR)-SUM(RSN_006_PRV))/SUM(RSN_006_PRV)*100,1)) AS RSN_06_RATIO
+                           ,DECODE(SUM(RSN_007_PRV),0,0,ROUND((SUM(RSN_007_CUR)-SUM(RSN_007_PRV))/SUM(RSN_007_PRV)*100,1)) AS RSN_07_RATIO
+                           ,DECODE(SUM(RSN_PRV),0,0,ROUND((SUM(RSN_CUR)-SUM(RSN_PRV))/SUM(RSN_PRV)*100,1)) AS RSN_RATIO		                   
+		        FROM (    
+		                                       
+		                    SELECT  RACER_PERIO_NO
+		                                ,DECODE(STND_YEAR, REQ_YEAR, RSN_001, 0) AS RSN_001_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, RSN_002, 0) AS RSN_002_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, RSN_003, 0) AS RSN_003_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, RSN_004, 0) AS RSN_004_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, RSN_005, 0) AS RSN_005_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, RSN_006, 0) AS RSN_006_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, RSN_007, 0) AS RSN_007_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 1, 0) AS RSN_CUR
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0, RSN_001) AS RSN_001_PRV
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0, RSN_002) AS RSN_002_PRV
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0, RSN_003) AS RSN_003_PRV
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0, RSN_004) AS RSN_004_PRV
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0, RSN_005) AS RSN_005_PRV
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0, RSN_006) AS RSN_006_PRV
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0, RSN_007) AS RSN_007_PRV
+		                                ,DECODE(STND_YEAR, REQ_YEAR, 0,1) AS RSN_PRV
+		                     FROM (            
+		                                SELECT  D.RACER_PERIO_NO
+		                                             ,SUBSTR(?,1,4) AS REQ_YEAR
+		                                             ,SUBSTR(A.TRNG_ASK_STR_DT,1,4) AS STND_YEAR
+		                                             ,DECODE(TRNG_RSN_CD, '001', 1, 0) AS RSN_001
+		                                             ,DECODE(TRNG_RSN_CD, '002', 1, 0) AS RSN_002
+		                                             ,DECODE(TRNG_RSN_CD, '003', 1, 0) AS RSN_003
+		                                             ,DECODE(TRNG_RSN_CD, '004', 1, 0) AS RSN_004
+		                                             ,DECODE(TRNG_RSN_CD, '005', 1, 0) AS RSN_005
+		                                             ,DECODE(TRNG_RSN_CD, '006', 1, 0) AS RSN_006
+		                                             ,DECODE(TRNG_RSN_CD, '007', 1, 0) AS RSN_007
+		                                             ,C.RACER_NO   
+		                                FROM  MRASYS.TBEB_TRNG_ASK  A
+		                                         ,MRASYS.TBEB_TRNG_ASK_RACER B
+		                                         ,MRASYS.TBEB_TRNG_EXPT_RACER  C
+		                                         ,MRASYS.TBEC_RACER_MASTER D
+		                                WHERE A.TRNG_ASK_SEQ = B.TRNG_ASK_SEQ
+		                                    AND B.TRNG_EXPT_SEQ = C.TRNG_EXPT_SEQ
+		                                    AND A.TRNG_ASK_STAT_CD LIKE '%'
+		                                    AND B.RACER_NO = D.RACER_NO 
+		                                    AND A.TRNG_ASK_STR_DT BETWEEN TO_CHAR(TO_NUMBER(SUBSTR(?,1,4))-1)||'0101' AND ?		                                    
+		                					AND NVL(B.COMMUTE_YN,'0') LIKE DECODE(?, '1','1','%') 
+		                          )
+		                          
+		                  )
+		        GROUP BY RACER_PERIO_NO          
+		        ORDER BY TO_NUMBER(RACER_PERIO_NO)
+		]]>
+    </query> 
+    
+    
+    <query id="d07009005-s04" desc="숙비 미납자 조회" fetchSize="10">
+        <![CDATA[
+		SELECT     /* d07009005-s04 */
+	                 0 AS CHK
+	               , TAR.RACER_NO              -- 선수번호
+                   , RM.NM_KOR AS RACER_NM     -- 선수명
+                   , COUNT(*) AS TOT_TRNG_CNT	-- 총훈련횟수
+                   , SUM(TA.TRNG_ASK_DD_NUM) AS TRNG_ASK_DD_NUM		-- 총훈련일수
+                   , SUM(DECODE(NVL(TAR.TRNG_FEE_PAY_YN, '002'), '002', 1)) AS NOT_PAY_CNT	-- 미납회수
+                   , SUM(DECODE(NVL(TAR.TRNG_FEE_PAY_YN, '002'), '002', TA.TRNG_ASK_DD_NUM)) AS NOT_PAY_DD_CNT --미납교육일수
+                   , SUM(DECODE(NVL(TAR.TRNG_FEE_PAY_YN, '002'), '002', NVL(TAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT), 0)) AS  NOT_PAY_AMT -- 미납금액
+                   , RM.CELPON_NO AS HP_NO             
+                   , MAX(TA.TRNG_ASK_STR_DT) AS LAST_TRNG_STR_DT
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TAR
+                   , MRASYS.VWEC_RACER_MASTER    RM
+                   , MRASYS.TBEB_TRNG_ASK        TA
+                   , MRASYS.TBEB_TRNG_EXPT_RACER TER
+                   , TBDN_TRNG_ROOM_CHRG         TRC
+            WHERE  TAR.RACER_NO    = RM.RACER_NO
+               AND TA.TRNG_ASK_SEQ = TAR.TRNG_ASK_SEQ
+               AND TA.TRNG_ASK_STR_DT BETWEEN ? AND ?
+               AND TAR.TRNG_EXPT_SEQ = TER.TRNG_EXPT_SEQ
+               AND TA.TRNG_ASK_STR_DT BETWEEN TRC.APLY_STR_DT AND TRC.APLY_END_DT
+               AND TA.TRNG_ASK_DD_NUM = TRC.TRNG_DAYS
+               AND NVL(TER.COMP_EDU_CD,'000') = NVL(TRC.COMP_EDU_CD,'000')
+               AND NVL(TAR.COMMUTE_YN,'0') = NVL(TRC.COMMUTE_YN,'0')
+               AND DECODE(TER.TRNG_RSN_CD,'004','Y','N') = DECODE(TRC.TRNG_RSN_CD, '004','Y','N')
+            GROUP BY TAR.RACER_NO, RM.NM_KOR, RM.CELPON_NO
+            HAVING SUM(DECODE(NVL(TAR.TRNG_FEE_PAY_YN, '002'), '002', 1)) > 0
+            ORDER BY TAR.RACER_NO
+		]]>
+    </query> 
+    
+    
+    <query id="d07009005-s05" desc="숙비 미납자 세부내역 조회" fetchSize="10">
+        <![CDATA[
+		SELECT     /* d07009005-s05 */
+                     0 AS CHK
+                   , TAR.RACER_NO              	-- 선수번호
+                   , RM.NM_KOR AS RACER_NM     	-- 선수명      
+                   , TA.TRNG_ASK_SEQ    		-- 교육차수
+                   , TA.TRNG_ASK_STR_DT			-- 교육시작일
+                   , TA.TRNG_ASK_DD_NUM			-- 교육일수
+                   , NVL(TAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT) AS  NOT_PAY_AMT -- 미납금액
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TAR
+                   , MRASYS.VWEC_RACER_MASTER    RM
+                   , MRASYS.TBEB_TRNG_ASK        TA
+                   , MRASYS.TBEB_TRNG_EXPT_RACER TER
+                   , TBDN_TRNG_ROOM_CHRG         TRC
+            WHERE  TAR.RACER_NO    = RM.RACER_NO
+               AND TA.TRNG_ASK_SEQ = TAR.TRNG_ASK_SEQ
+               AND TA.TRNG_ASK_STR_DT BETWEEN ? AND ?
+               AND NVL(TRNG_FEE_PAY_YN,'002') = '002'
+               AND TAR.TRNG_EXPT_SEQ = TER.TRNG_EXPT_SEQ
+               AND TA.TRNG_ASK_STR_DT BETWEEN TRC.APLY_STR_DT AND TRC.APLY_END_DT
+               AND TA.TRNG_ASK_DD_NUM = TRC.TRNG_DAYS
+               AND NVL(TER.COMP_EDU_CD,'000') = NVL(TRC.COMP_EDU_CD,'000')  
+               AND NVL(TAR.COMMUTE_YN,'0') = NVL(TRC.COMMUTE_YN,'0') 
+               AND DECODE(TER.TRNG_RSN_CD,'004','Y','N') = DECODE(TRC.TRNG_RSN_CD, '004','Y','N') 
+            ORDER BY TAR.RACER_NO, TA.TRNG_ASK_STR_DT
+		]]>
+    </query> 
+    
+    <query id="d07009005-s06" desc="훈련기록 세부내역 조회" fetchSize="10">
+        <![CDATA[
+		SELECT     /* d07009005-s06 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , TTAR.MENTO_YN
+                   , TTAR.MENTO_GRP_NO
+                   , TRTR.PER_TURN
+                   , TRTR.FORM_TURN
+                   , TRTR.FORM_TURN_3
+                   , TRTR.FORM_TURN_1
+                   , TRTR.ST
+                   , TRTR.IMIT_RACE
+                   , TRTR.BOAT_TIME
+                   , TRTR.BOAT_TIME_GRD
+                   , TRTR.MOTOR_MNT
+                   , TRTR.BODY_TRNG
+                   , TRTR.VIDEO
+                   , TRTR.PRIZ_PENAL
+                   , TRTR.CMPL_YN
+                   , TRTR.DETL_EDU_CNTN
+                   , TRTR.MOTOR_MNT_PELLER
+                   , TTA.TRNG_ASK_DD_NUM AS TRNG_DAY_CNT
+                   , TTA.TRNG_ASK_STR_DT
+                   , TTA.TRNG_ASK_END_DT
+            FROM    MRASYS.TBEB_TRNG_ASK TTA 
+                 LEFT JOIN MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                      ON      TTA.TRNG_ASK_SEQ = TTAR.TRNG_ASK_SEQ
+                 LEFT JOIN MRASYS.TBEC_RACER_MASTER    TRM
+                      ON      TTAR.RACER_NO     = TRM .RACER_NO
+                 LEFT OUTER JOIN TBDO_RACER_TRNG_RSLT TRTR
+                      ON      TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ
+                         AND  TTAR.RACER_NO     = TRTR.RACER_NO
+            WHERE  TTA.TRNG_ASK_STR_DT BETWEEN ? AND ?
+            ORDER BY TTAR.TRNG_ASK_SEQ, TTAR.MENTO_GRP_NO, NVL(TTAR.MENTO_YN,'0') DESC, TTAR.RACER_NO
+		]]>
+    </query> 
+    
+    <query id="d07009005-s07" desc="개인별 훈련기록 통계 조회" fetchSize="10">
+        <![CDATA[
+		  SELECT   /* d07009005-s07 */
+                     TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , SUM(TRTR.PER_TURN) AS PER_TURN
+                   , SUM(TRTR.FORM_TURN) AS FORM_TURN
+                   , SUM(TRTR.FORM_TURN_3) AS FORM_TURN_3
+                   , SUM(TRTR.FORM_TURN_1) AS FORM_TURN_1
+                   , SUM(TRTR.ST) AS ST
+                   , SUM(TRTR.IMIT_RACE) AS IMIT_RACE
+                   , SUM(TRTR.BOAT_TIME) AS BOAT_TIME
+                   , SUM(TRTR.BOAT_TIME_GRD) AS BOAT_TIME_GRD
+                   , SUM(TRTR.MOTOR_MNT) AS MOTOR_MNT
+                   , SUM(TRTR.MOTOR_MNT_PELLER) AS MOTOR_MNT_PELLER
+                   , SUM(TRTR.BODY_TRNG) AS BODY_TRNG
+                   , SUM(TRTR.VIDEO) AS VIDEO
+                   , SUM(TRTR.PRIZ_PENAL) AS PRIZ_PENAL
+                   , TO_CHAR(SUM(CASE WHEN TRTR.CMPL_YN = 'Y' THEN 1 ELSE 0 END))||'/'||TO_CHAR(COUNT(*)) AS CMPL_CNT
+                   , SUM(CASE WHEN TRTR.CMPL_YN = 'Y' THEN 1 ELSE 0 END) AS CMPL_CNT1
+                   , COUNT(*) AS CMPL_CNT2
+            FROM    MRASYS.TBEB_TRNG_ASK TTA 
+                 LEFT JOIN MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                      ON      TTA.TRNG_ASK_SEQ = TTAR.TRNG_ASK_SEQ
+                      --  AND  NVL(TTAR.MENTO_YN,'0') != '1'
+                 LEFT JOIN MRASYS.TBEC_RACER_MASTER    TRM
+                      ON      TTAR.RACER_NO     = TRM .RACER_NO
+                 LEFT OUTER JOIN TBDO_RACER_TRNG_RSLT TRTR                        
+                      ON      TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ
+                         AND  TTAR.RACER_NO     = TRTR.RACER_NO
+            WHERE  TTA.TRNG_ASK_STR_DT BETWEEN ? AND ?
+            GROUP BY TTAR.RACER_NO
+                   , TRM .NM_KOR
+            ORDER BY TTAR.RACER_NO
+
+		]]>
+    </query> 
+    
+    <query id="d07009005-s08" desc="기수별 훈련기록 통계 조회" fetchSize="10">
+        <![CDATA[
+		  SELECT   /* d07009005-s08 */
+                     TRM .RACER_PERIO_NO
+                   , SUM(TRTR.PER_TURN) AS PER_TURN
+                   , SUM(TRTR.FORM_TURN) AS FORM_TURN
+                   , SUM(TRTR.FORM_TURN_3) AS FORM_TURN_3
+                   , SUM(TRTR.FORM_TURN_1) AS FORM_TURN_1
+                   , SUM(TRTR.ST) AS ST
+                   , SUM(TRTR.IMIT_RACE) AS IMIT_RACE
+                   , SUM(TRTR.BOAT_TIME) AS BOAT_TIME
+                   , SUM(TRTR.BOAT_TIME_GRD) AS BOAT_TIME_GRD
+                   , SUM(TRTR.MOTOR_MNT) AS MOTOR_MNT
+                   , SUM(TRTR.MOTOR_MNT_PELLER) AS MOTOR_MNT_PELLER
+                   , SUM(TRTR.BODY_TRNG) AS BODY_TRNG
+                   , SUM(TRTR.VIDEO) AS VIDEO
+                   , SUM(TRTR.PRIZ_PENAL) AS PRIZ_PENAL
+                   , TO_CHAR(SUM(CASE WHEN TRTR.CMPL_YN = 'Y' THEN 1 ELSE 0 END))||'/'||TO_CHAR(COUNT(*)) AS CMPL_CNT
+                   , SUM(CASE WHEN TRTR.CMPL_YN = 'Y' THEN 1 ELSE 0 END) AS CMPL_CNT1
+                   , COUNT(*) AS CMPL_CNT2
+            FROM    MRASYS.TBEB_TRNG_ASK TTA 
+                 LEFT JOIN MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                      ON      TTA.TRNG_ASK_SEQ = TTAR.TRNG_ASK_SEQ
+                     --   AND  NVL(TTAR.MENTO_YN,'0') != '1'
+                 LEFT JOIN MRASYS.TBEC_RACER_MASTER    TRM
+                      ON      TTAR.RACER_NO     = TRM .RACER_NO
+                 LEFT OUTER JOIN TBDO_RACER_TRNG_RSLT TRTR                        
+                      ON      TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ
+                         AND  TTAR.RACER_NO     = TRTR.RACER_NO
+            WHERE  TTA.TRNG_ASK_STR_DT BETWEEN ? AND ?
+            GROUP BY TRM .RACER_PERIO_NO
+            ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO)
+
+
+		]]>
+    </query> 
+
+
+    <query id="d07009005-s09" desc="선수훈련사고 조회" fetchSize="10">
+		<![CDATA[
+            SELECT  /* d07009005-s09 */
+                     TRTA.DT
+                   , TRTA.SEQ
+                   , TRTA.GBN
+                   , TRTA.RACER_NO
+                   , TRM .NM_KOR
+                   , TRTA.VIOL_CNTNT
+                   , TRTA.RACE_CNTNT
+                   , TRTA.REPAIT_DESC   
+                   , TRTA.TRNG_ASK_SEQ         
+            FROM     TBDO_RACER_TRNG_ACDNT TRTA
+                   , MRASYS.TBEC_RACER_MASTER     TRM
+            WHERE  TRTA.RACER_NO = TRM.RACER_NO
+              AND  TRTA.DT       BETWEEN ? AND ?
+            ORDER BY  TRTA.DT, TRTA.SEQ
+	    ]]>
+    </query>    
+    
+    <query id="d07009005-s10" desc="선수명단 조회" fetchSize="10">
+		<![CDATA[
+            SELECT /* d07009005-s09 */
+	               '' AS CHK                                    --선택        
+	              ,TRM.RACER_NO                                    --선수번호        
+	              ,TRM.NM_KOR AS RACER_NM                                    --이름-한글        
+	              ,TRM.RACER_GRD_CD                            --선수등급코드        
+	              ,TRD.CELPON_NO AS HP_NO                                --핸드폰번호        
+	              ,CASE WHEN SUBSTR(MRASYS.GET_DEC(TRD.RES_NO),7,1) IN ('1','2','7','8')
+	                          THEN TO_NUMBER(TO_CHAR(SYSDATE,'YYYY')) - TO_NUMBER('19'||SUBSTR(MRASYS.GET_DEC(TRD.RES_NO),1,2))    
+	               ELSE TO_NUMBER(TO_CHAR(SYSDATE,'YYYY')) - TO_NUMBER('20'||SUBSTR(MRASYS.GET_DEC(TRD.RES_NO),1,2))    
+	               END AS AGE                                     -- 나이                 
+	              ,DECODE(SUBSTR(MRASYS.GET_DEC(TRD.RES_NO),7,1),1,'남',3,'남',2,'여',4,'여') RACER_SEX    --성별            
+	              ,RACER_STAT_CD                                --선수상태자        
+			 FROM  MRASYS.TBEC_RACER_MASTER TRM                                            
+			      ,MRASYS.TBEC_RACER_DETAIL TRD                                                    
+			 WHERE TRM.RACER_NO =  TRD.RACER_NO(+)                                    
+			 AND   TRM.NM_KOR LIKE ? || '%'      
+			 AND   TRM.RACER_STAT_CD != '003'                      
+			 ORDER BY TRM.RACER_NO    
+	    ]]>
+    </query>    
+</queryMap>

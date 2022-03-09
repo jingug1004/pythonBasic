@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="344" Id="RSM2031P" Left="8" OnLoadCompleted="fcFormLoadSetting" OnTimer="fcOnTimer" PidAttrib="7" Title="매출액비교" Top="8" Ver="1.0" Width="704" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsRaceResultDetail">
+				<Contents>
+					<colinfo id="RACE_NO" size="256" summ="default" type="STRING"/>
+					<colinfo id="POOL_CD" size="256" summ="default" type="STRING"/>
+					<colinfo id="POOL_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="RS_SEQ" size="256" summ="default" type="STRING"/>
+					<colinfo id="RUNNER_1ST" size="256" summ="default" type="STRING"/>
+					<colinfo id="RUNNER_2ND" size="256" summ="default" type="STRING"/>
+					<colinfo id="RUNNER_3RD" size="256" summ="default" type="STRING"/>
+					<colinfo id="RUNNER_RESULT" size="256" summ="default" type="STRING"/>
+					<colinfo id="PAYOFF" size="256" summ="default" type="STRING"/>
+					<colinfo id="STATUS" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Image Height="20" Id="Image1" ImageID="m_titleblet" Left="8" TabOrder="1" Top="2" Width="17"></Image>
+		<Static Color="user4" Height="20" Id="stTitle" Left="24" Style="snis_m_stitle" TabOrder="2" Text="경주개최결과" VAlign="Middle" Width="368"></Static>
+		<Static Color="user4" Height="20" Id="stRaceInfo" Left="24" Style="snis_m_stitle" TabOrder="4" Text="경주별현황" Top="27" VAlign="Middle" Width="440"></Static>
+		<Image Height="20" Id="Image2" ImageID="m_titleblet2" Left="8" TabOrder="3" Top="27" Width="17"></Image>
+		<Grid AutoEnter="TRUE" AutoFit="TRUE" AutoFitEndLine="Hide" BindDataset="dsRaceResultDetail" BKColor="user15" BkColor2="user16" BkSelColor="user17" BoldHead="true" Border="Flat" BorderColor="user22" Bottom="312" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="264" Id="grdRaceResultDetail" InputPanel="FALSE" Left="8" LineColor="user18" MinWidth="100" OnHeadClick="fcGridSort" Right="696" SelColor="user19" Style="snis_grid" TabOrder="5" TabStop="true" Top="48" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="688">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="80"/>
+						<col width="107"/>
+						<col width="97"/>
+					</columns>
+					<head>
+						<cell autosizing="none" bkcolor="user20" col="0" color="user21" display="text" font="굴림,9,Bold" text="승식"/>
+						<cell autosizing="none" bkcolor="user20" col="1" color="user21" display="text" font="굴림,9,Bold" text="승자"/>
+						<cell autosizing="none" bkcolor="user20" col="2" color="user21" display="text" font="굴림,9,Bold" text="확정배당률"/>
+					</head>
+					<body>
+						<cell align="center" col="0" colid="POOL_NM" display="normal" font="굴림,9"/>
+						<cell align="center" col="1" colid="RUNNER_RESULT" display="normal" font="굴림,9"/>
+						<cell align="right" col="2" colid="PAYOFF" display="number" font="굴림,9"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Div Height="22" Id="divBtnLst" Left="590" TabOrder="6" Text="Div0" Url="common::comButtonSearchClose.xml" Width="104">
+			<Contents></Contents>
+		</Div>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = this.GetForm().id;
+var sBUTTONLIST   = 'TTTTTTT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                 //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                 //Form의 Title 정보
+var sFORMLOCATION = '';                                 //Form의 Location 정보
+var sUSERLAVEL    = '';                                 //Form의 사용  Level
+var vREVOBJ       = Array(9);                           //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                 //그리드 제목
+var sCUROBJ       ;                                     //현재 LOST FOCUS 오브젝트
+
+var sMenuGrpNum     = "0";                              // 메뉴그룹의 갯수보관
+var sMenuListNum    = "0";                              // 메뉴리스트의 갯수보관
+var sMenuUpId       = "";
+var sMenuUpNm       = "";
+
+var gnGrpRow        = 0;
+var sIsView = "";
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+var ARRAY2_GBL_RET_VALUE = Array();	// 이전페이지에서 넘어온 변수
+function fcFormLoadSetting(obj) {  
+	// 이전 페이지에서 파라미터 받음	
+    var sRetValue = decode(GBL_RET_VALUE,null,'',GBL_RET_VALUE);
+    
+	if(sRetValue!='')
+	{		
+		ARRAY2_GBL_RET_VALUE = split2(GBL_RET_VALUE," ","=");
+		GBL_RET_VALUE="";
+	}
+    fcSearch();
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 UNLoad時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	//자료 변경 여부를 체크하고자 하는  DataSet Object를 넘긴다.
+	var sDataset = "dsRaceResultDetail";
+	
+	if (   !fnc_FormUnloadCheck(sDataset  , sFormId) ) 
+		return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 실행할 때마다 실행
++-------------------------------------------------------------------------------------------------*/
+function fcFormOnActivite(){
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	//Return Key Press時 Next Component focus
+	if ( nChar == ENTER_KEY ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  취소 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInit(obj) {
+	dsRaceResultDetail.ClearData();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 체크 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearchCheck(obj) {
+    //조회조건 체크및 trim처리
+
+	fcInit(obj);    //기존 데이터셋 초기화
+	
+	return true;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearch(obj) {	
+	var sServiceName = "rsm2031-service:searchRaceResultDetail";  // Grid 조회
+	var sInDataSet   = "";
+	var sOutDataSet  = "dsRaceResultDetail=dsRaceResultDetail ";     
+	
+	var MEET_CD = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"MEET_CD");
+	var STND_YEAR = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"STND_YEAR");
+	var TMS = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"TMS");
+	var DAY_ORD = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"DAY_ORD");
+	var RACE_NO = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"RACE_NO");
+	
+	
+	fcd_AddParam("MEET_CD", MEET_CD);    
+	fcd_AddParam("STND_YEAR", STND_YEAR);    
+	fcd_AddParam("TMS", TMS);    
+	fcd_AddParam("DAY_ORD", DAY_ORD);    
+	fcd_AddParam("RACE_NO", RACE_NO);    
+	
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", true);
+}
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 저장가능유무처리
++-------------------------------------------------------------------------------------------------*/
+function fcSaveCheck(obj) {  
+    
+	
+	return true;
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSave(obj) {
+
+    if ( !fcSaveCheck() ) return;
+    
+    
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcToExcel(obj) {
+    var sExcelList = "grdRaceResultDetail:경주별현황상세보기"; //데이터셋 정의
+    fcd_OpenExcelListExport(sExcelList);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행추가 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcAddRow(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삽입 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInsRow(obj) {
+     
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcDelRow(obj) {
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  인쇄
++-------------------------------------------------------------------------------------------------*/
+function fcPrint(){
+			
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	//화면 종료
+	Close();	
+}
+
+
+/***************************************************************************************************
+*                                      공통 Function 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Text Box가 Focus를 받을 때
++-------------------------------------------------------------------------------------------------*/
+function fcEditFocus(obj) {
+//	fnc_EditFocus(obj);
+}
+
+
+/*--------------+
+|  확인 처리 !  |
++---------------*/
+function fcChoice(obj) {
+	
+//    Close(arrReturn);                                                   //반환 후 조회
+}
+/*--------------+
+|  취소 처리 !  |
++---------------*/
+function fcClose(obj) {
+	Close(false);     //Null 반환 후 종료
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);
+}
+
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Help Popup Open
++-------------------------------------------------------------------------------------------------*/
+function fcHelpDialoge(obj,nX,nY) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드에서 팝업 처리 
++-------------------------------------------------------------------------------------------------*/
+function fcGrdOnExpandEdit(objGrd, nRow, nCell, strVal, nPivotIndex){
+	
+}
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+    if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+    
+    if ( sServiceName == "rsm2031-service:searchRaceResultDetail" )
+    {
+		var RACE_DAY = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"RACE_DAY");
+		
+		var sMM = substr(RACE_DAY,4,2); // 경주 월
+		var sDD = substr(RACE_DAY,6,2); // 경주 일
+		
+		var MEET_CD = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"MEET_CD");
+		var sMeetNm = decode(MEET_CD,'003','경정','경륜'); 
+		
+		var STND_YEAR = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"STND_YEAR");
+		var TMS = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"TMS");
+		var DAY_ORD = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"DAY_ORD");
+		var RACE_NO = fnc_Array2Value(ARRAY2_GBL_RET_VALUE,"RACE_NO");		
+		
+		var sRaceDayInfo = STND_YEAR+"년 "+sMM+"월 "+sDD+"일 "+TMS+"회차 "+DAY_ORD+"일차 "+RACE_NO+"경주";
+		
+		stRaceInfo.Text = "경주별현황 "+sMeetNm+" "+sRaceDayInfo;
+		
+	}
+	
+	
+}
+
+
+
+
+]]></Script>
+</Window>

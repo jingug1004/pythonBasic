@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem4050(기간별 수신내역 조회 )">
+  
+    <query id="rem4050_s01" desc="기간별 수신내역 조회" fetchSize="10">
+      <![CDATA[
+		  SELECT /* rem4050_s01 */
+		         S.RACE_DAY AS TRAN_DT,
+		         S.COMM_NO,
+		         C.CD_NM AS COMM_NM,
+		         NVL2 (SUM (CNT), 0, 1) AS ERR_CNT,
+		         MAX (VERI) AS VERI
+		    FROM TBRC_T_TRADE_SUM T,
+		         (SELECT RACE_DAY, D.COMM_NO
+		            FROM VW_SDL_INFO S,
+		                 (  SELECT MEET_CD,
+		                           STND_YEAR,
+		                           TMS,
+		                           DAY_ORD,
+		                           CASE
+		                              WHEN SELL_CD = '03' AND COMM_NO < '11' THEN '98'
+		                              WHEN SELL_CD = '01' AND COMM_NO < '11' THEN '00'
+		                              ELSE COMM_NO
+		                           END
+		                              AS COMM_NO
+		                      FROM TBES_SDL_DT_SUM
+		                     WHERE SELL_CD IN ('01', '03')
+		                     AND   COMM_NO != '06'
+		                  GROUP BY MEET_CD,
+		                           STND_YEAR,
+		                           TMS,
+		                           DAY_ORD,
+		                           CASE
+		                              WHEN SELL_CD = '03' AND COMM_NO < '11' THEN '98'
+		                              WHEN SELL_CD = '01' AND COMM_NO < '11' THEN '00'
+		                              ELSE COMM_NO
+		                           END) D
+		           WHERE     S.MEET_CD IN ('001', '003')
+		                 AND S.STND_YEAR = D.STND_YEAR
+		                 AND S.MEET_CD = D.MEET_CD
+		                 AND S.TMS = D.TMS
+		                 AND S.DAY_ORD = D.DAY_ORD
+		                 AND S.RACE_DAY BETWEEN ? AND ?) S,
+		         TBRK_SPEC_CD C
+		   WHERE     S.RACE_DAY = T.TRADE_DATE(+)
+		         AND S.COMM_NO = T.COMM_NO(+)
+		         AND S.COMM_NO = C.CD
+		         AND C.GRP_CD = '018'
+		GROUP BY S.RACE_DAY, S.COMM_NO, C.CD_NM        
+        ]]>
+    </query> 
+    
+    <query id="rem4050_s02" desc="기간별 검증여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem4050_s02 */
+		             S.RACE_DAY AS TRAN_DT
+		            ,MAX(VERI) AS VERI
+            FROM    TBRC_T_TRADE_SUM T,
+		            (
+			          SELECT RACE_DAY
+	                        ,C.CD AS COMM_NO
+	                        ,C.CD_NM AS COMM_NM
+			          FROM  VW_SDL_INFO S,
+			                TBRK_SPEC_CD C
+			          WHERE S.MEET_CD IN ('001','003')
+			            AND C.GRP_CD = '018'
+			            AND C.DEL_YN = 'N'
+			            AND C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+			            AND S.RACE_DAY BETWEEN ? AND ?
+		             ) S                    
+            WHERE S.RACE_DAY = T.TRADE_DATE(+)
+              AND S.COMM_NO  = T.COMM_NO(+)
+            GROUP BY S.RACE_DAY          
+        ]]>
+    </query> 
+    
+    <query id="rem4050_s03" desc="지점별 최종수신상태 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rem4050_s03 */
+			       COMM_NO, 					  -- 지점코드
+			       MAX(TRADE_DATE) AS TRADE_DATE, -- 최종 입장일자
+			       substr(MAX(TRADE_DATE),9,2)||':'||substr(MAX(TRADE_DATE),11,2) AS TRADE_TIME, -- 최종 입장시간
+			       TO_CHAR(MAX(UPDT_DTM),'YYYYMMDD') AS UPDT_DT,    -- 최종 수신일자
+			       TO_CHAR(MAX(UPDT_DTM),'HH24:MI')  AS UPDT_TM    -- 최종 수신시간
+			FROM TBIF_STATUS
+			GROUP BY COMM_NO
+			ORDER BY 1        
+        ]]>
+    </query> 
+    
+    <query id="rem4050_u01" desc="자료검증 여부 저장" fetchSize="10">
+      <![CDATA[
+            UPDATE /* rem4050_s02 */
+		           TBRC_T_TRADE_SUM
+		       SET VERI = ?
+		           ,UPDT_ID = ?
+		           ,UPDT_DTM = SYSDATE                    
+            WHERE TRADE_DATE = ?       
+        ]]>
+    </query> 
+    
+</queryMap>

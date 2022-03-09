@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4051(밸런스 입력)">
+	<query id="rsm4051_s01" desc="밸런스 조회" fetchSize="10">
+        <![CDATA[        
+            
+			SELECT  /* rsm4051_s01 */
+					RACE_DAY, 		-- 경주일
+					TYPE_NO, 			--	1:경주권, 2:구매권, 3: IW (Instant Winner)
+					CASE                                      
+				         WHEN TYPE_NO='1' THEN '경주권'        
+				         WHEN TYPE_NO='2' THEN '구매권'        
+				         WHEN TYPE_NO='3' THEN 'IW구매권'      
+				     END TYPE_NM,	-- 구분                              
+			    	
+			    	SELL_CD,		--	01:경륜, 02:창원, 04:부산, 03:경정본장(신), 08:경정본장(구), 09:경정장외지점
+			    	CASE                                      
+				         WHEN SELL_CD='01' THEN '경륜'         
+				         WHEN SELL_CD='02' THEN '창원'         
+				         WHEN SELL_CD='03' THEN '경정 신시스템' 
+				         WHEN SELL_CD='04' THEN '부산'         
+				         WHEN SELL_CD='08' THEN '경정 구시스템' 
+				         WHEN SELL_CD='09' THEN '경정 장외지점' 
+				     END SELL_NM,		-- 경주권                              
+			       
+			       NOTYET_TOT_AMT,		-- 전회불총액
+			       END_AMT, 			-- 시효만료
+			       GITA_AMT1,			-- 환급관련 기타소득세
+			       GITA_AMT2,			-- 환급관련 주민세
+			       NOTYET_AMT,			-- 당일 미지급액
+			       CYCLE_AMT, 			-- 경륜지급
+			       BOAT_AMT,			-- 경정지급
+			       IW_AMT, 				-- Instant winner 구매권
+			       INST_ID,				-- 작성자
+			       INST_DT, 			-- 작성일
+			       UPDT_ID,				-- 수정자
+			       UPDT_DT 				-- 수정일
+			FROM TBJI_PC_BALANCE
+			WHERE 1=1
+			AND RACE_DAY	= ? -- 0:RACE_DAY 경주일
+			ORDER BY TYPE_NO,SELL_NM
+									            
+        ]]>
+    </query>
+
+
+
+
+    <query id="rsm4051_m01" desc="밸런스 입력수정" fetchSize="10">
+        <![CDATA[        
+            MERGE /* rsm4051_m01 */ 
+            	INTO TBJI_PC_BALANCE A  
+			USING   
+				(SELECT
+						? RACE_DAY,			-- 0: 경주일
+						? SELL_CD,			-- 1: 01:경륜, 02:창원, 04:부산, 03:경정본장(신), 08:경정본장(구), 09:경정장외지점
+						? TYPE_NO,			-- 2: 1:경주권, 2:구매권, 3: IW (Instant Winner)
+						NVL(?,0) AS NOTYET_TOT_AMT,	-- 3: 전회불총액
+						NVL(?,0) AS END_AMT,		-- 4: 시효만료
+						NVL(?,0) AS GITA_AMT1,		-- 5: 환급관련 기타소득세
+						NVL(?,0) AS GITA_AMT2,		-- 6: 환급관련 주민세
+						NVL(?,0) AS NOTYET_AMT,		-- 7: 당일 미지급액
+						NVL(?,0) AS CYCLE_AMT,		-- 8: 경륜지급
+						NVL(?,0) AS BOAT_AMT,		-- 9: 경정지급
+						NVL(?,0) AS IW_AMT,			-- 10: Instant winner 구매권
+						? LOGIN_ID			-- 9: 로그인 사용자 아이디
+				FROM    DUAL ) B  
+			
+			ON (					-- 수정조건
+				A.RACE_DAY = B.RACE_DAY		
+				AND A.SELL_CD   = B.SELL_CD           
+				AND A.TYPE_NO       = B.TYPE_NO     
+			)					
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+					A.NOTYET_TOT_AMT   = B.NOTYET_TOT_AMT,	-- 전회불총액
+			    	A.END_AMT          = B.END_AMT,			-- 시효만료
+			    	A.GITA_AMT1        = B.GITA_AMT1,		-- 환급관련 기타소득세
+			    	A.GITA_AMT2        = B.GITA_AMT2,		-- 환급관련 주민세
+			        A.NOTYET_AMT       = B.NOTYET_AMT,		-- 당일 미지급액
+			    	A.CYCLE_AMT        = B.CYCLE_AMT,		-- 경륜지급
+			    	A.BOAT_AMT         = B.BOAT_AMT,			-- 경정지급
+			    	A.IW_AMT           = B.IW_AMT,			-- Instant winner 구매권
+			    	A.UPDT_ID          = B.LOGIN_ID,		-- 수정자 아이디				
+			    	A.UPDT_DT          = SYSDATE
+			WHEN NOT MATCHED THEN 
+				INSERT (
+					RACE_DAY,		-- 경주일
+					SELL_CD,		-- 01:경륜, 02:창원, 04:부산, 03:경정본장(신), 08:경정본장(구), 09:경정장외지점
+					TYPE_NO,		-- 1:경주권, 2:구매권, 3: IW (Instant Winner)
+					NOTYET_TOT_AMT,	-- 전회불총액
+					END_AMT,		-- 시효만료
+					GITA_AMT1,      -- 환급관련 기타소득세
+					GITA_AMT2,      -- 환급관련 주민세
+					NOTYET_AMT,		-- 당일 미지급액
+					CYCLE_AMT,		-- 경륜지급
+					BOAT_AMT,			-- 경정지급
+					IW_AMT,			-- Instant winner 구매권
+					INST_ID,
+					INST_DT,					
+					UPDT_ID,		-- 수정자 아이디				
+					UPDT_DT			-- 수정자 일시	
+				) VALUES (
+					B.RACE_DAY,		-- 경주일
+					B.SELL_CD,		-- 01:경륜, 02:창원, 04:부산, 03:경정본장(신), 08:경정본장(구), 09:경정장외지점
+					B.TYPE_NO,		-- 1:경주권, 2:구매권, 3: IW (Instant Winner)
+					B.NOTYET_TOT_AMT,	-- 전회불총액
+					B.END_AMT,			-- 시효만료
+					B.GITA_AMT1,      -- 환급관련 기타소득세
+					B.GITA_AMT2,      -- 환급관련 주민세
+					B.NOTYET_AMT,		-- 당일 미지급액
+					B.CYCLE_AMT,		-- 경륜지급
+					B.BOAT_AMT,			-- 경정지급
+					B.IW_AMT,			-- Instant winner 구매권
+					B.LOGIN_ID,		-- 수정자 아이디
+					SYSDATE,			-- 수정자 일시
+					B.LOGIN_ID,		-- 수정자 아이디				
+					SYSDATE			-- 수정자 일시
+				)                                                                                                                                                                          
+						            
+        ]]>
+    </query>
+
+ 	<query id="rsm4051_d01" desc="밸런스 삭제" fetchSize="10">
+        <![CDATA[
+	          DELETE /* rsm4051_d01 */ FROM TBJI_PC_BALANCE  
+	          WHERE RACE_DAY = ?
+	          		                                                                                                          
+        ]]>
+    </query>
+
+	<query id="rsm4051_s02" desc="밸런스 일자" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rsm4051_s02 */
+	          		'0' AS CHK,
+	          		RACE_DAY,	-- 경주일                                                    
+			        MEET_CD,    -- 경륜 경정 구분 코드                                         
+			        CASE
+			             WHEN MEET_NM IS NULL AND MEET_NM_ETC IS NULL THEN '평일환급'
+			             ELSE 
+			             DECODE(MEET_NM,null,'',(MEET_NM||' '||TMS||'회차 '||DAY_ORD||'일차' )) 
+			        END AS MEET_NM_DESC, -- 경륜 정보
+			        TMS,                 -- 경륜 회차                                     
+			        DAY_ORD,     		 -- 경륜 일차
+			        MEET_CD_ETC,			--경정 코드
+			        CASE
+			             WHEN MEET_NM IS NULL AND MEET_NM_ETC IS NULL THEN '평일환급'
+			             ELSE 
+			             DECODE(MEET_NM_ETC,null,'',(MEET_NM_ETC||' '||TMS_ETC||'회차 '||DAY_ORD_ETC||'일차' )) 
+			        END AS MEET_NM_ETC_DESC, 	-- 경정 정보
+			        TMS_ETC,					-- 경정 회차
+			        DAY_ORD_ETC					-- 경정 일차
+			FROM
+			(        
+			     SELECT                                                             
+			         T.RACE_DAY,                                                    
+			         TO_CHAR(TO_DATE(T.RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') RACEDAY , 
+			         V.MEET_CD,                                                     
+			         CASE                                                           
+			             WHEN V.MEET_CD='001' THEN '광명'                           
+			             WHEN V.MEET_CD='002' THEN '창원'                           
+			             WHEN V.MEET_CD='004' THEN '부산'                           
+			         END MEET_NM,                                                            
+			         V.TMS ,                                                        
+			         V.DAY_ORD,                                                     
+			         W.MEET_CD MEET_CD_ETC,                                         
+			         CASE                                                           
+			             WHEN W.MEET_CD='003' THEN '경정'                           
+			         END MEET_NM_ETC,                                                            
+			         W.TMS TMS_ETC,                                                 
+			         W.DAY_ORD DAY_ORD_ETC                                          
+			     FROM                                                               
+			         VW_SDL_INFO V,                                                 
+			         VW_SDL_INFO W,                                
+			         (                                                              
+			            SELECT                                                      
+			                 RACE_DAY                                               
+			            FROM                                                        
+			                 TBJI_PC_BALANCE                                        
+			            WHERE                                                       
+			                 SUBSTR(RACE_DAY,0,4) = ? -- 0:STND_YEAR 기준년도                         
+			            GROUP BY RACE_DAY                                           
+			         )T                                                             
+			     WHERE                                                              
+			         V.MEET_CD(+)='001'                                             
+			         AND V.STND_YEAR(+)	= ? -- 1:STND_YEAR	기준년도 '2011'
+			         AND W.MEET_CD(+)='003'                                         
+			         AND W.STND_YEAR(+)	= ?	-- 2:STND_YEAR	기준년도 '2011'
+			         AND T.RACE_DAY=V.RACE_DAY(+)                                   
+			         AND T.RACE_DAY=W.RACE_DAY(+)
+			         
+			         AND T.RACE_DAY	= ?	-- 3:경주일  
+			)T                                      
+			 ORDER BY T.RACE_DAY DESC                                  
+        ]]>
+    </query>
+</queryMap>

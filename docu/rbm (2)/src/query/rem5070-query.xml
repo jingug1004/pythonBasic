@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem5070(지점별 지정좌석실 단가계약물품  조회 )">
+  
+    <query id="rem5070_s01" desc="지정좌석실 단가계약물품 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5070_s01 */
+ 			        '' AS CHK
+ 			       ,COMM_NO
+ 			       ,YEAR_ITEM_SEQ_NO
+ 			       ,STR_DT
+ 			       ,END_DT
+ 			       ,GOOD_TYPE_CD
+ 			       ,GOOD_NM
+ 			       ,UNIT
+ 			       ,PRICE
+ 			       ,RMK
+ 			       ,YEAR_ITEM_SEQ_NO ||'.'||GOOD_NM AS GOOD_NO_NM 
+ 			       ,(
+	 			       	SELECT COUNT(COMM_NO) FROM  TBRC_FS_STOR
+	 			       	WHERE 1=1
+	 			       	AND COMM_NO = A.COMM_NO
+	 			       	AND YEAR_ITEM_SEQ_NO = A.YEAR_ITEM_SEQ_NO
+	 			       	AND PRICE = A.PRICE
+ 			       ) CNT
+			FROM  TBRC_FS_YEAR_ITEM A
+		    WHERE COMM_NO LIKE ?||'%'
+		    AND   STR_DT BETWEEN ? AND ?        
+			ORDER BY COMM_NO, STR_DT, YEAR_ITEM_SEQ_NO            
+        ]]>
+    </query> 
+    
+    <query id="rem5070_s02" desc="지정좌석실 단가계약물품 조회(팝업)" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5070_s02 */
+ 			        '' AS CHK
+ 			       ,? AS STOR_DT 
+ 			       ,COMM_NO
+ 			       ,YEAR_ITEM_SEQ_NO
+ 			       ,STR_DT
+ 			       ,END_DT
+ 			       ,GOOD_TYPE_CD
+ 			       ,GOOD_NM
+ 			       ,UNIT
+ 			       ,PRICE
+ 			       ,RMK
+			FROM  TBRC_FS_YEAR_ITEM 
+		    WHERE COMM_NO LIKE ?||'%'
+		    AND   ? BETWEEN STR_DT AND END_DT    
+		    AND   GOOD_TYPE_CD LIKE ?||'%'    
+			ORDER BY COMM_NO, STR_DT, YEAR_ITEM_SEQ_NO            
+        ]]>
+    </query> 
+    
+        
+    <query id="rem5070_s03" desc="지정좌석실 단가계약상품 입고 자료 존재여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5070_s03 */
+ 			      NVL(SUM(STOR_CNT),0) AS CNT
+			FROM  TBRC_FS_STOR 
+		    WHERE COMM_NO = ?
+		    AND   YEAR_ITEM_SEQ_NO  = ?     
+        ]]>
+    </query> 
+    
+    
+    <query id="rem5070_s04" desc="지정좌석실  창고내 보유물품 조회(팝업)" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5070_s04 */
+ 			        '' AS CHK
+ 			       ,? AS STOR_DT 
+ 			       ,A.COMM_NO
+ 			       ,A.YEAR_ITEM_SEQ_NO
+ 			       ,STR_DT
+ 			       ,END_DT
+ 			       ,GOOD_TYPE_CD
+ 			       ,GOOD_NM
+ 			       ,UNIT
+ 			       ,PRICE
+ 			       ,A.RMK || B.RMK AS RMK
+ 			       ,CUR_CNT -- 현재고수량
+			FROM  TBRC_FS_YEAR_ITEM A
+                  ,(	--현재고량 조회
+                  SELECT A.COMM_NO, A.YEAR_ITEM_SEQ_NO,
+                         STOR_CNT - NVL(UNSTOR_CNT,0) AS CUR_CNT,
+                         (SELECT MAX(RMK) 
+                          FROM   TBRC_FS_STOR 
+                          WHERE  STOR_DT = A.STOR_DT 
+                          AND    YEAR_ITEM_SEQ_NO = A.YEAR_ITEM_SEQ_NO
+                          ) AS RMK
+                  FROM   (SELECT COMM_NO, YEAR_ITEM_SEQ_NO, 
+                                     SUM(STOR_CNT) AS STOR_CNT,
+                                     MAX(STOR_DT) AS STOR_DT
+                          FROM     TBRC_FS_STOR
+                          GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                         )  A, 
+                         (SELECT COMM_NO, YEAR_ITEM_SEQ_NO, 
+                                     SUM(UNSTOR_CNT) AS UNSTOR_CNT
+                          FROM     TBRC_FS_YEAR_ITEM_OUT
+                          GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                         ) B
+                  WHERE  A.COMM_NO          = B.COMM_NO(+)
+                  AND    A.YEAR_ITEM_SEQ_NO = B.YEAR_ITEM_SEQ_NO(+)
+                  AND    A.COMM_NO          = ?
+                  ) B
+		    WHERE A.COMM_NO          = B.COMM_NO
+            AND   A.YEAR_ITEM_SEQ_NO = B.YEAR_ITEM_SEQ_NO
+            AND   B.CUR_CNT          > DECODE(?, '1',-999999,0)
+		    AND   A.COMM_NO LIKE ?||'%'
+		    AND   ? BETWEEN STR_DT AND END_DT    
+		    AND   GOOD_TYPE_CD LIKE ?||'%'    
+			ORDER BY A.COMM_NO, STR_DT, A.YEAR_ITEM_SEQ_NO            
+        ]]>
+    </query> 
+    
+    
+    <query id="rem5070_m01" desc="지정좌석실 단가계약물품 저장" fetchSize="10">
+      <![CDATA[
+            MERGE /* rem5070_m01 */
+ 			      INTO TBRC_FS_YEAR_ITEM DST
+ 			USING (
+ 			       SELECT  ? AS COMM_NO
+ 			              ,? AS YEAR_ITEM_SEQ_NO
+ 			              ,? AS STR_DT
+ 			              ,? AS END_DT
+ 			              ,? AS GOOD_TYPE_CD
+ 			              ,? AS GOOD_NM
+ 			              ,? AS UNIT
+ 			              ,? AS PRICE
+ 			              ,? AS RMK
+ 			              ,? AS USER_ID
+ 			       FROM    DUAL       
+ 			        ) SRC    
+ 			ON     (
+ 			           DST.COMM_NO          = SRC.COMM_NO
+ 			       AND DST.YEAR_ITEM_SEQ_NO = SRC.YEAR_ITEM_SEQ_NO
+ 			       )
+ 			WHEN MATCHED THEN
+ 			      UPDATE SET
+ 			                 DST.STR_DT 	  = SRC.STR_DT
+ 			                ,DST.END_DT       = SRC.END_DT
+ 			                ,DST.GOOD_TYPE_CD = SRC.GOOD_TYPE_CD
+ 			                ,DST.GOOD_NM      = SRC.GOOD_NM
+ 			                ,DST.UNIT         = SRC.UNIT
+ 			                ,DST.PRICE        = SRC.PRICE
+ 			                ,DST.RMK          = SRC.RMK
+ 			                ,DST.UPDT_ID      = SRC.USER_ID
+ 			                ,DST.UPDT_DT      = SYSDATE
+ 			WHEN NOT MATCHED THEN
+ 			       INSERT (
+ 			                 COMM_NO
+ 			                ,YEAR_ITEM_SEQ_NO
+ 			                ,STR_DT
+ 			                ,END_DT
+ 			                ,GOOD_TYPE_CD
+ 			                ,GOOD_NM
+ 			                ,UNIT
+ 			                ,PRICE
+ 			                ,RMK
+ 			                ,INST_ID
+ 			                ,INST_DT
+ 			               ) VALUES (
+ 			               	 SRC.COMM_NO
+ 			               	,(SELECT NVL(MAX(YEAR_ITEM_SEQ_NO),0) + 1 
+ 			               	  FROM TBRC_FS_YEAR_ITEM 
+ 			               	  WHERE COMM_NO = ? --SRC.COMM_NO 
+ 			               	  )
+ 			               	,SRC.STR_DT
+ 			               	,SRC.END_DT
+ 			               	,SRC.GOOD_TYPE_CD
+ 			               	,SRC.GOOD_NM
+ 			               	,SRC.UNIT
+ 			               	,SRC.PRICE
+ 			               	,SRC.RMK
+ 			               	,SRC.USER_ID
+ 			               	,SYSDATE
+ 			               )
+ 			                                       		       
+        ]]>
+    </query> 
+    
+    <query id="rem5070_d01" desc="지정좌석실 단가계약물품  삭제" fetchSize="10">
+      <![CDATA[
+            DELETE /* rem5070_d01 */
+ 			FROM   TBRC_FS_YEAR_ITEM
+		    WHERE  COMM_NO = ?	                
+		    AND    YEAR_ITEM_SEQ_NO  = ?
+        ]]>
+    </query> 
+    
+</queryMap>

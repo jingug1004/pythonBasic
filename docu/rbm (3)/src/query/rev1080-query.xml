@@ -1,0 +1,1939 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV1080(다면평가자그룹생성)">
+    
+    <query id="rev1080_s01" desc="그리드조회" fetchSize="10">
+        <![CDATA[			
+			SELECT   /* rev1080_s01 */ 
+                     A.ESTM_YEAR,  
+                     A.ESTM_NUM,  
+                     A.ESTM_DEPT AS DEPT_CD,  
+                     (SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.DEPT_CD) AS DEPT_NM,  
+                     (SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = (DECODE(A.ESTM_DEPT, NULL, A.DEPT_CD, A.ESTM_DEPT))) AS ESTM_DEPT_NM,  
+                     B.CNTR_ITM_CD,  
+                     B.CNTR_JOB_NM,  
+                     A.ESTM_WK_JOB,  
+                     (SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND WK_JOB_CD = A.ESTM_WK_JOB) AS WK_JOB_NM,  
+                     A.EMP_NO,  
+                     A.EMP_NM,  
+                     A.MULT_ESTM_GRP,
+                     CASE WHEN A.CO_WRK_GBN IN ('001', '002', '003') THEN 'Y' END AS CO_WRK,
+                     NVL(A.COMM_NO, D.COMM_NO) ||
+                     (SELECT DIV_NM FROM TBRF_PC_DIV WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.ESTM_DEPT AND COMM_NO = NVL(A.COMM_NO, D.COMM_NO) AND DIV_NO = NVL(A.DIV_NO, D.DIV_NO) ) AS DIV_NM
+            FROM     TBRF_EV_EMP A  
+                    ,(SELECT ESTM_YEAR  
+                            ,ESTM_NUM  
+                            ,CNTR_ITM_CD  
+                            ,CNTR_JOB_NM  
+                        FROM TBRF_EV_JOB_ITEM  
+                       WHERE 1 = 1  
+                         AND ESTM_ITEM_CD = '4'                      
+                     ) B  
+                     ,(SELECT ESTM_YEAR 
+                             ,ESTM_NUM 
+                             ,CNTR_ITM_CD  
+                             ,CNTR_ITM_DTL 
+                         FROM TBRF_EV_JOB_ITM_DTL 
+                        WHERE 1 = 1  
+                         AND ESTM_ITEM_CD = '4' 
+                     ) C
+                     ,(SELECT
+                            D.ESTM_YEAR AS ESTM_YEAR,
+                            D.ESTM_NUM AS ESTM_NUM,
+                            B.EMP_NO AS EMP_NO,
+                            D.TICK_CD AS DIV_NO,
+                            D.BRNC_CD AS COMM_NO,
+                            B.TELLER_ID AS TELLER_ID,
+                            B.DEPT_CD AS DEPT_CD
+                        FROM     TBRF_EV_RELEA_RSLT B, TBRF_EV_RELEA_SPOT D
+                        WHERE 1 = 1
+                        AND B.ESTM_YEAR = D.ESTM_YEAR 
+                        AND B.ESTM_NUM = D.ESTM_NUM 
+                        AND D.TELLER_ID = B.TELLER_ID
+                        AND D.DEPT_CD = B.DEPT_CD
+                        AND D.ESTM_YEAR =  '2012' /**P*/     --1.평가년도
+                        AND D.ESTM_NUM  =  '1' /**P*/     --2.평가회차
+                    ) D 
+            WHERE    1 = 1  
+            AND      A.ESTM_YEAR 	= B.ESTM_YEAR  
+            AND      A.ESTM_YEAR 	= C.ESTM_YEAR 
+            AND      A.ESTM_NUM 	= B.ESTM_NUM  
+            AND      A.ESTM_NUM 	= C.ESTM_NUM  
+            AND      B.CNTR_ITM_CD 	= C.CNTR_ITM_CD 
+            AND      A.ESTM_WK_JOB 	= C.CNTR_ITM_DTL 
+            AND      A.ESTM_ESC_GBN = 'Y'  
+            AND      A.PERM_TEMP_GBN = '002' 
+            AND      A.ESTM_YEAR 	= D.ESTM_YEAR(+)
+            AND      A.ESTM_NUM 	= D.ESTM_NUM(+)
+            AND      A.EMP_NO 		= D.EMP_NO(+)
+            AND      A.ESTM_DEPT 	= D.DEPT_CD(+)                        
+            AND      A.ESTM_YEAR 	= ?        -- 1.년
+			AND      A.ESTM_NUM  	= ?        -- 2.회차    
+            AND      DECODE(?, '', '1', A.ESTM_DEPT)     = DECODE(?, '', '1', ?)  
+            AND      DECODE(?, '', '1', B.CNTR_ITM_CD) = DECODE(?, '', '1', ?)  -- 3 4 5 부서코드
+            --ORDER BY A.ESTM_DEPT, B.CNTR_ITM_CD
+        ]]>
+    </query>
+    
+    <query id="rev1080_s02" desc="다면평가자 데이터 배치여부 조회" fetchSize="10">
+        <![CDATA[           
+            SELECT  /* rev1080_s02 */
+                    COUNT(*) AS CNT
+             FROM   TBRF_EV_WK_MULT
+            WHERE   1=1
+              AND   ESTM_YEAR = ?
+              AND   ESTM_NUM  = ?
+        ]]>
+    </query> 
+   
+    <query id="rev1080_s03" desc="담당자조회('평가대상선정' 버튼권한)" fetchSize="10">
+        <![CDATA[           
+            SELECT  /* rev1080_s03 */
+            		MNG_NO 
+			  FROM  TBRF_EV_MASTER
+			 WHERE  1=1
+			   AND  ESTM_YEAR = ?
+			   AND  ESTM_NUM  = ?
+        ]]>
+    </query>
+    
+    <query id="rev1080_s04" desc="승인여부 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* rev1080_s04 */
+                    DECODE(APRV_STAS, '001', 'Y', 'N') AS UPDATE_YN
+              FROM  TBRF_EV_APRV
+             WHERE  1=1
+               AND  ESTM_YEAR = ?
+               AND  ESTM_NUM  = ?
+               AND  APRV_SEQ  = '13'
+        ]]>
+    </query>
+    
+    <query id="rev1080_s05" desc="담당 부서 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* */ 
+                    MNG_DEPT 
+              FROM  TBRF_EV_MASTER 
+             WHERE  1=1
+               AND ESTM_YEAR = ? 
+               AND ESTM_NUM  = ?
+        ]]>
+    </query>
+    
+    <query id="rev1080_s06" desc="그리드조회" fetchSize="10">
+        <![CDATA[			
+			SELECT   /* rev1080_s06 */ 
+                     A.ESTM_YEAR,  
+                     A.ESTM_NUM,  
+                     A.ESTM_DEPT AS DEPT_CD,  
+                     (SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.DEPT_CD) AS DEPT_NM,  
+                     (SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = (DECODE(A.ESTM_DEPT, NULL, A.DEPT_CD, A.ESTM_DEPT))) AS ESTM_DEPT_NM,  
+                     B.CNTR_ITM_CD,  
+                     B.CNTR_JOB_NM,  
+                     A.ESTM_WK_JOB,  
+                     (SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND WK_JOB_CD = A.ESTM_WK_JOB) AS WK_JOB_NM,  
+                     A.EMP_NO,  
+                     A.EMP_NM,  
+                     A.MULT_ESTM_GRP,
+                     CASE WHEN A.CO_WRK_GBN IN ('001', '002', '003') THEN 'Y' END AS CO_WRK,
+                     E.TOT_ESTM_GRP,
+                     NVL(A.COMM_NO, D.COMM_NO) ||
+                     (SELECT DIV_NM FROM TBRF_PC_DIV WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.ESTM_DEPT AND COMM_NO = NVL(A.COMM_NO, D.COMM_NO) AND DIV_NO = NVL(A.DIV_NO, D.DIV_NO) ) AS DIV_NM
+            FROM     TBRF_EV_EMP A  
+                    ,(SELECT A.ESTM_YEAR  
+                            ,A.ESTM_NUM  
+                            ,A.CNTR_ITM_CD  
+                            ,MIN(A.CNTR_JOB_NM) AS CNTR_JOB_NM  
+                            ,B.CNTR_ITM_DTL
+                        FROM TBRF_EV_JOB_ITEM A,
+                             TBRF_EV_JOB_ITM_DTL B  
+                       WHERE 1 = 1
+                         AND A.ESTM_ITEM_CD = '4'
+                         AND A.ESTM_ITEM_CD = B.ESTM_ITEM_CD
+                         AND A.CNTR_ITM_CD 	= B.CNTR_ITM_CD   
+                        GROUP BY A.ESTM_YEAR, A.ESTM_NUM, A.CNTR_ITM_CD, B.CNTR_ITM_DTL                   
+                     ) B  
+                     ,(SELECT
+                            D.ESTM_YEAR AS ESTM_YEAR,
+                            D.ESTM_NUM AS ESTM_NUM,
+                            B.EMP_NO AS EMP_NO,
+                            D.TICK_CD AS DIV_NO,
+                            D.BRNC_CD AS COMM_NO,
+                            B.TELLER_ID AS TELLER_ID,
+                            B.DEPT_CD AS DEPT_CD
+                        FROM     TBRF_EV_RELEA_RSLT B, TBRF_EV_RELEA_SPOT D
+                        WHERE 1 = 1
+                        AND B.ESTM_YEAR = D.ESTM_YEAR 
+                        AND B.ESTM_NUM = D.ESTM_NUM 
+                        AND D.TELLER_ID = B.TELLER_ID
+                        AND D.DEPT_CD = B.DEPT_CD
+                        AND D.ESTM_YEAR =  '2012' /**P*/     --1.평가년도
+                        AND D.ESTM_NUM  =  '1' /**P*/     --2.평가회차
+                    ) D
+                    , TBRF_EV_DEPT E 
+            WHERE    1 = 1  
+            AND      A.ESTM_YEAR 	= B.ESTM_YEAR(+)  
+            AND      A.ESTM_NUM 	= B.ESTM_NUM(+)
+            AND      A.ESTM_WK_JOB 	= B.CNTR_ITM_DTL(+) 
+            AND      A.ESTM_ESC_GBN = 'Y'  
+            AND      A.PERM_TEMP_GBN = '002' 
+            AND      A.ESTM_YEAR 	= D.ESTM_YEAR(+)
+            AND      A.ESTM_NUM 	= D.ESTM_NUM(+)
+            AND      A.EMP_NO 		= D.EMP_NO(+)
+            AND      A.ESTM_DEPT 	= D.DEPT_CD(+)        
+            AND      A.ESTM_YEAR    = E.ESTM_YEAR
+            AND      A.ESTM_NUM     = E.ESTM_NUM
+            AND      A.DEPT_CD      = E.DEPT_CD                
+            AND      A.ESTM_YEAR 	= ?        -- 1.년
+			AND      A.ESTM_NUM  	= ?        -- 2.회차    
+            AND      DECODE(?, '', '1', A.ESTM_DEPT)     = DECODE(?, '', '1', ?)  
+            AND      DECODE(?, '', '1', B.CNTR_ITM_CD) = DECODE(?, '', '1', ?)  -- 3 4 5 부서코드
+            --ORDER BY A.ESTM_DEPT, B.CNTR_ITM_CD
+        ]]>
+    </query>
+    
+    <query id="rev1080_dept" desc="부서코드콤보조회" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rev1080_dept */
+        	       A.ESTM_YEAR
+                  ,A.ESTM_NUM
+                  ,A.ESTM_DEPT AS DEPT_CD
+                  ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.ESTM_DEPT ) AS DEPT_NM
+                  ,(SELECT CD FROM TBRK_SPEC_CD C WHERE GRP_CD = '018' AND A.ESTM_DEPT = SUBSTR(CD_TERM2,5))  AS TOT_ESTM_GRP
+              FROM TBRF_EV_EMP A
+             WHERE 1 = 1
+               AND A.ESTM_YEAR = ?
+               AND A.ESTM_NUM = ?
+               AND A.ESTM_ESC_GBN = 'Y'
+             GROUP BY  A.ESTM_YEAR
+                      ,A.ESTM_NUM
+                      ,A.ESTM_DEPT
+        ]]>
+    </query>
+    
+    <query id="rev1080_deptTotGrp" desc="종합평가등급용 부서 조회" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rev1080_deptTotGrp */
+        	       A.ESTM_YEAR
+                  ,A.ESTM_NUM
+                  ,A.DEPT_CD
+                  ,A.DEPT_NM
+                  ,A.TOT_ESTM_GRP
+                  ,C.CD AS BRNC_CD
+              FROM TBRF_EV_DEPT A,
+                   (SELECT  ESTM_YEAR
+                           ,ESTM_NUM
+                           ,DEPT_CD
+                    FROM   TBRF_EV_EMP
+                    WHERE  1=1
+                       AND ESTM_YEAR = ?
+                       AND ESTM_NUM = ?
+                       AND ESTM_ESC_GBN = 'Y'
+                    GROUP BY  ESTM_YEAR
+                             ,ESTM_NUM
+                             ,DEPT_CD  
+                    ) B,
+                    TBRK_SPEC_CD C
+             WHERE 1 = 1
+               AND A.ESTM_YEAR = B.ESTM_YEAR
+               AND A.ESTM_NUM  = B.ESTM_NUM
+               AND A.DEPT_CD   = B.DEPT_CD
+               AND C.GRP_CD(+)    = '018'
+               AND A.DEPT_CD   = SUBSTR(C.CD_TERM2(+),5) 
+             ORDER BY A.DEPT_CD  
+        ]]>
+    </query>
+    
+    <query id="rev1080_cntr" desc="평가등급  조회" fetchSize="10">
+        <![CDATA[
+        	SELECT   /* rev1080_cntr */
+        	         CNTR_ITM_CD AS CD,
+        	         CNTR_JOB_NM AS CD_NM
+		    FROM     TBRF_EV_JOB_ITEM
+	        WHERE    1 = 1
+	        AND      ESTM_YEAR = ?
+		    AND      ESTM_NUM = ?
+		    AND      ESTM_ITEM_CD = '4'
+		    ORDER BY CNTR_JOB_NM
+        ]]>
+    </query>
+
+    <query id="rev1080_u01" desc="다면평가자그룹 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev1080_u01 */ 
+			         TBRF_EV_EMP 
+			SET      MULT_ESTM_GRP = ?,     -- 1. 다면평가자그룹  
+	                 UPDT_ID     = ?,		-- 2. 사용자 ID		
+					 UPDT_DT     = SYSDATE
+            WHERE    ESTM_YEAR   = ?        -- 3. 년
+            AND      ESTM_NUM    = ?        -- 4. 회차
+            AND      EMP_NO      = ?        -- 5. 사번 
+            AND      ESTM_DEPT   = ?        -- 6. 부서 
+        ]]>
+    </query>
+    
+
+    <query id="rev1080_u02" desc="최종평가그룹 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev1080_u02 */ 
+			         TBRF_EV_DEPT 
+			SET      TOT_ESTM_GRP = ?,      -- 1. 최종평가그룹  
+	                 UPDT_ID     = ?,		-- 2. 수정자 ID		
+					 UPDT_DT     = SYSDATE
+            WHERE    ESTM_YEAR   = ?        -- 3. 년
+            AND      ESTM_NUM    = ?        -- 4. 회차
+            AND      DEPT_CD     = ?        -- 5. 부서 
+        ]]>
+    </query>
+    
+    <query id="rev1080_u03" desc="부서장메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u03 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+							SELECT 
+									B.EMP_NO
+							  FROM  TBRF_EV_DEPT A 
+							       ,TBRF_EV_DEPT_HEAD B 
+							       ,TBRK_USER C
+							 WHERE 1 = 1 
+							   AND A.ESTM_YEAR = B.ESTM_YEAR 
+							   AND A.ESTM_NUM  = B.ESTM_NUM 
+							   AND A.DEPT_CD   = B.DEPT_CD 
+							   AND A.DEPT_CD   = SUBSTR(C.TEAM_DETL_CD, LENGTH(C.TEAM_DETL_CD)-3, LENGTH(C.TEAM_DETL_CD))
+							   AND B.EMP_NO    = C.USER_ID 
+							   AND A.ESTM_YEAR = ?
+							   AND A.ESTM_NUM  = ?
+							)
+        ]]>
+    </query>
+    
+    <query id="rev1080_u04" desc="부서별 평가담당자 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u04 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+							SELECT 
+									A.EMP_NO
+						      FROM  TBRF_EV_EMP A 
+						           ,TBRK_USER B 
+						     WHERE 1 = 1 
+						       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+						       AND A.EMP_NO = B.USER_ID 
+						       AND A.ESTM_YEAR = ?
+						       AND A.ESTM_NUM  = ? 
+						       AND A.MNG_GBN   = 'Y'
+						     )							
+        ]]>
+    </query>
+    
+    <query id="rev1080_u05" desc="부서장  평가메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u05 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+							SELECT 
+									B.EMP_NO
+							  FROM  TBRF_EV_DEPT A 
+							       ,TBRF_EV_DEPT_HEAD B 
+							       ,TBRK_USER C
+							 WHERE 1 = 1 
+							   AND A.ESTM_YEAR = B.ESTM_YEAR 
+							   AND A.ESTM_NUM  = B.ESTM_NUM 
+							   AND A.DEPT_CD   = B.DEPT_CD 
+							   AND A.DEPT_CD   = SUBSTR(C.TEAM_DETL_CD, LENGTH(C.TEAM_DETL_CD)-3, LENGTH(C.TEAM_DETL_CD))
+							   AND B.EMP_NO    = C.USER_ID 
+							   AND A.ESTM_YEAR = ?
+							   AND A.ESTM_NUM  = ?
+						       AND A.DEPT_CD NOT IN (
+					                     SELECT A.ESTM_DEPT  
+					                       FROM TBRF_EV_EMP A  
+					                      WHERE 1 = 1 
+					                        AND A.ESTM_YEAR = ?
+					                        AND A.ESTM_NUM  = ? 
+					                        AND A.PERM_TEMP_GBN = '002' 
+					                        AND A.ESTM_ESC_GBN = 'Y' 
+					                        AND A.ESTM_WK_JOB NOT IN (SELECT CNTR_ITM_DTL 
+					                                                  FROM TBRF_EV_JOB_ITM_DTL 
+					                                                 WHERE 1 = 1 
+					                                                   AND ESTM_YEAR = A.ESTM_YEAR 
+					                                                   AND ESTM_NUM = A.ESTM_NUM 
+					                                                   AND ESTM_ITEM_CD = ?) 
+					                                              GROUP BY ESTM_YEAR 
+					                                                      ,ESTM_NUM 
+					                                                      ,ESTM_DEPT 
+					                                 )
+				             )						
+        ]]>
+    </query>
+    
+    <query id="rev1080_u06" desc="부서장메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u06 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+							SELECT EMP_NO 
+						     FROM ( 
+						         --투표소장
+								 SELECT  E.EMP_NO 
+							      FROM  TBRF_EV_EMP E        
+							     WHERE 1 = 1   
+							       AND E.ESTM_YEAR = ?
+							       AND E.ESTM_NUM  = ?    
+							       AND E.FST_SND_GBN = '001'   
+							       AND E.ESTM_ESC_GBN = 'Y'   
+							       AND E.PERM_TEMP_GBN = '002'
+						         GROUP BY E.EMP_NO
+						         
+						         UNION ALL
+						         
+						         --발매직원
+						         SELECT  E.EMP_NO 
+							      FROM  TBRF_EV_EMP E        
+							     WHERE 1 = 1   
+							       AND E.ESTM_YEAR = ?
+							       AND E.ESTM_NUM  = ?    
+							       AND E.FST_SND_GBN = '001'   
+							       AND E.ESTM_ESC_GBN = 'Y'   
+							       AND E.PERM_TEMP_GBN = '002'
+							       AND E.ESTM_WK_JOB = '1003'
+						         GROUP BY E.EMP_NO
+						         
+						         --일반직원						                               
+							     UNION ALL   							        
+							      SELECT    
+							            A.EMP_NO
+							      FROM  TBRF_EV_EMP A   
+							           ,TBRK_USER B   
+							     WHERE 1 = 1   
+							       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+							       AND A.EMP_NO = B.USER_ID   
+							       AND A.ESTM_YEAR = ?  
+							       AND A.ESTM_NUM  = ?   
+							       AND A.PERM_TEMP_GBN = '001'   
+							       AND A.FST_SND_GBN = '001'
+						         GROUP BY A.EMP_NO                    
+						 		  )  	 
+						     )
+        ]]>
+    </query>
+    
+    <query id="rev1080_u07" desc="부서장메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u07 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+						SELECT  A.EMP_NO 
+					      FROM  TBRF_EV_EMP A 
+					           ,TBRK_USER B 
+					     WHERE 1 = 1 
+					       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+					       AND A.EMP_NO = B.USER_ID 
+					       AND A.ESTM_YEAR = ?
+					       AND A.ESTM_NUM  = ? 
+					       AND A.PERM_TEMP_GBN = '001' 
+					       AND A.MNR_FST_SND = '001' 	 
+						     )
+        ]]>
+    </query>
+    
+    <query id="rev1080_u08" desc="부서장메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u08 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+						SELECT  A.EMP_NO 
+			              FROM  TBRF_EV_EMP A 
+			                   ,TBRK_USER B 
+			             WHERE 1 = 1 
+			               AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+			               AND A.EMP_NO = B.USER_ID 
+			               AND A.ESTM_YEAR = ?
+			               AND A.ESTM_NUM  = ? 
+			               AND A.PERM_TEMP_GBN = '001' 
+			               AND A.SVR_FST_SND = '001' 	 
+						     )
+        ]]>
+    </query>
+    
+    <query id="rev1080_u09" desc="투표소장, 1차 평가자 메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u09 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+						SELECT  EMP_NO 
+					      FROM  TBRF_EV_EMP E      
+					     WHERE 1 = 1 
+					       AND E.ESTM_YEAR = ?
+					       AND E.ESTM_NUM  = ? 
+					       AND E.ESTM_DEPT   = ? 
+					       AND E.FST_SND_GBN = '001' 
+					       AND E.ESTM_ESC_GBN = 'Y' 
+					       AND E.PERM_TEMP_GBN = '002' 	
+					   UNION ALL  
+						SELECT  EMP_NO								   
+					      FROM  TBRF_EV_EMP A 
+					           ,TBRK_USER B 
+					     WHERE 1 = 1 
+					       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+					       AND A.EMP_NO = B.USER_ID 
+					       AND A.ESTM_YEAR = ?
+					       AND A.ESTM_NUM  = ? 
+					       AND A.ESTM_DEPT   = ? 
+					       AND A.PERM_TEMP_GBN = '001' 
+					       AND A.FST_SND_GBN = '001' 
+						     )
+        ]]>
+    </query>
+    
+    <query id="rev1080_u10" desc="부서장메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u10 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+						SELECT  A.EMP_NO 
+					      FROM  TBRF_EV_EMP A 
+					           ,TBRK_USER B 
+					     WHERE 1 = 1 
+					       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+					       AND A.EMP_NO = B.USER_ID 
+					       AND A.ESTM_YEAR = ?
+					       AND A.ESTM_NUM  = ? 
+					       AND A.ESTM_DEPT   = ? 
+					       AND A.PERM_TEMP_GBN = '001' 
+					       AND A.MNR_FST_SND = '001' 
+						     )
+        ]]>
+    </query>
+    
+    <query id="rev1080_u11" desc="부서장메뉴 사용 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rev1080_u11 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    USER_ID IN (
+						SELECT  A.EMP_NO 
+			              FROM  TBRF_EV_EMP A 
+			                   ,TBRK_USER B 
+			             WHERE 1 = 1 
+			               AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+			               AND A.EMP_NO = B.USER_ID 
+			               AND A.ESTM_YEAR = ?
+			               AND A.ESTM_NUM  = ? 
+			               AND A.ESTM_DEPT   = ? 
+			               AND A.PERM_TEMP_GBN = '001' 
+			               AND A.SVR_FST_SND = '001'
+						     )
+        ]]>
+    </query>
+    
+    
+    <query id="rev1080_i01" desc="다면평가자 데이터 배치 " fetchSize="10">
+        <![CDATA[
+        
+        INSERT /* rev1080_i01 */
+          INTO TBRF_EV_WK_MULT (
+            
+                 ESTM_YEAR
+				,ESTM_NUM
+				,ESTM_DEPT
+				,ESTM_EMP
+				,MULT_ESTM_GRP
+				,EMP_NO				
+				,INST_ID
+				,INST_DT
+				,UPDT_ID
+				,UPDT_DT
+        )
+            SELECT  A.ESTM_YEAR 
+                   ,A.ESTM_NUM 
+                   ,A.ESTM_DEPT AS ESTM_DEPT 
+                   ,B.EMP_NO AS ESTM_EMP
+                   ,B.MULT_ESTM_GRP AS MULT_ESTM_GRP
+                   ,A.EMP_NO 
+                   
+                   ,? AS INST_ID
+                   ,SYSDATE AS INST_DT
+                   ,? AS UPDT_ID
+                   ,SYSDATE AS UPDT_DT
+              FROM 
+                 ( SELECT ESTM_YEAR 
+                         ,ESTM_NUM  
+                         ,ESTM_DEPT 
+                         ,EMP_NO 
+                         ,ESTM_WK_JOB 
+                         ,MULT_ESTM_GRP 
+                    FROM TBRF_EV_EMP 
+                   WHERE ESTM_YEAR = ?
+                     AND ESTM_NUM  = ? 
+                     AND DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?) 
+                     AND PERM_TEMP_GBN = '002'
+                     AND ESTM_ESC_GBN = 'Y' 
+                     AND ESTM_WK_JOB IN  (SELECT CNTR_ITM_DTL 
+                                          FROM TBRF_EV_JOB_ITM_DTL 
+                                         WHERE 1 = 1 
+                                           AND ESTM_YEAR = ?
+                                           AND ESTM_NUM  = ? 
+                                           AND ESTM_ITEM_CD = '4' 
+                                        )  
+                      
+                  GROUP BY ESTM_YEAR 
+                         ,ESTM_NUM  
+                         ,ESTM_DEPT 
+                         ,EMP_NO 
+                         ,ESTM_WK_JOB 
+                         ,MULT_ESTM_GRP 
+                 ) A 
+                ,(SELECT  ESTM_YEAR 
+                         ,ESTM_NUM  
+                         ,ESTM_DEPT 
+                         ,EMP_NO 
+                         ,ESTM_WK_JOB 
+                         ,MULT_ESTM_GRP 
+                     FROM TBRF_EV_EMP 
+                   WHERE ESTM_YEAR = ?
+                     AND ESTM_NUM  = ? 
+                     AND DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?) 
+                     AND PERM_TEMP_GBN = '002'
+           			 AND ESTM_ESC_GBN = 'Y' 
+                     AND ESTM_WK_JOB IN  (SELECT CNTR_ITM_DTL 
+                                          FROM TBRF_EV_JOB_ITM_DTL 
+                                         WHERE 1 = 1 
+                                           AND ESTM_YEAR = ?
+                                           AND ESTM_NUM  = ? 
+                                           AND ESTM_ITEM_CD = '4' 
+                                       )  
+                  GROUP BY ESTM_YEAR 
+                         ,ESTM_NUM  
+                         ,ESTM_DEPT 
+                         ,EMP_NO 
+                         ,ESTM_WK_JOB 
+                         ,MULT_ESTM_GRP  
+                  ) B 
+               WHERE 1 = 1 
+                 AND A.MULT_ESTM_GRP = B.MULT_ESTM_GRP   
+                 AND A.MULT_ESTM_GRP <> 0
+                 AND A.EMP_NO <> B.EMP_NO 
+               --ORDER BY MULT_ESTM_GRP, ESTM_EMP
+               UNION ALL
+                   SELECT  ESTM_YEAR 
+                   ,ESTM_NUM 
+                   ,ESTM_DEPT AS ESTM_DEPT 
+                   ,EMP_NO AS ESTM_EMP
+                   ,MULT_ESTM_GRP AS MULT_ESTM_GRP
+                   ,EMP_NO                    
+                   ,? AS INST_ID
+                   ,SYSDATE AS INST_DT
+                   ,?  AS UPDT_ID
+                   ,SYSDATE AS UPDT_DT
+              FROM  TBRF_EV_EMP
+              WHERE ESTM_YEAR = ?
+              AND ESTM_NUM = ?
+              AND MULT_ESTM_GRP = 0
+        ]]>
+    </query>
+    
+    <query id="rev1080_i02" desc="다면평가자상세 데이터 배치 " fetchSize="10">
+        <![CDATA[
+        
+         INSERT /* rev1080_i02 */ 
+           INTO TBRF_EV_WK_MULT_DT (
+                
+                 ESTM_YEAR
+				,ESTM_NUM
+				,ESTM_DEPT
+				,ESTM_LITEM_CD
+				,ESTM_EMP
+				
+				,MULT_ESTM_GRP
+				,EMP_NO
+				,INST_ID
+				,INST_DT
+         ) 
+ 
+                 SELECT     T1.ESTM_YEAR 
+			               ,T1.ESTM_NUM 
+			               ,T1.ESTM_DEPT  
+			               ,T2.ESTM_LITEM_CD 
+			               ,T1.ESTM_EMP 
+			               
+			               ,T1.MULT_ESTM_GRP 
+			               ,T1.EMP_NO
+			               ,? AS INST_ID
+			               ,SYSDATE AS INST_DT
+			                            
+			          FROM       
+			                    (SELECT  A.ESTM_YEAR 
+			                           ,A.ESTM_NUM 
+			                           ,A.ESTM_DEPT AS ESTM_DEPT 
+			                           ,A.EMP_NO 
+			                           ,A.ESTM_WK_JOB 
+			                           ,B.EMP_NO AS ESTM_EMP 
+			                           ,B.MULT_ESTM_GRP AS MULT_ESTM_GRP 
+			                           ,( SELECT CNTR_ITM_CD  
+			                                FROM TBRF_EV_JOB_ITM_DTL  
+			                               WHERE 1 = 1 
+			                                 AND ESTM_YEAR = ?
+			                                 AND ESTM_NUM  = ?  
+			                                 AND ESTM_ITEM_CD = '4' 
+			                                 AND CNTR_ITM_DTL = A.ESTM_WK_JOB) AS CNTR_ITM_CD 
+			                      FROM 
+			                         ( SELECT ESTM_YEAR 
+			                                 ,ESTM_NUM  
+			                                 ,ESTM_DEPT 
+			                                 ,EMP_NO 
+			                                 ,ESTM_WK_JOB 
+			                                 ,MULT_ESTM_GRP 
+			                            FROM TBRF_EV_EMP 
+			                           WHERE ESTM_YEAR = ?
+			                             AND ESTM_NUM  = ? 
+			                             AND DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?) 
+			                             AND PERM_TEMP_GBN = '002'
+           								 AND ESTM_ESC_GBN = 'Y' 
+			                             AND ESTM_WK_JOB IN  (SELECT CNTR_ITM_DTL 
+			                                                  FROM TBRF_EV_JOB_ITM_DTL 
+			                                                 WHERE 1 = 1 
+			                                                   AND ESTM_YEAR = ?
+			                                                   AND ESTM_NUM  = ? 
+			                                                   AND ESTM_ITEM_CD = '4' 
+			                                                )  
+			                              
+			                          GROUP BY ESTM_YEAR 
+			                                 ,ESTM_NUM  
+			                                 ,ESTM_DEPT 
+			                                 ,EMP_NO 
+			                                 ,ESTM_WK_JOB 
+			                                 ,MULT_ESTM_GRP 
+			                         ) A 
+			                        ,(SELECT  ESTM_YEAR 
+			                                 ,ESTM_NUM  
+			                                 ,ESTM_DEPT 
+			                                 ,EMP_NO 
+			                                 ,ESTM_WK_JOB 
+			                                 ,MULT_ESTM_GRP 
+			                             FROM TBRF_EV_EMP 
+			                           WHERE ESTM_YEAR = ?
+			                             AND ESTM_NUM  = ? 
+			                             AND DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?)  
+			                             AND PERM_TEMP_GBN = '002'
+           								 AND ESTM_ESC_GBN = 'Y' 
+			                             AND ESTM_WK_JOB IN  (SELECT CNTR_ITM_DTL 
+			                                                  FROM TBRF_EV_JOB_ITM_DTL 
+			                                                 WHERE 1 = 1 
+			                                                   AND ESTM_YEAR = ?
+			                                                   AND ESTM_NUM  = ? 
+			                                                   AND ESTM_ITEM_CD = '4' 
+			                                               )  
+			                          GROUP BY ESTM_YEAR 
+			                                 ,ESTM_NUM  
+			                                 ,ESTM_DEPT 
+			                                 ,EMP_NO 
+			                                 ,ESTM_WK_JOB 
+			                                 ,MULT_ESTM_GRP  
+			                          ) B 
+			                       WHERE 1 = 1 
+			                         AND A.MULT_ESTM_GRP = B.MULT_ESTM_GRP   
+                 					 AND A.MULT_ESTM_GRP <> 0
+			                         AND A.EMP_NO <> B.EMP_NO 
+			                       ORDER BY MULT_ESTM_GRP, ESTM_EMP 
+			                    ) T1 
+			                   ,(SELECT  CNTR_ITM_CD 
+			                         ,ESTM_LITEM_CD 
+			                       FROM TBRF_EV_LARGE_ITEM 
+			                      WHERE 1 = 1 
+			                        AND ESTM_YEAR = ?
+			                        AND ESTM_NUM  = ? 
+			                        AND ESTM_ITEM_CD = '4'
+			                        AND FST_SND_GBN = '001' 
+			                       GROUP BY  CNTR_ITM_CD 
+			                                ,ESTM_LITEM_CD  
+			                 ) T2    
+			             WHERE 1 = 1 
+			                AND T1.CNTR_ITM_CD = T2.CNTR_ITM_CD 
+        ]]>
+    </query>
+    
+    <query id="rev1080_i03" desc="부서장 시스템 사용 권한 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i03 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 	
+			SELECT 
+					B.EMP_NO
+				   ,'001'
+			       ,C.ASSO_CD 
+			       ,C.DEPT_CD 
+			       ,('GA12' || A.DEPT_CD) AS TEAM_CD  
+			       
+			       ,?
+			       ,SYSDATE
+			  FROM  TBRF_EV_DEPT A 
+			       ,TBRF_EV_DEPT_HEAD B 
+			       ,TBRK_USER C
+			 WHERE 1 = 1 
+			   AND A.ESTM_YEAR = B.ESTM_YEAR 
+			   AND A.ESTM_NUM  = B.ESTM_NUM 
+			   AND A.DEPT_CD   = B.DEPT_CD 
+			   AND A.DEPT_CD   = SUBSTR(C.TEAM_DETL_CD, LENGTH(C.TEAM_DETL_CD)-3, LENGTH(C.TEAM_DETL_CD))
+			   AND B.EMP_NO    = C.USER_ID 
+			   AND A.ESTM_YEAR = ?
+			   AND A.ESTM_NUM  = ? 
+			   AND NOT EXISTS (SELECT 1 
+			                     FROM TBRK_AUTH_APLY_DEPT
+			                    WHERE 1 = 1
+			                      AND USER_ID  = B.EMP_NO
+			                      AND AUTH_GBN = '001'
+			                   )	
+        ]]>
+    </query>
+    
+    <query id="rev1080_i04" desc="부서장메뉴 사용 권한 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i04 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT 
+					B.EMP_NO
+				   ,? 
+				   ,?
+				   ,'299912312359'
+			       ,? 
+			       ,? 
+			       ,?
+			       ,?
+			       ,?
+			       ,SYSDATE
+			  FROM  TBRF_EV_DEPT A 
+			       ,TBRF_EV_DEPT_HEAD B 
+			       ,TBRK_USER C
+			 WHERE 1 = 1 
+			   AND A.ESTM_YEAR = B.ESTM_YEAR 
+			   AND A.ESTM_NUM  = B.ESTM_NUM 
+			   AND A.DEPT_CD   = B.DEPT_CD 
+			   AND A.DEPT_CD   = SUBSTR(C.TEAM_DETL_CD, LENGTH(C.TEAM_DETL_CD)-3, LENGTH(C.TEAM_DETL_CD))
+			   AND B.EMP_NO    = C.USER_ID 
+			   AND A.ESTM_YEAR = ?
+			   AND A.ESTM_NUM  = ?
+        ]]>
+    </query>
+    
+    <query id="rev1080_i05" desc="담당자 시스템 사용 권한 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i05 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  
+					A.EMP_NO 
+				   ,'001'
+		           ,B.ASSO_CD 
+		           ,B.DEPT_CD 
+		           ,('GA12' || A.DEPT_CD) AS TEAM_CD  
+		           
+		           ,?
+		           ,SYSDATE
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.MNG_GBN = 'Y'
+		       AND NOT EXISTS (SELECT 1 
+			                     FROM TBRK_AUTH_APLY_DEPT
+			                    WHERE 1 = 1
+			                      AND USER_ID  = A.EMP_NO
+			                      AND AUTH_GBN = '001'
+			                   )
+        ]]>
+    </query>
+    
+    <query id="rev1080_i06" desc="담당자 메뉴 사용 권한 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i06 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			)  
+			SELECT 
+					A.EMP_NO
+				   ,? 
+				   ,?
+				   ,'299912312359'
+			       ,? 
+			       ,? 
+			       ,?
+			       ,?
+			       ,?
+			       ,SYSDATE
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.MNG_GBN   = 'Y'
+        ]]>
+    </query>
+    
+    <query id="rev1080_i07" desc="투표소장, 1차 평가자 시스템 사용 권한 부서별 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i07 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  
+					E.EMP_NO
+				   ,'001'
+		           ,'GA120000' AS ASSO_CD 
+		           ,'' AS DEPT_CD 
+		           ,('GA12' || E.DEPT_CD) AS TEAM_CD
+		           
+		           ,?
+		           ,SYSDATE 
+
+		      FROM  TBRF_EV_EMP E    
+		     WHERE 1 = 1 
+		       AND E.ESTM_YEAR = ? 
+		       AND E.ESTM_NUM  = ? 
+		       AND E.ESTM_DEPT   = ?
+		       AND E.FST_SND_GBN = '001' 
+		       AND E.ESTM_ESC_GBN  = 'Y'        
+		       --AND E.WRK_GBN = '001' 
+		       AND E.PERM_TEMP_GBN = '002'
+		       AND NOT EXISTS (SELECT 1 
+			                     FROM TBRK_AUTH_APLY_DEPT
+			                    WHERE 1 = 1
+			                      AND USER_ID  = E.EMP_NO
+			                      AND AUTH_GBN = '001'
+			                   )
+
+		     UNION ALL 
+		      
+		      SELECT    A.EMP_NO 
+		      		   ,'001'
+			           ,B.ASSO_CD 
+			           ,B.DEPT_CD 
+			           ,('GA12' || A.DEPT_CD) AS TEAM_CD  
+					   
+					   ,?
+					   ,SYSDATE
+					   
+			      FROM  TBRF_EV_EMP A 
+			           ,TBRK_USER B 
+			     WHERE 1 = 1 
+			       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+			       AND A.EMP_NO = B.USER_ID 
+			       AND A.ESTM_YEAR = ? 
+			       AND A.ESTM_NUM  = ? 
+			       AND A.ESTM_DEPT   = ?
+			       AND A.PERM_TEMP_GBN = '001' 
+			       AND A.FST_SND_GBN = '001' 
+			       AND NOT EXISTS (SELECT 1 
+				                     FROM TBRK_AUTH_APLY_DEPT
+				                    WHERE 1 = 1
+				                      AND USER_ID  = A.EMP_NO
+				                      AND AUTH_GBN = '001'
+				                   )
+        ]]>
+    </query>
+    
+    <query id="rev1080_i08" desc="투표소장, 1차 평가자 메뉴 사용 권한 부서별 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i08 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  E.EMP_NO
+				   ,? 
+				   ,?
+				   ,'299912312359'
+			       ,? 
+			       ,? 
+			       ,?
+			       ,?
+			       ,?
+			       ,SYSDATE
+		      FROM  TBRF_EV_EMP E      
+		     WHERE 1 = 1 
+		       AND E.ESTM_YEAR = ?
+		       AND E.ESTM_NUM  = ? 
+		       AND E.ESTM_DEPT   = ? 
+		       AND E.FST_SND_GBN = '001' 
+		       AND E.ESTM_ESC_GBN = 'Y' 
+		       AND E.PERM_TEMP_GBN = '002' 
+		     UNION ALL 		      
+		      SELECT  
+		            A.EMP_NO 
+				   ,? 
+				   ,?
+				   ,'299912312359'
+			       ,? 
+			       ,? 
+			       ,?
+			       ,?
+			       ,?
+			       ,SYSDATE
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.ESTM_DEPT   = ? 
+		       AND A.PERM_TEMP_GBN = '001' 
+		       AND A.FST_SND_GBN = '001'
+        ]]>
+    </query>
+    
+    <query id="rev1080_i09" desc="근무태도평가자 시스템 사용 권한 부서별 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i09 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  A.EMP_NO 
+				   ,'001'
+		           ,B.ASSO_CD 
+		           ,B.DEPT_CD 
+		           ,('GA12' || A.DEPT_CD) AS TEAM_CD  
+				   
+				   ,?
+				   ,SYSDATE
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.ESTM_DEPT   = ? 
+		       AND A.PERM_TEMP_GBN = '001' 
+		       AND A.MNR_FST_SND = '001' 
+		       AND NOT EXISTS (SELECT 1 
+			                     FROM TBRK_AUTH_APLY_DEPT
+			                    WHERE 1 = 1
+			                      AND USER_ID  = A.EMP_NO
+			                      AND AUTH_GBN = '001'
+			                   )
+        ]]>
+    </query>
+    
+    <query id="rev1080_i10" desc="근무태도평가자 메뉴 사용 권한 부서별 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i10 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			)  
+			SELECT 
+					A.EMP_NO
+				   ,? 
+				   ,?
+				   ,'299912312359'
+			       ,? 
+			       ,? 
+			       ,?
+			       ,?
+			       ,?
+			       ,SYSDATE
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.ESTM_DEPT   = ? 
+		       AND A.PERM_TEMP_GBN = '001' 
+		       AND A.MNR_FST_SND = '001'
+        ]]>
+    </query>
+    
+    <query id="rev1080_i11" desc="서비스평가자 시스템 사용 권한 부서별 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i11 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  A.EMP_NO 
+			       ,'001'
+		           ,B.ASSO_CD 
+		           ,B.DEPT_CD 
+		           ,('GA12' || A.DEPT_CD) AS TEAM_CD  
+		           
+		           ,?
+		           ,SYSDATE
+		           
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.ESTM_DEPT   = ? 
+		       AND A.PERM_TEMP_GBN = '001' 
+		       AND A.SVR_FST_SND = '001' 
+			   AND NOT EXISTS (SELECT 1 
+			                     FROM TBRK_AUTH_APLY_DEPT
+			                    WHERE 1 = 1
+			                      AND USER_ID  = A.EMP_NO
+			                      AND AUTH_GBN = '001'
+			                   )
+        ]]>
+    </query>
+    
+    <query id="rev1080_i12" desc="근무태도평가자 메뉴 사용 권한 전체 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i12 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  A.EMP_NO 
+		           ,?
+		           ,?
+		           ,'299912312359'
+		           ,?
+		           ,?
+		           ,?
+		           ,?
+		           ,?
+		           ,SYSDATE 
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.PERM_TEMP_GBN = '001' 
+		       AND A.MNR_FST_SND = '001' 
+        ]]>
+    </query>
+    
+    <query id="rev1080_i13" desc="투표소장, 1차 평가자 시스템 사용 권한 전체 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i13 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  EMP_NO  AS USER_ID
+                   ,'001'      AS AUTH_GBN
+		           ,'GA120000' AS ASSO_CD   
+		           ,''         AS DEPT_CD   
+		           ,('GA12' || DEPT_CD) AS TEAM_CD  
+		             
+		           ,?          AS INST_ID
+		           ,SYSDATE    AS INST_DT
+	           FROM( 
+                        --1차평가자 투표소장
+	                    SELECT    
+	                            E.EMP_NO
+							   ,E.DEPT_CD AS DEPT_CD
+	                      FROM  TBRF_EV_EMP E      
+	                     WHERE 1 = 1   
+	                       AND E.ESTM_YEAR = ? 
+	                       AND E.ESTM_NUM  = ?   
+	                       AND E.FST_SND_GBN = '001'   
+	                       AND E.ESTM_ESC_GBN  = 'Y'          
+	                       --AND E.WRK_GBN = '001'   
+	                       AND E.PERM_TEMP_GBN = '002'  
+	                       AND NOT EXISTS (SELECT 1   
+	                                         FROM TBRK_AUTH_APLY_DEPT  
+	                                        WHERE 1 = 1  
+	                                          AND USER_ID  = E.EMP_NO
+	                                          AND AUTH_GBN = '001'
+	                                       )  
+	                     GROUP BY  E.EMP_NO, E.DEPT_CD                  
+	           
+	                     UNION ALL   
+	                     
+	                     --1차평가자 발매원
+	                     SELECT    
+	                            E.EMP_NO
+							   ,E.DEPT_CD AS DEPT_CD
+	                      FROM  TBRF_EV_EMP E      
+	                     WHERE 1 = 1   
+	                       AND E.ESTM_YEAR = ? 
+	                       AND E.ESTM_NUM  = ?   
+	                       AND E.ESTM_WK_JOB = '1003'     
+	                       AND E.ESTM_ESC_GBN  = 'Y'          
+	                       AND E.PERM_TEMP_GBN = '002'  
+	                       AND NOT EXISTS (SELECT 1   
+	                                         FROM TBRK_AUTH_APLY_DEPT  
+	                                        WHERE 1 = 1  
+	                                          AND USER_ID  = E.EMP_NO
+	                                          AND AUTH_GBN = '001'
+	                                       )  
+	                     GROUP BY  E.EMP_NO, E.DEPT_CD 
+	                     
+	                     UNION ALL
+	                     
+	                     --1차평가자 직원   
+	                     SELECT    A.EMP_NO   
+	                               ,A.DEPT_CD
+	                          FROM  TBRF_EV_EMP A   
+	                               ,TBRK_USER B   
+	                         WHERE 1 = 1
+	                           AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+	                           AND A.EMP_NO = B.USER_ID   
+	                           AND A.ESTM_YEAR = ?  
+	                           AND A.ESTM_NUM  = ?  
+	                           AND A.FST_SND_GBN = '001'   
+	                           AND A.PERM_TEMP_GBN = '001'   
+	                           AND NOT EXISTS (SELECT 1   
+	                                             FROM TBRK_AUTH_APLY_DEPT  
+	                                            WHERE 1 = 1  
+	                                              AND USER_ID  = A.EMP_NO 
+	                                              AND AUTH_GBN = '001'
+	                                           )  
+	                           GROUP BY  A.EMP_NO, A.DEPT_CD                     
+	                    -- 기존직원 제외
+	                    MINUS
+	                    SELECT USER_ID, SUBSTR(TEAM_CD,5,8) FROM TBRK_AUTH_APLY_DEPT
+						WHERE 1=1
+						AND ASSO_CD = 'GA120000'       
+	                   )        
+        ]]>
+    </query>
+    
+    <query id="rev1080_i14" desc="투표소장, 1차 평가자 메뉴 사용 권한 전체 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i14 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			 SELECT EMP_NO 
+                   ,?  
+			       ,?  
+			       ,'299912312359'
+			       ,?
+			       ,?  			         
+			       ,?
+			       ,?  
+			       ,?
+			       ,SYSDATE 
+     FROM ( 
+         --투표소장
+		 SELECT  E.EMP_NO 
+	      FROM  TBRF_EV_EMP E        
+	     WHERE 1 = 1   
+	       AND E.ESTM_YEAR = ?
+	       AND E.ESTM_NUM  = ?    
+	       AND E.FST_SND_GBN = '001'   
+	       AND E.ESTM_ESC_GBN = 'Y'          
+	       --AND E.WRK_GBN = '001'   
+	       AND E.PERM_TEMP_GBN = '002'
+         GROUP BY E.EMP_NO
+                               
+	     UNION   
+	     --발매직원(투표소장과 발매직원이 중복된 경우가 있다.)
+	     SELECT  E.EMP_NO 
+	      FROM  TBRF_EV_EMP E        
+	     WHERE 1 = 1   
+	       AND E.ESTM_YEAR = ?
+	       AND E.ESTM_NUM  = ?    
+	       AND E.ESTM_WK_JOB = '1003'        
+	       AND E.ESTM_ESC_GBN = 'Y'          
+	       AND E.PERM_TEMP_GBN = '002'
+         GROUP BY E.EMP_NO
+	     
+	     
+	     UNION ALL
+	     --일반직원   
+	      SELECT    
+	            A.EMP_NO
+	      FROM  TBRF_EV_EMP A   
+	           ,TBRK_USER B   
+	     WHERE 1 = 1   
+	       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+	       AND A.EMP_NO = B.USER_ID   
+	       AND A.ESTM_YEAR = ?  
+	       AND A.ESTM_NUM  = ?   
+	       AND A.PERM_TEMP_GBN = '001'   
+	       AND A.FST_SND_GBN = '001'
+         GROUP BY A.EMP_NO                    
+ 		)  	                   
+        ]]>
+    </query>
+    
+    <query id="rev1080_i15" desc="근무태도평가자 시스템 사용 권한 전체 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i15 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  A.EMP_NO 
+				   ,'001'
+		           ,B.ASSO_CD 
+		           ,B.DEPT_CD 
+		           ,('GA12' || A.DEPT_CD) AS TEAM_CD  
+				   
+				   ,?
+				   ,SYSDATE
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.PERM_TEMP_GBN = '001' 
+		       AND A.MNR_FST_SND = '001' 
+		       AND NOT EXISTS (SELECT 1 
+			                     FROM TBRK_AUTH_APLY_DEPT
+			                    WHERE 1 = 1
+			                      AND USER_ID  = A.EMP_NO
+			                      AND AUTH_GBN = '001'
+			                   )
+        ]]>
+    </query>
+    
+    <query id="rev1080_i16" desc="서비스평가자 메뉴 사용 권한 부서별 부여" fetchSize="10">
+        <![CDATA[
+            INSERT  /* rev1080_i16 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			)  
+			SELECT 
+					A.EMP_NO
+				   ,? 
+				   ,?
+				   ,'299912312359'
+			       ,? 
+			       ,? 
+			       ,?
+			       ,?
+			       ,?
+			       ,SYSDATE
+              FROM  TBRF_EV_EMP A 
+                   ,TBRK_USER B 
+             WHERE 1 = 1 
+               AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+               AND A.EMP_NO = B.USER_ID 
+               AND A.ESTM_YEAR = ?
+               AND A.ESTM_NUM  = ? 
+               AND A.ESTM_DEPT   = ? 
+               AND A.PERM_TEMP_GBN = '001' 
+               AND A.SVR_FST_SND = '001'
+        ]]>
+    </query>
+    
+    <query id="rev1080_i17" desc="서비스평가자 시스템 사용 권한 전체 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i17 */
+			  INTO  TBRK_AUTH_APLY_DEPT (
+			  		USER_ID
+			  	   ,AUTH_GBN
+			  	   ,ASSO_CD
+			  	   ,DEPT_CD
+			  	   ,TEAM_CD
+			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  A.EMP_NO 
+			       ,'001'
+		           ,B.ASSO_CD 
+		           ,B.DEPT_CD 
+		           ,('GA12' || A.DEPT_CD) AS TEAM_CD  
+		           
+		           ,?
+		           ,SYSDATE
+		           
+		      FROM  TBRF_EV_EMP A 
+		           ,TBRK_USER B 
+		     WHERE 1 = 1 
+		       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+		       AND A.EMP_NO = B.USER_ID 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND A.PERM_TEMP_GBN = '001' 
+		       AND A.SVR_FST_SND = '001' 
+			   AND NOT EXISTS (SELECT 1 
+			                     FROM TBRK_AUTH_APLY_DEPT
+			                    WHERE 1 = 1
+			                      AND USER_ID  = A.EMP_NO
+			                      AND AUTH_GBN = '001'
+			                   )
+        ]]>
+    </query>
+    
+    <query id="rev1080_i18" desc="서비스평가자 메뉴 사용 권한 전체 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i18 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK
+			  	   ,INST_ID
+			  	   ,INST_DT
+			) 
+			SELECT  A.EMP_NO 
+		           ,?
+		           ,?
+		           ,'299912312359'
+		           ,?
+		           ,?
+		           ,?
+		           ,?
+		           ,?
+		           ,SYSDATE
+              FROM  TBRF_EV_EMP A 
+                   ,TBRK_USER B 
+             WHERE 1 = 1 
+               AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+               AND A.EMP_NO = B.USER_ID 
+               AND A.ESTM_YEAR = ?
+               AND A.ESTM_NUM  = ? 
+               AND A.PERM_TEMP_GBN = '001' 
+               AND A.SVR_FST_SND = '001' 
+        ]]>
+    </query>
+    
+    <query id="rev1080_i19" desc="부서장 근무태도평가화면 권한 전체 부여" fetchSize="10">
+        <![CDATA[
+			INSERT  /* rev1080_i19 */
+			  INTO  TBRK_MN_AUTH_HIST (
+			  		USER_ID
+			  	   ,MN_ID
+			  	   ,STR_DT_TM
+			  	   ,END_DT_TM
+			  	   ,SRCH_YN
+			  	   ,INPT_YN
+			  	   ,APRO_YN
+			  	   ,RMK			  	   
+			  	   ,INST_ID
+			  	   ,INST_DT
+			)  
+			SELECT 
+					B.EMP_NO
+				   ,? 
+				   ,?
+				   ,'299912312359'
+			       ,? 
+			       ,? 
+			       ,?
+			       ,?
+			       ,?
+			       ,SYSDATE
+			  FROM  TBRF_EV_DEPT A 
+			       ,TBRF_EV_DEPT_HEAD B 
+			       ,TBRK_USER C
+			 WHERE 1 = 1 
+			   AND A.ESTM_YEAR = B.ESTM_YEAR 
+			   AND A.ESTM_NUM  = B.ESTM_NUM 
+			   AND A.DEPT_CD   = B.DEPT_CD 
+			   AND A.DEPT_CD   = SUBSTR(C.TEAM_DETL_CD, LENGTH(C.TEAM_DETL_CD)-3, LENGTH(C.TEAM_DETL_CD))
+			   AND B.EMP_NO    = C.USER_ID 
+			   AND A.ESTM_YEAR = ?
+			   AND A.ESTM_NUM  = ?
+		       AND A.DEPT_CD NOT IN (
+	                     SELECT A.ESTM_DEPT  
+	                       FROM TBRF_EV_EMP A  
+	                      WHERE 1 = 1 
+	                        AND A.ESTM_YEAR = ?
+	                        AND A.ESTM_NUM  = ? 
+	                        AND A.PERM_TEMP_GBN = '002' 
+	                        AND A.ESTM_ESC_GBN = 'Y' 
+	                        AND A.ESTM_WK_JOB NOT IN (SELECT CNTR_ITM_DTL 
+	                                                  FROM TBRF_EV_JOB_ITM_DTL 
+	                                                 WHERE 1 = 1 
+	                                                   AND ESTM_YEAR = A.ESTM_YEAR 
+	                                                   AND ESTM_NUM = A.ESTM_NUM 
+	                                                   AND ESTM_ITEM_CD = ?) 
+	                                              GROUP BY ESTM_YEAR 
+	                                                      ,ESTM_NUM 
+	                                                      ,ESTM_DEPT 
+	                                 )
+        ]]>
+    </query>
+    
+    <query id="rev1080_d01" desc="부서장 화면 권한 회수" fetchSize="10">
+        <![CDATA[           
+            UPDATE  /* rev1080_d01 */
+			        TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			 WHERE  1 = 1
+			   AND  MN_ID   IN ('R000007', 'REV1000', 'REV2000', 'REV1070', 'REV2010', 'REV2020', 'REV2030')
+			   AND  USER_ID IN (SELECT  B.EMP_NO 
+			                      FROM  TBRF_EV_DEPT A 
+			                           ,TBRF_EV_DEPT_HEAD B 
+			                           ,TBRK_USER C 
+			                     WHERE 1 = 1 
+			                       AND A.ESTM_YEAR = B.ESTM_YEAR 
+			                       AND A.ESTM_NUM  = B.ESTM_NUM 
+			                       AND A.DEPT_CD   = B.DEPT_CD 
+			                       AND A.DEPT_CD   = SUBSTR(C.TEAM_DETL_CD, LENGTH(C.TEAM_DETL_CD)-3, LENGTH(C.TEAM_DETL_CD))
+			                       AND B.EMP_NO    = C.USER_ID 
+			                       AND B.DEPT_CD  != (SELECT MNG_DEPT FROM TBRF_EV_MASTER WHERE ESTM_YEAR = ? AND ESTM_NUM  = ?)
+			                       AND A.ESTM_YEAR = ? 
+			                       AND A.ESTM_NUM  = ?)
+        ]]>
+    </query>
+    
+    <query id="rev1080_d02" desc="담당자 화면 권한 회수" fetchSize="10">
+        <![CDATA[           
+        
+            UPDATE  /* rev1080_d02 */
+			        TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			 WHERE  1 = 1
+			   AND  MN_ID   IN ('R000007', 'REV1000', 'REV3000', 'REV1070', 'REV1090', 'REV3040')
+			   AND  USER_ID IN (SELECT  A.EMP_NO  
+							      FROM  TBRF_EV_EMP A 
+							           ,TBRK_USER B 
+							     WHERE  1 = 1 
+							       AND  A.DEPT_CD   = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+							       AND  A.EMP_NO    = B.USER_ID 
+							       AND  A.ESTM_YEAR = ?
+							       AND  A.ESTM_NUM  = ? 
+							       AND  A.MNG_GBN   = 'Y')
+        ]]>
+    </query>
+    
+    <query id="rev1080_d03" desc="투표소장,1차평가자 화면 권한 회수" fetchSize="10">
+        <![CDATA[           
+            UPDATE  /* rev1080_d03 */
+			        TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			 WHERE  1 = 1
+			   AND  MN_ID   IN ('R000007', 'REV2000', 'REV2010')
+			   AND  USER_ID IN (SELECT  EMP_NO
+							      FROM  TBRF_EV_EMP
+							     WHERE  1 = 1 
+							       AND  ESTM_YEAR     = ? 
+							       AND  ESTM_NUM      = ?
+							       AND  DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?)
+							       AND  FST_SND_GBN   = '001' 
+							       AND  ESTM_ESC_GBN    = 'Y'        
+							       --AND  WRK_GBN       = '001' 
+							       AND  PERM_TEMP_GBN = '002' 
+							        
+							     UNION ALL 
+							      
+							     SELECT  A.EMP_NO 
+							       FROM  TBRF_EV_EMP A 
+							            ,TBRK_USER B 
+							      WHERE  1 = 1 
+							        AND  A.DEPT_CD       = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+							        AND  A.EMP_NO        = B.USER_ID 
+							        AND  A.ESTM_YEAR     = ?
+							        AND  A.ESTM_NUM      = ? 
+							        AND  DECODE(?, '', '1', A.ESTM_DEPT) = DECODE(?, '', '1', ?)
+							        AND  A.PERM_TEMP_GBN = '001' 
+							        AND  A.FST_SND_GBN   = '001')
+        ]]>
+    </query>
+    
+    <query id="rev1080_d04" desc="근무태도평가자 화면 권한 회수" fetchSize="10">
+        <![CDATA[           
+        
+            UPDATE  /* rev1080_d04 */
+			        TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			 WHERE  1 = 1
+			   AND  MN_ID   IN ('R000007', 'REV2000', 'REV2020')
+			   AND  USER_ID IN (SELECT  A.EMP_NO  
+							      FROM  TBRF_EV_EMP A 
+							           ,TBRK_USER B 
+							     WHERE 1 = 1 
+							       AND A.DEPT_CD = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+							       AND A.EMP_NO = B.USER_ID 
+							       AND A.ESTM_YEAR     = ? 
+							       AND A.ESTM_NUM      = ? 
+							       AND DECODE(?, '', '1', A.ESTM_DEPT) = DECODE(?, '', '1', ?)
+							       AND A.PERM_TEMP_GBN = '001' 
+							       AND A.MNR_FST_SND   = '001')
+        ]]>
+    </query>
+    
+    <query id="rev1080_d05" desc="서비스평가자 화면 권한 회수" fetchSize="10">
+        <![CDATA[           
+        
+            UPDATE  /* rev1080_d05 */
+			        TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			 WHERE  1 = 1
+			   AND  MN_ID   IN ('R000007', 'REV2000', 'REV2030')
+			   AND  USER_ID IN (SELECT  A.EMP_NO 
+							      FROM  TBRF_EV_EMP A 
+							           ,TBRK_USER B 
+							     WHERE 1 = 1 
+							       AND A.DEPT_CD       = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+							       AND A.EMP_NO        = B.USER_ID 
+							       AND A.ESTM_YEAR     = ?
+							       AND A.ESTM_NUM      = ?
+							       AND DECODE(?, '', '1', A.ESTM_DEPT) = DECODE(?, '', '1', ?)
+							       AND A.PERM_TEMP_GBN = '001' 
+							       AND A.SVR_FST_SND   = '001')
+        ]]>
+    </query>
+    
+    <query id="rev1080_d06" desc="부서장 시스템 사용 권한 회수" fetchSize="10">
+        <![CDATA[           
+            DELETE  /* rev1080_d06 */
+			  FROM  TBRK_AUTH_APLY_DEPT A
+			 WHERE  1 = 1
+			   AND  AUTH_GBN = '001'
+			   AND  (SELECT COUNT(*) 
+			           FROM TBRK_MN_AUTH_HIST
+			          WHERE 1 = 1
+			            AND USER_ID = A.USER_ID
+			            AND TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			         ) = 0
+			   AND  A.USER_ID IN (SELECT  A.EMP_NO 
+  						  	        FROM  TBRF_EV_EMP A 
+							           ,TBRK_USER B 
+							       WHERE 1 = 1 
+							         AND A.DEPT_CD       = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+							         AND A.EMP_NO        = B.USER_ID 
+							         AND A.ESTM_YEAR     = ?
+							         AND A.ESTM_NUM      = ?
+							         AND A.PERM_TEMP_GBN = '001' 
+							         AND A.SVR_FST_SND   = '001')     
+        ]]>
+    </query>
+    
+    <query id="rev1080_d07" desc="담당자 시스템 사용 권한 회수" fetchSize="10">
+        <![CDATA[           
+            DELETE  /* rev1080_d07 */
+			  FROM  TBRK_AUTH_APLY_DEPT A
+			 WHERE  1 = 1
+			   AND  AUTH_GBN = '001'
+			   AND  (SELECT COUNT(*) 
+			           FROM TBRK_MN_AUTH_HIST
+			          WHERE 1 = 1
+			            AND USER_ID = A.USER_ID
+			            AND TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			         ) = 0
+			   AND  A.USER_ID IN (SELECT A.EMP_NO 
+								    FROM TBRF_EV_EMP A 
+								         ,TBRK_USER B 
+								   WHERE 1 = 1 
+								     AND A.DEPT_CD   = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+								     AND A.EMP_NO    = B.USER_ID 
+								     AND A.ESTM_YEAR = ? 
+								     AND A.ESTM_NUM  = ? 
+								     AND A.MNG_GBN   = 'Y')     
+        ]]>
+    </query>
+    
+    <query id="rev1080_d08" desc="1차평가자, 투표소장  시스템 사용 권한 회수" fetchSize="10">
+        <![CDATA[           
+            DELETE  /* rev1080_d08 */
+			  FROM  TBRK_AUTH_APLY_DEPT A
+			 WHERE  1 = 1
+			   AND  AUTH_GBN = '001'
+			   AND  (SELECT COUNT(*) 
+			           FROM TBRK_MN_AUTH_HIST
+			          WHERE 1 = 1
+			            AND USER_ID = A.USER_ID
+			            AND TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			         ) = 0
+			   AND  A.USER_ID IN (SELECT  EMP_NO 
+							        FROM  TBRF_EV_EMP 
+							       WHERE 1 = 1 
+							         AND ESTM_YEAR     = ?
+							         AND ESTM_NUM      = ? 
+							         AND DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?)
+							         AND FST_SND_GBN   = '001' 
+							         AND ESTM_ESC_GBN    = 'Y'        
+							         --AND WRK_GBN       = '001' 
+							         AND PERM_TEMP_GBN = '002' 
+							        
+							       UNION ALL 
+							      
+							      SELECT  A.EMP_NO
+							        FROM  TBRF_EV_EMP A 
+							             ,TBRK_USER B 
+							       WHERE  1 = 1 
+						  	         AND A.DEPT_CD       = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+							         AND A.EMP_NO        = B.USER_ID 
+							         AND A.ESTM_YEAR     = ?
+							         AND A.ESTM_NUM      = ?
+							         AND DECODE(?, '', '1', A.ESTM_DEPT) = DECODE(?, '', '1', ?)
+							         AND A.PERM_TEMP_GBN = '001' 
+							         AND A.FST_SND_GBN   = '001')   
+        ]]>
+    </query>
+    
+    <query id="rev1080_d09" desc="근무태도 평가자 시스템 사용 권한 회수" fetchSize="10">
+        <![CDATA[           
+            DELETE  /* rev1080_d09 */
+			  FROM  TBRK_AUTH_APLY_DEPT A
+			 WHERE  1 = 1
+			   AND  AUTH_GBN = '001'
+			   AND  (SELECT COUNT(*) 
+			           FROM TBRK_MN_AUTH_HIST
+			          WHERE 1 = 1
+			            AND USER_ID = A.USER_ID
+			            AND TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			         ) = 0
+			   AND  A.USER_ID IN (SELECT  A.EMP_NO  
+								    FROM  TBRF_EV_EMP A 
+								         ,TBRK_USER B 
+								   WHERE 1 = 1 
+								     AND A.DEPT_CD       = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD))
+								     AND A.EMP_NO        = B.USER_ID 
+								     AND A.ESTM_YEAR     = ? 
+								     AND A.ESTM_NUM      = ? 
+								     AND DECODE(?, '', '1', A.ESTM_DEPT) = DECODE(?, '', '1', ?)
+							         AND A.PERM_TEMP_GBN = '001' 
+								     AND A.MNR_FST_SND   = '001' )
+        ]]>
+    </query>
+    
+    <query id="rev1080_d10" desc="서비스 평가자 시스템 사용 권한 회수" fetchSize="10">
+        <![CDATA[           
+            DELETE  /* rev1080_d10 */
+			  FROM  TBRK_AUTH_APLY_DEPT A
+			 WHERE  1 = 1
+			   AND  AUTH_GBN = '001'
+			   AND  (SELECT COUNT(*) 
+			           FROM TBRK_MN_AUTH_HIST
+			          WHERE 1 = 1
+			            AND USER_ID = A.USER_ID
+			            AND TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			         ) = 0
+			   AND  A.USER_ID IN (SELECT  A.EMP_NO 
+								    FROM  TBRF_EV_EMP A 
+								         ,TBRK_USER B 
+							       WHERE  1 = 1 
+								     AND A.DEPT_CD       = SUBSTR(B.TEAM_DETL_CD, LENGTH(B.TEAM_DETL_CD)-3, LENGTH(B.TEAM_DETL_CD)) 
+								     AND A.EMP_NO        = B.USER_ID 
+								     AND A.ESTM_YEAR     = ?
+								     AND A.ESTM_NUM      = ?
+								     AND DECODE(?, '', '1', A.ESTM_DEPT) = DECODE(?, '', '1', ?)
+								     AND A.PERM_TEMP_GBN = '001' 
+								     AND A.SVR_FST_SND   = '001' )
+        ]]>
+    </query>
+    
+    <query id="rev1080_d11" desc="다면평가 Delete" fetchSize="10">
+        <![CDATA[           
+            DELETE  /* rev1080_d11 */
+			  FROM  TBRF_EV_WK_MULT
+			 WHERE  1=1
+			   AND  ESTM_YEAR = ?
+			   AND  ESTM_NUM  = ?
+			   AND  DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?)  
+        ]]>
+    </query>
+    
+    <query id="rev1080_d12" desc="다면평가상세 Delete" fetchSize="10">
+        <![CDATA[           
+            DELETE  /* rev1080_d12 */
+			  FROM  TBRF_EV_WK_MULT_DT
+			 WHERE  1=1
+			   AND  ESTM_YEAR = ?
+			   AND  ESTM_NUM  = ?
+			   AND  DECODE(?, '', '1', ESTM_DEPT) = DECODE(?, '', '1', ?)  
+        ]]>
+    </query>
+    
+    <query id="rev1080_d13" desc="부서별 화면 권한 회수(부서장제외)" fetchSize="10">
+        <![CDATA[           
+            UPDATE  /* rev1080_d13 */
+			        TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			 WHERE  1 = 1
+			   AND  MN_ID   =  ?
+			   AND  USER_ID IN (SELECT EMP_NO  
+							      FROM TBRF_EV_EMP 
+							     WHERE 1 = 1 
+							       AND ESTM_YEAR = ?
+							       AND ESTM_NUM  = ? 
+							       AND ESTM_DEPT   = ? 
+							       AND EMP_NO NOT IN (SELECT EMP_NO 
+							                            FROM TBRF_EV_DEPT_HEAD   
+							                           WHERE 1 = 1 
+							                             AND ESTM_YEAR = ?
+							                             AND ESTM_NUM  = ? 
+							                             AND DEPT_CD   = ?
+							                           UNION ALL
+							                           SELECT MNG_NO
+							                             FROM TBRF_EV_MASTER
+							                            WHERE 1 = 1
+							                              AND ESTM_YEAR = ?
+							                              AND ESTM_NUM  = ?))
+        ]]>
+    </query>
+</queryMap>

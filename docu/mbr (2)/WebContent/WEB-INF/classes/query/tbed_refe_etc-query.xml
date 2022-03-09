@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbed_refe_etc(심판관리 기타조회)">
+      
+    <query id="tbed_refe_etc_fd001" desc="출발위반 세부내역" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbed_refe_etc_fd001 */
+                     A.STND_YEAR
+                    ,A.MBR_CD
+                    ,A.TMS
+                    ,A.DAY_ORD
+                    ,A.RACE_NO
+                    ,DECODE(A.VOIL_CD, '110', 'F', '120', 'L') FL
+                    ,B.ENTRY_COURSE
+            FROM     TBED_RACE_VOIL_ACT A
+                    ,TBEB_ORGAN B
+            WHERE    A.STND_YEAR    = B.STND_YEAR
+            AND      A.MBR_CD       = B.MBR_CD
+            AND      A.TMS          = B.TMS
+            AND      A.DAY_ORD      = B.DAY_ORD
+            AND      A.RACE_NO      = B.RACE_NO
+            AND      A.RACER_NO     = B.RACER_NO
+            AND      A.VOIL_CD      IN ('110','120')
+            AND      A.RACER_NO     = ?
+            ORDER BY A.STND_YEAR DESC, A.TMS DESC
+	    ]]>
+    </query>
+    
+    <query id="tbed_refe_etc_fd002" desc="선수성적과 모터의 상관관계" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbed_refe_etc_fd002 */
+			      RACER.RACER_NO									-- 선수번호
+				, RACER.RACER_NM								-- 선수명
+				, RACER.TOT_RACE_CNT RACE_CNT					-- 출주횟수
+				, RACER.RANK									-- 평균착순점 순위
+				, RACER.AVG_RANK_SCR							-- 평균착순점
+				, COUNT(*) ARR_CNT								-- 불량모터 배정횟수
+				, SUM(DECODE(TR.RANK,0,1,DECODE(TR.RANK,5,1,DECODE(TR.RANK,6,1,0)))) LOW_CNT								-- 불량모터 하위성적 횟수
+				, ROUND(SUM(DECODE(TR.RANK,0,1,DECODE(TR.RANK,5,1,DECODE(TR.RANK,6,1,0)))) / COUNT(*) * 100, 2) LOW_RATE	-- 불량모터 하위성적 횟수/불량모터배정횟수 * 100
+			FROM    TBEB_ORGAN TR
+				, (	SELECT	TRRAS.*
+						, ( SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = CURR.RACER_NO) RACER_NM
+						, RANK() OVER (ORDER BY AVG_RANK_SCR DESC, RANK_1_CNT DESC) RANK
+					FROM	TBEB_RACER_RECD_ACCU_SUM TRRAS
+						, (	SELECT	STND_YEAR
+								, MBR_CD
+								, TMS
+								, RACER_NO
+								, MAX(APLY_DT) APLY_DT
+							FROM	TBEB_RACER_RECD_ACCU_SUM
+							WHERE	STND_YEAR = ?
+							AND	MBR_CD    = '000'
+							AND	TMS       = 0
+							AND ST_MTHD_CD = '000' --ST방식전체설정
+							GROUP BY STND_YEAR
+								, MBR_CD
+								, TMS
+								, RACER_NO
+						) CURR
+					WHERE	TRRAS.STND_YEAR = CURR.STND_YEAR
+					AND	TRRAS.MBR_CD    = CURR.MBR_CD
+					AND	TRRAS.TMS       = CURR.TMS
+					AND	TRRAS.RACER_NO  = CURR.RACER_NO
+					AND	TRRAS.APLY_DT   = CURR.APLY_DT
+					AND TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+				) RACER	-- 선수 1위, 성적순 
+				, (	SELECT	MOT_NO
+					FROM	(	SELECT  TMRAS.*
+								, RANK() OVER (ORDER BY AVG_RANK_SCR ASC) RANK
+							FROM	TBEB_MOT_RECD_ACCU_SUM TMRAS
+								, (	SELECT	STND_YEAR
+										, MBR_CD
+										, MOT_NO
+										, MAX(TMS) TMS
+			                        FROM	TBEB_MOT_RECD_ACCU_SUM
+							        WHERE	STND_YEAR = ?
+							        AND		MBR_CD    = ?
+							        AND     ST_MTHD_CD = '000' --ST방식전체설정
+									GROUP BY STND_YEAR
+										, MBR_CD
+										, MOT_NO
+								) CURR
+							WHERE	TMRAS.STND_YEAR = CURR.STND_YEAR
+							AND	TMRAS.MBR_CD = CURR.MBR_CD
+							AND	TMRAS.TMS = CURR.TMS
+							AND	TMRAS.MOT_NO = CURR.MOT_NO
+							AND TMRAS.ST_MTHD_CD = '000' --ST방식전체설정
+						)
+			                WHERE   RANK <= (SELECT ROUND(COUNT(*)*(?/100),0)
+			                                 FROM   TBEF_EQUIP
+			                                 WHERE  STND_YEAR    = ?
+			                                 AND    MBR_CD       = ?
+			                                 AND    EQUIP_TPE_CD = 'M'
+			                                 AND    USE_YN       = 'Y')
+				) MOT	--불량모터  
+			WHERE	TR.STND_YEAR = RACER.STND_YEAR
+			AND TR.RACER_NO = RACER.RACER_NO
+			AND	TR.MOT_NO = MOT.MOT_NO
+			GROUP BY RACER.RACER_NO
+				, RACER.RACER_NM
+				, RACER.RANK
+				, RACER.AVG_RANK_SCR
+				, RACER.TOT_RACE_CNT
+			ORDER BY RACER.RANK
+	    ]]>
+    </query>
+    
+    <query id="tbed_refe_etc_fd003" desc="출발위반 연간통계" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbed_refe_etc_fd003 */
+			         A.STND_YEAR
+			        ,F_CNT
+			        ,L_CNT
+			        ,F_CNT+L_CNT AS FL_CNT
+			        ,STAR_TM_AVG
+			        ,ROUND((F_CNT+L_CNT)/RACE_CNT*100, 2) AS FL_RATE
+			        ,RACE_CNT
+			        ,REFUND
+			FROM   (
+		            SELECT STND_YEAR,
+		                       SUM(DECODE(VOIL_CD, '110', CNT,0)) AS F_CNT,
+		                       SUM(DECODE(VOIL_CD,'120',CNT,0)) AS L_CNT
+		            FROM  (
+		                        SELECT   A.STND_YEAR
+		                                    ,VOIL_CD
+		                                    ,COUNT(*) AS CNT
+		                        FROM     TBED_RACE_VOIL_ACT A
+		                        WHERE   1=1
+		                        AND      A.VOIL_CD IN ('110','120')
+		                        GROUP BY A.STND_YEAR, VOIL_CD
+		                     )
+		            GROUP BY STND_YEAR
+		            ) A,
+		            (
+		            SELECT STND_YEAR, ROUND(AVG(STAR_TM),2) AS STAR_TM_AVG
+		            FROM TBEB_ORGAN
+		            AND ST_MTHD_CD = '002' --플라잉스타트 경주만 조회
+		            GROUP BY STND_YEAR
+		            ) B, (
+		            SELECT   TR.STND_YEAR
+		                       , SUM(DECODE(TR.RACE_STTS_CD, '001', 1, 0)) RACE_CNT
+		            FROM   TBEB_RACE TR
+		            GROUP BY TR.STND_YEAR            
+		            ) C, (
+		            SELECT STND_YEAR, SUM(REFUND) AS REFUND
+		            FROM USRBM.VW_SDL_DT_SUM
+		            WHERE MEET_CD = '003'
+		            GROUP BY STND_YEAR            
+		            ) D
+			WHERE C.STND_YEAR = A.STND_YEAR
+			AND     C.STND_YEAR = B.STND_YEAR
+			AND     C.STND_YEAR = D.STND_YEAR
+			ORDER BY 1 DESC
+	    ]]>
+    </query>
+    
+    <query id="tbed_refe_etc_fd004" desc="출발위반 선수별 통계" fetchSize="10">
+        <![CDATA[            
+			WITH X AS ( /* tbed_refe_etc_fd004 */
+			        SELECT STND_YEAR,TMS, DAY_ORD, RACE_NO, A.RACER_NO, A.RACE_REG_NO, RACE_DAY, VOIL_CD, R.NM_KOR RACER_NM,
+			                    COUNT(*) OVER (PARTITION BY STND_YEAR, TMS, DAY_ORD, RACE_NO) -1 FL_RACER_CNT
+			        FROM TBED_RACE_VOIL_ACT A, TBEC_RACER_MASTER R
+			        WHERE MBR_CD = '001'
+			        AND VOIL_CD IN ( '110','120')            
+			        AND  A.RACER_NO     = R.RACER_NO 
+			      )                
+			SELECT RACER_NO, RACER_NM, SUM(REFUND) AS REFUND, COUNT(*) AS RACE_CNT
+			  FROM X, (
+			           SELECT STND_YEAR
+			                      ,TMS
+			                      ,DAY_ORD
+			                      ,RACE_NO
+			                      ,SUM(REFUND) AS REFUND
+			           FROM  USRBM.VW_SDL_DT
+			           WHERE MEET_CD = '003'
+			           AND     STND_YEAR > '2001'
+			           GROUP BY STND_YEAR, TMS, DAY_ORD, RACE_nO
+			           ) C 
+			  WHERE   X.STND_YEAR = C.STND_YEAR                 
+			       AND X.TMS = C.TMS
+			       AND X.DAY_ORD = C.DAY_ORD
+			       AND X.RACE_NO = C.RACE_NO  
+			       AND X.RACER_NM LIKE ?||'%'
+			  GROUP BY RACER_NO, RACER_NM
+			  ORDER BY 4 DESC                        
+	    ]]>
+    </query>
+    
+    <query id="tbed_refe_etc_fd005" desc="출발위반 선수별 세부내역 조회" fetchSize="10">
+        <![CDATA[            
+			WITH X AS ( /* tbed_refe_etc_fd005 */
+             SELECT STND_YEAR,'003' AS MEET_CD, TMS, DAY_ORD, RACE_NO, A.RACER_NO, A.RACE_REG_NO, RACE_DAY, VOIL_CD, R.NM_KOR RACER_NM,
+                               COUNT(*) OVER (PARTITION BY STND_YEAR, TMS, DAY_ORD, RACE_NO)  FL_RACER_CNT,
+                               STND_YEAR||TMS||DAY_ORD||RACE_NO AS RACE_SEQ, RACER_PERIO_NO
+                        FROM  TBED_RACE_VOIL_ACT A, TBEC_RACER_MASTER R
+                        WHERE MBR_CD = '001'
+                        AND VOIL_CD IN ( '110','120')            
+                        AND  A.RACER_NO = R.RACER_NO 
+            )            
+            SELECT  X.STND_YEAR, X.TMS, X.DAY_ORD, X.RACE_NO,X.RACE_DAY,X.RACER_NO, X.RACER_NM, X.RACE_REG_NO
+                   ,SUM(REFUND) AS REFUND, SUBSTR(COM_RACER_NM,1,LENGTH(COM_RACER_NM)-1) COM_RACER_NM
+                   ,SUBSTR(X.RACE_DAY,5,2) AS MM
+                   ,SUBSTR(X.RACE_DAY,7,2) AS DD
+                   ,RACER_PERIO_NO
+              FROM X, USRBM.VW_SDL_DT C,
+                       (
+                        SELECT RACE_SEQ, 
+                                 LTRIM(SYS_CONNECT_BY_PATH(RACER_NM,','), ',') ||',' AS COM_RACER_NM
+                        FROM (      
+                                            SELECT R.NM_KOR RACER_NM,
+                                                       COUNT(*) OVER (PARTITION BY STND_YEAR, TMS, DAY_ORD, RACE_NO) -1 FL_RACER_CNT,
+                                                       STND_YEAR||TMS||DAY_ORD||RACE_NO AS RACE_SEQ,
+                                                       ROW_NUMBER() OVER(PARTITION BY STND_YEAR||TMS||DAY_ORD||RACE_NO ORDER BY RACE_REG_NO) RN,
+                                                       COUNT(*) OVER (PARTITION BY STND_YEAR||TMS||DAY_ORD||RACE_NO) CNT
+                                            FROM  TBED_RACE_VOIL_ACT A, TBEC_RACER_MASTER R
+                                            WHERE MBR_CD = '001'
+                                            AND VOIL_CD IN ( '110','120')            
+                                            AND  A.RACER_NO = R.RACER_NO 
+                                                 ) A
+                        WHERE LEVEL = CNT
+                        AND CNT > 1
+                        START WITH RN = 1
+                        CONNECT BY PRIOR RACE_SEQ=RACE_SEQ AND PRIOR RN = RN -1                         
+                       ) X2 
+              WHERE   X.STND_YEAR = C.STND_YEAR       
+               AND X.MEET_CD = C.MEET_CD                        
+               AND X.TMS = C.TMS
+               AND X.DAY_ORD = C.DAY_ORD
+               AND X.RACE_NO = C.RACE_NO  
+               AND C.MEET_CD = '003'
+               AND X.RACER_NM LIKE ?||'%'
+               AND X.RACE_SEQ = X2.RACE_SEQ(+)
+              GROUP BY  X.STND_YEAR,X.MEET_CD, X.TMS, X.DAY_ORD, X.RACE_NO, C.RACE_NO,X.RACER_NO, X.RACE_REG_NO, X.RACE_DAY, X.RACER_NM, X2.COM_RACER_NM, RACER_PERIO_NO
+              ORDER BY RACE_DAY DESC, RACE_NO, RACE_REG_NO                                 
+	    ]]>
+    </query>
+    
+</queryMap>

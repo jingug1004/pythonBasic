@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem3040(체류인원  지점별 현황)">
+    <query id="rem3040_s01" desc="체류인원  지점별 현황  조회" fetchSize="10">
+      <![CDATA[
+			SELECT   /*rem3040_s01*/
+			    B.TMS                                            --회차
+			   ,B.BRNC_CD                                        --지점
+			   ,MAX(LPAD(ORD_NO,3,'000')) || MAX(B.BRNC_NM) BRNC_NM    --지점명
+			   ,NVL(SUM( CASE                                                        
+						    WHEN B.BRNC_CD='27' AND A.OUT_ENT_PRSN_NUM>0  THEN A.OUT_ENT_PRSN_NUM
+						 ELSE   A.ENT_PRSN_NUM                                                 
+						 END),0) ENT_PRSN_NUM          --입장인원
+			FROM 
+			  (
+			    SELECT BRNC_CD, RACE_DT , 
+			           SUM(OUT_ENT_PRSN_NUM) OUT_ENT_PRSN_NUM, 
+			           SUM(ENT_PRSN_NUM) ENT_PRSN_NUM
+			    FROM TBRC_STAY_MANA A                        --체류인원관리
+			    WHERE  1 = 1
+			        AND A.RACE_DT >= ?
+			        AND A.RACE_DT <= ?
+			        AND A.MEET_CD  = ?
+			        AND A.BRNC_CD LIKE  '%' || NVL(? , A.BRNC_CD) || '%'
+			        GROUP BY  BRNC_CD, RACE_DT
+			  ) A
+			 ,(
+			   SELECT
+			      C.BRNC_CD
+			     ,C.BRNC_NM
+			     ,A.TMS
+			     ,A.MEET_CD
+			     ,A.RACE_DAY
+			     ,C.ORD_NO
+			   FROM
+			   (
+			     SELECT
+			         MEET_CD
+			        ,STND_YEAR
+			        ,CASE WHEN ? = 'MM' THEN TO_NUMBER(SUBSTR(RACE_DAY,5,2)) 
+			              ELSE TMS END AS TMS
+			        ,RACE_DAY
+			    FROM  VW_SDL_INFO
+			        WHERE   RACE_DAY >= ?
+                         AND RACE_DAY <=?
+			             AND MEET_CD = ?
+			    )A,
+			    (
+			        SELECT
+                         CD BRNC_CD
+                        ,CD_NM BRNC_NM
+                        ,ORD_NO
+                    FROM TBRK_SPEC_CD 
+                    WHERE GRP_CD = '018'
+                         AND DEL_YN='N' 
+                    UNION ALL
+                    SELECT
+                         CD BRNC_CD
+                        ,CD_NM BRNC_NM
+                        ,ORD_NO
+                    FROM TBRK_SPEC_CD 
+                    WHERE GRP_CD = '032'
+                         AND DEL_YN='N' 
+			    ) C
+			 )B
+			                 
+			WHERE  A.RACE_DT(+) = B.RACE_DAY
+			    AND A.BRNC_CD(+) = B.BRNC_CD
+			GROUP BY B.TMS,B.BRNC_CD
+			ORDER BY B.TMS,B.BRNC_CD
+        ]]>
+    </query> 
+   
+</queryMap>

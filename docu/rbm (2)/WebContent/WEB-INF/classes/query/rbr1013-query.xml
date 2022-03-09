@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR1013(직원현황)">
+    
+	<query id="rbr1013_s01" desc="과거년도 직원현황 조회" fetchSize="10">
+		<![CDATA[		
+ 			SELECT /* rbr1013_s01 */
+				BRNC_CD				--1.지점코드
+				,STND_YEAR			--2.년도
+				,SEQ				--3.순번
+				,JOB_GRP_NM			--4.직군명
+				,WORK_GBN_NM		--5.근무구분명
+				,JOB_NM				--6.직무명
+				,CAP_NM				--7.직급명
+				,CNTR_JOB_NM		--8.보직명
+				,PRSN_NUM			--9.인원수
+				,INST_ID			--작성자
+				,INST_DT			--작성일시
+
+  			  FROM	TBRA_EMP_STAT   --직원현황
+			
+			 WHERE	1=1
+			   AND  BRNC_CD   = ?     --지점코드
+			   AND  STND_YEAR = ?     --년도
+		  ORDER BY	JOB_GRP_NM, WORK_GBN_NM, JOB_NM, CAP_NM
+        ]]>
+	</query>
+	
+	<query id="rbr1013_s02" desc="현재년도 직원현황 조회" fetchSize="10">
+        <![CDATA[       
+			SELECT
+                 JOB_FMLY
+                ,JOB_FMLY_NM                         AS JOB_GRP_NM 
+                ,COWORK_TYPE_NM                      AS WORK_GBN_NM
+                ,DECODE(JOB_FMLY,'40', FGRADE_NM,'') AS JOB_NM
+                ,DECODE(JOB_FMLY,'10', FGRADE_NM,'') AS CAP_NM 
+                ,JOB_NM                              AS CNTR_JOB_NM
+                ,COUNT(*)                            AS PRSN_NUM
+                
+              FROM  USHUM.VW_EMP_JOB_12  --비너스DB 직원현황
+             WHERE  1=1
+               AND  DEPT_CD = ?
+          GROUP BY  JOB_FMLY, JOB_FMLY_NM, COWORK_TYPE_NM, FGRADE_NM, JOB_NM
+          ORDER BY  1,2,3,4,5
+		  
+        ]]>
+    </query>
+    
+    <query id="rbr1013_d01" desc="올해 직원현황 삭제" fetchSize="10">
+        <![CDATA[
+            DELETE  TBRA_EMP_STAT   /* rbr1013_d01 */  --직원현황 
+             WHERE  1=1
+               AND  BRNC_CD   = ?  --구분
+               AND  STND_YEAR = ?  --년도
+        ]]>
+    </query>
+    
+    <query id="rbr1013_i01" desc="올해 직원현황 추가" fetchSize="10">
+        <![CDATA[
+            INSERT INTO TBRA_EMP_STAT /* rbr1013_i01  */ --직원현황
+            (            
+	             BRNC_CD        --지점코드
+				,STND_YEAR      --년도
+				,SEQ            --순번
+				,JOB_GRP_NM     --직군명
+				,WORK_GBN_NM    --근무구분명
+				
+				,JOB_NM         --직무명
+				,CAP_NM         --직급명
+				,CNTR_JOB_NM    --보직명
+				,PRSN_NUM       --인원수
+				,INST_ID        --작성자
+				
+				,INST_DT        --작성일시
+
+            ) VALUES (
+                 ?              --지점코드
+				,?              --년도
+				,(SELECT  NVL(MAX(SEQ),0) + 1
+                    FROM  TBRA_EMP_STAT
+                   WHERE  1=1
+                     AND  BRNC_CD  = ?
+                 )              --순번(where절 : 1.지점코드) 
+				,?              --직군명
+				,?              --근무구분명
+				
+				,?              --직무명
+				,?              --직급명
+				,?              --보직명
+				,?              --인원수
+				,?              --작성자
+				
+				,SYSDATE        --작성일시
+            )
+        ]]>
+    </query>
+</queryMap>

@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REM1010(입장거부자 관리)">
+    <query id="rem1010_s01" desc="입장거부자 조회" fetchSize="10">
+      <![CDATA[
+ 			SELECT /* rem1010_s01 */
+				'0' AS CHK
+							
+				,A.BRNC_CD					--지점코드
+				,A.SEQ						--순번
+				,A.TMS						--회차
+				,(SELECT MAX(MEET_CD) FROM VW_SDL_INFO WHERE RACE_DAY = A.RACE_DT AND TMS = A.TMS) MEET_CD 
+				
+				,(SELECT CD_NM FROM TBRK_SPEC_CD B 
+                        WHERE GRP_CD ='070'
+                            AND B.CD = (SELECT MAX(MEET_CD) FROM VW_SDL_INFO WHERE RACE_DAY = A.RACE_DT AND TMS = A.TMS)) MEET_NM -- 시행처명 
+				,A.RACE_DT					--경주일자
+				,A.ENT_REFU_CD				--입장거부코드
+				
+				,A.ENT_REFU_TY_CD		    --입장거부유형코드
+				,A.SEX						--성별
+				,A.AGE_CD					--연령대코드
+				,A.ENT_REFU_TERM_FROM		--입장거부기간FROM
+				,A.ENT_REFU_TERM_TO			--입장거부기간_to
+				
+				,A.FACE_DESC			    --인상착의
+				,A.DTL_CNTNT				--주요내용
+				,A.ATT_FILE_KEY				--첨부파일키
+				,(SELECT  CD_NM 
+				    FROM  TBRK_SPEC_CD --상세코드
+				   WHERE  1=1
+				     AND  GRP_CD = '018'
+				     AND  CD     = A.BRNC_CD) AS BRNC_NM                --지점코드명
+				,(SELECT  CD_NM 
+                    FROM  TBRK_SPEC_CD --상세코드
+                   WHERE  1=1
+                     AND  GRP_CD = '014'
+                     AND  CD     = A.ENT_REFU_CD) AS ENT_REFU_NM        --입장거부코드명
+                ,(SELECT  CD_NM 
+                    FROM  TBRK_SPEC_CD --상세코드
+                   WHERE  1=1
+                     AND  GRP_CD = '016'
+                     AND  CD     = A.ENT_REFU_TY_CD) AS ENT_REFU_TY_NM  --입장거부유형코드명
+                ,(SELECT  CD_NM 
+                    FROM  TBRK_SPEC_CD --상세코드
+                   WHERE  1=1
+                     AND  GRP_CD = '017'
+                     AND  CD     = A.AGE_CD) AS AGE_NM                   --연령대코드명
+                ,(SELECT  CD_NM 
+                    FROM  TBRK_SPEC_CD --상세코드
+                   WHERE  1=1
+                     AND  GRP_CD = '044'
+                     AND  CD     = A.SEX) AS SEX_NM                      --성별코드명
+                ,(SELECT DECODE(REAL_FILE_NM, '', '', ? || REAL_FILE_NM)
+		 		    FROM TBRK_FILE_MANA 
+				   WHERE 1=1
+				     AND ATT_FILE_KEY = A.ATT_FILE_KEY
+				     AND ORD_NO = '1') AS IMG_FILE1    --입장거부 이미지1
+                ,(SELECT DECODE(REAL_FILE_NM, '', '', ? || REAL_FILE_NM)
+                    FROM TBRK_FILE_MANA 
+                   WHERE 1=1
+                     AND ATT_FILE_KEY = A.ATT_FILE_KEY
+                     AND ORD_NO = '2') AS IMG_FILE2    --입장거부 이미지2
+                ,(SELECT DECODE(REAL_FILE_NM, '', '', ? || REAL_FILE_NM)
+                    FROM TBRK_FILE_MANA 
+                   WHERE 1=1
+                     AND ATT_FILE_KEY = A.ATT_FILE_KEY
+                     AND ORD_NO = '3') AS IMG_FILE3    --입장거부 이미지3
+                ,(SELECT DECODE(REAL_FILE_NM, '', '', ? || REAL_FILE_NM)
+                    FROM TBRK_FILE_MANA 
+                   WHERE 1=1
+                     AND ATT_FILE_KEY = A.ATT_FILE_KEY
+                     AND ORD_NO = '4') AS IMG_FILE4    --입장거부 이미지4
+				,CASE WHEN INST_DT > (SYSDATE -2) THEN '01'
+				      WHEN UPDT_DT > (SYSDATE -2) THEN '02' 
+				      ELSE '00' 
+				 END AS NEW_FLAG
+			  FROM  TBRC_ENT_REFU_MANA A --입장거부관리
+			
+			 WHERE	1=1
+			   AND  A.BRNC_CD		    LIKE  '%' || NVL(? , A.BRNC_CD) || '%'
+			   AND  A.RACE_DT        BETWEEN  ? AND ?
+			   AND  A.ENT_REFU_CD       LIKE  '%' || NVL(? , A.ENT_REFU_CD) || '%'
+			   AND  A.ENT_REFU_TY_CD    LIKE  '%' || NVL(? , A.ENT_REFU_TY_CD) || '%'
+			   AND  A.FACE_DESC		    LIKE  '%' || NVL(? , A.FACE_DESC) || '%'
+			   AND  A.DTL_CNTNT		    LIKE  '%' || NVL(? , A.DTL_CNTNT) || '%'						
+        ]]>
+    </query>
+    
+    <query id="rem1010_m01" desc="입장거부자 입력,수정" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBRC_ENT_REFU_MANA A /* rem1010_m01 */  --입장거부관리
+            USING
+                    (SELECT
+                             ? AS BRNC_CD            --지점코드
+							,? AS SEQ                --순번
+							,? AS TMS                --회차
+							,? AS RACE_DT            --경주일자
+							,? AS ENT_REFU_CD        --입장거부코드
+							
+							,? AS ENT_REFU_TY_CD     --입장거부유형코드
+							,? AS SEX                --성별
+							,? AS AGE_CD             --연령대코드
+							,? AS ENT_REFU_TERM_FROM --입장거부기간FROM
+							,? AS ENT_REFU_TERM_TO   --입장거부기간_to
+							
+							,? AS FACE_DESC          --인상착의
+							,? AS DTL_CNTNT          --주요내용
+							,? AS ATT_FILE_KEY       --첨부파일키
+                            ,? AS INST_ID            --작성자                        
+                            ,? AS UPDT_ID            --수정자
+                            
+                       FROM    DUAL ) B
+                ON (
+                        A.BRNC_CD  = B.BRNC_CD     --지점코드
+                    AND A.SEQ      = B.SEQ         --순번
+            )            
+            
+            WHEN MATCHED THEN
+                UPDATE SET 
+                     A.TMS                = B.TMS                  --회차
+                    ,A.RACE_DT            = B.RACE_DT              --경주일자
+                    ,A.ENT_REFU_CD        = B.ENT_REFU_CD          --입장거부코드
+                    ,A.ENT_REFU_TY_CD     = B.ENT_REFU_TY_CD       --입장거부유형코드
+                    ,A.SEX                = B.SEX                  --성별
+                    
+                    ,A.AGE_CD             = B.AGE_CD               --연령대코드
+                    ,A.ENT_REFU_TERM_FROM = B.ENT_REFU_TERM_FROM   --입장거부기간FROM
+                    ,A.ENT_REFU_TERM_TO   = ENT_REFU_TERM_TO       --입장거부기간_to
+                    ,A.FACE_DESC          = B.FACE_DESC            --인상착의
+                    ,A.DTL_CNTNT          = B.DTL_CNTNT            --주요내용
+                    
+                    ,A.ATT_FILE_KEY      = B.ATT_FILE_KEY          --첨부파일키
+                    ,A.UPDT_ID           = B.UPDT_ID               --수정자
+                    ,A.UPDT_DT           = SYSDATE                 --수정일시       
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+            
+                     A.BRNC_CD              --지점코드
+					,A.SEQ                  --순번
+					,A.TMS                  --회차
+					,A.RACE_DT              --경주일자
+					,A.ENT_REFU_CD          --입장거부코드
+					
+					,A.ENT_REFU_TY_CD       --입장거부유형코드
+					,A.SEX                  --성별
+					,A.AGE_CD               --연령대코드
+					,A.ENT_REFU_TERM_FROM   --입장거부기간FROM
+					,A.ENT_REFU_TERM_TO     --입장거부기간_to
+					
+					,A.FACE_DESC            --인상착의
+					,A.DTL_CNTNT            --주요내용
+					,A.ATT_FILE_KEY         --첨부파일키
+                    ,A.INST_ID              --작성자                    
+                    ,A.INST_DT              --작성일시
+                    
+                ) VALUES (
+                     B.BRNC_CD              --지점코드
+                    ,(SELECT  NVL(MAX(SEQ),0) + 1
+                        FROM  TBRC_ENT_REFU_MANA  --입장거부관리
+                       WHERE  1=1
+                         AND  BRNC_CD = ? --B.BRNC_CD
+                      )                     --순번
+                    ,B.TMS                  --회차
+                    ,B.RACE_DT              --경주일자
+                    ,B.ENT_REFU_CD          --입장거부코드
+                    
+                    ,B.ENT_REFU_TY_CD       --입장거부유형코드
+                    ,B.SEX                  --성별
+                    ,B.AGE_CD               --연령대코드
+                    ,B.ENT_REFU_TERM_FROM   --입장거부기간FROM
+                    ,B.ENT_REFU_TERM_TO     --입장거부기간_to
+                    
+                    ,B.FACE_DESC            --인상착의
+                    ,B.DTL_CNTNT            --주요내용
+                    ,B.ATT_FILE_KEY         --첨부파일키
+                    ,B.INST_ID              --작성자                    
+                    ,SYSDATE                --작성일시
+                )
+        ]]>
+    </query>
+    
+    <query id="rem1010_u02" desc="입장거부자 이미지 파일  정보 수정" fetchSize="10">
+        <![CDATA[
+            UPDATE  TBRC_ENT_REFU_MANA   /* rem1010_u02 */ --입장거부관리
+               SET
+                    ATT_FILE_KEY = ?    --첨부파일키             
+                   ,UPDT_ID      = ?    --사용자ID                
+                   ,UPDT_DT      = SYSDATE
+                
+             WHERE  1=1
+               AND  BRNC_CD  = ?    --지점코드
+               AND  SEQ      = ?    --순번
+        ]]>
+    </query>
+    
+    <query id="rem1010_d01" desc="입장거부자 삭제" fetchSize="10">
+        <![CDATA[
+            DELETE  TBRC_ENT_REFU_MANA   /* rem1010_d01 */ --입장거부관리
+             WHERE  1=1
+               AND  BRNC_CD = ?           --지점코드
+               AND  SEQ     = ?           --순번
+        ]]>
+    </query>
+    
+    <query id="rem1010_s02" desc="입장거부자 최근 수정건수 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rem1010_s02 */
+			       DECODE(BRNC_CD, '00', 0, UPDT_CNT) AS UPDT_CNT,
+                   BRNC_CD AS ENT_MNG_DEPT
+			FROM (
+			        SELECT COUNT(UPDT_DT) AS UPDT_CNT
+			        FROM   TBRC_ENT_REFU_MANA M
+			        WHERE (INST_DT > (SYSDATE - (? / 24)) 
+			               OR UPDT_DT > (SYSDATE - (? / 24)))
+			      ), (
+			        SELECT DECODE(BRNC_CD, '00', NVL2(C.CD, '01', '00'), BRNC_CD) AS BRNC_CD
+			            FROM TBRK_USER U LEFT OUTER JOIN TBRK_SPEC_CD C
+			              ON U.TEAM_CD = C.CD
+			            WHERE U.USER_ID = ?
+			     )						
+        ]]>
+    </query>
+    
+</queryMap>

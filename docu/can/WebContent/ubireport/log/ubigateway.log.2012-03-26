@@ -1,0 +1,276 @@
+
+[I][UbiForm][2012-03-26 08:10:52][REQUEST FILE]
+[I][UbiForm][2012-03-26 08:10:52]	- Report : /web/waspage/usrbm/report/rsm/rsm2050_5.jrf
+[I][UbiForm][2012-03-26 08:10:52]	- Common : /web/waspage/usrbm/report/rsm/property/commonitem.xml [Not found]
+--------------------------------------------------------------------------------
+
+
+[I][UbiData][2012-03-26 08:10:52][REQUEST FILE]
+[I][UbiData][2012-03-26 08:10:52]	- Report : rsm2050_5.jrf
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-26 08:10:52][DB CONNECT]
+[I][UbiData][2012-03-26 08:10:52]	- Type : nonlookup
+[I][UbiData][2012-03-26 08:10:52]	- Db id : rbm
+[I][UbiData][2012-03-26 08:10:52]	- Sql id : dsBrncCompareSales1
+[I][UbiData][2012-03-26 08:10:52]	- Datasource : jdbc/RBM
+[I][UbiData][2012-03-26 08:10:52]	- Status : Success
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-26 08:10:52][DATA QUERY START]
+[I][UbiData][2012-03-26 08:10:52]	- sql id : dsBrncCompareSales1
+[I][UbiData][2012-03-26 08:10:52]	- Db charset : KSC5601
+[I][UbiData][2012-03-26 08:10:52]	- Sql
+<
+SELECT 
+      0 AS ORD,
+      MEET_CD, 
+            TDIV_NO, 
+            NO_ORDER, 
+            DECODE(NO_ORDER,'B01','창원','B02','부산',CD_NM) AS BRNCH_NM,   
+            round(B_AMT/? ,0) AS N_DIV_TOTAL,    
+            round(L_AMT/ (SELECT MAX(INF.TMS) FROM VW_SDL_INFO INF
+                                                              WHERE INF.STND_YEAR=?  -1
+                                                                   AND INF.MEET_CD ='001') ,0) AS L_DIV_TOTAL
+    FROM(
+        
+        SELECT MEET_CD,TDIV_NO,NO_ORDER,NET_AMT,B_AMT,L_AMT
+        FROM
+        (
+            SELECT MEET_CD,TDIV_NO,
+                   CASE WHEN TDIV_NO ='06' THEN 'A60'
+                   ELSE 'A'||TDIV_NO 
+                   END AS NO_ORDER
+            ,SUM(NET_AMT)/10000 AS NET_AMT,SUM(B_AMT)/10000 AS B_AMT,SUM(L_AMT)/10000 AS L_AMT
+            FROM
+            (
+             
+             SELECT MEET_CD,
+             
+              TDIV_NO,
+              
+              SUM(NET_AMT) AS NET_AMT,
+              0 AS B_AMT,
+              0 AS L_AMT
+             FROM
+             (
+                 SELECT                                                                                       
+              B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+              CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN '06' 
+                  WHEN SELL_CD IN ('01','03') AND COMM_NO < '11' THEN '01' 
+                   ELSE COMM_NO
+              END AS TDIV_NO,
+              
+              SUM(A.NET_AMT) AS NET_AMT                                            
+                 FROM VW_SDL_INFO B,                                                                                 
+              VW_PC_SATLIT_SUM A                                                                                  
+                 WHERE 1 = 1                                                                                         
+              AND B.MEET_CD = '001'        
+              AND B.STND_YEAR = ?   
+              AND B.TMS  <= ?   
+              AND A.MEET_CD = B.MEET_CD                 
+              AND A.STND_YEAR = B.STND_YEAR                                                                   
+              AND A.TMS = B.TMS                                                                               
+              AND A.DAY_ORD = B.DAY_ORD                                                                       
+                 GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+             )AA 
+             GROUP BY AA.MEET_CD,AA.TDIV_NO
+             UNION 
+             
+             
+             SELECT MEET_CD,
+             
+              TDIV_NO,
+              
+              0 AS NET_AMT,
+              SUM(NET_AMT) AS B_AMT,
+              0 AS L_AMT
+             FROM
+             (
+                 SELECT                                                                                       
+              B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+              CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN '06' 
+                  WHEN SELL_CD IN ('01','03') AND COMM_NO < '11' THEN '01' 
+                   ELSE COMM_NO
+              END AS TDIV_NO,
+              
+              SUM(A.NET_AMT) AS NET_AMT                                            
+                 FROM VW_SDL_INFO B,                                                                                 
+              VW_PC_SATLIT_SUM A                                                                                  
+                 WHERE 1 = 1                                                                                         
+              AND B.MEET_CD = '001'        
+              AND B.STND_YEAR = ?  
+              AND B.TMS  <= ?   
+              AND A.MEET_CD = B.MEET_CD                 
+              AND A.STND_YEAR = B.STND_YEAR                                                                   
+              AND A.TMS = B.TMS                                                                               
+              AND A.DAY_ORD = B.DAY_ORD                                                                       
+                 GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+             )BB
+             GROUP BY BB.MEET_CD,BB.TDIV_NO
+             UNION 
+             
+             
+             SELECT MEET_CD,
+             
+              TDIV_NO,
+              
+              0 AS NET_AMT,
+              0 AS B_AMT,
+              SUM(NET_AMT) AS L_AMT
+             FROM
+             (
+                 SELECT                                                                                       
+              B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+              CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN '06' 
+                  WHEN SELL_CD IN ('01','03') AND COMM_NO < '11' THEN '01' 
+                   ELSE COMM_NO
+              END AS TDIV_NO,
+              
+              SUM(A.NET_AMT) AS NET_AMT                                            
+                 FROM VW_SDL_INFO B,                                                                                 
+              VW_PC_SATLIT_SUM A                                                                                  
+                 WHERE 1 = 1                                                                                         
+              AND B.MEET_CD = '001'        
+              AND B.STND_YEAR = ?  -1  
+                                AND B.TMS <= (SELECT MAX(INF.TMS) FROM VW_SDL_INFO INF
+                                                         WHERE INF.STND_YEAR=?  -1
+                                                              AND INF.MEET_CD ='002')    
+              AND A.MEET_CD = B.MEET_CD
+              AND A.STND_YEAR = B.STND_YEAR                                                                   
+              AND A.TMS = B.TMS                                                                               
+              AND A.DAY_ORD = B.DAY_ORD                                                                       
+                 GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+             )CC
+             GROUP BY CC.MEET_CD,CC.TDIV_NO
+            )CCC   
+            GROUP BY CCC.MEET_CD,CCC.TDIV_NO
+        )DDD
+            
+        UNION ALL
+        
+        
+        SELECT MEET_CD,
+            SELL_CD,
+            NO_ORDER,
+            N_AMT,                                      
+            B_AMT,
+            L_AMT
+        FROM(    
+            SELECT                                      
+                MEET_CD,
+                 SELL_CD                                    
+                ,DECODE(SELL_CD,'02','B01','04','B02') AS NO_ORDER 
+                ,N_AMT                                      
+                ,B_AMT                                      
+                ,CASE WHEN B_AMT > N_AMT THEN '△' 
+                      WHEN B_AMT = N_AMT THEN '-'  
+                      WHEN B_AMT < N_AMT THEN ''   
+                 END B_AMT_SIGN                             
+                ,DECODE(B_AMT,0,0,ROUND(ABS(B_AMT-N_AMT)/B_AMT*100,1)) B_AMT_RATE 
+                ,L_AMT                                      
+                ,CASE WHEN L_AMT > N_AMT THEN '△' 
+                      WHEN L_AMT = N_AMT THEN '-'  
+                      WHEN L_AMT < N_AMT THEN ''   
+                 END L_AMT_SIGN                             
+                ,DECODE(L_AMT,0,0,ROUND(ABS(L_AMT-N_AMT)/L_AMT*100,1)) L_AMT_RATE 
+                FROM (                                      
+                 SELECT                                    
+                     MEET_CD
+                  ,SELL_CD                                 
+                  ,SUM(N_AMT)/1000000 N_AMT      
+                  ,SUM(B_AMT)/1000000 B_AMT      
+                  ,SUM(L_AMT)/1000000 L_AMT      
+                 FROM (                                    
+                  SELECT   
+                        MEET_CD,                               
+                   SELL_CD                               
+                   ,SUM(NET_AMT) N_AMT                   
+                   ,0 B_AMT                              
+                   ,0 L_AMT                              
+                  FROM VW_PC_PAYOFFS                    
+                  WHERE 1=1
+                  AND MEET_CD = '001'     
+                  AND STND_YEAR = ?   
+                  AND TMS   <= ?   
+                  AND SELL_CD IN ('02','04')              
+                  GROUP BY MEET_CD,SELL_CD                        
+                  UNION                                   
+                   SELECT    
+                   MEET_CD,                                 
+                   SELL_CD                               
+                   ,0 N_AMT                              
+                   ,SUM(NET_AMT) B_AMT                   
+                   ,0 L_AMT                              
+                  FROM VW_PC_PAYOFFS                    
+                  WHERE 1=1
+                  AND MEET_CD = '001'     
+                  AND STND_YEAR = '2011'  
+                  AND TMS   <= ?   
+                  AND SELL_CD IN ('02','04')              
+                  GROUP BY MEET_CD,SELL_CD                        
+                  UNION                                   
+                   SELECT   
+                   MEET_CD,                                  
+                   SELL_CD                               
+                   ,0 N_AMT                              
+                   ,0 B_AMT                              
+                   ,SUM(NET_AMT) L_AMT                   
+                  FROM VW_PC_PAYOFFS                    
+                  WHERE 1=1                               
+                  AND STND_YEAR = (                       
+                   SELECT DISTINCT STND_YEAR             
+                   FROM VW_SDL_INFO                      
+                   WHERE 1=1
+                   AND STND_YEAR =?  -1  
+                  )
+                  AND MEET_CD = '001'         
+                                             AND TMS <= (SELECT MAX(INF.TMS) FROM VW_SDL_INFO INF
+                                                              WHERE INF.STND_YEAR=?  -1
+                                                                   AND INF.MEET_CD ='002')    
+                  AND SELL_CD IN ('02','04')              
+                  GROUP BY MEET_CD,SELL_CD                        
+                 ) GROUP BY MEET_CD,SELL_CD                        
+                )                                
+        )EEE        
+    )AAAA,
+    (
+    
+             SELECT  CD,
+                     DECODE(CD,'01','본장','06','그린카드',CD_NM) AS CD_NM
+               FROM  TBRK_SPEC_CD A  
+              WHERE  1=1
+              AND  A.GRP_CD = '060' 
+              AND A.CD NOT IN('00','29')
+             ) BB    
+             WHERE 1=1
+             AND TDIV_NO= BB.CD(+)
+             AND TDIV_NO <> '999'
+    GROUP BY MEET_CD,TDIV_NO,NO_ORDER,CD_NM,NET_AMT,B_AMT,L_AMT
+    ORDER BY AAAA.NO_ORDER
+ #String#11#String#2012#String#2012#String#11#String#2012#String#11#String#2012#String#2012#String#2012#String#11#String#11#String#2012#String#2012#
+>
+[I][UbiData][2012-03-26 08:10:54]	- Row size : 22
+[I][UbiData][2012-03-26 08:10:54]	- Data
+<
+0^t001^t01^tA01^t본장^t4808^t4631^t^n0^t001^t11^tA11^t수원^t1760^t1774^t^n0^t001^t12^tA12^t상봉^t2586^t2379^t^n0^t001^t13^tA13^t일산^t1360^t1574^t^n0^t001^t14^tA14^t분당^t2482^t2349^t^n0^t001^t15^tA15^t동대문^t1478^t1096^t^n0^t001^t16^tA16^t장안^t3321^t2872^t^n0^t001^t17^tA17^t산본^t1452^t1386^t^n0^t001^t18^tA18^t부천^t1474^t1448^t^n0^t001^t19^tA19^t관악^t1560^t1432^t^n0^t001^t20^tA20^t길음^t0^t1435^t^n0^t001^t21^tA21^t당산^t2129^t1873^t^n0^t001^t22^tA22^t유성^t1394^t1290^t^n0^t001^t23^tA23^t인천^t923^t970^t^n0^t001^t24^tA24^t시흥^t1273^t1269^t^n0^t001^t25^tA25^t논현^t1314^t1220^t^n0^t001^t26^tA26^t천안^t984^t908^t^n0^t001^t27^tA27^t올림픽^t3817^t4154^t^n0^t001^t28^tA28^t의정부^t963^t790^t^n0^t001^t06^tA60^t그린카드^t219^t278^t^n0^t001^t02^tB01^t창원^t2967^t2944^t^n0^t001^t04^tB02^t부산^t3264^t3082^t^n
+>
+[I][UbiData][2012-03-26 08:10:54][DATA QUERY END]
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-26 08:10:54][DATA QUERY START]
+[I][UbiData][2012-03-26 08:10:54]	- sql id : dsStndYearTms
+[I][UbiData][2012-03-26 08:10:54]	- Db charset : KSC5601
+[I][UbiData][2012-03-26 08:10:54]	- Sql
+<
+SELECT
+   ?  AS  STND_YEAR
+  ,?  AS TMS
+ FROM DUAL
+ #String#2012#String#11#
+>
+[I][UbiData][2012-03-26 08:10:54]	- Row size : 1
+[I][UbiData][2012-03-26 08:10:54]	- Data
+<
+2012^t11^t^n
+>
+[I][UbiData][2012-03-26 08:10:54][DATA QUERY END]
+--------------------------------------------------------------------------------
+

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem3080(일자별 지점별 입장인원)">
+    <query id="rem3080_s01" desc="일자별 지점별 입장인원  조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rem3080_s01 */
+                    MEET_CD
+                   ,RACE_DAY
+                   ,TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'DY') AS RACE_DY
+                   ,SUBSTR(MAX(SYS_CONNECT_BY_PATH(BRNC_NM,', ')), 3) BRNC_NM
+			FROM (       
+                  SELECT 			
+				       MEET_CD
+				      ,B.RACE_DAY
+				      ,A.BRNC_CD
+				      ,B.COMM_NM AS BRNC_NM
+				      ,ROW_NUMBER() OVER(PARTITION BY RACE_DAY ORDER BY A.BRNC_CD) AS RNUM
+	            FROM  (
+			            SELECT RACE_DT, BRNC_CD, 
+			                     NVL(SUM(ENT_PRSN_NUM),0) AS ENT_PRSN_NUM
+			            FROM   TBRC_STAY_MANA
+			            WHERE  MEET_CD LIKE ?||'%'
+			            AND    RACE_DT LIKE ?||'%'
+			            AND    BRNC_CD LIKE ?||'%'
+			            GROUP BY RACE_DT, BRNC_CD
+			           ) A, 
+			           (
+			              SELECT   MEET_CD
+			                      ,RACE_DAY
+			                      ,C.CD_NM2 AS BRNC_CD
+			                      ,C.CD_NM AS COMM_NM
+			                FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+			                       FROM   VW_SDL_INFO
+			                       WHERE  RACE_DAY < TO_CHAR(SYSDATE, 'YYYYMMDD')
+			                       GROUP BY RACE_DAY) S,
+			                      TBRK_SPEC_CD C
+			                WHERE 1=1
+			                AND   C.GRP_CD = '166'
+			                AND   C.DEL_YN = 'N'
+			                AND   RACE_DAY LIKE ?||'%'
+			                AND   S.RACE_DAY BETWEEN C.CD_TERM1 AND C.CD_TERM2
+                            AND   S.MEET_CD = C.CD_TERM3
+			            ) B
+			    WHERE A.RACE_DT = B.RACE_DAY
+			    AND   A.BRNC_CD = B.BRNC_CD
+			    AND   A.ENT_PRSN_NUM = 0        
+		        )
+			START WITH RNUM = 1
+			CONNECT BY PRIOR RNUM = RNUM -1 AND PRIOR RACE_DAY = RACE_DAY AND PRIOR MEET_CD = MEET_CD
+			GROUP BY MEET_CD, RACE_DAY        
+            ORDER BY 1
+         ]]>
+    </query> 
+      
+</queryMap>

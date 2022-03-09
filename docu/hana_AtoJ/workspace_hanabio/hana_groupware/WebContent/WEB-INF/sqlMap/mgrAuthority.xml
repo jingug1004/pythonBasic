@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : mgrAuthority.xml
+  * @메뉴명 : 권한관리
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="mgrAuthority"> 
+
+	<select id="getAuthorityList" parameterType="map" resultType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+					SELECT *
+					FROM (SELECT ROW_NUMBER () OVER (ORDER BY AUTH_SEQ) AS RNUM, CA.*
+					  FROM (SELECT   AUTH_SEQ, AUTH_NM, DESCR, CREATE_DT, CREATE_NO,
+					                 DELETE_YN
+					          FROM GW_CO_AUTH
+					         WHERE DELETE_YN = 'N'
+					       ) CA)
+				<if test="searchKeyword != null">
+					<choose>
+						<when test="searchType == 'auth_nm'">
+		 					WHERE AUTH_NM LIKE '%' || #{searchKeyword} || '%'
+						</when>
+					</choose>
+				</if>
+				ORDER BY RNUM DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getAuthorityCount" parameterType="map" resultType="int">
+		SELECT COUNT(*) 
+		  FROM GW_CO_AUTH
+	     WHERE DELETE_YN='N'
+		  <if test="searchKeyword != null">
+			<choose>
+				<when test="searchType == 'auth_nm'">
+ 					AND AUTH_NM LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+	</select>
+	
+	<select id="getAuthorityDetail" parameterType="map" resultType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		SELECT AUTH_SEQ, AUTH_NM, DESCR 
+		  FROM GW_CO_AUTH 
+		 WHERE AUTH_SEQ = #{auth_seq}
+	</select>
+	
+	<select id="getAuthorityMenuList" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+           SELECT MENU_PARENTS, MENU_CHILD, MENU_NM, DESCR, ORDERING, USE_YN, URL,
+                  CREATE_NO, DELETE_YN
+             FROM GW_CO_MENU MENU
+            WHERE MENU_CHILD != '00'
+              AND LENGTH (MENU_CHILD) = 2
+               OR LENGTH (MENU_CHILD) = 4
+               OR LENGTH (MENU_CHILD) = 6
+            START WITH MENU.MENU_PARENTS = '-1'
+          CONNECT BY PRIOR MENU.MENU_CHILD = MENU.MENU_PARENTS
+              AND MENU.DELETE_YN = 'N'
+            ORDER SIBLINGS BY ORDERING, MENU_CHILD, MENU_PARENTS ASC
+	</select>
+	
+	<select id="getAuthorityMenuRow" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+		  SELECT M2.MENU_PARENTS, CNT, M1.MENU_NM
+		    FROM GW_CO_MENU M1,
+		         (SELECT   SUBSTR (MENU_PARENTS, 1, 2) AS MENU_PARENTS, COUNT (*) CNT
+		              FROM GW_CO_MENU
+		             WHERE MENU_PARENTS != 00
+		               AND (LENGTH (MENU_PARENTS) = 2 OR LENGTH (MENU_PARENTS) = 4)
+		               AND DELETE_YN='N'
+       				   AND USE_YN='Y'
+		          GROUP BY SUBSTR (MENU_PARENTS, 1, 2)) M2
+		   WHERE M1.MENU_CHILD = M2.MENU_PARENTS
+		ORDER BY MENU_PARENTS ASC
+	</select>
+	
+	<insert id="insertAuthority" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		INSERT INTO GW_CO_AUTH
+		            (AUTH_SEQ, AUTH_NM, DESCR, CREATE_DT, CREATE_NO, DELETE_YN)
+		     VALUES (SEQ_GW_CO_AUTH.NEXTVAL, #{auth_nm}, #{descr}, SYSDATE, #{create_no}, 'N')
+	</insert>
+	
+	<delete id="deleteAuthorityMenuCode" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		DELETE GW_CO_MENU_MAPPING 
+			WHERE AUTH_SEQ = #{auth_seq}
+	</delete>
+	
+	<update id="updateAuthority" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		UPDATE GW_CO_AUTH
+		   SET AUTH_NM = #{auth_nm}, MODIFY_NO = #{create_no}, MODIFY_DT = SYSDATE,
+		       DESCR = #{descr}
+		 WHERE AUTH_SEQ = #{auth_seq}
+	</update>
+	
+	<select id="getAuth_seq" resultType="String">
+		SELECT max(AUTH_SEQ) AUTH_SEQ FROM GW_CO_AUTH
+	</select>
+	
+	<insert id="insertAuthorityMenuCode" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		INSERT INTO GW_CO_MENU_MAPPING
+            (AUTH_SEQ, MENU_CD, CREATE_DT, CREATE_NO)
+			VALUES (#{auth_seq}, #{menu_cd}, SYSDATE, #{create_no})
+	</insert>
+	
+	<delete id="deleteAuthorityEmpNo" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		DELETE GW_CO_AUTH_MAPPING 
+			WHERE AUTH_SEQ = #{auth_seq}
+	</delete>
+	
+	<insert id="insertAuthorityEmpNo" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		INSERT INTO GW_CO_AUTH_MAPPING
+		            (AUTH_SEQ, EMP_NO, CREATE_DT, CREATE_NO)
+		     VALUES (#{auth_seq}, #{emp_no}, SYSDATE, #{create_no})
+	</insert>
+	
+	<select id="getMenuCodeList" parameterType="map" resultType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		SELECT AUTH_SEQ, MENU_CD
+		  FROM GW_CO_MENU_MAPPING
+		<if test="auth_seq != null" >
+		  WHERE AUTH_SEQ = #{auth_seq}	  
+		</if>
+	</select>	
+	
+	<select id="getAuthorityMemberList" parameterType="map" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT AM.AUTH_SEQ, AM.EMP_NO, EMP.EMP_KO_NM, DEPT.DEPT_KO_NM, CO.GRAD_KO_NM
+		  FROM GW_CO_AUTH_MAPPING AM,
+		       HANAHR.HR_HC_EMPBAS_0 EMP,
+		       HANAHR.HR_CO_DEPART_0 DEPT,
+		       HANAHR.HR_CO_CLASCD_0 CO
+		 WHERE AM.EMP_NO = EMP.EMP_NO 
+		   AND EMP.DEPT_CD = DEPT.DEPT_CD
+		   AND EMP.GRAD_CD = CO.GRAD_CD
+		   AND AM.AUTH_SEQ IN (<foreach collection="authIdxArray" item="auth_seq" separator=",">#{auth_seq}</foreach>)
+		 ORDER BY EMP.DEPT_CD, EMP.GRAD_CD, EMP.EMP_NO  
+	</select>
+	
+	<update id="deleteAuthority" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		UPDATE GW_CO_AUTH
+		   SET DELETE_YN = 'Y',
+		       MODIFY_DT = SYSDATE,
+		       MODIFY_NO = #{modify_no}
+		 WHERE AUTH_SEQ = #{auth_seq}
+	</update>
+	
+	<delete id="resetAuthMember" parameterType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+		DELETE GW_CO_AUTH_MAPPING
+		 WHERE AUTH_SEQ = #{auth_seq} 
+	</delete>
+	
+	<select id="searchAuthMember" parameterType="string" resultType="com.hanaph.gw.co.authority.vo.AuthorityVO">
+	SELECT CAM.AUTH_SEQ ,CAM.EMP_NO, CA.AUTH_NM, EMP.EMP_KO_NM
+	  FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+	       GW_CO_AUTH_MAPPING CAM,
+	       GW_CO_AUTH CA
+	 WHERE CAM.AUTH_SEQ = CA.AUTH_SEQ
+	   AND CAM.EMP_NO = EMP.EMP_NO
+	   AND EMP.EMP_KO_NM LIKE '%' || #{emp_ko_nm} || '%'
+	</select>
+	
+</mapper>
+	

@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="학과평가"> 
+    <query id="tbdn_dt_wrtn_estm_fn001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+            SELECT '0' AS CHK,
+            	   RACER_PERIO_NO,
+                   DT
+            FROM  TBDN_DT_WRTN_ESTM
+            WHERE  RACER_PERIO_NO = ?
+            GROUP BY RACER_PERIO_NO,DT
+            ORDER BY DT
+		]]>
+    </query>      
+    <query id="tbdn_dt_wrtn_estm_fn002" desc="일자별 학과평가 후보생리스트" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TCI.RACER_PERIO_NO		RACER_PERIO_NO
+			       , TCI.CAND_NO			CAND_NO
+			       , TCI.NM_KOR				NM_KOR
+			       , ? 	 					DT
+			       , ROUND(TDWE.AVG_SCR,2)	AVG_SCR
+			       , ROUND(TDWE.SCR_101,2)	SCR_101
+			       , ROUND(TDWE.SCR_102,2)  SCR_102
+			       , ROUND(TDWE.SCR_103,2)	SCR_103
+			       , DECODE(NVL(TDWE.AVG_SCR,0),0,999,RANK() OVER (ORDER BY NVL(TDWE.AVG_SCR,0) DESC))  RANK
+			      -- , DECODE(NVL(TDWE.AVG_SCR,0),0,999,DENSE_RANK() OVER (ORDER BY NVL(TDWE.AVG_SCR,0) DESC))  RANK
+		 	FROM   TBDN_CAND_IDENT TCI
+			       , (
+			            SELECT   CAND_NO
+			                   , ROUND(AVG(SCR), 2)               AVG_SCR
+			                   , MIN(DECODE(ITEM_CD, '101', SCR)) SCR_101
+			                   , MIN(DECODE(ITEM_CD, '102', SCR)) SCR_102
+			                   , MIN(DECODE(ITEM_CD, '103', SCR)) SCR_103
+			            FROM   TBDN_DT_WRTN_ESTM
+			            WHERE  RACER_PERIO_NO = ?
+			            AND    DT             = ?
+			            AND    ITEM_CD IN ('101', '102', '103')
+			            GROUP BY
+			                     RACER_PERIO_NO
+			                   , CAND_NO
+			                   , DT
+			         ) TDWE
+			WHERE  TCI.CAND_NO          = TDWE.CAND_NO(+)
+			AND    NVL(TCI.DEL_YN, 'N') = 'N'
+			AND    TCI.RACER_PERIO_NO   = ?
+			AND    TCI.CAND_NO NOT IN (
+                                            SELECT CAND_NO
+                                            FROM   TBDN_TEMP_ABS
+                                            WHERE  RACER_PERIO_NO  = ?
+                                            AND    GEN_DT          < ?
+                                			AND    GBN            IN ('001', '003')
+			                              )
+			ORDER BY TCI.CAND_NO
+		]]>
+    </query>   
+    <query id="tbdn_dt_wrtn_estm_fn004" desc="일자별 학과평가집계 후보생리스트 " fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TCI.RACER_PERIO_NO			RACER_PERIO_NO
+			       , TCI.CAND_NO				CAND_NO
+			       , TCI.NM_KOR					NM_KOR
+			       , ROUND(TDWE.AVG_SCR,2)		AVG_SCR
+			       , ROUND(TDWE.AVG01_SCR,2)	AVG01_SCR
+			       , ROUND(TDWE.AVG02_SCR,2)	AVG02_SCR
+			       , ROUND(TDWE.AVG03_SCR,2)	AVG03_SCR
+			       , DECODE(NVL(TDWE.AVG_SCR,0),0,999,RANK() OVER (ORDER BY NVL(TDWE.AVG_SCR,0) DESC))  RANK
+			 	 --, DECODE(NVL(TDWE.AVG_SCR,0),0,999,DENSE_RANK() OVER (ORDER BY NVL(TDWE.AVG_SCR,0) DESC))  RANK
+			FROM     TBDN_CAND_IDENT TCI
+			       , (
+			            SELECT   CAND_NO						  CAND_NO
+			                   , ROUND(AVG(SCR), 2)               AVG_SCR
+			                   , AVG(DECODE(ITEM_CD, '101', SCR)) AVG01_SCR
+			                   , AVG(DECODE(ITEM_CD, '102', SCR)) AVG02_SCR
+			                   , AVG(DECODE(ITEM_CD, '103', SCR)) AVG03_SCR
+			            FROM   TBDN_DT_WRTN_ESTM
+			            WHERE  RACER_PERIO_NO = ?
+			            AND    ITEM_CD       IN ('101', '102', '103')
+			            GROUP BY RACER_PERIO_NO
+			                   , CAND_NO
+			         ) TDWE
+			WHERE  TCI.CAND_NO          = TDWE.CAND_NO
+			AND    NVL(TCI.DEL_YN, 'N') = 'N'
+			AND    TCI.RACER_PERIO_NO   = ?
+			ORDER BY TCI.CAND_NO
+		]]>
+    </query>    
+    <query id="tbdn_dt_wrtn_estm_fn005" desc="일자별 학과평가집계 일자별기록리스트 " fetchSize="10">
+        <![CDATA[
+                SELECT   DT
+                       , MIN(DECODE(ITEM_CD, '101', SCR)) ITEM01_SCR
+                       , MIN(DECODE(ITEM_CD, '102', SCR)) ITEM02_SCR
+                       , MIN(DECODE(ITEM_CD, '103', SCR)) ITEM03_SCR
+                FROM   TBDN_DT_WRTN_ESTM
+                WHERE  RACER_PERIO_NO        = ?
+                AND    CAND_NO               = ?
+                GROUP BY DT
+                ORDER BY DT
+		]]>
+    </query>
+    <query id="tbdn_round_wrtn_estm_fn006_" desc="차수별학과평가 일자 조회" fetchSize="10">
+        <![CDATA[
+           
+            SELECT DT
+            FROM   TBDN_ROUND_WRTN_ESTM
+            WHERE  RACER_PERIO_NO = ?
+            AND    ROUND          = ?
+            GROUP BY DT
+		]]>
+    </query>
+    
+    
+    <query id="tbdn_round_wrtn_estm_fn006" desc="차수별학과평가 조회 " fetchSize="10">
+        <![CDATA[
+				SELECT
+			         TCI.RACER_PERIO_NO
+			       , TCI.CAND_NO
+			       , TCI.NM_KOR
+			       , ? ROUND
+			       , DT
+			       , ROUND(TDWE.AVG_SCR,2)	AVG_SCR
+			       , ROUND(TDWE.SCR_101,2)	SCR_101
+			       , ROUND(TDWE.SCR_102,2)	SCR_102
+			       , ROUND(TDWE.SCR_103,2)	SCR_103
+			       , DECODE(NVL(TDWE.AVG_SCR,0),0,999,RANK() OVER (ORDER BY NVL(TDWE.AVG_SCR,0) DESC))  RANK
+			     --, DECODE(NVL(TDWE.AVG_SCR,0),0,999,DENSE_RANK() OVER (ORDER BY NVL(TDWE.AVG_SCR,0) DESC))  RANK
+			   FROM TBDN_CAND_IDENT TCI
+			       , (
+			            SELECT
+			                     CAND_NO
+			                   , DT
+			                   , ROUND(AVG(SCR), 2)               AVG_SCR
+			                   , MIN(DECODE(ITEM_CD, '101', SCR)) SCR_101
+			                   , MIN(DECODE(ITEM_CD, '102', SCR)) SCR_102
+			                   , MIN(DECODE(ITEM_CD, '103', SCR)) SCR_103
+			            FROM   TBDN_ROUND_WRTN_ESTM
+			            WHERE  RACER_PERIO_NO = ?
+			            AND    ROUND          = ?
+			            AND    ITEM_CD       IN ('101', '102', '103')
+			            GROUP BY RACER_PERIO_NO
+			                    ,CAND_NO
+			                    ,DT
+			         ) TDWE
+			WHERE  TCI.CAND_NO          = TDWE.CAND_NO(+)
+			AND    NVL(TCI.DEL_YN, 'N') = 'N'
+			AND    TCI.RACER_PERIO_NO   = ?
+			AND    TCI.CAND_NO     NOT IN (
+                                            SELECT   
+                                                   CAND_NO
+                                            FROM   TBDN_TEMP_ABS
+                                            WHERE  RACER_PERIO_NO  = ?
+                                            AND    GEN_DT          < NVL((
+	                                                			            SELECT
+	                                                			                   MIN(DT)
+	                                                			            FROM   TBDN_ROUND_WRTN_ESTM
+	                                                			            WHERE  RACER_PERIO_NO = ?
+	                                                			            AND    ROUND          = ?
+	                                                			            GROUP BY DT
+                                                                         ), TO_CHAR(SYSDATE, 'YYYYMMDD'))
+                                			AND    GBN            IN ('001', '003')
+			                              )
+			ORDER BY TCI.CAND_NO
+		]]>
+    </query>
+    <query id="tbdn_round_wrtn_estm_fn007" desc="차수별 학과평가집계 조회 " fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TCI.CAND_NO
+			       , TCI.NM_KOR
+			       , ROUND(AVG(TRWE.SCR), 2) AVG_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1011', TRWE.SCR)) ITEM01_1_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1012', TRWE.SCR)) ITEM01_2_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1013', TRWE.SCR)) ITEM01_3_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1014', TRWE.SCR)) ITEM01_4_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1021', TRWE.SCR)) ITEM02_1_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1022', TRWE.SCR)) ITEM02_2_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1023', TRWE.SCR)) ITEM02_3_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1024', TRWE.SCR)) ITEM02_4_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1031', TRWE.SCR)) ITEM03_1_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1032', TRWE.SCR)) ITEM03_2_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1033', TRWE.SCR)) ITEM03_3_SCR
+			       , MIN(DECODE(TRWE.ITEM_CD||TRWE.ROUND, '1034', TRWE.SCR)) ITEM03_4_SCR
+			       ,DECODE(NVL(AVG(TRWE.SCR),0),0,999,RANK() OVER (ORDER BY NVL(AVG(TRWE.SCR),0) DESC))  RANK
+			     --,DECODE(NVL(AVG(TRWE.SCR),0),0,999,DENSE_RANK() OVER (ORDER BY NVL(AVG(TRWE.SCR),0) DESC))  RANK
+			FROM     TBDN_ROUND_WRTN_ESTM TRWE
+			       , TBDN_CAND_IDENT      TCI
+			WHERE  TCI.RACER_PERIO_NO = TRWE.RACER_PERIO_NO
+			AND    TCI.CAND_NO        = TRWE.CAND_NO
+			AND    TCI.RACER_PERIO_NO = ?
+			GROUP BY TCI.CAND_NO
+			       , TCI.NM_KOR
+			ORDER BY TCI.CAND_NO
+		]]>
+    </query>    
+    <query id="tbdn_dt_wrtn_estm_in001" desc="일자별 학과평가 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_DT_WRTN_ESTM (
+				RACER_PERIO_NO
+				,CAND_NO
+				,DT
+				,ITEM_CD
+				,ROUND
+				,SCR
+				,INST_ID
+				,INST_DTM
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?				
+				,?
+				,?
+				,SYSDATE
+			 )
+		]]>
+    </query>
+    <query id="tbdn_dt_wrtn_estm_un001" desc="일자별 학과평가 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_DT_WRTN_ESTM 
+			SET
+					 ROUND			= ?
+					,SCR			= ?
+					,UPDT_ID        = ?
+					,UPDT_DTM       = SYSDATE
+			WHERE	RACER_PERIO_NO	= ?
+			AND		CAND_NO			= ?
+			AND		DT				= ?
+			AND		ITEM_CD			= ?
+		]]>
+    </query>
+    <query id="tbdn_dt_wrtn_estm_dn001" desc="일자별 학과평가 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_DT_WRTN_ESTM 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?
+		]]>
+    </query> 
+    <query id="tbdn_round_wrtn_estm_in001" desc="차수별 학과평가 입력" fetchSize="10">
+        <![CDATA[
+			
+			INSERT INTO TBDN_ROUND_WRTN_ESTM (
+				RACER_PERIO_NO
+				,CAND_NO
+				,ROUND
+				,ITEM_CD
+				,DT
+				,SCR
+				,INST_ID
+				,INST_DTM
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?				
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query> 
+    <query id="tbdn_round_wrtn_estm_un001" desc="차수별 학과평가 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_ROUND_WRTN_ESTM 
+			SET      DT			    = ?
+					,SCR			= ?
+					,UPDT_ID        = ?
+					,UPDT_DTM       = SYSDATE
+			WHERE	RACER_PERIO_NO	= ?
+			AND		CAND_NO			= ?
+			AND		ROUND			= ?
+			AND		ITEM_CD			= ?
+		]]>
+    </query>    
+    <query id="tbdn_round_wrtn_estm_un002" desc="차수별 학과평가 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_ROUND_WRTN_ESTM 
+			SET      DT			    = ?
+					,UPDT_ID        = ?
+					,UPDT_DTM       = SYSDATE
+			WHERE	RACER_PERIO_NO	= ?
+			AND		ROUND			= ?
+		]]>
+    </query>    
+</queryMap>

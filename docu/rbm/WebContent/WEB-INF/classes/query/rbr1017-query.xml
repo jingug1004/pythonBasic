@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR1017(시설현황)">
+	<query id="rbr1017_s01" desc="시설현황 조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rbr1017_s01 */
+ 				 '0' AS CHK
+				,A.BRNC_CD				--지점코드
+				,A.STND_YEAR			--년도
+				,A.FLOOR				--층수
+				,A.FAC_CD				--시설코드
+				,(SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '006' AND CD = A.FAC_CD ) AS FAC_NM
+				,A.FAC_GBN			--시설구분코드
+				,(SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '005' AND CD = A.FAC_GBN ) AS FAC_GBN_NM
+				,A.AREA_SQMT			--면적(㎡)
+				,A.AREA_PY			--면적(평)
+				,A.AMT				--수량(판매원)
+				,A.RMK				--비고
+			  FROM  TBRA_FAC_STAT A  --시설현황
+			 WHERE  1=1
+			   AND  A.BRNC_CD   = ?    --지점코드
+			   AND  A.STND_YEAR = ?    --년도
+			 ORDER BY A.FLOOR,A.FAC_GBN,A.FAC_CD
+        ]]>
+	</query>
+	
+	<query id="rbr1017_s02" desc="층수 코드" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rbr1017_s02 */
+				 FLOOR AS CD				--층 코드
+				,FLOOR || '층' AS CD_NM		--층 이름
+
+			  FROM	TBRA_FLOOR_MANA  --층관리
+			
+			 WHERE	1=1
+			   AND  BRNC_CD   = ?  --지점코드
+		   	   AND  STND_YEAR = ?  --년도
+			ORDER BY	FLOOR
+        ]]>
+	</query>
+	
+	<query id="rbr1017_s03" desc="기본키 조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* "rbr1017_s03" */
+                 COUNT(*) AS CNT     --기본키 개수
+              FROM  TBRA_FAC_STAT    --시설현황
+             WHERE  1=1
+               AND  BRNC_CD   = ? --지점코드
+               AND  STND_YEAR = ? --년도
+               AND  FLOOR     = ? --층
+               AND  FAC_CD    = ? --시설코드
+        ]]>
+    </query>
+    
+	<query id="rbr1017_m01" desc="시설현황  입력,수정" fetchSize="10">
+        <![CDATA[
+
+			MERGE INTO TBRA_FAC_STAT A /* rbr1017_m01 */  --시설현황
+			USING
+                    (SELECT
+                             ? AS BRNC_CD        --지점코드
+							,? AS STND_YEAR      --년도
+							,? AS FLOOR          --층수
+							,? AS FAC_CD         --시설코드
+							,? AS FAC_GBN     --시설구분코드
+							
+							,? AS AREA_SQMT      --면적(㎡)
+							,? AS AREA_PY        --면적(평)
+							,? AS AMT            --수량(판매원)
+							,? AS RMK            --비고
+                            ,? AS INST_ID        --작성자
+                            
+                            ,? AS UPDT_ID        --수정자
+                            
+                       FROM    DUAL ) B
+                ON (
+                        A.BRNC_CD   = B.BRNC_CD    --지점코드
+                    AND A.STND_YEAR = B.STND_YEAR  --년도
+                    AND A.FLOOR     = B.FLOOR      --층수
+                    AND A.FAC_CD    = B.FAC_CD     --시설코드
+            )
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+				
+					 A.FAC_GBN = B.FAC_GBN   --시설구분코드
+                    ,A.AREA_SQMT  = B.AREA_SQMT    --면적(㎡)
+                    ,A.AREA_PY    = B.AREA_PY      --면적(평)
+                    ,A.AMT        = B.AMT          --수량(판매원)
+                    ,A.RMK        = B.RMK          --비고
+
+                    ,A.UPDT_ID    = B.UPDT_ID      --수정자
+                    ,A.UPDT_DT    = SYSDATE        --수정일시
+			    
+			WHEN NOT MATCHED THEN 
+				
+				INSERT (
+			
+					 A.BRNC_CD              --지점코드
+                    ,A.STND_YEAR            --년도
+                    ,A.FLOOR                --층수
+                    ,A.FAC_CD               --시설코드
+                    ,A.FAC_GBN           --시설구분코드
+                    
+                    ,A.AREA_SQMT            --면적(㎡)
+                    ,A.AREA_PY              --면적(평)
+                    ,A.AMT                  --수량(판매원)
+                    ,A.RMK                  --비고
+                    ,A.INST_ID              --작성자
+                    
+                    ,A.INST_DT              --작성일시
+					
+				) VALUES (
+					 B.BRNC_CD              --지점코드
+                    ,B.STND_YEAR            --년도
+                    ,B.FLOOR                --층수
+                    ,B.FAC_CD               --시설코드
+                    ,B.FAC_GBN           --시설구분코드
+                    
+                    ,B.AREA_SQMT            --면적(㎡)
+                    ,B.AREA_PY              --면적(평)
+                    ,B.AMT                  --수량(판매원)
+                    ,B.RMK                  --비고
+                    ,B.INST_ID              --작성자
+					
+					,SYSDATE				--INST_DT(작성일시)
+				)
+        ]]>				
+    </query>
+    
+    <query id="rbr1017_d01" desc="시설현황 삭제" fetchSize="10">
+        <![CDATA[
+
+			DELETE  TBRA_FAC_STAT   /* rbr1017_d01 */	--시설현황
+			 WHERE  1=1
+			   AND  BRNC_CD   = ?   --지점코드
+			   AND  STND_YEAR = ?	--년도
+			   AND  FLOOR     = ?	--층수
+			   AND  FAC_CD    = ?	--시설코드
+        ]]>
+    </query>
+</queryMap>

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR4020(사건이력관리)">
+	<query id="rbr4020_s01" desc="사건조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rbr4020_s01 */
+                 BRNC_CD    		--지점코드
+			    ,EVNT_SEQ			--사건순번
+				,EVNT_NO			--사업번호
+				,GEN_DT             --발생일자
+				,EVNT_NM            --사건명
+				
+				,END_YN				--종료여부
+                ,(SELECT  CD_NM
+                    FROM  TBRK_SPEC_CD --상세코드
+                   WHERE  1=1
+                     AND  GRP_CD = '018'
+                     AND  CD     = BRNC_CD) AS BRNC_NM  
+                     
+			  FROM  TBRA_EVNT_MANA  --사건관리
+			
+			 WHERE	1=1
+			   AND  UPPER(DEL_YN) = 'N'
+			   AND  GEN_DT      BETWEEN  ? AND ?						--발생일자
+			   AND  BRNC_CD	    LIKE  '%' || NVL(? , BRNC_CD) || '%'	--지점코드
+			   AND  EVNT_NM     LIKE  '%' || NVL(? , EVNT_NM) || '%'    --사건명
+			   AND  END_YN	    LIKE  '%' || NVL(? , END_YN)  || '%'	--종료여부
+		
+		  ORDER BY 	BRNC_CD, EVNT_SEQ DESC, GEN_DT
+        ]]>
+	</query>
+
+	<query id="rbr4020_s02" desc="사건이력조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rbr4020_s02 */
+ 				 '0' AS CHK
+				,BRNC_CD    		--지점코드
+				,EVNT_SEQ			--사건순번
+				,SEQ				--순번
+				,GEN_DT             --발생일자
+				,MNG				--담당자
+				
+				,TITLE				--제목
+				,ATT_FILE_KEY		--첨부파일키
+				,EVNT_CONT			--사건내용
+				,RMK				--비고				
+				,INST_ID			--작성자
+							
+				,INST_DT			--작성일시
+				,UPDT_ID			--수정자
+				,UPDT_DT			--수정일시
+				,DECODE((SELECT  COUNT(*)
+                		   FROM  TBRK_FILE_MANA
+                		  WHERE  1=1
+                		    AND  TBRA_EVNT_HIST_MANA.ATT_FILE_KEY = TBRK_FILE_MANA.ATT_FILE_KEY
+                	     ), 0, 'Y', 'N') AS DELETE_CD --삭제식별코드
+             
+			  FROM  TBRA_EVNT_HIST_MANA	--사건이력
+			
+			 WHERE	1=1
+			   AND  UPPER(DEL_YN) = 'N'
+			   AND  BRNC_CD  = ?	--지점코드
+			   AND  EVNT_SEQ = ?	--사건순번
+		
+		  ORDER BY 	SEQ
+        ]]>
+	</query>
+
+	<query id="rbr4020_m01" desc="사건이력입력,수정" fetchSize="10">
+		<![CDATA[
+      		MERGE INTO TBRA_EVNT_HIST_MANA A /* rbr4020_m01 */ --사건이력
+      		USING
+      		        (SELECT
+      		                 ? AS BRNC_CD       --지점코드
+							,? AS EVNT_SEQ      --사건순번
+							,? AS SEQ           --순번
+							,? AS GEN_DT        --발생일자
+							,? AS MNG           --담당자
+							
+							,? AS TITLE         --제목
+							,? AS EVNT_CONT     --사건내용
+							,? AS ATT_FILE_KEY  --첨부파일키
+							,? AS RMK           --비고
+							,? AS INST_ID       --작성자
+							
+							,? AS UPDT_ID       --수정자
+							
+                       FROM    DUAL ) B
+                ON (
+					    A.BRNC_CD  = B.BRNC_CD	   --지점코드
+					AND A.EVNT_SEQ = B.EVNT_SEQ	   --사건순번
+                    AND A.SEQ      = B.SEQ         --순번
+			)
+			
+			WHEN MATCHED THEN
+				UPDATE SET 
+					 A.GEN_DT       = B.GEN_DT		  --발생일자
+					,A.MNG          = B.MNG			  --담당자
+                    ,A.TITLE        = B.TITLE         --제목
+                    ,A.ATT_FILE_KEY = B.ATT_FILE_KEY  --첨부파일키
+                    ,A.EVNT_CONT    = B.EVNT_CONT     --사건내용
+                    
+					,A.RMK          = B.RMK			  --비고
+					,A.UPDT_ID      = B.UPDT_ID	      --수정자
+					,A.UPDT_DT      = SYSDATE	      --수정일시
+			    
+			WHEN NOT MATCHED THEN
+				INSERT (
+			
+					 A.BRNC_CD			--지점코드
+					,A.EVNT_SEQ			--사건순번
+                    ,A.SEQ              --순번
+					,A.GEN_DT			--발생일자
+					,A.MNG				--담당자
+					
+					,A.TITLE  			--제목
+                    ,A.ATT_FILE_KEY     --첨부파일키
+					,A.EVNT_CONT        --사건내용
+					,A.RMK				--비고
+					,A.INST_ID			--작성자
+                    
+					,A.INST_DT			--작성일시
+					,A.DEL_YN			--삭제코드
+					
+				) VALUES (
+					 B.BRNC_CD          --지점코드
+					,B.EVNT_SEQ         --사건순번
+                    ,(SELECT  NVL(MAX(SEQ),0) + 1
+					    FROM  TBRA_EVNT_HIST_MANA --사건이력
+					   WHERE  1=1
+					     AND  BRNC_CD  = ? --B.BRNC_CD
+                         AND  EVNT_SEQ = ? --B.EVNT_SEQ
+					  ) 				--순번
+					,B.GEN_DT           --발생일자
+    				,B.MNG              --담당자
+    				
+                    ,B.TITLE            --제목
+                    ,B.ATT_FILE_KEY     --첨부파일키
+                    ,B.EVNT_CONT        --사건내용
+                    ,B.RMK              --비고
+                    ,B.INST_ID          --작성자
+					
+					,SYSDATE			--작성일시
+					,'N'				--삭제코드
+				)
+        ]]>
+	</query>
+
+	<query id="rbr4020_d01" desc="사건이력삭제" fetchSize="10">
+		<![CDATA[
+
+			UPDATE 	TBRA_EVNT_HIST_MANA   /* rbr4020_d01 */	--사건이력
+			   SET	DEL_YN   = 'Y'       --삭제코드
+			       ,UPDT_ID = ?          --수정자
+                   ,UPDT_DT = sysdate    --수정일시
+			 WHERE 	1=1
+			   AND  BRNC_CD  = ?
+			   AND  EVNT_SEQ = ?
+		       AND  SEQ      = ?
+        ]]>
+	</query>
+	
+	<query id="rbr4020_u02" desc="사건이력 첨부파일  정보 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE  TBRA_EVNT_HIST_MANA   /* rbr4020_u02 */ --사건이력
+			   SET
+				    ATT_FILE_KEY = ?				
+				   ,UPDT_ID      = ?				
+				   ,UPDT_DT      = SYSDATE
+				
+			 WHERE  1=1
+			   AND  BRNC_CD  = ?
+			   AND  EVNT_SEQ = ?
+			   AND  SEQ      = ?
+        ]]>
+    </query>
+</queryMap>

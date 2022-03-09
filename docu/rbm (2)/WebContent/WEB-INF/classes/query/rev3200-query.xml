@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV3200(발매제외기간관리)">
+	<query id="rev3200_s01" desc="발매제외기간 조회" fetchSize="10">
+		<![CDATA[
+			  SELECT  /* rev3200_s01 */
+			        '0' AS CHK,
+			        ESTM_YEAR,
+			        ESTM_NUM,
+			        TELLER_ID,
+			        EMP_NO,
+			        EMP_NM,
+			        BRNC_CD,
+			        BRNC_NM,
+			        ESC_CD,
+			        ESC_STR_DT,
+			        ESC_END_DT,
+			        ESC_RSN,
+			        ESC_STR_DT AS ORG_ESC_STR_DT,
+			        ESC_END_DT AS ORG_ESC_END_DT
+			  FROM 
+			   (
+			        SELECT  A.ESTM_YEAR,
+			                A.ESTM_NUM,
+			                A.TELLER_ID,
+			                A.EMP_NO,
+			                (SELECT MAX(EMP_NM) FROM TBRF_EV_EMP WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND EMP_NO = A.EMP_NO) AS EMP_NM,
+			                A.BRNC_CD,
+			                FC_CODE_NM('018', A.BRNC_CD) AS BRNC_NM,
+			                A.ESC_STR_DT,
+			                A.ESC_END_DT,
+			                A.ESC_CD,
+			                A.ESC_RSN
+			          FROM  TBRF_EV_RELEA_ESC A
+			         WHERE  A.ESTM_YEAR = ?
+			           AND  A.ESTM_NUM  = ?
+			           AND  DECODE(?, '', '1', A.BRNC_CD) = DECODE(?, '', '1', ?)
+			    )
+			 WHERE 1=1
+			   AND EMP_NM LIKE '%' || NVL(?, EMP_NM) || '%'
+        ]]>
+	</query>
+	
+	<query id="rev3200_s02" desc="평가기간 조회" fetchSize="10">
+		<![CDATA[
+			SELECT /* rev3200_s02 */
+			       PRM_STR_DT,
+			       PRM_END_DT
+			  FROM TBRF_EV_MASTER
+			 WHERE 1=1
+			   AND ESTM_YEAR = ?
+			   AND ESTM_NUM  = ?
+        ]]>
+	</query>
+	
+	<query id="rev3200_s03" desc="입력한 기간 내에 겹치는 기간이 있는지 조회" fetchSize="10">
+		<![CDATA[
+			SELECT /* rev3200_s03 */
+			       COUNT(*) CNT
+			  FROM TBRF_EV_RELEA_ESC A
+			 WHERE 1=1
+			   AND A.ESTM_YEAR  = ?
+			   AND A.ESTM_NUM   = ?
+			   AND A.TELLER_ID  = ?
+			   AND A.EMP_NO     = ?
+			   AND A.BRNC_CD    = ?
+			   AND A.ESC_STR_DT BETWEEN ? AND ?
+			   AND A.ESC_END_DT BETWEEN ? AND ?
+        ]]>
+	</query>
+	
+	<query id="rev3200_s04" desc="제외기간을 제외한 후, 남은 발매실적기간 개수 조회" fetchSize="10">
+		<![CDATA[
+			SELECT COUNT(*) AS CNT
+			FROM  /* rev3200_s04 */
+			     (
+			        SELECT COMM_NO, TELLER_ID, RACE_DAY
+			        FROM (
+			            SELECT COMM_NO, TELLER_ID, RACE_DAY 
+			            FROM
+			            (
+			                SELECT
+			                      CASE WHEN SELL_CD = '01' AND COMM_NO < 11 THEN '00' --광명
+			                           WHEN SELL_CD = '03' AND COMM_NO < 11 THEN '98' --미사리
+			                           WHEN COMM_NO >= 11 THEN COMM_NO
+			                      END COMM_NO
+			                     ,A.TELLER_ID
+			                     ,A.SOLD_NUM
+			                     ,B.RACE_DAY
+			                FROM VW_PC_TELMP A, VW_SDL_INFO B
+			                WHERE 1=1
+			                AND A.STND_YEAR = B.STND_YEAR
+			                AND A.MEET_CD = B.MEET_CD
+			                AND A.MEET_CD IN ('001','003')
+			                AND A.TMS = B.TMS
+			                AND A.DAY_ORD = B.DAY_ORD
+			                AND LENGTH(A.TELLER_ID) = 4
+			                AND A.SOLD_NUM > 0
+			                AND B.RACE_DAY BETWEEN (SELECT PRM_STR_DT FROM TBRF_EV_MASTER WHERE ESTM_YEAR = ? AND ESTM_NUM = ?)
+			                                   AND (SELECT PRM_END_DT FROM TBRF_EV_MASTER WHERE ESTM_YEAR = ? AND ESTM_NUM = ?)
+			            ) GROUP BY COMM_NO, TELLER_ID, RACE_DAY
+			            HAVING SUM(SOLD_NUM) > (SELECT RELEA_ESC_CNT
+			                                      FROM TBRF_EV_MASTER
+			                                     WHERE 1=1
+			                                       AND ESTM_YEAR = ?
+			                                       AND ESTM_NUM  = ?
+			                                   )
+			        ) S1
+			        WHERE 1=1
+			        AND NOT EXISTS (
+			            SELECT 1 FROM TBRF_EV_RELEA_ESC S2
+			            WHERE 1=1
+			            AND S2.ESTM_YEAR = ?
+			            AND S2.ESTM_NUM  = ?
+			            AND S1.COMM_NO   = S2.BRNC_CD
+			            AND S1.TELLER_ID = S2.TELLER_ID
+			            AND S1.RACE_DAY BETWEEN S2.ESC_STR_DT AND S2.ESC_END_DT
+			            AND S2.ESC_CD = '001'
+			        )
+			        AND TELLER_ID = ?
+			        GROUP BY COMM_NO, TELLER_ID, RACE_DAY
+			     )
+        ]]>
+	</query>
+	
+	<query id="rev3200_s05" desc="지점코드를 부서코드로 변환" fetchSize="10">
+		<![CDATA[
+			SELECT  /* rev3200_s05 */ 
+			        SUBSTR(FC_CODE_CDTERM2('018', ? ),5, 4) AS DEPT_CD 
+			  FROM  DUAL
+			 WHERE  1=1			
+	 	]]>
+	</query>
+		
+	<query id="rev3201_s01" desc="발매제외기간 대상자 조회" fetchSize="10">
+		<![CDATA[
+		      SELECT ESTM_YEAR, ESTM_NUM, TELLER_ID, BRNC_CD, FC_CODE_NM('018', BRNC_CD) AS BRNC_NM, SCH_BRNC_NO, EMP_NO, EMP_NM
+			    FROM /* rev3201_s01 */
+			    (
+			      SELECT B.ESTM_YEAR,
+			             B.ESTM_NUM,
+			             A.TELLER_ID,
+			             NVL(C.CD, A.COMM_NO) AS BRNC_CD,
+			             NVL(C.CD, A.COMM_NO) SCH_BRNC_NO,
+			             B.EMP_NO,
+			             B.EMP_NM AS EMP_NM
+			        FROM TBJI_TELLER_MANA A, 
+			             TBRF_EV_EMP B,
+                         TBRK_SPEC_CD C
+			       WHERE 1=1
+			         AND A.EMP_NO = B.EMP_NO
+			         AND C.GRP_CD(+) = '018'
+			         AND B.ESTM_DEPT = SUBSTR(C.CD_TERM2(+),5)
+			         AND B.ESTM_YEAR     = ?
+			         AND B.ESTM_NUM      = ?
+			         AND B.PERM_TEMP_GBN = '002'
+			         AND B.ESTM_ESC_GBN  = 'Y'
+			         AND B.ESTM_WK_JOB   = '1003'
+			    GROUP BY B.ESTM_YEAR, B.ESTM_NUM, A.TELLER_ID, NVL(C.CD, A.COMM_NO), B.EMP_NO, B.EMP_NM
+			    )
+			   WHERE 1=1
+			     AND DECODE(?, '', '1', SCH_BRNC_NO) = DECODE(?, '', '1', ?)
+				 AND EMP_NM LIKE '%' || NVL(?, EMP_NM) || '%'
+			ORDER BY BRNC_CD
+        ]]>
+	</query>
+	
+	<query id="rev3200_i01" desc="발매제외기간 추가" fetchSize="10">
+		<![CDATA[
+		      INSERT /* rev3200_i01 */
+			    INTO TBRF_EV_RELEA_ESC (
+			         ESTM_YEAR,
+			         ESTM_NUM,
+			         TELLER_ID,
+			         EMP_NO,
+			         BRNC_CD,
+			         ESC_STR_DT,
+			         ESC_END_DT,
+			         ESC_CD,
+			         ESC_RSN,
+			         INST_ID,
+			         INST_DT
+			  ) VALUES (
+			         ?,  --ESTM_YEAR
+			         ?,  --ESTM_NUM
+			         ?,  --TELLER_ID
+			         ?,  --EMP_NO
+			         ?,  --BRNC_CD
+			         ?,  --ESC_STR_DT
+			         ?,  --ESC_END_DT
+			         ?,  --ESC_CD
+			         ?,  --ESC_RSN
+			         ?,  --INST_ID
+			         SYSDATE
+			  )
+        ]]>
+	</query>
+	
+	<query id="rev3200_i02" desc="발매실적 부서별 입력" fetchSize="10">
+		<![CDATA[
+		    INSERT INTO TBRF_EV_RELEA_RSLT
+			SELECT /* rev3200_i02 */
+			ESTM_YEAR, ESTM_NUM, TELLER_ID, EMP_NO, EMP_NM, SOLD_AVG, INST_ID, INST_DT, UPDT_ID, UPDT_DT, DEPT_CD, TOTAL_CNT, WK_DAY_CNT
+			FROM (
+			    SELECT 
+			        ? AS ESTM_YEAR,
+			        ? AS ESTM_NUM,
+			        T2.TELLER_ID,
+			        T3.EMP_NO,
+			        (SELECT MAX(EMP_NM) FROM TBRF_EV_EMP WHERE EMP_NO = T3.EMP_NO) EMP_NM,
+			        T2.SOLD_AVG,
+			        ? INST_ID,
+			        SYSDATE INST_DT,
+			        ? UPDT_ID,
+			        SYSDATE  UPDT_DT,
+			        T2.DEPT_CD,
+			        SOLD_NUM TOTAL_CNT,
+			        DAY_CNT WK_DAY_CNT
+			    FROM (
+			        SELECT	-- 부서정보는 VW_PC_TELMP의  COMM_NO기준으로
+			            T1.COMM_NO,
+			            T1.TELLER_ID,
+			            SUBSTR(FC_CODE_CDTERM2('018', T1.COMM_NO),5, 4) AS DEPT_CD,
+			            COUNT(T1.SOLD_NUM) DAY_CNT,
+			            SUM(T1.SOLD_NUM)   SOLD_NUM,
+			            ROUND(DECODE(SUM(T1.SOLD_NUM),0,0,SUM(T1.SOLD_NUM)/COUNT(T1.SOLD_NUM)),3) SOLD_AVG
+			        FROM (
+			            SELECT COMM_NO, TELLER_ID, RACE_DAY, SOLD_NUM
+			            FROM (
+			                SELECT COMM_NO, TELLER_ID, RACE_DAY, SUM(SOLD_NUM) SOLD_NUM FROM
+			                (
+			                    SELECT
+			                          CASE WHEN SELL_CD = '01' AND COMM_NO < 11 THEN '00' --광명
+			                               WHEN SELL_CD = '03' AND COMM_NO < 11 THEN '98' --미사리
+			                               WHEN COMM_NO >= 11 THEN COMM_NO
+			                          END COMM_NO
+			                         ,A.TELLER_ID
+			                         ,A.SOLD_NUM
+			                         ,B.RACE_DAY
+			                    FROM VW_PC_TELMP A, VW_SDL_INFO B
+			                    WHERE 1=1
+			                    AND A.STND_YEAR = B.STND_YEAR
+			                    AND A.MEET_CD = B.MEET_CD
+			                    AND A.MEET_CD IN ('001','003')
+			                    AND A.TMS = B.TMS
+			                    AND A.DAY_ORD = B.DAY_ORD
+			                    AND LENGTH(A.TELLER_ID) = 4
+			                    AND A.SOLD_NUM > 0
+			                    AND B.RACE_DAY BETWEEN ? AND ?	--조건
+			                ) GROUP BY COMM_NO, TELLER_ID, RACE_DAY
+			                HAVING SUM(SOLD_NUM) > (SELECT RELEA_ESC_CNT
+			                                          FROM TBRF_EV_MASTER
+			                                         WHERE 1=1
+			                                           AND ESTM_YEAR = ?
+			                                           AND ESTM_NUM  = ?
+			                                       )
+			            ) S1
+			            WHERE 1=1
+			            AND SUBSTR(FC_CODE_CDTERM2('018', COMM_NO),5, 4) = ? --조회조건 추가
+			            AND NOT EXISTS (
+			                SELECT 1 FROM TBRF_EV_RELEA_ESC S2
+			                WHERE 1=1
+			                AND S2.ESTM_YEAR = ?
+			                AND S2.ESTM_NUM  = ?
+			                AND S1.COMM_NO = S2.BRNC_CD
+			                AND S1.TELLER_ID = S2.TELLER_ID
+			                AND S1.RACE_DAY BETWEEN S2.ESC_STR_DT AND S2.ESC_END_DT
+			                AND S2.ESC_CD = '001'
+			            )
+			        ) T1
+			        GROUP BY COMM_NO, TELLER_ID
+			    ) T2,
+			    (
+			        SELECT EMP_NO, TELLER_ID, MAX(TELLER_NM) TELLER_NM
+			        FROM TBJI_TELLER_MANA --TBJI_PC_TELLER
+			        GROUP BY EMP_NO, TELLER_ID
+			    ) T3
+			    WHERE 1=1
+			    AND T2.TELLER_ID = T3.TELLER_ID(+)
+			)
+        ]]>
+	</query>
+	
+	<query id="rev3200_u01" desc="발매제외기간 수정" fetchSize="10">
+		<![CDATA[
+			UPDATE /* rev3200_u01 */
+			       TBRF_EV_RELEA_ESC
+			   SET ESC_STR_DT = ?,
+			       ESC_END_DT = ?,
+			       ESC_CD     = ?,
+			       ESC_RSN    = ?,
+			       UPDT_ID    = ?,
+			       UPDT_DT    = SYSDATE
+			 WHERE 1=1
+			   AND ESTM_YEAR  = ?
+			   AND ESTM_NUM   = ? 
+			   AND TELLER_ID  = ?
+			   AND EMP_NO     = ?
+			   AND BRNC_CD    = ?
+			   AND ESC_STR_DT = ?
+        ]]>
+	</query>
+	
+	<query id="rev3200_u02" desc="(부서별)년간 발매실적 제외자는  TOTAL_CNT = 99999, WK_DAY_CNT = 99999로 설정" fetchSize="10">
+        <![CDATA[
+        /*
+			UPDATE /*+ bypass_ujvc */ 
+			(	/* rev3200_u02 */
+				SELECT A1.DEPT_CD, A1.EMP_NO, A1.TOTAL_CNT, A1.WK_DAY_CNT
+				FROM TBRF_EV_RELEA_RSLT A1, TBRF_EV_RELEA_ESC A2
+				WHERE 1=1
+				AND A1.ESTM_YEAR = A2.ESTM_YEAR
+				AND A1.ESTM_NUM = A2.ESTM_NUM
+				AND A1.DEPT_CD  = ?
+				AND A1.TELLER_ID = A2.TELLER_ID
+				AND A2.ESC_CD = '002'
+				AND A1.ESTM_YEAR = ?
+				AND A1.ESTM_NUM  = ?
+			) SET TOTAL_CNT = 99999, WK_DAY_CNT = 99999
+		*/
+		MERGE /* rev3200_u02 */
+		      INTO TBRF_EV_RELEA_RSLT
+		USING (      
+				SELECT A1.ESTM_YEAR, A1.ESTM_NUM, A1.TELLER_ID, A1.DEPT_CD, A1.EMP_NO, A1.TOTAL_CNT, A1.WK_DAY_CNT
+				FROM TBRF_EV_RELEA_RSLT A1, TBRF_EV_RELEA_ESC A2
+				WHERE 1=1
+				AND A1.ESTM_YEAR = A2.ESTM_YEAR
+				AND A1.ESTM_NUM = A2.ESTM_NUM
+				AND A1.DEPT_CD  = ?
+				AND A1.TELLER_ID = A2.TELLER_ID
+				AND A2.ESC_CD = '002'
+				AND A1.ESTM_YEAR = ?
+				AND A1.ESTM_NUM  = ?
+			   ) SRC
+		ON    (	 
+                     DST.ESTM_YEAR = SRC.ESTM_YEAR
+                 AND DST.ESTM_NUM = SRC.ESTM_NUM
+                 AND DST.TELLER_ID  = SRC.TELLER_ID
+                 AND DST.DEPT_CD    = SRC.DEPT_CD  
+	           )		
+        WHEN MATCHED THEN
+            UPDATE SET TOTAL_CNT = 99999, WK_DAY_CNT = 99999
+        ]]>
+    </query> 
+    
+    <query id="rev3200_u03" desc="역량평가 발매실적 초기화" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rev3200_u03 */
+			       TBRF_EV_WK_PRM
+			   SET FST_RELEA_RSLT = '',
+			       SND_RELEA_RSLT = '',
+			       RELEA_DISTR    = '',
+			       UPDT_ID        = ?,
+			       UPDT_DT        = SYSDATE
+			 WHERE 1=1
+			   AND ESTM_YEAR = ?
+			   AND ESTM_NUM  = ?
+			   AND ESTM_DEPT = ?
+        ]]>
+    </query> 
+    
+	<query id="rev3200_d01" desc="발매제외기간 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE /* rev3200_d01 */
+			  FROM TBRF_EV_RELEA_ESC
+			 WHERE 1=1
+			   AND ESTM_YEAR  = ?
+			   AND ESTM_NUM   = ? 
+			   AND TELLER_ID  = ?
+			   AND EMP_NO     = ?
+			   AND BRNC_CD    = ?
+			   AND ESC_STR_DT = ?
+        ]]>
+	</query>
+	
+	<query id="rev3200_d02" desc="발매실적 부서별  삭제" fetchSize="10">
+		<![CDATA[
+			DELETE 
+			  FROM TBRF_EV_RELEA_RSLT
+			 WHERE 1=1
+			   AND ESTM_YEAR = ?
+			   AND ESTM_NUM  = ?
+			   AND DEPT_CD   = ?
+        ]]>
+	</query>
+</queryMap>

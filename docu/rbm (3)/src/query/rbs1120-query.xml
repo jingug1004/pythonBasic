@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs1120(명예심판 신청내역 )">
+   <query id="rbs1120_s01" desc="명예심판 신청 공지사항(홈페이지)  조회 " fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs1120_s01 */
+		            SEQ_ID AS WEB_PARENT_SEQ_ID
+		           ,NOTICE_YN 
+		           ,DECODE(JUDGE_POSITION,'C','001','B','003') AS MEET_CD
+		           ,TITLE
+		           ,EVENT_DATE AS EVENT_DY
+		           ,REQUEST_START_DATE AS REQ_STR_DT
+		           ,REQUEST_END_DATE AS REQ_END_DT
+		           ,WRITER 
+		           ,CREATED_AT AS INPT_DT
+			FROM    KRACEWEB.TBID_JUDGE_MASTER
+			WHERE   JUDGE_POSITION = DECODE(?, '001', 'C', '003', 'B') --경륜:C, 경정:B
+			AND     DELETE_YN      = 'N'     
+			AND     EVENT_DATE LIKE ?||'%'                       
+			ORDER BY SEQ_ID DESC
+        ]]>
+    </query>       
+    
+   <query id="rbs1120_s02" desc="명예심판 신청내역(홈페이지)  조회 " fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs1120_s02 */
+		            '' AS CHK
+		           ,A.MEET_CD
+		           ,A.STND_YEAR
+		           ,A.SEQ_NO   
+		           ,A.REQ_USER_NM
+		           ,FC_DEC(A.HP_NO) AS HP_NO
+		           ,A.PROC_CD
+		           ,A.AGE
+		           ,A.SEX		           
+		           ,A.BRNC_CD
+		           ,A.RMK
+		           ,FC_DEC(A.HOME_ADDR1) AS HOME_ADDR1
+		           ,FC_DEC(A.HOME_ADDR2) AS HOME_ADDR2
+		           ,INST_MTH
+		           ,TO_CHAR(A.INST_DT, 'YYYYMMDD') AS INST_DT
+		           --,(SELECT COUNT(*) FROM TBRS_HNR_REFRE_REQ B WHERE A.REQ_USER_ID = B.REQ_USER_ID AND B.PROC_CD = 'S') AS WIN_CNT
+		           ,C.WIN_CNT  
+			FROM    TBRS_HNR_REFRE_REQ A
+                   ,(
+                    SELECT B.HP_NO, COUNT(*) AS WIN_CNT
+                    FROM TBRS_HNR_REFRE_WNR A,TBRS_HNR_REFRE_REQ B
+                    WHERE A.REQ_STND_YEAR = B.STND_YEAR
+                    AND A.REQ_SEQ_NO = B.SEQ_NO
+                    AND A.INST_MTH = B.INST_MTH 
+                    AND B.HP_NO   IS NOT NULL
+                    GROUP BY B.HP_NO) C
+			WHERE   A.WEB_PARENT_SEQ_ID = ?
+            AND     A.HP_NO             = C.HP_NO(+)
+			AND     A.INST_MTH          = '001'	--홈페이지
+			AND     A.DEL_YN            = 'N'
+			ORDER BY INST_DT
+        ]]>
+    </query>       
+    
+   <query id="rbs1120_s03" desc="명예심판 대상자 등록내역 조회 " fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs1120_s03 */
+		            '' AS CHK
+		           ,A.MEET_CD
+		           ,A.STND_YEAR
+		           ,A.SEQ_NO   
+		           ,A.REQ_USER_NM
+		           ,FC_DEC(A.HP_NO) AS HP_NO
+		           ,A.PROC_CD
+		           ,A.AGE
+		           ,A.SEX
+		           ,A.BRNC_CD
+		           ,A.RMK
+		           ,INST_MTH
+		           ,FC_DEC(A.HOME_ADDR1) AS HOME_ADDR1
+		           ,FC_DEC(A.HOME_ADDR2) AS HOME_ADDR2
+		           ,TO_CHAR(A.INST_DT, 'YYYYMMDD') AS INST_DT
+		          -- ,(SELECT COUNT(*) FROM TBRS_HNR_REFRE_REQ B WHERE A.REQ_USER_ID = B.REQ_USER_ID AND B.PROC_CD = 'S') AS WIN_CNT  
+		           ,C.WIN_CNT  
+			FROM    TBRS_HNR_REFRE_REQ A
+                   ,(
+                    SELECT B.HP_NO, COUNT(*) AS WIN_CNT
+                    FROM TBRS_HNR_REFRE_WNR A,TBRS_HNR_REFRE_REQ B
+                    WHERE A.REQ_STND_YEAR = B.STND_YEAR
+                    AND A.REQ_SEQ_NO = B.SEQ_NO
+                    AND A.INST_MTH = B.INST_MTH 
+                    AND B.HP_NO   IS NOT NULL
+                    GROUP BY B.HP_NO) C
+			WHERE   A.MEET_CD   = ?
+			AND     A.STND_YEAR = ?
+            AND     A.HP_NO     = C.HP_NO(+)
+			AND     A.INST_MTH  = '002'	--직접 등록
+			AND     A.DEL_YN    = 'N'
+			ORDER BY INST_DT
+        ]]>
+    </query>       
+    
+    <query id="rbs1120_i01" desc="명예심판 신청내역 조회 " fetchSize="10">
+      <![CDATA[
+			INSERT /* rbs1120_i01 */
+			       INTO TBRS_HNR_REFRE_REQ
+			       (MEET_CD, STND_YEAR, SEQ_NO, INST_MTH, REQ_USER_NM, HP_NO, PROC_CD, DEL_YN, AGE, SEX, RMK, BRNC_CD, HOME_ADDR1, INST_ID, INST_DT)
+			VALUES
+			       (?, ?, (SELECT NVL(MAX(SEQ_NO),0)+1 FROM TBRS_HNR_REFRE_REQ WHERE MEET_CD = ? AND STND_YEAR = ?), '002', ?, FC_ENC(?), 'R', 'N', ?, ?, ?, ?, FC_ENC(?), ?, SYSDATE)
+        ]]> 
+    </query>    
+    
+    
+    <query id="rbs1120_u01" desc="명예심판 신청내역  수정 " fetchSize="10">
+      <![CDATA[           
+           UPDATE  /* rbs1120_u01 */      
+                   TBRS_HNR_REFRE_REQ 
+           SET     REQ_USER_NM = ?
+                  ,HP_NO       = FC_ENC(?)
+                  ,HOME_ADDR1  = FC_ENC(?)
+                  ,AGE         = ?
+                  ,SEX         = ?
+                  ,BRNC_CD     = ?
+                  ,RMK         = ?
+                  ,UPDT_ID     = ?
+                  ,UPDT_DT     = SYSDATE
+           WHERE   MEET_CD     = ?
+               AND STND_YEAR   = ?
+               AND SEQ_NO      = ?      
+        ]]>
+    </query>    
+
+    <query id="rbs1120_u02" desc="명예심판 신청내역  수정 " fetchSize="10">
+      <![CDATA[           
+			MERGE INTO /* rbs1120_u02 */
+                  TBRS_HNR_REFRE_REQ DST
+			USING (           
+	            SELECT   DECODE(M.JUDGE_POSITION,'C','001','B','003',M.JUDGE_POSITION) AS MEET_CD
+	                    ,SUBSTR(M.EVENT_DATE,1,4) AS STND_YEAR
+	                    ,ROW_NUMBER() OVER (PARTITION BY M.JUDGE_POSITION, SUBSTR(EVENT_DATE,1,4) ORDER BY M.JUDGE_POSITION, EVENT_DATE,D.CREATED_AT, D.SEQ_ID) AS SEQ_NO
+	                    ,'001' AS INST_MTH 
+	                    ,D.PARENT_SEQ_ID AS WEB_PARENT_SEQ_ID
+	                    ,D.SEQ_ID AS WEB_SEQ_ID
+	                    ,D.REQUEST_USER_ID AS REQ_USER_ID
+	                    ,B.USER_NAME AS REQ_USER_NM
+	                    ,FC_ENC(DECODE(B.PWD_CHECK,'Y',FC_DEC(B.USER_CELLPHONE), KSPO_DECRYPT(B.USER_CELLPHONE))) AS HP_NO
+	                    ,D.PROCESS_CODE AS PROC_CD
+	                    ,D.DELETE_YN AS DEL_YN
+	                    ,D.BIRTHDAY AS AGE
+	                    ,D.SEX AS SEX
+	                    ,FC_ENC(DECODE(B.PWD_CHECK,'Y',FC_DEC(B.HOME_ADDR1), KSPO_DECRYPT(B.HOME_ADDR1))) HOME_ADDR1
+                        ,FC_ENC(DECODE(B.PWD_CHECK,'Y',FC_DEC(B.HOME_ADDR2), KSPO_DECRYPT(B.HOME_ADDR2))) HOME_ADDR2
+                        ,C.CD AS BRNC_CD
+	                    ,D.CREATED_BY AS INST_ID
+	                    ,D.CREATED_AT AS INST_DT
+	                    ,D.UPDATED_BY AS UPDT_ID
+	                    ,D.UPDATED_AT AS UPDT_DT
+	            FROM     KRACEWEB.TBID_JUDGE_MASTER M
+	                    ,KRACEWEB.TBID_JUDGE_DETAIL D
+	                    ,KRACEWEB.TBID_MEMBER B
+	                    ,TBRK_SPEC_CD C
+	            WHERE    M.SEQ_ID = D.PARENT_SEQ_ID
+	            AND      D.REQUEST_USER_ID = B.USER_ID(+)
+	            AND      D.CREATED_AT IS NOT NULL
+	            AND      M.JUDGE_POSITION = DECODE(?, '001','C','003','B')
+	            AND      M.EVENT_DATE LIKE ?||'%'
+	            AND      D.BRANCH_CODE = C.CD_TERM3(+)
+	            AND      C.GRP_CD(+) = '060'  
+	            ) SRC
+            ON (
+                    DST.WEB_SEQ_ID = SRC.WEB_SEQ_ID
+                AND DST.INST_MTH   = '001'
+                )
+           WHEN MATCHED THEN
+                UPDATE SET         
+                        DST.DEL_YN = SRC.DEL_YN                   --삭제 여부
+                       ,DST.AGE      = SRC.AGE                      --나이
+                       ,DST.SEX      = SRC.SEX                 --성별
+                       ,DST.HP_NO    = SRC.HP_NO
+                       ,DST.BRNC_CD  = SRC.BRNC_CD
+                       ,DST.REQ_USER_NM = SRC.REQ_USER_NM
+                       ,DST.HOME_ADDR1 = SRC.HOME_ADDR1
+                       ,DST.HOME_ADDR2 = SRC.HOME_ADDR2
+                       ,UPDT_DT     = SYSDATE              --수정일시
+           WHEN NOT MATCHED THEN          
+                INSERT (
+                    MEET_CD                   --개최기관코드
+                   ,STND_YEAR                 --기준년도
+                   ,SEQ_NO                    --연번
+                   ,INST_MTH                  --입력방법(web, 직접입력)
+                   ,WEB_PARENT_SEQ_ID         --
+                   ,WEB_SEQ_ID                --홈페이지 접수번호
+                   ,REQ_USER_ID               --요청자 아이디
+                   ,REQ_USER_NM               --
+                   ,HP_NO                     --
+                   ,PROC_CD                   --처리상태코드
+                   ,DEL_YN                    --삭제 여부
+                   ,AGE                       --나이
+                   ,SEX                       --성별
+                   ,HOME_ADDR1
+                   ,HOME_ADDR2
+                   ,BRNC_CD                   --지점코드
+                   ,INST_ID                   --입력자 사번
+                   ,INST_DT                   --입력일시
+             ) VALUES (
+                    SRC.MEET_CD                   --개최기관코드
+                   ,SRC.STND_YEAR                 --기준년도
+                   ,SRC.SEQ_NO                    --연번
+                   ,SRC.INST_MTH                  --입력방법(web, 직접입력)
+                   ,SRC.WEB_PARENT_SEQ_ID         --
+                   ,SRC.WEB_SEQ_ID                --홈페이지 접수번호
+                   ,SRC.REQ_USER_ID               --요청자 아이디
+                   ,SRC.REQ_USER_NM               --
+                   ,SRC.HP_NO                     --
+                   ,SRC.PROC_CD                   --처리상태코드
+                   ,SRC.DEL_YN                    --삭제 여부
+                   ,SRC.AGE                       --나이
+                   ,SRC.SEX                       --성별
+                   ,SRC.HOME_ADDR1
+                   ,SRC.HOME_ADDR2
+                   ,SRC.BRNC_CD                   --지점코드
+                   ,SRC.INST_ID                   --입력자 사번
+                   ,SRC.INST_DT                   --입력일시
+             )     
+        ]]>
+    </query>    
+
+        
+    <query id="rbs1120_d01" desc="명예심판 신청내역  삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE  /* rbs1120_d01 */      
+                   FROM TBRS_HNR_REFRE_REQ 
+           WHERE   MEET_CD   = ?
+               AND STND_YEAR = ?
+               AND SEQ_NO    = ?    
+               AND INST_MTH  = '002'  
+        ]]>
+    </query>    
+        
+    <query id="rbs1120_d02" desc="명예심판 신청내역(홈페이지) 일괄 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE  /* rbs1120_d02 */      
+                   FROM TBRS_HNR_REFRE_REQ 
+           WHERE   INST_MTH = '001'	-- 홈페이지에서 입력된 자료만 삭제           
+			AND    MEET_CD  = ?
+        ]]>
+    </query>    
+        
+</queryMap>

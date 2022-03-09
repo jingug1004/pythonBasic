@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV3100(근무태도조회)">
+    <query id="rev3100_s01" desc="근무태도조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rev3100_s01 */
+				   ESTM_YEAR, 
+			       ESTM_NUM, 
+			       ESTM_DEPT, 
+			       DEPT_NM, 
+			       EMP_NO, 
+			       EMP_NM, 
+			       CNT_WP_ABS, 
+			       CNT_ABS, 
+			       CNT_LATE, 
+			       ATT_1, 
+			       ATT_2, 
+			       ATT_3, 
+			       ATT_4, 
+			       ATT_5, 
+			       FLAG 
+			FROM ( 
+			SELECT M.ESTM_YEAR, M.ESTM_NUM, 
+			       M.ESTM_DEPT, D.DEPT_NM, 
+			       E.EMP_NO, E.EMP_NM, 
+			       MD.CNT_WP_ABS AS CNT_WP_ABS, 
+			       MD.CNT_ABS AS CNT_ABS, 
+			       MD.CNT_LATE AS CNT_LATE, 
+			       NVL(ATT_1, 0) AS ATT_1, 
+			       NVL(ATT_2, 0) AS ATT_2, 
+			       NVL(ATT_3, 0) AS ATT_3, 
+			       NVL(ATT_4, 0) AS ATT_4, 
+			       NVL(ATT_5, 0) AS ATT_5, 
+			       DECODE(NVL(MD.CNT_WP_ABS, 0) + NVL(MD.CNT_ABS, 0) + NVL(MD.CNT_LATE, 0) 
+			             - NVL(ATT_1,0) - NVL(ATT_2,0) - NVL(ATT_3,0) - NVL(ATT_4,0) - NVL(ATT_5,0), 0, 'Y','N') AS FLAG 
+			FROM TBRF_EV_WK_MNR M, 
+			     TBRF_EV_DEPT D, 
+			     TBRF_EV_EMP E, 
+			     ( 
+					SELECT ESTM_YEAR, ESTM_NUM, 
+					       ESTM_DEPT, EMP_NO, 
+					       NVL(SUM(CNT_WP_ABS),0) AS CNT_WP_ABS, 
+					       NVL(SUM(CNT_ABS),0)    AS CNT_ABS, 
+					       NVL(SUM(CNT_LATE),0)   AS CNT_LATE 
+					FROM ( 
+					      SELECT ESTM_YEAR, ESTM_NUM, 
+					             ESTM_DEPT, EMP_NO, 
+					             SUM(DECODE(CD_TERM3, '1', CNT, 0)) CNT_WP_ABS, 
+					             SUM(DECODE(CD_TERM3, '2', CNT, 0)) CNT_ABS, 
+					             SUM(DECODE(CD_TERM3, '3', CNT, 0)) CNT_LATE 
+					      FROM TBRF_EV_WK_MNR_DT MD, TBRK_SPEC_CD C 
+					      WHERE ESTM_LITEM_CD = SUBSTR(CD,5)
+					       AND  ESTM_YEAR = CD_TERM1 
+					       AND  ESTM_NUM = CD_TERM2 
+					       AND  GRP_CD = '117' 
+					      GROUP BY ESTM_YEAR, ESTM_NUM,ESTM_DEPT, EMP_NO 
+					      ) 
+					GROUP BY ESTM_YEAR, ESTM_NUM, ESTM_DEPT, EMP_NO 
+			      ) MD, 
+			     (SELECT                                                     
+			             ESTM_YEAR, ESTM_NUM, DEPT_CD, EMP_NO, EMP_NM, 
+			             SUM (ATT_1) AS ATT_1,     -- 무단결근 
+			             SUM (ATT_2) AS ATT_2,     -- 결근 
+			             SUM (ATT_3) AS ATT_3,     -- 지각 
+			             SUM (ATT_4) AS ATT_4,     -- 조퇴 
+			             SUM (ATT_5) AS ATT_5      -- 외출 
+			        FROM ( 
+			              SELECT ESTM_YEAR, ESTM_NUM, DEPT_CD, EMP_NO, EMP_NM, 
+			                     SUM(DECODE(ATT_CD, 'A12', CNT, 0)) AS ATT_1, -- 무단결근 
+			                     SUM(DECODE(ATT_CD, 'A11', CNT, 0)) AS ATT_2, -- 결근 
+			                     SUM(DECODE(ATT_CD, 'A02', CNT, 0)) AS ATT_3, -- 지각 
+			                     SUM(DECODE(ATT_CD, 'A03', CNT, 0)) AS ATT_4, -- 조퇴 
+			                     SUM(DECODE(ATT_CD, 'A04', CNT, 0)) AS ATT_5  -- 외출 
+			                FROM  TBRF_EV_CONDUCT 
+			             GROUP BY ESTM_YEAR, ESTM_NUM, DEPT_CD, ATT_CD, EMP_NO, EMP_NM 
+			              ) 
+			       WHERE 1 = 1 
+			       GROUP BY ESTM_YEAR, ESTM_NUM, DEPT_CD, EMP_NO, EMP_NM 
+			     ) C 
+			WHERE M.ESTM_YEAR = MD.ESTM_YEAR 
+			AND   M.ESTM_NUM = MD.ESTM_NUM 
+			AND   M.ESTM_DEPT = MD.ESTM_DEPT 
+			AND   M.EMP_NO = MD.EMP_NO  
+			AND   M.ESTM_YEAR = E.ESTM_YEAR 
+			AND   M.ESTM_NUM = E.ESTM_NUM 
+			AND   M.ESTM_DEPT = E.ESTM_DEPT 
+			AND   M.EMP_NO = E.EMP_NO 
+			AND   D.ESTM_YEAR = E.ESTM_YEAR 
+			AND   D.ESTM_NUM = E.ESTM_NUM 
+			AND   D.DEPT_CD = E.ESTM_DEPT 
+			AND   M.ESTM_YEAR = C.ESTM_YEAR(+) 
+			AND   M.ESTM_NUM = C.ESTM_NUM(+) 
+			AND   M.ESTM_DEPT = C.DEPT_CD(+) 
+			AND   M.EMP_NO = C.EMP_NO(+) 
+			AND   M.ESTM_YEAR = ?
+			AND   M.ESTM_NUM  = ?
+			AND   DECODE(?, '', '1', M.ESTM_DEPT) = DECODE(?, '', '1', ?)
+			AND   E.EMP_NM LIKE '%' || NVL(?, E.EMP_NM) || '%'
+			) 
+			WHERE 1=1
+			AND   (CNT_WP_ABS + CNT_ABS + CNT_LATE + NVL(ATT_1,0) + NVL(ATT_2,0) + NVL(ATT_3,0) + NVL(ATT_4,0) + NVL(ATT_5,0)) > 0 
+			AND   DECODE(?, '', '1', FLAG) = DECODE(?, '', '1', ?)
+		 ORDER BY ESTM_DEPT, FLAG DESC
+        ]]>
+    </query>
+</queryMap>

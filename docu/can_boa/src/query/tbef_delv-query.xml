@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_delv 출고등록 ">
+	<query id="tbef_delv_ff001" desc="출고목록 조회 " fetchSize="50">
+        <![CDATA[
+             -- 출고목록 조회  
+			SELECT  /* tbef_delv_ff001 */
+					ROWNUM AS NUM,          -- 순번
+					0 CHK, 
+					STND_YEAR,              -- 년도
+					MBR_CD,					-- 경정장
+					DELV_SEQ,       		-- 일련번호
+					DELV_DT,      			-- 출고일자
+					DELV_DESC,				-- 내용
+					RECEPT_ID, 	   			-- 수령자
+					OUT_ID,	 	   			-- 반출자
+					(SELECT EQUIP_NO FROM TBEF_EQUIP_REPR_HIS R WHERE R.STND_YEAR = A.STND_YEAR AND R.REPR_SEQ = A.REPR_SEQ) AS EQUIP_NO
+			FROM (	    
+					SELECT 
+						  A.STND_YEAR,             	-- 년도
+						  A.MBR_CD,					-- 경정장
+						  A.DELV_SEQ,       		-- 일련번호				       
+						  A.DELV_DT,      			-- 출고일자
+						  A.DELV_DESC,				-- 내용
+						  A.RECEPT_ID, 	   			-- 수령자
+						  A.OUT_ID,		 	  		-- 반출자
+						  A.REPR_SEQ				-- 정비일련번호
+					FROM  TBEF_DELV A			 	  
+					WHERE A.MBR_CD = ?
+					AND   A.STND_YEAR = ?
+					AND   A.DELV_DT BETWEEN ? AND ?		
+					AND  (STND_YEAR, MBR_CD, DELV_SEQ) IN (                                  
+                               SELECT STND_YEAR, MBR_CD, DELV_SEQ
+                               FROM   TBEF_PARTS_MASTER TPM, 
+                                      TBEF_DELV_PARTS TDP
+                               WHERE  TDP.PARTS_CD = TPM.PARTS_CD
+                                  AND DECODE(?, 'P', 1, 0) = SIGN(ASCII('W')-ASCII(PARTS_TPE))                                  
+                                  AND PARTS_TPE LIKE ?||'%' 
+                          )		 			 
+					ORDER BY A.MBR_CD, A.DELV_DT DESC, A.DELV_SEQ DESC
+				 ) A
+        ]]>
+    </query>
+         
+    <query id="tbef_delv_parts_ff001" desc="출고 상세 내역 조회 " fetchSize="50">
+        <![CDATA[
+			-- 출고 상세 내역 조회 
+			SELECT  /* tbef_delv_parts_ff001 */
+					ROWNUM NUM,   		-- 순번
+					0 AS CHK,
+					STND_YEAR,    		-- 년도
+					MBR_CD,				-- 경정장
+					DELV_SEQ,			-- 일련번호
+					PARTS_CD,			-- 품번
+					PARTS_TPE, 			-- 부품 유형 
+					PARTS_YEAR,			-- 부품 년식 
+					PARTS_ITEM_CD_NM,	-- 품명
+					SPEC,				-- 규격
+					DELV_CNT,			-- 출고수량
+					DELV_CNT AS ORG_DELV_CNT, -- 출고수량
+					RMK,					-- 비고
+					NOW_UNIT_CNT,        -- 재고	
+					RECEPT_ID			-- 수령인
+			FROM (	   
+					SELECT 
+							A.STND_YEAR,
+							A.MBR_CD,
+							A.DELV_SEQ,
+							A.PARTS_CD,
+							D.PARTS_TPE,
+							A.PARTS_YEAR,
+							D.PARTS_ITEM_CD_NM,
+							D.SPEC,
+							A.DELV_CNT,
+							A.RMK,
+							B.NOW_UNIT_CNT,
+							A.RECEPT_ID,
+							C.REPR_SEQ          
+					FROM    TBEF_DELV_PARTS A, TBEF_PARTS B, TBEF_DELV C , TBEF_PARTS_MASTER D
+					WHERE A.STND_YEAR = C.STND_YEAR
+					AND A.MBR_CD = C.MBR_CD
+					AND A.DELV_SEQ = C.DELV_SEQ
+					AND A.PARTS_CD = D.PARTS_CD
+					AND A.PARTS_YEAR = D.PARTS_YEAR
+					AND A.PARTS_CD = B.PARTS_CD
+					AND A.PARTS_YEAR = B.PARTS_YEAR
+					AND A.STND_YEAR = B.STND_YEAR
+					AND A.MBR_CD = B.MBR_CD
+					AND A.STND_YEAR = ?
+					AND A.MBR_CD  = ?
+					AND A.DELV_SEQ = ?
+		            AND DECODE(?, 'P', 1, 0) = SIGN(ASCII('W')-ASCII(D.PARTS_TPE))
+					AND PARTS_TPE LIKE ?||'%'
+					ORDER BY A.STND_YEAR, A.MBR_CD, A.PARTS_CD
+			      )
+        ]]>
+    </query>   
+    
+    <query id="tbef_delv_mf001" desc="출고 저장/수정 " fetchSize="10">
+        <![CDATA[
+			/* 출고 마스터 등록/수정  */
+			MERGE INTO TBEF_DELV TEL
+			USING (
+					SELECT 
+							? AS STND_YEAR, 		-- 기준년도 
+							? AS MBR_CD, 			-- 경정장 코드 
+							? AS DELV_SEQ, 			-- 일련번호 
+							? AS DELV_DT,			-- 출고일자 
+							? AS RECEPT_ID, 		-- 수령자 
+							? AS OUT_ID, 			-- 반출자 
+							? AS DELV_DESC, 		-- 출고내용
+							? AS USER_ID, 			-- 작성자 아이디 
+							? AS REPR_SEQ			-- 정비일련번호
+					FROM DUAL
+			) TL
+			ON (    TEL.STND_YEAR = TL.STND_YEAR	-- 기준년도 
+			    AND TEL.MBR_CD    = TL.MBR_CD		-- 경정장 코드 
+			    AND TEL.DELV_SEQ  = TL.DELV_SEQ		-- 일련번호				
+			   )
+			WHEN MATCHED THEN
+				UPDATE				
+				SET	TEL.DELV_DT   = TL.DELV_DT,		-- 출고일자 
+					TEL.RECEPT_ID = TL.RECEPT_ID,	-- 수령자
+					TEL.OUT_ID    = TL.OUT_ID,		-- 반출자
+					TEL.DELV_DESC = TL.DELV_DESC,	-- 출고내용
+				    TEL.UPDT_ID   = TL.USER_ID,		-- 수정자 ID
+				    TEL.UPDT_DTM  = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+					TEL.STND_YEAR,					-- 기준년도 
+					TEL.MBR_CD, 					-- 경정장 코드 
+					TEL.DELV_SEQ,				 	-- 출고일련번호 
+					TEL.DELV_DT,					-- 출고일자		       
+					TEL.RECEPT_ID,					-- 수령자
+					TEL.OUT_ID,						-- 반출자
+					TEL.DELV_DESC,					-- 출고내용
+					TEL.INST_ID,					-- 작성자 아이디 
+					TEL.INST_DTM,					-- 작성일시
+					TEL.REPR_SEQ					-- 정비일련번호 
+					) 
+				VALUES ( 
+					TL.STND_YEAR,					-- 기준년도 
+					TL.MBR_CD,						-- 경정장 코드 
+				   	( SELECT NVL(MAX(DELV_SEQ)+1,1) SEQ 
+					  FROM   TBEF_DELV 
+					  WHERE  STND_YEAR = ?  
+					  AND    MBR_CD    = ?),    	-- 출고일련번호 
+					TL.DELV_DT,						-- 출고일자 
+					TL.RECEPT_ID,					-- 수령자 
+					TL.OUT_ID,						-- 반출자  
+					TL.DELV_DESC,					-- 출고내용  
+					TL.USER_ID,						-- 작성자 아이디 
+					SYSDATE,
+					TL.REPR_SEQ
+					)
+        ]]>
+    </query>   
+    
+    <query id="tbef_delv_df001" desc="출고 삭제 " fetchSize="10">
+        <![CDATA[
+			-- 출고 마스터 삭제 
+			DELETE 
+			FROM   TBEF_DELV
+			WHERE  STND_YEAR    = ?         -- 기준년도
+			AND    MBR_CD       = ?			-- 경정장 
+			AND    DELV_SEQ     = ?			-- 출고일련번호 		
+        ]]>
+    </query> 
+    
+    <query id="tbef_delv_parts_mf001" desc="출고상세내역 저장/수정 " fetchSize="10">
+        <![CDATA[
+			/* 출고상세내역 등록/수정  */
+			MERGE /* tbef_delv_parts_mf001 */
+			      INTO TBEF_DELV_PARTS TEL
+			USING (
+				SELECT 
+						? AS STND_YEAR, 						-- 기준년도 
+						? AS MBR_CD, 							-- 경정장 코드 
+						? AS DELV_SEQ, 							-- 일련번호 
+						? AS PARTS_CD,							-- 부품코드
+						? AS PARTS_YEAR,						-- 부품년식
+						? AS DELV_CNT,							-- 출고수량 
+						? AS RECEPT_ID,							-- 수령자
+						? AS RMK, 								-- 비고(반출내용)  
+						? AS USER_ID 							-- 작성자 아이디 
+				FROM DUAL
+				) TL
+			ON (    TEL.STND_YEAR       = TL.STND_YEAR			-- 기준년도 
+				AND TEL.MBR_CD          = TL.MBR_CD				-- 경정장 코드 
+				AND TEL.DELV_SEQ        = TL.DELV_SEQ			-- 일련번호	
+				AND TEL.PARTS_CD        = TL.PARTS_CD			-- 부품코드		
+				AND TEL.PARTS_YEAR      = TL.PARTS_YEAR	-- 부품코드				
+			   )
+			WHEN MATCHED THEN
+				UPDATE		
+				SET	TEL.DELV_CNT  = TL.DELV_CNT, 	-- 출고수량 
+					TEL.RECEPT_ID = TL.RECEPT_ID,	-- 수령자
+					TEL.RMK 	  = TL.RMK,			-- 비고(반출내용)					
+				    TEL.UPDT_ID   = TL.USER_ID,		-- 수정자 ID
+				    TEL.UPDT_DTM  = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+					TEL.STND_YEAR,					-- 기준년도 
+					TEL.MBR_CD, 					-- 경정장 코드 
+					TEL.DELV_SEQ,					-- 출고일련번호 
+					TEL.PARTS_CD,					-- 부품코드		      
+					TEL.PARTS_YEAR     ,			-- 부품년식
+					TEL.DELV_CNT,					-- 출고수량
+					TEL.RECEPT_ID,					-- 수령자
+					TEL.RMK,						-- 비고(반출내용)
+					TEL.INST_ID, 					-- 작성자 아이디 
+					TEL.INST_DTM 					-- 작성일시 
+					) 
+				VALUES ( 
+					TL.STND_YEAR,					-- 기준년도 
+					TL.MBR_CD, 						-- 경정장 코드 
+					DECODE(NVL(TL.DELV_SEQ,''),'',(SELECT MAX(DELV_SEQ) FROM TBEF_DELV WHERE STND_YEAR = TL.STND_YEAR AND MBR_CD = TL.MBR_CD),TL.DELV_SEQ), -- 출고일련번호 
+					TL.PARTS_CD,					-- 부품코드 
+					TL.PARTS_YEAR,					-- 부품년식
+					TL.DELV_CNT, 					-- 출고수량 
+					TL.RECEPT_ID,   				-- 수령자
+					TL.RMK, 						-- 비고(반출내용)  
+					TL.USER_ID, 					-- 작성자 아이디 
+					SYSDATE
+					)
+
+        ]]>
+    </query>   
+    
+    <query id="tbef_delv_parts_repr_mf001" desc="모터보트수리 사용부품내역 저장/수정 " fetchSize="10">
+        <![CDATA[
+			/* 출고상세내역 등록/수정  */
+			MERGE /* tbef_delv_parts_mf001 */
+			      INTO TBEF_DELV_PARTS_REPR TEL
+			USING (
+				SELECT 
+						? AS STND_YEAR, 						-- 기준년도 
+						? AS MBR_CD, 							-- 경정장 코드 
+						? AS DELV_SEQ, 							-- 일련번호 
+						? AS PARTS_CD,							-- 부품코드
+						? AS PARTS_YEAR,						-- 부품년식
+						? AS DELV_CNT,							-- 출고수량 
+						? AS RECEPT_ID,							-- 수령자
+						? AS RMK, 								-- 비고(반출내용)  
+						? AS USER_ID 							-- 작성자 아이디 
+				FROM DUAL
+				) TL
+			ON (    TEL.STND_YEAR       = TL.STND_YEAR			-- 기준년도 
+				AND TEL.MBR_CD          = TL.MBR_CD				-- 경정장 코드 
+				AND TEL.DELV_SEQ        = TL.DELV_SEQ			-- 일련번호	
+				AND TEL.PARTS_CD        = TL.PARTS_CD			-- 부품코드		
+				AND TEL.PARTS_YEAR      = TL.PARTS_YEAR	-- 부품코드				
+			   )
+			WHEN MATCHED THEN
+				UPDATE		
+				SET	TEL.DELV_CNT  = TL.DELV_CNT, 	-- 출고수량 
+					TEL.RECEPT_ID = TL.RECEPT_ID,	-- 수령자
+					TEL.RMK 	  = TL.RMK,			-- 비고(반출내용)					
+				    TEL.UPDT_ID   = TL.USER_ID,		-- 수정자 ID
+				    TEL.UPDT_DTM  = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+					TEL.STND_YEAR,					-- 기준년도 
+					TEL.MBR_CD, 					-- 경정장 코드 
+					TEL.DELV_SEQ,					-- 출고일련번호 
+					TEL.PARTS_CD,					-- 부품코드		      
+					TEL.PARTS_YEAR     ,			-- 부품년식
+					TEL.DELV_CNT,					-- 출고수량
+					TEL.RECEPT_ID,					-- 수령자
+					TEL.RMK,						-- 비고(반출내용)
+					TEL.INST_ID, 					-- 작성자 아이디 
+					TEL.INST_DTM 					-- 작성일시 
+					) 
+				VALUES ( 
+					TL.STND_YEAR,					-- 기준년도 
+					TL.MBR_CD, 						-- 경정장 코드 
+					DECODE(NVL(TL.DELV_SEQ,''),'',(SELECT MAX(DELV_SEQ) FROM TBEF_DELV WHERE STND_YEAR = TL.STND_YEAR AND MBR_CD = TL.MBR_CD),TL.DELV_SEQ), -- 출고일련번호 
+					TL.PARTS_CD,					-- 부품코드 
+					TL.PARTS_YEAR,					-- 부품년식
+					TL.DELV_CNT, 					-- 출고수량 
+					TL.RECEPT_ID,   				-- 수령자
+					TL.RMK, 						-- 비고(반출내용)  
+					TL.USER_ID, 					-- 작성자 아이디 
+					SYSDATE
+					)
+
+        ]]>
+    </query>   
+    
+    <query id="tbef_delv_parts_df001" desc="출고 상세 내역 삭제 " fetchSize="10">
+        <![CDATA[
+			-- 출고 상세 내역 삭제
+			DELETE 
+			FROM   TBEF_DELV_PARTS
+			WHERE  STND_YEAR       = ?		-- 기준년도
+			AND    MBR_CD          = ?		-- 경정장 
+			AND    DELV_SEQ        = ?		-- 출고일련번호 	
+			AND    PARTS_CD        = ?		-- 부품코드 		
+			AND    PARTS_YEAR      = ?		-- 부품일련번호 	
+        ]]>
+    </query> 
+    
+    <query id="tbef_delv_parts_df101" desc="출고 상세 내역 삭제(마스터 삭제시) " fetchSize="10">
+        <![CDATA[
+			-- 출고 삭제 
+			DELETE 
+			FROM   TBEF_DELV_PARTS
+			WHERE  STND_YEAR   = ?			-- 기준년도
+			AND    MBR_CD      = ?			-- 경정장 
+			AND    DELV_SEQ    = ?			-- 출고일련번호 			   
+        ]]>
+    </query> 
+    
+    <query id="tbef_delv_parts_uf701" desc="부품테이블 현재고량 수정(출고등록 삭제시)" fetchSize="10">
+        <![CDATA[
+			-- 출고 마스터 삭제시 부품테이블 현재고량 수정 
+			UPDATE TBEF_PARTS TP
+			SET TP.NOW_UNIT_CNT
+			  = TP.NOW_UNIT_CNT
+			  + (
+				SELECT 
+					  TDP.DELV_CNT 
+				FROM (SELECT STND_YEAR, MBR_CD, PARTS_CD, PARTS_YEAR, DELV_CNT 
+					  FROM   TBEF_DELV_PARTS
+					  WHERE  STND_YEAR =?
+					  AND    MBR_CD    =?
+					  AND    DELV_SEQ  = ?) TDP
+				WHERE TDP.STND_YEAR = TP.STND_YEAR 
+				AND TDP.MBR_CD = TP.MBR_CD
+				AND TDP.PARTS_CD = TP.PARTS_CD
+				AND TDP.PARTS_YEAR = TP.PARTS_YEAR
+				)
+			WHERE ( STND_YEAR, MBR_CD, PARTS_CD, PARTS_YEAR ) IN
+			      ( SELECT 
+			    	STND_YEAR, MBR_CD, PARTS_CD, PARTS_YEAR 
+					FROM TBEF_DELV_PARTS 
+					WHERE STND_YEAR=? AND MBR_CD=? AND DELV_SEQ = ?
+				  )
+        ]]>
+    </query> 
+    
+    <query id="tbef_delv_parts_uf702" desc="부품테이블 현재고량 수정" fetchSize="10">
+        <![CDATA[
+			-- 출고 상세데이터 변경시 부품현재고 수정
+			UPDATE /* tbef_delv_parts_uf702 */
+			       TBEF_PARTS SET
+				   NOW_UNIT_CNT    = NOW_UNIT_CNT - decode(?, 'DELETE', -?, ?-?),		
+				   UPDT_ID         = ?,			-- 수정자 ID
+				   UPDT_DTM        = SYSDATE	-- 수정일시 
+			WHERE  STND_YEAR       = ?			-- 기준년도
+			AND    MBR_CD          = ?			-- 경정장 
+			AND    PARTS_CD        = ?			-- 부품코드
+			AND    PARTS_YEAR      = ?			-- 부품년식
+        ]]>
+    </query> 
+    
+</queryMap>

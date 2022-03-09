@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbo3020(용지점간이동관리)">
+    <query id="rbo3020_s01" desc="용지점간이동 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbo3020_s01 */
+				'0' AS CHK
+				 
+				,STND_YEAR	  -- 기준년도
+				,TMS		  -- 회차
+				,OUT_BRNC_CD  -- 출고지점코드
+				,IN_BRNC_CD	  -- 입고지점코드
+				,ROLL_GBN	  -- 용지구분
+				,MOVE_CNT	  -- 이동수량
+			
+				,FC_GET_ROLLSTKCNT(A.STND_YEAR,A.TMS,A.OUT_BRNC_CD,A.ROLL_GBN,'01')  PRE_STK  -- 전재고
+				
+				
+				,FC_GET_ROLLSTKCNT(A.STND_YEAR,A.TMS,A.OUT_BRNC_CD,A.ROLL_GBN,'02')  STK_CNT 	-- 재고수량
+				
+				,RMK		  -- 비고
+				,INST_ID	  -- 작성자
+				,TO_CHAR(INST_DT,'YYYY-MM-DD')	 INST_DT -- 작성일시
+				,UPDT_ID	  -- 수정자
+				,UPDT_DT	  -- 수정일시
+				,(SELECT  COUNT(STND_YEAR) FROM TBRB_ROLL_END C  
+						WHERE A.STND_YEAR = C.STND_YEAR
+								AND A.OUT_BRNC_CD = C.BRNC_CD 
+								AND A.ROLL_GBN = C.ROLL_GBN )   END_YN
+			FROM 		
+               TBRB_ROLL_BRNC_MOVE A
+            WHERE
+            		A.STND_YEAR LIKE  '%' || NVL(? , STND_YEAR) || '%'
+            	AND A.TMS = ?
+            	AND A.ROLL_GBN LIKE  '%' || NVL(? , ROLL_GBN) || '%'
+            	AND A.OUT_BRNC_CD LIKE  '%' || NVL(? , OUT_BRNC_CD) || '%'
+             
+            ORDER BY INST_DT DESC,A.ROLL_GBN,IN_BRNC_CD DESC
+			
+        ]]>
+    </query>       
+
+   <query id="rbo3020_u01" desc="용지점간이동   입력/수정" fetchSize="10">
+
+        <![CDATA[
+			MERGE INTO TBRB_ROLL_BRNC_MOVE A  /* rbo3020_u01 */
+			USING   
+			        (SELECT
+			             ? AS OUT_BRNC_CD   -- 출고지점코드
+	                    ,? AS IN_BRNC_CD     -- 입고지점코드
+	                    ,? AS STND_YEAR      -- 년도
+	                    ,? AS TMS            -- 회차
+	                    ,? AS ROLL_GBN       -- 용지구분
+	                    
+	                    ,? AS MOVE_CNT       -- 이동수량
+	                    ,? AS RMK            -- 비고
+	                    ,? AS INST_ID        -- 작성자                    
+			            ,? AS UPDT_ID        -- 수정자   
+			        FROM    DUAL ) B  
+			    
+			ON (   
+			           A.OUT_BRNC_CD  = B.OUT_BRNC_CD   -- 출고지점코드
+                     AND A.IN_BRNC_CD   = B.IN_BRNC_CD   -- 입고지점코드
+                     AND A.STND_YEAR    = B.STND_YEAR    -- 년도
+                     AND A.TMS          = B.TMS          -- 회차
+                     AND A.ROLL_GBN     = B.ROLL_GBN     -- 용지구분        
+			)           
+			
+			WHEN MATCHED THEN
+			    UPDATE SET
+			                
+			         A.MOVE_CNT     = B.MOVE_CNT -- 이동수량                 
+                    ,A.RMK          = B.RMK      -- 비고
+                    ,A.UPDT_ID      = B.UPDT_ID  -- 수정자     
+                    ,A.UPDT_DT      = SYSDATE    -- 수정일시                   
+			WHEN NOT MATCHED THEN 
+			    
+			    INSERT (
+
+			         A.OUT_BRNC_CD    -- 출고지점코드
+                    ,A.IN_BRNC_CD     -- 입고지점코드
+                    ,A.STND_YEAR      -- 년도
+                    ,A.TMS            -- 회차
+                    ,A.ROLL_GBN       -- 용지구분
+                    
+                    ,A.MOVE_CNT       -- 이동수량
+                    ,A.RMK            -- 비고
+                    ,A.INST_ID        --  작성일시                    
+                    ,A.INST_DT        --  작성자
+			        
+			    ) VALUES (
+			         B.OUT_BRNC_CD    -- 출고지점코드
+                    ,B.IN_BRNC_CD     -- 입고지점코드
+                    ,B.STND_YEAR      -- 년도
+                    ,B.TMS            -- 회차
+                    ,B.ROLL_GBN       -- 용지구분
+                    
+                    ,B.MOVE_CNT       -- 이동수량
+                    ,B.RMK            -- 비고
+                    ,B.INST_ID        --  작성자                    
+                    ,SYSDATE        --  작성일시
+			    )
+         
+        ]]>
+
+    </query>    
+
+
+   
+
+    <query id="rbo3020_d01" desc="용지점간이동 삭제" fetchSize="10">
+
+        <![CDATA[
+
+			DELETE TBRB_ROLL_BRNC_MOVE   /* rbo3020_d01 */
+
+			WHERE  OUT_BRNC_CD = ?	-- 출고지점코드
+ 					 AND IN_BRNC_CD = ?	-- 입고지점코드
+ 					 AND STND_YEAR = ?		-- 년도
+ 					 AND TMS = ?			-- 회차
+ 					 AND ROLL_GBN = ?		-- 용지구분 
+        ]]>
+
+    </query>
+    
+       <query id="rbo3020_s02" desc="용지점간이동 기준년도  조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbo3020_s02 */
+				MIN(STND_YEAR) STND_YEAR
+			FROM 		
+               TBRB_ROLL_MANA		
+        ]]>
+    </query>
+    
+    
+   <query id="rbo3020_s03" desc="마감  조회" fetchSize="10">
+      <![CDATA[
+			SELECT  /* rbo3020_s03 */
+				 BRNC_CD		--지점코드
+				,STND_YEAR		--기준년도
+				,ROLL_GBN		--용지구분
+				,END_STK_CNT	--마감재고수량
+				
+				,INST_ID
+				,INST_DT
+				,UPDT_ID
+				,UPDT_DT
+
+			FROM TBRB_ROLL_END
+			WHERE STND_YEAR = ?		
+        ]]>
+    </query>           
+
+</queryMap>

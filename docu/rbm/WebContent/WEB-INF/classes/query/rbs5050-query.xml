@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5050(보수조정점수 관리 )">
+  <query id="rbs5050_s01" desc="보수조정점수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5050_s01 */
+                   '0' AS CHK
+                   ,S.GAME_CD					-- 종목코드
+		           ,S.CONTEST_TYPE_SEQ			-- 대회분류연번
+		           ,S.RANK						-- 순위
+		           ,S.MRTN_RACE_TYPE			-- 마라콘 경주 종류
+		           ,S.SCR						-- 점수
+		           ,S.RMK						-- 비고
+		           ,C1.CD_NM AS GAME_NM			-- 종목명
+		           ,T.INTL_TYPE					-- 국제대회 여부
+		           ,T.CONTEST_TYPE_NM			-- 대회분류명
+			FROM TBRS_PAY_ADJ_SCR_RULE S, TBRK_SPEC_CD C1, TBRS_CONTEST_TYPE T
+			WHERE   S.GAME_CD = C1.CD
+			    AND C1.GRP_CD = '144'
+			    AND S.GAME_CD = T.GAME_CD
+			    AND S.CONTEST_TYPE_SEQ = T.CONTEST_TYPE_SEQ  
+			    AND S.GAME_CD LIKE ?||'%'
+			ORDER BY S.GAME_CD, S.CONTEST_TYPE_SEQ, S.MRTN_RACE_TYPE, S.RANK 
+        ]]>
+    </query>       
+    
+    <query id="rbs5050_m01" desc="보수조정점수 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5050_m01 */
+                  TBRS_PAY_ADJ_SCR_RULE DST
+           USING (
+                     SELECT   ? AS GAME_CD
+                             ,? AS CONTEST_TYPE_SEQ
+                             ,? AS RANK
+                             ,? AS MRTN_RACE_TYPE
+                             ,? AS SCR
+                             ,? AS RMK
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.GAME_CD      		= SRC.GAME_CD
+                     AND DST.CONTEST_TYPE_SEQ  	= SRC.CONTEST_TYPE_SEQ
+                     AND DST.RANK  				= SRC.RANK
+                     AND DST.MRTN_RACE_TYPE     = SRC.MRTN_RACE_TYPE
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.SCR 			= SRC.SCR
+                        ,DST.RMK   			= SRC.RMK
+                        ,DST.UPDT_ID 		= SRC.USER_ID
+                        ,DST.UPDT_DT 		= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  GAME_CD
+                , CONTEST_TYPE_SEQ
+                , RANK
+                , MRTN_RACE_TYPE
+                , SCR
+                , RMK
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.GAME_CD
+                , SRC.CONTEST_TYPE_SEQ
+                , SRC.RANK
+                , NVL(SRC.MRTN_RACE_TYPE,'001')
+                , SRC.SCR
+                , SRC.RMK
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5050_d01" desc="보수조정점수 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5050_d01 */
+            FROM TBRS_PAY_ADJ_SCR_RULE
+           WHERE GAME_CD = ?
+             AND CONTEST_TYPE_SEQ = ?
+             AND RANK = ? 
+             AND MRTN_RACE_TYPE = ?
+        ]]>
+    </query>    
+    
+</queryMap>

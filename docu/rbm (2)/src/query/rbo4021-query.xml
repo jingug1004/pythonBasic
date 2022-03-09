@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4021(입고 이력관리 팝업)">
+    <query id="rbo4021_s01" desc="입고 이력관리 팝업 조회" fetchSize="10">
+      <![CDATA[
+      
+			SELECT  /* RBO4021_s01 */
+			        A.PARTS_LCD         PARTS_LCD    -- 발매기코드
+			      , FC_CODE_NM('097', A.PARTS_LCD)  AS PARTS_LCD_NM      -- 발매기명
+			      , A.PARTS_MCD         PARTS_MCD    -- 부품그룹코드
+			      , FC_CODE_NM('098', A.PARTS_MCD)  AS PARTS_MCD_NM      -- 부품그룹명
+			      , A.PARTS_CD          PARTS_CD     -- 부품코드
+			      , A.PARTS_NM          PARTS_NM     -- 부품명
+			      , A.MADE_GBN          MADE_GBN     -- 생산지여부(구분)
+			      , B.SEQ				SEQ			 -- SEQ
+			      , B.IN_DT             IN_DT        -- 입고일자
+			      , NVL(B.IN_CNT, 0)    IN_CNT       -- 입고수량
+			      , B.IN_NO             IN_NO        -- 입고자
+			      , B.INPUT_DT          INPUT_DT     -- 입력일자
+			      , B.UPDT_RSN          UPDT_RSN     -- 수정사유
+			      , B.DEL_YN            DEL_YN       -- 삭제여부
+			      , TO_CHAR(SYSDATE,'YYYYMMDD') AS TODT -- 현재일자
+			      , '0'                 CHK
+			FROM    TBRB_PARTS_MODEL A, TBRB_PARTS_IN B
+			WHERE   A.PARTS_CD = B.PARTS_CD     -- 부품코드
+			AND     A.PARTS_LCD = ? 			-- 발매기코드
+			AND     A.PARTS_MCD = ? 			-- 부품그룹코드
+			AND     A.PARTS_CD = ? 				-- 부품코드
+			AND		B.IN_DT = ?
+			AND     B.DEL_YN = 'N'				-- 삭제여부( Y : 삭제, N : 사용 ) 이력관리
+			ORDER BY B.SEQ  ASC
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4021_i01" desc="입고 이력관리 팝업 저장" fetchSize="10">
+      <![CDATA[
+      
+			INSERT
+			INTO    TBRB_PARTS_IN
+			(
+			    PARTS_CD    -- 부품코드
+			  , SEQ         -- 순번
+			  
+			  , IN_DT       -- 입고일자
+			  , IN_NO       -- 입고자
+			  , IN_CNT      -- 입고수량
+			  , INPUT_DT    -- 입력일자
+			  
+			  , UPDT_RSN    -- 수정사유
+			  , DEL_YN      -- 삭제여부
+			  
+			  , INST_ID     -- 작성자ID
+			  , INST_DT     -- 작성일시
+			)
+			VALUES
+			(
+			    ?
+			  , (SELECT NVL(MAX(SEQ), 0) + 1
+			     FROM   TBRB_PARTS_IN
+			     WHERE  PARTS_CD = ?
+			     AND    IN_DT = ?	-- 입고일자
+			    )   -- SEQ
+			  
+			  , ?	-- IN_DT
+			  , ?
+			  , ?
+			  , to_char(sysdate, 'YYYYMMDD')
+			  
+			  , ?
+			  , 'N'
+			  
+			  , ?
+			  , SYSDATE
+			)
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4021_u01" desc="입고 이력관리 팝업 수정" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  TBRB_PARTS_IN	/* RBO4021_u01 */
+			SET
+			        IN_CNT = NVL(?, 0) 		-- 입고수량
+			      , UPDT_RSN = ?    		-- 수정사유
+			        
+			      , UPDT_ID = ?				-- 수정자ID
+			      , UPDT_DT = SYSDATE		-- 수정일시
+			
+			WHERE   PARTS_CD = ?			-- 부품코드
+			AND     IN_DT = ?				-- 입고일자
+			AND     SEQ = ?					-- 순번
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4021_d01" desc="입고 이력관리 삭제" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  TBRB_PARTS_IN	/* RBO4021_d01 */
+			SET
+			        DEL_YN = 'Y'			-- 삭제여부( Y : 삭제, N : 사용 ) 이력관리
+			      , UPDT_ID = ?				-- 수정자ID
+			      , UPDT_DT = SYSDATE		-- 수정일시
+			
+			WHERE   PARTS_CD = ?			-- 부품코드
+			AND     IN_DT = ?				-- 입고일자
+			AND     SEQ = ?					-- 순번
+      
+      ]]>
+    </query>
+    
+</queryMap>

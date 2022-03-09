@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_cand_assign_mngr(후보생배정)">
+
+    <query id="tbdb_cand_assign_fb001" desc="년도 조회" fetchSize="10">
+        <![CDATA[
+			SELECT TRIM(RMK) AS RACE_YY
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC		
+		]]>
+    </query>
+    <query id="tbdb_cand_assign_fb002" desc="세부시행일정" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			       RACE_YY
+			      ,ROUND
+			      ,MAT_METH
+			      ,RACE_METH
+			      ,RACE_CNT
+			      ,RACE_DT
+			      ,AM_PM_GBN
+			      ,RACER_CNT
+			      ,SELT_ROUND
+			      ,'0' CHK
+			FROM  TBDB_DETL_RACE_SCHE 
+			WHERE RACE_YY = ?
+            AND ROUND     = ?
+		     ]]>
+    </query>  
+    <query id="tbdb_cand_assign_fb003" desc="대진표 등급코드" fetchSize="10">
+        <![CDATA[
+        	SELECT 
+        		 RACE_YY
+			    ,ROUND
+        		,MAT_CD
+        		,GRD 
+        		,(SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10032'
+				 AND CD = A.GRD)AS GRD_NM
+        		,0 as CHK 
+        	FROM TBDB_DETL_MAT A
+			WHERE  RACE_YY = ?
+			AND ROUND = ?
+			ORDER BY GRD
+        ]]>
+    </query>
+    <query id="tbdb_cand_assign_cfm" desc="확정플래그 조회" fetchSize="10">
+    <![CDATA[
+			SELECT DISTINCT CFM_FG
+			  FROM TBDB_RACE_REC_MST 
+			 WHERE RACE_YY = ? 
+			   AND ROUND   = ?
+			 
+    ]]>
+	</query> 
+    <query id="tbdb_cand_assign_ib001" desc="대진표 등급코드" fetchSize="10">
+        <![CDATA[  
+		    MERGE INTO TBDB_CAND_ASSIGN TCA
+					            USING   DUAL
+					            ON        (     TCA.RACE_YY 		= ?     -- 기준년도
+					            			AND TCA.ROUND				= ?		-- 회차  
+					            			AND TCA.CAND_NO    			= ?   	-- 후보생 NO 				
+					                      )
+					WHEN MATCHED THEN
+					             UPDATE  SET
+						  		 MAT_CD   	 = 	?
+					   			,GBN   		 = 	?
+					   			,DCSN_GBN    = 	?
+					   			,RACE_CNT  	 = 	?
+					   			,TOT_AVG   	 = 	?
+					   			,TOT_RANK    = 	?
+					   			,GRD		 =  ?
+								,UPDT_ID     = 	?
+					  			,UPDT_DTM    = 	SYSDATE
+					WHEN NOT MATCHED THEN
+					             INSERT (			
+								   RACE_YY 
+								   ,ROUND
+								   ,CAND_NO 
+								   ,MAT_CD
+								   ,GBN
+								   ,DCSN_GBN 
+								   ,RACE_CNT
+								   ,TOT_AVG
+								   ,TOT_RANK 
+								   ,GRD
+								   ,INST_ID
+								   ,INST_DTM )
+								VALUES(
+								   ?,?,?,?,?
+								   ,?,?,?,?,?
+								   ,?,SYSDATE
+								   )
+		]]>
+    </query>
+    <query id="tbdb_cand_assign_db001" desc="대진표 등급코드" fetchSize="10">
+        <![CDATA[  
+            DELETE FROM 
+	        			TBDB_CAND_ASSIGN
+	        WHERE 	RACE_YY 	= ?
+			AND ROUND 	= ?
+   		]]>
+    </query>    
+</queryMap> 

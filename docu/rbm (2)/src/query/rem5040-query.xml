@@ -1,0 +1,600 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem5040(지점별 지정좌석실 상품출고 조회 )">
+  
+    <query id="rem5040_s01" desc="지정좌석실 상품출고 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5040_s01 */
+                    '' AS CHK
+                   ,A.COMM_NO
+                   ,A.STOR_DT
+                   ,A.SEQ_NO
+                   ,A.GOOD_NM
+                   ,A.PRICE
+                   ,A.GOOD_TYPE_CD
+                   ,A.STOR_CNT
+                   ,A.BALANC_CNT
+                   ,NVL(C.STAT_CD,'000') AS STAT_CD  
+                   ,NVL(C.APRV_ID,'') AS APRV_ID 
+                   ,B.UNSTOR_ID AS UNSTOR_ID
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) AS  UNSTOR_CNT_CUM
+                   ,NVL(UNSTOR_CNT_PREV,0) AS  UNSTOR_CNT_PREV
+                   ,NVL(UNSTOR_CNT_TODAY,0)  AS UNSTOR_CNT
+                   ,NVL(DISUSE_CNT_TODAY,0)  AS DISUSE_CNT
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) - NVL(UNSTOR_CNT_TODAY,0) - NVL(DISUSE_CNT_TODAY,0) AS RM_UNSTOR_CNT
+                   ,B.RMK
+                   ,? AS UNSTOR_DT
+            FROM    TBRC_FS_STOR A
+                   ,(
+                     SELECT COMM_NO, STOR_DT, SEQ_NO 
+                           ,SUM(CASE WHEN UNSTOR_DT < ? THEN (UNSTOR_CNT + DISUSE_CNT) ELSE 0 END) AS UNSTOR_CNT_PREV
+                           ,SUM(CASE WHEN UNSTOR_DT = ? THEN UNSTOR_CNT ELSE 0 END) AS UNSTOR_CNT_TODAY
+                           ,SUM(CASE WHEN UNSTOR_DT = ? THEN DISUSE_CNT ELSE 0 END) AS DISUSE_CNT_TODAY
+                           ,MAX(UNSTOR_ID) AS UNSTOR_ID
+                           ,MAX(CASE WHEN UNSTOR_DT = ? THEN RMK ELSE '' END) AS RMK
+                     FROM TBRC_FS_UNSTOR
+                     GROUP BY COMM_NO, STOR_DT, SEQ_NO
+                    ) B    
+                    ,(
+                     SELECT COMM_NO
+                           ,STOR_DT
+                           ,SEQ_NO
+                           ,MAX(STAT_CD) AS STAT_CD
+                           ,MAX(APRV_ID) AS APRV_ID
+                     FROM   TBRC_FS_UNSTOR C 
+                     WHERE  UNSTOR_DT = ?
+                     GROUP BY COMM_NO, STOR_DT, SEQ_NO
+                    ) C                      
+            WHERE   A.COMM_NO  = B.COMM_NO(+)
+            AND     A.STOR_DT  = B.STOR_DT(+)
+            AND     A.SEQ_NO   = B.SEQ_NO(+)
+            AND     A.STOR_CNT > NVL(UNSTOR_CNT_PREV,0)      
+            AND     A.COMM_NO  = ?
+            AND     A.STOR_DT <= ?
+            AND     A.COMM_NO  = C.COMM_NO(+)
+            AND     A.STOR_DT  = C.STOR_DT(+)
+            AND     A.SEQ_NO   = C.SEQ_NO(+)
+            ORDER BY STOR_DT, SEQ_NO
+        ]]>
+    </query> 
+    
+     <query id="rem5040_s011" desc="지정좌석실 상품출고 조회(결재)" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5040_s011 */
+                    '' AS CHK
+                   ,A.COMM_NO
+                   ,A.STOR_DT
+                   ,A.SEQ_NO
+                   ,A.GOOD_NM
+                   ,A.PRICE
+                   ,A.GOOD_TYPE_CD
+                   ,A.STOR_CNT
+                   ,A.BALANC_CNT
+                   ,NVL(C.STAT_CD,'000') AS STAT_CD  
+                   ,NVL(C.APRV_ID,'') AS APRV_ID 
+                   ,B.UNSTOR_ID AS UNSTOR_ID
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) AS  UNSTOR_CNT_CUM
+                   ,NVL(UNSTOR_CNT_PREV,0) AS  UNSTOR_CNT_PREV
+                   ,NVL(UNSTOR_CNT_MONTH,0)  AS UNSTOR_CNT
+                   ,NVL(DISUSE_CNT_MONTH,0)  AS DISUSE_CNT
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) AS RM_UNSTOR_CNT
+                   ,B.RMK
+                   ,? AS UNSTOR_DT
+            FROM    TBRC_FS_STOR A
+                   ,(
+                     SELECT COMM_NO, STOR_DT, SEQ_NO 
+                           ,SUM(CASE WHEN UNSTOR_DT < ? THEN (UNSTOR_CNT + DISUSE_CNT) ELSE 0 END) AS UNSTOR_CNT_PREV
+                           ,SUM(CASE WHEN UNSTOR_DT LIKE  SUBSTR(?,0,6)||'%' THEN UNSTOR_CNT ELSE 0 END) AS UNSTOR_CNT_MONTH
+                           ,SUM(CASE WHEN UNSTOR_DT LIKE  SUBSTR(?,0,6)||'%' THEN DISUSE_CNT ELSE 0 END) AS DISUSE_CNT_MONTH
+                           ,MAX(UNSTOR_ID) AS UNSTOR_ID
+                           ,MAX(CASE WHEN UNSTOR_DT = ? THEN RMK ELSE '' END) AS RMK
+                     FROM TBRC_FS_UNSTOR
+                     GROUP BY COMM_NO, STOR_DT, SEQ_NO
+                    ) B    
+                    ,(
+                     SELECT COMM_NO
+                           ,STOR_DT
+                           ,SEQ_NO
+                           ,MAX(STAT_CD) AS STAT_CD
+                           ,MAX(APRV_ID) AS APRV_ID
+                     FROM   TBRC_FS_UNSTOR C 
+                     WHERE  UNSTOR_DT LIKE  SUBSTR(?,0,6)||'%'
+                     GROUP BY COMM_NO, STOR_DT, SEQ_NO
+                    ) C                      
+            WHERE   A.COMM_NO  = B.COMM_NO(+)
+            AND     A.STOR_DT  = B.STOR_DT(+)
+            AND     A.SEQ_NO   = B.SEQ_NO(+)
+            AND     A.STOR_CNT >= NVL(UNSTOR_CNT_PREV,0)
+            AND     NVL(UNSTOR_CNT_MONTH,0)+NVL(DISUSE_CNT_MONTH,0) > 0      
+            AND     A.COMM_NO  = ?
+            AND     A.STOR_DT <= ?
+            AND     A.COMM_NO  = C.COMM_NO(+)
+            AND     A.STOR_DT  = C.STOR_DT(+)
+            AND     A.SEQ_NO   = C.SEQ_NO(+)
+            ORDER BY STOR_DT, SEQ_NO
+        ]]>
+    </query> 
+    
+    <query id="rem5040_s02" desc="지정좌석실 재고 존재 여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5040_s02 */
+ 			      NVL(SUM(UNSTOR_CNT + DISUSE_CNT),0) AS CNT
+			FROM  TBRC_FS_UNSTOR 
+		    WHERE COMM_NO = ?
+		    AND   STOR_DT = ?
+		    AND   SEQ_NO  = ?  
+		    AND   UNSTOR_DT != ?      
+        ]]>
+    </query> 
+    
+    
+    <query id="rem5040_s03" desc="지정좌석실 연가단가계약상품 출고 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5040_s03 */
+                    '' AS CHK
+                   ,A.COMM_NO
+                   ,A.YEAR_ITEM_SEQ_NO
+                   ,(SELECT GOOD_NM 
+                     FROM   TBRC_FS_YEAR_ITEM ITM 
+                     WHERE  ITM.COMM_NO = DECODE(A.COMM_NO,'04','00','05','00',A.COMM_NO) 
+                     AND    YEAR_ITEM_SEQ_NO = A.YEAR_ITEM_SEQ_NO
+                     ) AS GOOD_NM
+                   ,A.PRICE
+                   ,A.GOOD_TYPE_CD
+                   ,A.STOR_CNT 
+                   ,NVL(C.STAT_CD,'000') AS STAT_CD  
+                   ,NVL(C.APRV_ID,'') AS APRV_ID 
+                   ,B.UNSTOR_ID AS UNSTOR_ID
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) AS BALANCE_CNT
+                   ,NVL(UNSTOR_CNT_PREV,0)  AS UNSTOR_CNT_PREV
+                   ,NVL(UNSTOR_CNT_TODAY,0) AS UNSTOR_CNT
+                   ,NVL(DISUSE_CNT_TODAY,0) AS DISUSE_CNT
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) - NVL(UNSTOR_CNT_TODAY,0) - NVL(DISUSE_CNT_TODAY,0) AS RM_UNSTOR_CNT
+                   ,B.RMK
+                   ,? AS UNSTOR_DT
+            FROM (
+                      SELECT  COMM_NO
+                                 ,YEAR_ITEM_SEQ_NO
+                                 ,GOOD_TYPE_CD
+                                 ,PRICE
+                                 ,SUM(STOR_CNT)  AS STOR_CNT 
+                                 ,SUM(DECODE(STOR_DT,?,STOR_CNT,0)) AS STOR_CNT_TODAY                                   
+                      FROM TBRC_FS_STOR
+                      WHERE COMM_NO = ?
+                      AND   YEAR_ITEM_SEQ_NO > 0
+                      AND   STOR_DT <=  ?
+                      GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO,GOOD_TYPE_CD, PRICE
+                     ) A
+                   ,(
+                     SELECT COMM_NO, YEAR_ITEM_SEQ_NO
+                           ,SUM(CASE WHEN UNSTOR_DT <  ? THEN (UNSTOR_CNT + DISUSE_CNT) ELSE 0 END) AS UNSTOR_CNT_PREV
+                           ,SUM(CASE WHEN UNSTOR_DT =  ? THEN UNSTOR_CNT ELSE 0 END) AS UNSTOR_CNT_TODAY
+                           ,SUM(CASE WHEN UNSTOR_DT =  ? THEN DISUSE_CNT ELSE 0 END) AS DISUSE_CNT_TODAY
+                           ,MAX(UNSTOR_ID) AS UNSTOR_ID
+                           ,MAX(CASE WHEN UNSTOR_DT =  ? THEN RMK ELSE '' END) AS RMK
+                     FROM TBRC_FS_YEAR_ITEM_OUT
+                     WHERE COMM_NO = ?
+                     AND   UNSTOR_DT <=  ?
+                     GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                    ) B    
+                    ,(
+                     SELECT COMM_NO
+                           ,YEAR_ITEM_SEQ_NO
+                           ,MAX(STAT_CD) AS STAT_CD
+                           ,MAX(APRV_ID) AS APRV_ID
+                     FROM   TBRC_FS_YEAR_ITEM_OUT C 
+                     WHERE COMM_NO   = ?
+                     AND   UNSTOR_DT =  ?
+                     GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                    ) C                      
+            WHERE   A.COMM_NO  = B.COMM_NO(+)
+            AND     A.YEAR_ITEM_SEQ_NO  = B.YEAR_ITEM_SEQ_NO(+)
+            AND     (A.STOR_CNT > NVL(UNSTOR_CNT_PREV,0) OR
+                     A.STOR_CNT_TODAY > 0 OR
+                     (NVL(UNSTOR_CNT_TODAY,0)+NVL(DISUSE_CNT_TODAY,0)>0))   --정상의 경우는 아니지만 당일 출고내역이 있는 경우에도 조회 가능하게      
+            AND     A.COMM_NO  = C.COMM_NO(+)
+            AND     A.YEAR_ITEM_SEQ_NO  = C.YEAR_ITEM_SEQ_NO(+)
+            ORDER BY A.COMM_NO, A.YEAR_ITEM_SEQ_NO                
+        ]]>
+    </query> 
+    
+    <query id="rem5040_s031" desc="지정좌석실 연가단가계약상품 출고 조회(결재)" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5040_s031 */
+                    '' AS CHK
+                   ,A.COMM_NO
+                   ,A.YEAR_ITEM_SEQ_NO
+                   ,(SELECT GOOD_NM 
+                     FROM   TBRC_FS_YEAR_ITEM ITM 
+                     WHERE  ITM.COMM_NO = DECODE(A.COMM_NO,'04','00','05','00',A.COMM_NO) 
+                     AND    YEAR_ITEM_SEQ_NO = A.YEAR_ITEM_SEQ_NO
+                     ) AS GOOD_NM
+                   ,A.PRICE
+                   ,A.GOOD_TYPE_CD
+                   ,A.STOR_CNT 
+                   ,NVL(C.STAT_CD,'000') AS STAT_CD  
+                   ,NVL(C.APRV_ID,'') AS APRV_ID 
+                   ,B.UNSTOR_ID AS UNSTOR_ID
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) AS BALANCE_CNT
+                   ,NVL(UNSTOR_CNT_PREV,0)  AS UNSTOR_CNT_PREV
+                   ,NVL(UNSTOR_CNT_MONTH,0) AS UNSTOR_CNT
+                   ,NVL(DISUSE_CNT_MONTH,0) AS DISUSE_CNT
+                   ,A.STOR_CNT - NVL(UNSTOR_CNT_PREV,0) AS RM_UNSTOR_CNT
+                   ,B.RMK
+                   ,? AS UNSTOR_DT
+            FROM (
+                      SELECT  COMM_NO
+                                 ,YEAR_ITEM_SEQ_NO
+                                 ,GOOD_TYPE_CD
+                                 ,PRICE
+                                 ,SUM(STOR_CNT)  AS STOR_CNT 
+                                 ,SUM(DECODE(STOR_DT,?,STOR_CNT,0)) AS STOR_CNT_TODAY                                   
+                      FROM TBRC_FS_STOR
+                      WHERE COMM_NO = ?
+                      AND   YEAR_ITEM_SEQ_NO > 0
+                      AND   STOR_DT <=  ?
+                      GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO,GOOD_TYPE_CD, PRICE
+                     ) A
+                   ,(
+                     SELECT COMM_NO, YEAR_ITEM_SEQ_NO
+                           ,SUM(CASE WHEN UNSTOR_DT <  ? THEN (UNSTOR_CNT + DISUSE_CNT) ELSE 0 END) AS UNSTOR_CNT_PREV
+                           ,SUM(CASE WHEN UNSTOR_DT LIKE  SUBSTR(?,0,6)||'%' THEN UNSTOR_CNT ELSE 0 END) AS UNSTOR_CNT_MONTH
+                           ,SUM(CASE WHEN UNSTOR_DT LIKE  SUBSTR(?,0,6)||'%' THEN DISUSE_CNT ELSE 0 END) AS DISUSE_CNT_MONTH
+                           ,MAX(UNSTOR_ID) AS UNSTOR_ID
+                           ,MAX(CASE WHEN UNSTOR_DT =  ? THEN RMK ELSE '' END) AS RMK
+                     FROM TBRC_FS_YEAR_ITEM_OUT
+                     WHERE COMM_NO = ?
+                     AND   UNSTOR_DT <=  ?
+                     GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                    ) B    
+                    ,(
+                     SELECT COMM_NO
+                           ,YEAR_ITEM_SEQ_NO
+                           ,MAX(STAT_CD) AS STAT_CD
+                           ,MAX(APRV_ID) AS APRV_ID
+                     FROM   TBRC_FS_YEAR_ITEM_OUT C 
+                     WHERE COMM_NO   = ?
+                     AND   UNSTOR_DT LIKE  SUBSTR(?,0,6)||'%'
+                     GROUP BY COMM_NO, YEAR_ITEM_SEQ_NO
+                    ) C                      
+            WHERE   A.COMM_NO  = B.COMM_NO(+)
+            AND     A.YEAR_ITEM_SEQ_NO  = B.YEAR_ITEM_SEQ_NO(+)
+            AND     (A.STOR_CNT > NVL(UNSTOR_CNT_PREV,0) OR
+                     A.STOR_CNT_TODAY > 0 OR
+                     (NVL(UNSTOR_CNT_MONTH,0)+NVL(DISUSE_CNT_MONTH,0)>0))   --정상의 경우는 아니지만 당일 출고내역이 있는 경우에도 조회 가능하게      
+            AND     A.COMM_NO  = C.COMM_NO(+)
+            AND     A.YEAR_ITEM_SEQ_NO  = C.YEAR_ITEM_SEQ_NO(+)
+            ORDER BY A.COMM_NO, A.YEAR_ITEM_SEQ_NO                
+        ]]>
+    </query> 
+    
+    <query id="rem5040_s04" desc="지정좌석실 재고 존재 여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5040_s04 */
+ 			      A.STOR_CNT - NVL(B.UNSTOR_CNT,0) AS CNT
+			FROM  (SELECT COMM_NO
+			             ,YEAR_ITEM_SEQ_NO
+			             ,SUM(STOR_CNT) AS STOR_CNT
+			       FROM   TBRC_FS_STOR
+			       WHERE  COMM_NO = ?
+			       AND    YEAR_ITEM_SEQ_NO = ?
+			       AND    STOR_DT <= ?
+			       GROUP BY COMM_NO,YEAR_ITEM_SEQ_NO) A
+			     ,(SELECT COMM_NO
+			             ,YEAR_ITEM_SEQ_NO
+			             ,SUM(UNSTOR_CNT+DISUSE_CNT) AS UNSTOR_CNT
+			       FROM   TBRC_FS_YEAR_ITEM_OUT
+			       WHERE  COMM_NO = ?
+			       AND    YEAR_ITEM_SEQ_NO = ?
+			       AND    UNSTOR_DT < ?
+			       GROUP BY COMM_NO,YEAR_ITEM_SEQ_NO) B 
+		    WHERE A.COMM_NO          = B.COMM_NO(+)
+		    AND   A.YEAR_ITEM_SEQ_NO = B.YEAR_ITEM_SEQ_NO(+)
+        ]]>
+    </query> 
+    
+    <query id="rem5040_u01" desc="지정좌석실 상품출고 상태 변경(전체)" fetchSize="10">
+      <![CDATA[
+            UPDATE /* rem5040_u01 */
+                    TBRC_FS_STOR A
+			SET     BALANC_CNT = (
+				                SELECT SUM(UNSTOR_CNT + DISUSE_CNT) 
+				                FROM TBRC_FS_UNSTOR B 
+				                WHERE A.COMM_NO = B.COMM_NO 
+				                AND A.STOR_DT = B.STOR_DT 
+				                AND A.SEQ_NO = B.SEQ_NO
+				                )
+				   ,UPDT_ID = ?
+				   ,UPDT_DT = SYSDATE              
+            WHERE   A.COMM_NO  = ?
+            AND     A.STOR_DT like ?||'%'
+        ]]>
+    </query> 
+    
+     <query id="rem5040_u01_1" desc="지정좌석실 상품출고 상태 변경(개별)" fetchSize="10">
+      <![CDATA[
+            UPDATE /* rem5040_u01_1 */
+                    TBRC_FS_STOR A
+			SET     BALANC_CNT = (
+				                SELECT SUM(UNSTOR_CNT + DISUSE_CNT) 
+				                FROM TBRC_FS_UNSTOR B 
+				                WHERE A.COMM_NO = B.COMM_NO 
+				                AND A.STOR_DT = B.STOR_DT 
+				                AND A.SEQ_NO = B.SEQ_NO
+				                )
+				   ,UPDT_ID = ?
+				   ,UPDT_DT = SYSDATE              
+            WHERE   A.COMM_NO  = ?
+            AND     A.STOR_DT  = ?
+            AND     A.SEQ_NO   = ?
+        ]]>
+    </query> 
+        
+    
+    <query id="rem5040_u02" desc="지정좌석실 상품출고 상태 변경" fetchSize="10">
+      <![CDATA[
+            UPDATE /* rem5040_u02 */
+                   TBRC_FS_UNSTOR
+            SET    STAT_CD = ?
+                  ,APRV_ID = DECODE(?, '002', ?, APRV_ID)
+                  ,APRV_DT = DECODE(?, '002', NULL, '004', SYSDATE, APRV_DT)
+                  ,UPDT_ID = ?
+                  ,UPDT_DT = SYSDATE    
+            WHERE  COMM_NO   = ?
+            AND    UNSTOR_DT like ?||'%'
+        ]]>
+    </query> 
+    
+    <query id="rem5040_u03" desc="지정좌석실 단가계약 상품출고 상태 변경" fetchSize="10">
+      <![CDATA[
+            UPDATE /* rem5040_u03 */
+                   TBRC_FS_YEAR_ITEM_OUT
+            SET    STAT_CD = ?
+                  ,APRV_ID = DECODE(?, '002', ?, APRV_ID)
+                  ,APRV_DT = DECODE(?, '002', NULL, '004', SYSDATE, APRV_DT)
+                  ,UPDT_ID = ?
+                  ,UPDT_DT = SYSDATE    
+            WHERE  COMM_NO   = ?
+            AND    UNSTOR_DT like ?||'%'
+        ]]>
+    </query> 
+    
+    <query id="rem5040_m01" desc="지정좌석실 상품출고 저장" fetchSize="10">
+      <![CDATA[
+            MERGE /* rem5040_m01 */
+ 			      INTO TBRC_FS_UNSTOR DST
+ 			USING (
+ 			       SELECT  ? AS COMM_NO
+ 			              ,? AS STOR_DT
+ 			              ,? AS SEQ_NO
+ 			              ,? AS UNSTOR_DT
+ 			              ,? AS UNSTOR_CNT
+ 			              ,? AS DISUSE_CNT
+ 			              ,? AS RMK
+ 			              ,? AS STAT_CD
+ 			              ,? AS UNSTOR_ID
+ 			              ,? AS APRV_ID
+ 			              ,? AS APRV_DT
+ 			              ,? AS USER_ID
+ 			       FROM    DUAL       
+ 			        ) SRC    
+ 			ON     (
+ 			           DST.COMM_NO   = SRC.COMM_NO
+ 			       AND DST.STOR_DT   = SRC.STOR_DT
+ 			       AND DST.SEQ_NO    = SRC.SEQ_NO
+ 			       AND DST.UNSTOR_DT = SRC.UNSTOR_DT
+ 			       )
+ 			WHEN MATCHED THEN
+ 			      UPDATE SET
+ 			                 DST.UNSTOR_CNT = SRC.UNSTOR_CNT
+ 			                ,DST.DISUSE_CNT = SRC.DISUSE_CNT
+ 			                ,DST.RMK        = SRC.RMK 
+ 			                ,DST.STAT_CD    = SRC.STAT_CD
+ 			                ,DST.UNSTOR_ID  = SRC.UNSTOR_ID
+ 			                ,DST.APRV_ID    = SRC.APRV_ID
+ 			                ,DST.APRV_DT    = SRC.APRV_DT
+ 			                ,DST.UPDT_ID    = SRC.USER_ID
+ 			                ,DST.UPDT_DT    = SYSDATE
+ 			WHEN NOT MATCHED THEN
+ 			       INSERT (
+ 			                 COMM_NO
+ 			                ,STOR_DT
+ 			                ,SEQ_NO
+ 			                ,UNSTOR_DT
+ 			                ,UNSTOR_CNT
+ 			                ,DISUSE_CNT
+ 			                ,RMK
+ 			                ,STAT_CD
+ 			                ,UNSTOR_ID
+ 			                ,APRV_ID
+ 			                ,APRV_DT
+ 			                ,INST_ID
+ 			                ,INST_DT
+ 			               ) VALUES (
+ 			               	 SRC.COMM_NO
+ 			               	,SRC.STOR_DT
+ 			               	,SRC.SEQ_NO
+ 			               	,SRC.UNSTOR_DT
+ 			               	,SRC.UNSTOR_CNT
+ 			               	,SRC.DISUSE_CNT
+ 			               	,SRC.RMK
+ 			               	,SRC.STAT_CD
+ 			               	,SRC.UNSTOR_ID
+ 			               	,SRC.APRV_ID
+ 			               	,SRC.APRV_DT
+ 			               	,SRC.USER_ID
+ 			               	,SYSDATE
+ 			               )
+ 			                                       		       
+        ]]>
+    </query> 
+    
+    <query id="rem5040_m02" desc="지정좌석실 단가계약 상품출고 저장" fetchSize="10">
+      <![CDATA[
+            MERGE /* rem5040_m02 */
+ 			      INTO TBRC_FS_YEAR_ITEM_OUT DST
+ 			USING (
+ 			       SELECT  ? AS COMM_NO
+ 			              ,? AS YEAR_ITEM_SEQ_NO
+ 			              ,? AS UNSTOR_DT
+ 			              ,? AS UNSTOR_CNT
+ 			              ,? AS DISUSE_CNT
+ 			              ,? AS RMK
+ 			              ,? AS STAT_CD
+ 			              ,? AS UNSTOR_ID
+ 			              ,? AS APRV_ID
+ 			              ,? AS APRV_DT
+ 			              ,? AS USER_ID
+ 			       FROM    DUAL       
+ 			        ) SRC    
+ 			ON     (
+ 			           DST.COMM_NO          = SRC.COMM_NO
+ 			       AND DST.YEAR_ITEM_SEQ_NO = SRC.YEAR_ITEM_SEQ_NO
+ 			       AND DST.UNSTOR_DT        = SRC.UNSTOR_DT
+ 			       )
+ 			WHEN MATCHED THEN
+ 			      UPDATE SET
+ 			                 DST.UNSTOR_CNT = SRC.UNSTOR_CNT
+ 			                ,DST.DISUSE_CNT = SRC.DISUSE_CNT
+ 			                ,DST.RMK        = SRC.RMK 
+ 			                ,DST.STAT_CD    = SRC.STAT_CD
+ 			                ,DST.UNSTOR_ID  = SRC.UNSTOR_ID
+ 			                ,DST.APRV_ID    = SRC.APRV_ID
+ 			                ,DST.APRV_DT    = SRC.APRV_DT
+ 			                ,DST.UPDT_ID    = SRC.USER_ID
+ 			                ,DST.UPDT_DT    = SYSDATE
+ 			WHEN NOT MATCHED THEN
+ 			       INSERT (
+ 			                 COMM_NO
+ 			                ,YEAR_ITEM_SEQ_NO
+ 			                ,UNSTOR_DT
+ 			                ,UNSTOR_CNT
+ 			                ,DISUSE_CNT
+ 			                ,RMK
+ 			                ,STAT_CD
+ 			                ,UNSTOR_ID
+ 			                ,APRV_ID
+ 			                ,APRV_DT
+ 			                ,INST_ID
+ 			                ,INST_DT
+ 			               ) VALUES (
+ 			               	 SRC.COMM_NO
+ 			               	,SRC.YEAR_ITEM_SEQ_NO
+ 			               	,SRC.UNSTOR_DT
+ 			               	,SRC.UNSTOR_CNT
+ 			               	,SRC.DISUSE_CNT
+ 			               	,SRC.RMK
+ 			               	,SRC.STAT_CD
+ 			               	,SRC.UNSTOR_ID
+ 			               	,SRC.APRV_ID
+ 			               	,SRC.APRV_DT
+ 			               	,SRC.USER_ID
+ 			               	,SYSDATE
+ 			               )
+ 			                                       		       
+        ]]>
+    </query> 
+    
+    <query id="rem5040_m03" desc="지정좌석실 단가계약 상품출고 저장" fetchSize="10">
+      <![CDATA[
+            MERGE /* rem5040_m03 */
+ 			      INTO TBRC_FS_YEAR_ITEM_OUT DST
+ 			USING (
+ 			       SELECT  ? AS COMM_NO
+ 			              ,YEAR_ITEM_SEQ_NO
+ 			              ,STOR_DT AS UNSTOR_DT
+ 			              ,SUM(STOR_CNT) AS UNSTOR_CNT
+ 			              ,0 AS DISUSE_CNT
+ 			              ,DECODE(COUNT(*),1,MIN(COMM_NO),2||'개소') AS RMK
+ 			              ,'001' AS STAT_CD
+ 			              ,? AS UNSTOR_ID
+ 			              ,? AS USER_ID
+ 			       FROM   TBRC_FS_STOR
+ 			       WHERE  COMM_NO IN ('04','05')
+ 			       AND    STOR_DT           = ?
+ 			       AND    YEAR_ITEM_SEQ_NO  = ?
+ 			       GROUP BY YEAR_ITEM_SEQ_NO, STOR_DT       
+ 			        ) SRC    
+ 			ON     (
+ 			           DST.COMM_NO          = SRC.COMM_NO
+ 			       AND DST.YEAR_ITEM_SEQ_NO = SRC.YEAR_ITEM_SEQ_NO
+ 			       AND DST.UNSTOR_DT        = SRC.UNSTOR_DT
+ 			       )
+ 			WHEN MATCHED THEN
+ 			      UPDATE SET
+ 			                 DST.UNSTOR_CNT = SRC.UNSTOR_CNT
+ 			                ,DST.DISUSE_CNT = SRC.DISUSE_CNT
+ 			                ,DST.RMK        = SRC.RMK 
+ 			                ,DST.STAT_CD    = SRC.STAT_CD
+ 			                ,DST.UNSTOR_ID  = SRC.UNSTOR_ID
+ 			                ,DST.UPDT_ID    = SRC.USER_ID
+ 			                ,DST.UPDT_DT    = SYSDATE
+ 			WHEN NOT MATCHED THEN
+ 			       INSERT (
+ 			                 COMM_NO
+ 			                ,YEAR_ITEM_SEQ_NO
+ 			                ,UNSTOR_DT
+ 			                ,UNSTOR_CNT
+ 			                ,DISUSE_CNT
+ 			                ,RMK
+ 			                ,STAT_CD
+ 			                ,UNSTOR_ID
+ 			                ,INST_ID
+ 			                ,INST_DT
+ 			               ) VALUES (
+ 			               	 SRC.COMM_NO
+ 			               	,SRC.YEAR_ITEM_SEQ_NO
+ 			               	,SRC.UNSTOR_DT
+ 			               	,SRC.UNSTOR_CNT
+ 			               	,SRC.DISUSE_CNT
+ 			               	,SRC.RMK
+ 			               	,SRC.STAT_CD
+ 			               	,SRC.UNSTOR_ID
+ 			               	,SRC.USER_ID
+ 			               	,SYSDATE
+ 			               )
+ 			                                       		       
+        ]]>
+    </query> 
+    
+        <query id="rem5040_m04" desc="지정좌석실 단가계약 상품출고 저장" fetchSize="10">
+      <![CDATA[
+            MERGE /* rem5040_m04 */
+ 			      INTO TBRC_FS_YEAR_ITEM_OUT DST
+ 			USING (
+ 			       SELECT  ? AS COMM_NO
+ 			              ,? AS YEAR_ITEM_SEQ_NO
+ 			              ,? AS UNSTOR_DT
+ 			              ,? AS UNSTOR_CNT
+ 			              ,0 AS DISUSE_CNT
+ 			              ,? AS UNSTOR_ID
+ 			              ,? AS USER_ID
+ 			       FROM   DUAL
+ 			        ) SRC    
+ 			ON     (
+ 			           DST.COMM_NO          = SRC.COMM_NO
+ 			       AND DST.YEAR_ITEM_SEQ_NO = SRC.YEAR_ITEM_SEQ_NO
+ 			       AND DST.UNSTOR_DT        = SRC.UNSTOR_DT
+ 			       )
+ 			WHEN MATCHED THEN
+ 			      UPDATE SET
+ 			                 DST.UNSTOR_CNT = DST.UNSTOR_CNT - SRC.UNSTOR_CNT
+ 			                ,DST.UNSTOR_ID  = SRC.UNSTOR_ID
+ 			                ,DST.UPDT_ID    = SRC.USER_ID
+ 			                ,DST.UPDT_DT    = SYSDATE
+ 			                                       		       
+        ]]>
+    </query> 
+    
+    <query id="rem5040_d01" desc="지정좌석실 상품출고 삭제" fetchSize="10">
+      <![CDATA[
+            DELETE /* rem5040_d01 */
+ 			FROM   TBRC_FS_UNSTOR
+		    WHERE  COMM_NO   = ?
+		    AND    STOR_DT   = ?		                
+		    AND    SEQ_NO    = ?
+		    AND    UNSTOR_DT = ?
+        ]]>
+    </query> 
+    
+</queryMap>

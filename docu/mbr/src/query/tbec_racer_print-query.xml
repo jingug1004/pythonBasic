@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_print(각종출력)">
+    <query id="tbec_racer_print_fc001" desc="출주선수명단 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 	/*  tbec_racer_print_fc001 IWORK_SFR-008 경정 선수편성 메뉴 개선  경주수 별 최대 정번수 값 추가.  */
+				'' PAGE /* 4경기 출력 리포트에서 사용. */
+                ,TOR.RACE_NO 
+                ,(SELECT RMK FROM TBEA_SPEC_CD WHERE GRP_CD ='E00005' AND CD = TCR.RACE_DGRE_CD) RACE_DGRE_CD_NM --경주등급명
+                ,TCR_INTRO.INTRO_TIME				-- 소개항주시간
+			    ,TCR.STRT_TIME				-- 경주시작시간
+			    ,TOR.RACE_REG_NO
+			    ,TOR.RACER_NO 
+			    ,TRM.NM_KOR
+                ,TRI.WGHT_RSLT				-- 면담시 체중 결과
+                ,ROUND(TRI.ENTRY_BODY_WGHT)	ENTRY_BODY_WGHT -- 면담시 체중(출주표에는 반올림으로 나감)
+                ,TCR.CFRNT_CD
+                ,MAX(TOR.RACE_REG_NO) OVER(PARTITION BY TOR.RACE_NO ) MAX_RACE_REG_NO
+			FROM TBEB_ORGAN TOR,
+			    TBEB_RACE_TMS TRT,                
+                TBEB_CFRNT_RACE TCR,
+			    (SELECT 
+			    	CFRNT_CD
+                    ,RACE_DGRE_CD
+			    	, DAY_ORD
+			    	, TO_NUMBER(RACE_NO)+1 RACE_NO
+			    	, TO_CHAR(TO_DATE(STRT_TIME, 'HH24MI')+5/1440, 'HH24MI') INTRO_TIME 
+		    	FROM TBEB_CFRNT_RACE 
+				WHERE RACE_NO < '16' 
+				UNION ALL 
+				SELECT 
+					CFRNT_CD
+                    ,RACE_DGRE_CD
+					, DAY_ORD
+					, TO_NUMBER(RACE_NO) RACE_NO
+					, TO_CHAR(TO_DATE(STRT_TIME, 'HH24MI')-30/1440, 'HH24MI') INTRO_TIME 
+                FROM TBEB_CFRNT_RACE 
+                WHERE RACE_NO = '01'
+                ORDER BY RACE_NO) TCR_INTRO,
+                TBEC_RACER_MASTER TRM,
+                (SELECT
+                        STND_YEAR
+                        ,MBR_CD
+                        ,TMS
+                        ,RACER_NO 
+                        ,ENTRY_BODY_WGHT
+                        ,RACER_SEX               
+                        ,CASE A.RACER_SEX WHEN '남' THEN 
+                            CASE WHEN A.ENTRY_BODY_WGHT < TO_NUMBER(GET_CD_NM('E00150', '001')) THEN '직전체중대상자' END		-- 공통코드 E00150으로 변경
+                        ELSE 
+                            CASE WHEN A.ENTRY_BODY_WGHT < TO_NUMBER(GET_CD_NM('E00150', '002')) THEN '직전체중대상자' END		-- 공통코드 E00150으로 변경
+                        END AS WGHT_RSLT
+                    FROM(                   
+                    SELECT TRI.STND_YEAR
+                            ,TRI.MBR_CD
+                            ,TRI.TMS
+                            ,TRI.RACER_NO
+                            ,TRI.ENTRY_BODY_WGHT
+                            ,GET_DEC(TRD.RES_NO) RES_NO
+							,DECODE(SUBSTR(GET_DEC(TRD.RES_NO),7,1),1,'남',3,'남',2,'여',4,'여') RACER_SEX --성별
+                    FROM TBEC_RACER_INTERVIEW TRI
+                        ,TBEC_RACER_DETAIL TRD
+                    WHERE TRI.RACER_NO = TRD.RACER_NO) A
+                    ) TRI                
+            WHERE TOR.STND_YEAR = NVL(?,TOR.STND_YEAR)
+            AND TOR.MBR_CD      = NVL(?,TOR.MBR_CD)
+            AND TOR.TMS         = NVL(?,TOR.TMS)
+            AND TOR.DAY_ORD     = NVL(?,TOR.DAY_ORD)
+            AND TOR.RACE_NO     = NVL(?,TOR.RACE_NO)
+            AND TOR.STND_YEAR   = TRT.STND_YEAR
+            AND TOR.MBR_CD      = TRT.MBR_CD
+            AND TOR.TMS         = TRT.TMS
+            AND TRT.CFRNT_CD    = TCR.CFRNT_CD
+            AND TOR.DAY_ORD     = TCR.DAY_ORD
+            AND TOR.RACE_NO     = TCR.RACE_NO
+            AND TCR.CFRNT_CD    = TCR_INTRO.CFRNT_CD
+            AND TCR.DAY_ORD     = TCR_INTRO.DAY_ORD
+            AND TCR.RACE_NO     = TCR_INTRO.RACE_NO
+            AND TOR.RACER_NO    = TRM.RACER_NO
+            AND TOR.STND_YEAR   = TRI.STND_YEAR(+)
+            AND TOR.MBR_CD      = TRI.MBR_CD(+)
+            AND TOR.TMS         = TRI.TMS(+)
+            AND TOR.RACER_NO    = TRI.RACER_NO(+)
+            ORDER BY TOR.RACE_NO
+            , TOR.RACE_REG_NO
+        ]]>
+    </query>
+
+    <query id="tbec_racer_print_fc002" desc="출주선수명단-당일공지용 조회" fetchSize="10">
+        <![CDATA[
+            SELECT 	/*  tbec_racer_print_fc002 IWORK_SFR-008 경정 선수편성 메뉴 개선  정번8 까지 추가 수정.  */
+            		AA.RACE_NO
+                    ,AA.STRT_TIME
+                    ,AA.MAX_RACE_REG_NO
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_1) AS NM_KOR_1
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_2) AS NM_KOR_2
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_3) AS NM_KOR_3
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_4) AS NM_KOR_4
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_5) AS NM_KOR_5
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_6) AS NM_KOR_6
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_7) AS NM_KOR_7
+                    ,(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = AA.RACER_NO_8) AS NM_KOR_8
+            FROM
+            (
+                SELECT
+                 A.RACE_NO
+                 ,A.STRT_TIME
+                 ,MAX(A.MAX_RACE_REG_NO) MAX_RACE_REG_NO
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_1)),4,LPAD(SUM(A.RACER_NO_1),5,'0'),SUM(A.RACER_NO_1)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_1)),4,LPAD(SUM(A.RACER_NO_1),5,'0'),SUM(A.RACER_NO_1)),3,7) AS RACER_NO_1                     
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_2)),4,LPAD(SUM(A.RACER_NO_2),5,'0'),SUM(A.RACER_NO_2)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_2)),4,LPAD(SUM(A.RACER_NO_2),5,'0'),SUM(A.RACER_NO_2)),3,7) AS RACER_NO_2                     
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_3)),4,LPAD(SUM(A.RACER_NO_3),5,'0'),SUM(A.RACER_NO_3)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_3)),4,LPAD(SUM(A.RACER_NO_3),5,'0'),SUM(A.RACER_NO_3)),3,7) AS RACER_NO_3                     
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_4)),4,LPAD(SUM(A.RACER_NO_4),5,'0'),SUM(A.RACER_NO_4)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_4)),4,LPAD(SUM(A.RACER_NO_4),5,'0'),SUM(A.RACER_NO_4)),3,7) AS RACER_NO_4                     
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_5)),4,LPAD(SUM(A.RACER_NO_5),5,'0'),SUM(A.RACER_NO_5)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_5)),4,LPAD(SUM(A.RACER_NO_5),5,'0'),SUM(A.RACER_NO_5)),3,7) AS RACER_NO_5                     
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_6)),4,LPAD(SUM(A.RACER_NO_6),5,'0'),SUM(A.RACER_NO_6)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_6)),4,LPAD(SUM(A.RACER_NO_6),5,'0'),SUM(A.RACER_NO_6)),3,7) AS RACER_NO_6                     
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_7)),4,LPAD(SUM(A.RACER_NO_7),5,'0'),SUM(A.RACER_NO_7)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_7)),4,LPAD(SUM(A.RACER_NO_7),5,'0'),SUM(A.RACER_NO_7)),3,7) AS RACER_NO_7
+                 ,SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_8)),4,LPAD(SUM(A.RACER_NO_8),5,'0'),SUM(A.RACER_NO_8)),0,2)||'-'||SUBSTR(DECODE(LENGTH(SUM(A.RACER_NO_8)),4,LPAD(SUM(A.RACER_NO_8),5,'0'),SUM(A.RACER_NO_8)),3,7) AS RACER_NO_8
+                FROM
+                (
+                                SELECT   
+                                    A.RACE_NO AS RACE_NO
+                                    ,A.STRT_TIME
+                                    ,A.MAX_RACE_REG_NO
+                                    ,DECODE(RACE_REG_NO,1,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_1
+                                    ,DECODE(RACE_REG_NO,2,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_2
+                                    ,DECODE(RACE_REG_NO,3,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_3
+                                    ,DECODE(RACE_REG_NO,4,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_4
+                                    ,DECODE(RACE_REG_NO,5,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_5
+                                    ,DECODE(RACE_REG_NO,6,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_6
+                                    ,DECODE(RACE_REG_NO,7,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_7
+                                    ,DECODE(RACE_REG_NO,8,SUBSTR(A.RACER_NO,0,2)||SUBSTR(A.RACER_NO,4,6),NULL) RACER_NO_8
+                                FROM
+                                (SELECT
+                                    TO_NUMBER(TOR.RACE_NO) RACE_NO
+                                    ,TCR.STRT_TIME
+                                    ,TOR.RACE_REG_NO
+                                    ,TOR.RACER_NO
+                                    ,TRM.NM_KOR
+                                    ,MAX(TOR.RACE_REG_NO) OVER() MAX_RACE_REG_NO
+                                FROM TBEB_ORGAN TOR,
+                                    TBEB_RACE_TMS TRT,
+                                    TBEB_CFRNT_RACE TCR,
+                                    TBEC_RACER_MASTER TRM
+                                WHERE TOR.STND_YEAR = NVL(?,TOR.STND_YEAR)
+                                AND TOR.MBR_CD      = NVL(?,TOR.MBR_CD)
+                                AND TOR.TMS         = NVL(?,TOR.TMS)
+                                AND TOR.DAY_ORD     = NVL(?,TOR.DAY_ORD)
+					            AND TOR.STND_YEAR   = TRT.STND_YEAR(+)
+					            AND TOR.MBR_CD      = TRT.MBR_CD(+)
+					            AND TOR.TMS         = TRT.TMS(+)
+					            AND TRT.CFRNT_CD    = TCR.CFRNT_CD
+					            AND TOR.DAY_ORD     = TCR.DAY_ORD(+)
+					            AND TOR.RACE_NO     = TCR.RACE_NO(+)
+					            AND TOR.RACER_NO    = TRM.RACER_NO(+)
+                                ORDER BY TOR.RACE_NO,RACE_REG_NO) A
+                  ) A
+                  GROUP BY A.RACE_NO,A.STRT_TIME
+                  ORDER BY A.RACE_NO
+            ) AA
+        ]]>
+    </query>
+
+    <query id="tbec_racer_print_fc003" desc="출주선수명단(신체검사용) 조회" fetchSize="10">
+        <![CDATA[
+			SELECT TRT.TMS 
+			    ,TRT.STR_DT
+			    ,TRT.END_DT
+			    ,ROW_NUMBER() OVER (ORDER BY TOR.RACER_NO) SEQ
+			    ,TRM.NM_KOR
+			    ,TOR.RACER_NO 
+			FROM TBEB_RACE_TMS TRT             
+			    , TBEC_RACER_MASTER TRM
+			    , ( SELECT STND_YEAR
+			              ,MBR_CD
+			              ,TMS
+			              ,RACER_NO
+			        FROM  TBEB_ARRANGE
+			        WHERE STND_YEAR = ?
+			        AND   MBR_CD    = ?
+			        AND   TMS       = ?
+			        ORDER BY RACER_NO
+			     ) TOR
+			WHERE TOR.STND_YEAR = TRT.STND_YEAR
+			AND TOR.MBR_CD      = TRT.MBR_CD
+			AND TOR.TMS         = TRT.TMS
+			AND TOR.RACER_NO    = TRM.RACER_NO
+			ORDER BY SUBSTR(TOR.RACER_NO,1,2), TRM.NM_KOR
+        ]]>
+    </query>
+
+</queryMap>

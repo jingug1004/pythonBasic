@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : notice.xml
+  * @메뉴명 : 공지사항
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="notice">
+
+	<resultMap type="com.hanaph.gw.of.notice.vo.NoticeVO" id="NoticeVO">
+		<result property="seq" column="SEQ"/>
+		<result property="subject" column="SUBJECT"/>
+		<result property="noti_kind" column="NOTI_KIND"/>
+		<result property="read_cnt" column="READ_CNT"/>
+		<result property="comment_cnt" column="COMMENT_CNT"/>
+		<result property="read_yn" column="READ_YN"/>
+		<result property="attach_cnt" column="ATTACH_CNT"/>
+		<result property="start_ymd" column="START_YMD"/>
+		<result property="end_ymd" column="END_YMD"/>
+		<result property="create_dt" column="CREATE_DT"/>
+		<result property="create_no" column="CREATE_NO"/>
+		<result property="delete_yn" column="DELETE_YN"/>
+		<result property="contents" column="CONTENTS" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+
+	<select id="getNoticeList" parameterType="hashmap" resultMap="NoticeVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+			SELECT * 
+			  FROM (
+   				SELECT GON.SEQ, GON.SUBJECT, GON.NOTI_KIND CD, GCC.CD_NM NOTI_KIND, GON.CONTENTS, GON.READ_CNT, TA.COMMENT_CNT, 
+   				        (select decode(sign(count(*)),1,'Y','N') from gw_of_notice_target where seq = gon.seq and emp_no = #{emp_no} ) READ_YN 
+   				        ,TB.ATTACH_CNT,       
+                        SUBSTR(GON.START_YMD,1,4)||'-'|| SUBSTR(GON.START_YMD,5,2)||'-'||SUBSTR(GON.START_YMD,7,2) START_YMD,
+                        SUBSTR(GON.END_YMD,1,4)||'-'|| SUBSTR(GON.END_YMD,5,2)||'-'||SUBSTR(GON.END_YMD,7,2) END_YMD,
+                        TO_CHAR (GON.CREATE_DT, 'YYYY-MM-DD HH24:MI:SS') CREATE_DT,
+                        HANAHR.F_GET_EMP_KO_NM(GON.CREATE_NO) EMP_KO_NM, GON.DELETE_YN, GON.CREATE_NO       
+                  FROM GW_OF_NOTICE GON, GW_CO_CODE GCC
+                        ,(SELECT SEQ,COUNT (*) AS COMMENT_CNT 
+                            FROM GW_OF_NOTICE_COMMENT NC 
+                           WHERE DELETE_YN != 'Y' 
+                           GROUP BY SEQ) TA
+                        ,(SELECT OFA.SEQ, COUNT(*) AS ATTACH_CNT 
+                            FROM GW_OF_FILE_ATTACH OFA
+                           WHERE OFA.DELETE_YN='N'
+                             AND OFA.CD = 'O01000' 
+                            GROUP BY OFA.SEQ) TB
+                     WHERE GON.NOTI_KIND = GCC.CD
+                       AND GON.SEQ = TA.SEQ(+)
+                       AND GON.SEQ = TB.SEQ(+) 
+                    ) TC
+                     WHERE TC.DELETE_YN != 'Y'
+                     <if test="search_noti_kind != 'all'">
+					   AND TC.CD = #{noti_kind}
+					</if>
+		<if test="searchKeyword !=''">
+			<choose>
+				<when test="searchType == 'subject'">
+ 					AND TC.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'createNo'">
+ 					AND TC.EMP_KO_NM LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+		<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">
+			<![CDATA[ 
+			  AND ((TC.START_YMD <= TO_DATE(#{search_end_ymd},'yyyy-mm-dd') AND TC.END_YMD >= TO_DATE(#{search_start_ymd},'yyyy-mm-dd'))      
+			   OR (TC.START_YMD <= TO_DATE(#{search_start_ymd},'yyyy-mm-dd') AND TC.END_YMD >= TO_DATE(#{search_end_ymd},'yyyy-mm-dd')))
+			]]>
+      	</if>
+				ORDER BY CREATE_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getNoticeCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT (*)
+	 	  FROM (SELECT HANAHR.F_GET_EMP_KO_NM (GON.CREATE_NO) EMP_KO_NM, GON.SUBJECT, GON.NOTI_KIND, GON.START_YMD, GON.END_YMD
+	          FROM GW_OF_NOTICE GON 
+	         WHERE GON.DELETE_YN != 'Y'  
+	           ) TA
+	        <where>
+			<if test="search_noti_kind != 'all'">
+				TA.NOTI_KIND = #{noti_kind}
+			</if>
+			<if test="searchKeyword !=''">
+				<choose>
+					<when test="searchType == 'subject'">
+	 					AND TA.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+					</when>
+					<when test="searchType == 'createNo'">
+	 					AND TA.EMP_KO_NM LIKE '%' || #{searchKeyword} || '%'
+					</when>
+				</choose>
+			</if>
+			<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">
+				<![CDATA[ 
+				  AND ((TA.START_YMD <= TO_DATE(#{search_end_ymd},'yyyy-mm-dd') AND TA.END_YMD >= TO_DATE(#{search_start_ymd},'yyyy-mm-dd'))      
+				   OR (TA.START_YMD <= TO_DATE(#{search_start_ymd},'yyyy-mm-dd') AND TA.END_YMD >= TO_DATE(#{search_end_ymd},'yyyy-mm-dd')))
+				]]>
+	      	</if>
+	      	</where>
+	</select>
+	
+	<select id="getNoticeCountNoread" parameterType="hashmap" resultType="int">
+		SELECT COUNT (*)
+	 	  FROM (
+		           SELECT HANAHR.F_GET_EMP_KO_NM (GON.CREATE_NO) EMP_KO_NM, GON.SUBJECT, GON.NOTI_KIND, GON.START_YMD, GON.END_YMD
+		             FROM GW_OF_NOTICE GON
+		             WHERE DELETE_YN = 'N'                          
+		              and not exists (select distinct seq 
+		                                from GW_OF_NOTICE_TARGET
+		                               where EMP_NO = #{emp_no}
+		                                 and seq = GON.seq
+		                             )  
+		       ) TA
+	        <where> 
+	      	</where>
+	</select>
+	
+	<select id="getNoticeSeq" resultType="int">
+		SELECT MAX(SEQ) SEQ FROM GW_OF_NOTICE
+	</select>
+	
+	<insert id="insertNotice" parameterType="com.hanaph.gw.of.notice.vo.NoticeVO">
+		<selectKey keyProperty="seq" resultType="string" order="BEFORE">
+    		SELECT SEQ_GW_OF_NOTICE.nextval seq FROM dual
+		</selectKey>
+		INSERT INTO GW_OF_NOTICE
+	            (
+				 SEQ, SUBJECT, NOTI_KIND, CONTENTS, READ_CNT,
+	             START_YMD, END_YMD, CREATE_DT, CREATE_NO, DELETE_YN
+	            )
+	     VALUES (
+	     		 #{seq}, #{subject}, #{noti_kind}, #{contents:CLOB}, '0',
+   				 TO_CHAR(TO_DATE(#{start_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+				 TO_CHAR(TO_DATE(#{end_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+				 SYSDATE, #{create_no}, 'N'
+	            )
+	</insert>
+	
+	<delete id="deleteNoticeTarget" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO">
+		DELETE GW_OF_NOTICE_TARGET WHERE SEQ = #{seq}
+	</delete>
+	
+	<update id="updateNotice" parameterType="com.hanaph.gw.of.notice.vo.NoticeVO">
+		UPDATE GW_OF_NOTICE
+		   SET SUBJECT = #{subject},
+		   	   NOTI_KIND = #{noti_kind},
+		       CONTENTS = #{contents:CLOB},
+			   START_YMD = TO_CHAR(TO_DATE(#{start_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+			   END_YMD = TO_CHAR(TO_DATE(#{end_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+		       MODIFY_DT = SYSDATE,
+		       MODIFY_NO = #{modify_no}
+		 WHERE SEQ = #{seq}
+	</update>
+	
+	<select id="noticeDetail" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO" resultMap="NoticeVO">
+        SELECT GON.SEQ, GON.SUBJECT, GON.NOTI_KIND, GON.CONTENTS, GON.READ_CNT,
+	               SUBSTR(GON.START_YMD,1,4)||'-'|| SUBSTR(GON.START_YMD,5,2)||'-'||SUBSTR(GON.START_YMD,7,2) START_YMD,
+	               SUBSTR(GON.END_YMD,1,4)||'-'|| SUBSTR(GON.END_YMD,5,2)||'-'||SUBSTR(GON.END_YMD,7,2) END_YMD,
+	               TO_CHAR (GON.CREATE_DT, 'YYYY-MM-DD HH24:MI:SS') CREATE_DT,
+	               HANAHR.F_GET_EMP_KO_NM(GON.CREATE_NO) CREATE_NO, GON.DELETE_YN
+          FROM GW_OF_NOTICE GON
+         WHERE SEQ = #{seq} 
+	</select>
+	
+	<insert id="insertNoticeEmpNo" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO">
+		MERGE INTO GW_OF_NOTICE_TARGET
+		     USING DUAL
+		        ON (EMP_NO = #{emp_no} AND SEQ = #{seq})
+		      WHEN NOT MATCHED THEN
+		    INSERT (EMP_NO, SEQ, READ_YN, READ_DT)
+		    VALUES (#{emp_no}, #{seq}, #{read_yn}, SYSDATE)
+	</insert>
+	
+	<insert id="insertNoticeRead" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO">
+		MERGE INTO GW_OF_NOTICE_TARGET
+		     USING DUAL
+		        ON (EMP_NO = #{emp_no} AND SEQ = #{seq})
+		      WHEN NOT MATCHED THEN
+		    INSERT (EMP_NO, SEQ, READ_YN, READ_DT)
+		    VALUES (#{emp_no}, #{seq}, #{read_yn}, SYSDATE)
+	</insert>
+	
+	<update id="updateNoticeRead" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO">
+		UPDATE GW_OF_NOTICE_TARGET
+		   SET READ_YN = #{read_yn}, READ_DT = SYSDATE
+		 WHERE EMP_NO = #{emp_no} AND SEQ = #{seq}
+	</update>
+	
+	<select id="noticeReadData" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO" resultType="com.hanaph.gw.of.notice.vo.NoticeReadVO">
+		SELECT EMP_NO, SEQ, READ_YN, READ_DT
+		  FROM GW_OF_NOTICE_TARGET
+		 WHERE EMP_NO = #{emp_no}
+		   AND SEQ = #{seq}
+	</select>
+	
+	<update id="updateNoticeReadAdd" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO">
+		UPDATE GW_OF_NOTICE SET READ_CNT = READ_CNT+1 WHERE SEQ= #{seq}
+	</update>
+	
+	<update id="updateNoticeSetReadCnt" parameterType="com.hanaph.gw.of.notice.vo.NoticeReadVO">
+		UPDATE GW_OF_NOTICE SET READ_CNT = 0 WHERE SEQ= #{seq}
+	</update>
+	
+	<select id="getNoticeCommentList" parameterType="hashmap" resultType="com.hanaph.gw.of.notice.vo.NoticeCommentVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+				SELECT  NC.COMMENT_SEQ, NC.SEQ, NC.COMMENTS, TO_CHAR (NC.CREATE_DT, 'YYYY-MM-DD HH24:MI:SS') CREATE_DT,
+				         	HANAHR.F_GET_EMP_KO_NM(NC.CREATE_NO) CREATE_NO,
+				         	NC.CREATE_NO EMP_NO, NC.DELETE_YN
+				    FROM GW_OF_NOTICE_COMMENT NC
+				   WHERE NC.DELETE_YN = 'N' 
+				     AND NC.SEQ = #{seq} 
+			  	   ORDER BY COMMENT_SEQ DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getNoticeCommentCount" parameterType="Int" resultType="Int">
+		SELECT COUNT(*) 
+		  FROM GW_OF_NOTICE_COMMENT
+		 WHERE DELETE_YN = 'N' 
+		  AND SEQ = #{seq}
+	</select>
+		
+	<update id="deleteNotice" parameterType="com.hanaph.gw.of.notice.vo.NoticeVO">
+		UPDATE GW_OF_NOTICE
+		   SET DELETE_YN = #{delete_yn},
+			       MODIFY_DT = SYSDATE,
+			       MODIFY_NO = #{modify_no}
+	     WHERE SEQ = #{seq}
+	</update>
+	
+	<insert id="insertComment" parameterType="com.hanaph.gw.of.notice.vo.NoticeCommentVO">
+		INSERT INTO GW_OF_NOTICE_COMMENT
+	            (
+		            COMMENT_SEQ, SEQ, COMMENTS, CREATE_DT, CREATE_NO, DELETE_YN
+	            )
+	     VALUES (
+	     			SEQ_GW_OF_NOTICE_COMMENT.NEXTVAL, #{seq}, #{comments}, SYSDATE, #{create_no}, 'N'
+	             )
+	</insert>
+	
+	<update id="deleteComment" parameterType="com.hanaph.gw.of.notice.vo.NoticeCommentVO">
+		UPDATE GW_OF_NOTICE_COMMENT
+		   SET DELETE_YN = #{delete_yn}
+	     WHERE COMMENT_SEQ = #{comment_seq}
+	</update>
+	
+	<select id="getNoticeMemberList" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT NT.EMP_NO, EMP.EMP_KO_NM, EMP.DEPT_CD, DEPT.DEPT_KO_NM, CO.GRAD_KO_NM,
+		       HANAHR.F_GET_SORT_SEQ(NT.EMP_NO) EMP_SORT
+		  FROM GW_OF_NOTICE_TARGET NT, 
+			       HANAHR.HR_HC_EMPBAS_0 EMP,
+	       		   HANAHR.HR_CO_DEPART_0 DEPT,
+			       HANAHR.HR_CO_CLASCD_0 CO
+		 WHERE NT.EMP_NO = EMP.EMP_NO
+		   AND EMP.DEPT_CD = DEPT.DEPT_CD 
+		   AND EMP.GRAD_CD = CO.GRAD_CD
+		   AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030')
+		   AND NT.SEQ = #{notice_seq}
+		 ORDER BY EMP_SORT ASC
+	</select>
+	
+	<select id="getNoticeReadDataList" resultType="com.hanaph.gw.of.common.vo.CommonTargetVO">
+        SELECT NT.EMP_NO, EMP.EMP_KO_NM, EMP.DEPT_CD, DEPT.DEPT_KO_NM, CO.GRAD_KO_NM,
+               TO_CHAR (READ_DT, 'YYYY-MM-DD HH24:MI:SS') READ_DT, READ_YN,
+               HANAHR.F_GET_SORT_SEQ(NT.EMP_NO) EMP_SORT
+		  FROM GW_OF_NOTICE_TARGET NT, 
+			   HANAHR.HR_HC_EMPBAS_0 EMP,
+	       	   HANAHR.HR_CO_DEPART_0 DEPT,
+			   HANAHR.HR_CO_CLASCD_0 CO
+		 WHERE NT.EMP_NO = EMP.EMP_NO
+		   AND EMP.DEPT_CD = DEPT.DEPT_CD 
+		   AND EMP.GRAD_CD = CO.GRAD_CD
+		   AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030')
+		   AND NT.SEQ = #{notice_seq}
+		 ORDER BY EMP_SORT ASC
+	</select>
+</mapper>

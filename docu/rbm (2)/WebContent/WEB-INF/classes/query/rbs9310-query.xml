@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS9310(적발건수 관리)">
+        
+    <query id="rbs9310_s01" desc="적발건수 조회" fetchSize="10">
+        <![CDATA[
+                
+			SELECT '' AS CHK,
+			       BRNC_CD,
+			       STND_YEAR,
+			       STND_MM,
+			       INSPECTION_CNT,
+			       TOT_EXPOSE_CNT,
+			       PRSN_CNT,
+			       AUTO_CNT,
+			       ETC_CNT,
+			       TOT_CNT,
+			       MANAGE_VIOLATION,
+			       BASIC_ORDER_VIOLATION,
+			       (TOT_EXPOSE_CNT / INSPECTION_CNT) AS TIMS_TOT_CNT,
+                   (TOT_EXPOSE_CNT / INSPECTION_CNT) - BASIC_ORDER_VIOLATION AS TIMS_NOTBASIC_CNT,
+                   FILE_NM,
+                   FILE_PATH,
+                   MEET_CD
+			  FROM TBRE_NGCC_INSPECTION
+			 WHERE 1 = 1
+			   AND STND_YEAR = NVL(?, STND_YEAR)
+			   AND STND_MM = NVL(?, STND_MM)
+			   AND BRNC_CD = NVL(?, BRNC_CD)
+			   AND MEET_CD = NVL(?, MEET_CD)
+			ORDER BY STND_YEAR, STND_MM, BRNC_CD
+        ]]>
+    </query>    
+    
+    <query id="rbs9310_m01" desc="적발건수 입력,수정" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBRE_NGCC_INSPECTION A /* rbs9310_m01 */  --적발건수관리
+            USING
+                    (SELECT  ? AS BRNC_CD                 		--지점코드
+                            ,? AS STND_YEAR               		--년도
+                            ,? AS STND_MM                 		--월
+                            ,? AS INSPECTION_CNT          		--점검횟수
+                            ,? AS TOT_EXPOSE_CNT          		--총 적발건수
+                            ,NVL(?,0) AS PRSN_CNT               --유인 구매상한 위반
+                            ,NVL(?,0) AS AUTO_CNT               --무인 구매상한 위반
+                            ,NVL(?,0) AS ETC_CNT                --기타 구매상한 위반
+                            ,NVL(?,0) AS MANAGE_VIOLATION       --관리위반
+                            ,NVL(?,0) AS BASIC_ORDER_VIOLATION  --기초질서 위반
+                            ,? AS FILE_NM   			  		--파일명
+                            ,? AS FILE_PATH   			  		--파일경로
+                            ,? AS INST_ID                 		--작성자                        
+                            ,? AS UPDT_ID                 		--수정자
+                            ,? AS MEET_CD                 		--경륜장코드
+                            ,? AS TOT_CNT                 		--계
+                       FROM DUAL ) B
+                ON (
+                        A.BRNC_CD   = B.BRNC_CD   --지점코드
+                    AND A.STND_YEAR = B.STND_YEAR --년도
+                    AND A.STND_MM   = B.STND_MM   --월
+                    AND A.MEET_CD   = B.MEET_CD   --지점
+            )            
+            
+            WHEN MATCHED THEN
+                UPDATE SET 
+                    A.INSPECTION_CNT         = B.INSPECTION_CNT          --점검횟수
+                    ,A.TOT_EXPOSE_CNT         = B.TOT_EXPOSE_CNT          --총 적발건수
+                    ,A.PRSN_CNT               = B.PRSN_CNT                --유인 구매상한 위반
+                    ,A.AUTO_CNT               = B.AUTO_CNT                --무인 구매상한 위반
+                    ,A.ETC_CNT                = B.ETC_CNT                 --기타 구매상한 위반
+                    ,A.MANAGE_VIOLATION       = B.MANAGE_VIOLATION        --관리위반
+                    ,A.BASIC_ORDER_VIOLATION  = B.BASIC_ORDER_VIOLATION   --기초질서 위반
+                    ,A.FILE_NM  			  = B.FILE_NM   			  --파일명
+                    ,A.FILE_PATH  			  = B.FILE_PATH   			  --파일경로
+                    ,A.UPDT_ID                = B.UPDT_ID                 --수정자
+                    ,A.UPDT_DT                = SYSDATE                   --수정일시
+                    ,A.TOT_CNT				  = B.TOT_CNT				  --계     
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+                         A.BRNC_CD                --지점코드
+                        ,A.STND_YEAR              --순번
+                        ,A.STND_MM                --회차
+                        ,A.INSPECTION_CNT         --점검횟수
+                        ,A.TOT_EXPOSE_CNT         --총 적발건수
+                        ,A.PRSN_CNT               --유인 구매상한 위반
+                        ,A.AUTO_CNT               --무인 구매상한 위반
+                        ,A.ETC_CNT                --기타 구매상한 위반
+                        ,A.MANAGE_VIOLATION       --관리위반
+                        ,A.BASIC_ORDER_VIOLATION  --기초질서 위반
+                        ,A.FILE_NM  			  --파일명
+                        ,A.FILE_PATH  			  --파일경로
+                        ,A.INST_ID                --작성자                    
+                        ,A.INST_DT                --작성일시
+                        ,A.MEET_CD                --경륜장코드
+                        ,A.TOT_CNT				  --계
+                    
+                ) VALUES (
+                     B.BRNC_CD                --지점코드
+                    ,B.STND_YEAR              --년도
+                    ,B.STND_MM                --월
+                    ,B.INSPECTION_CNT         --점검횟수
+                    ,B.TOT_EXPOSE_CNT         --총 적발건수
+                    ,B.PRSN_CNT               --유인 구매상한 위반
+                    ,B.AUTO_CNT               --무인 구매상한 위반
+                    ,B.ETC_CNT                --기타 구매상한 위반
+                    ,B.MANAGE_VIOLATION       --관리위반
+                    ,B.BASIC_ORDER_VIOLATION  --기초질서 위반
+                    ,B.FILE_NM  			  --파일명
+                    ,B.FILE_PATH  			  --파일경로
+                    ,B.INST_ID                --작성자                    
+                    ,SYSDATE                  --작성일시
+                    ,B.MEET_CD                --경륜장코드
+                    ,B.TOT_CNT				  --계
+                )
+        ]]>
+    </query>
+    
+    <query id="rbs9310_d01" desc="그룹코드삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  /* rbs9310_d01 */ 
+			  FROM  TBRE_NGCC_INSPECTION
+			 WHERE  1=1
+			   AND  BRNC_CD   = ?  --지점
+			   AND  STND_YEAR = ? --년도
+			   AND  STND_MM   = ? --월
+			   AND  MEET_CD   = ? --경륜장코드
+        ]]>
+    </query>  
+     
+</queryMap>

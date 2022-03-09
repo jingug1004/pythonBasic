@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3140(승식별 배당률)">
+	<query id="rsm3140_s01" desc="승식별 배당률 년도별" fetchSize="10">
+        <![CDATA[        
+         	SELECT   /* rsm3140_s01 (승식별 배당률 년도별)*/
+         			 PAYOFFS,                                                         
+			         DECODE(PAYOFFS,                                                  
+			                 1, '1배이하',                                            
+			                 2, '1.1~5배',                                            
+			                 3, '5.1~10배',                                           
+			                 4, '10.1~20배',                                          
+			                 5, '20.1~30배',                                          
+			                 6, '30.1~40배',                                          
+			                 7, '40.1~50배',                                          
+			                 8, '50.1~60배',                                          
+			                 9, '60.1~99.9배',                                        
+			                 10, '100~199.9배',                                       
+			                 11, '200배이상',                                         
+			                 99, '계'                                                 
+			                ) AS GUBUN,			-- 확정 배당률  구분                                            
+			         WIN,                       -- 단승식 건수                       
+			         CASE                                                          
+			            WHEN WIN_SUM=0 THEN 0                                      
+			            ELSE DECODE(GP_PAYOFFS,0, ROUND(WIN/WIN_SUM*100,2),1,100.0) 
+			         END WIN_RATE,              -- 단승식 구성비                                   
+			         PLC,                       -- 연승식 건수                                    
+			         CASE                                                         
+			            WHEN PLC_SUM=0 THEN 0                                      
+			            ELSE DECODE(GP_PAYOFFS,0, ROUND(PLC/PLC_SUM*100,2),1,100.0) 
+			         END PLC_RATE,              -- 연승식 구성비                        
+			         QU,                        -- 복승식 건수                         
+			         CASE                                                          
+			            WHEN QU_SUM=0 THEN 0                                       
+			            ELSE DECODE(GP_PAYOFFS,0,ROUND(QU/QU_SUM*100,2),1,100.0)    
+			         END QU_RATE,               -- 복승식 구성비                       
+			         EX,                        -- 쌍승식 건수                      
+			         CASE                                                          
+			            WHEN EX_SUM=0 THEN 0                                       
+			            ELSE DECODE(GP_PAYOFFS,0,ROUND(EX/EX_SUM*100,2),1,100.0)    
+			         END EX_RATE,               -- 쌍승식 구성비                                   
+			         TRI,                       -- 삼복승식 건수                                   
+			         CASE                                                          
+			            WHEN TRI_SUM=0 THEN 0                                      
+			            ELSE DECODE(GP_PAYOFFS,0,ROUND(TRI/TRI_SUM*100,2),1,100.0)  
+			         END TRI_RATE,              -- 삼복승식 구성비                                   
+			         TOT ,                      -- 계 건수                                   
+			         CASE                                                          
+			            WHEN TOT_SUM=0 THEN 0                                      
+			            ELSE DECODE (GP_PAYOFFS,0,ROUND(TOT/TOT_SUM*100,2),1,100.0) 
+			         END TOT_RATE               -- 계 구성비                           
+			    FROM (                                                                
+			        SELECT                                                            
+			           GROUPING(A.PAYOFFS) GP_PAYOFFS,                                
+			           DECODE(GROUPING (A.PAYOFFS), 0, A.PAYOFFS, 1, 99) PAYOFFS,     
+			           SUM (A.WIN) WIN, SUM (A.PLC) PLC, SUM (A.QU) QU,               
+			           SUM (A.EX) EX, SUM (A.TRI) TRI, SUM (A.TOT) TOT,               
+			           SUM (B.WIN_SUM) WIN_SUM, SUM (B.PLC_SUM) PLC_SUM,              
+			           SUM (B.QU_SUM) QU_SUM, SUM (B.EX_SUM) EX_SUM,                  
+			           SUM (B.TRI_SUM) TRI_SUM, SUM (B.TOT_SUM) TOT_SUM               
+			              FROM                                                        
+			              (                                                           
+			                SELECT                                                    
+			                        CASE                                              
+			                            WHEN PAYOFF <= 1.0                            
+			                            THEN 1                                        
+			                            WHEN PAYOFF >= 1.1 AND PAYOFF <= 5.0          
+			                            THEN 2                                        
+			                            WHEN PAYOFF >= 5.1 AND PAYOFF <= 10.0         
+			                            THEN 3                                        
+			                            WHEN PAYOFF >= 10.1 AND PAYOFF <= 20.0        
+			                            THEN 4                                        
+			                            WHEN PAYOFF >= 20.1 AND PAYOFF <= 30.0        
+			                            THEN 5                                        
+			                            WHEN PAYOFF >= 30.1 AND PAYOFF <= 40.0        
+			                            THEN 6                                        
+			                            WHEN PAYOFF >= 40.1 AND PAYOFF <= 50.0        
+			                            THEN 7                                        
+			                            WHEN PAYOFF >= 50.1 AND PAYOFF <= 60.0        
+			                            THEN 8                                        
+			                            WHEN PAYOFF >= 60.1 AND PAYOFF <= 99.9        
+			                            THEN 9                                        
+			                            WHEN PAYOFF >= 100.0                          
+			                            AND PAYOFF <= 199.9                           
+			                            THEN 10                                       
+			                            WHEN PAYOFF >= 200.0                          
+			                            THEN 11                                       
+			                        END PAYOFFS,                                      
+			                        SUM (DECODE (POOL_CD, '001', 1, 0)) WIN,          
+			                        SUM (DECODE (POOL_CD, '002', 1, 0)) PLC,          
+			                        SUM (DECODE (POOL_CD, '005', 1, 0)) QU,           
+			                        SUM (DECODE (POOL_CD, '004', 1, 0)) EX,           
+			                        SUM (DECODE (POOL_CD, '006', 1, 0)) TRI,          
+			                        COUNT (*) TOT --우측 계 추가                      
+			                  FROM TBES_SDL_RS                                        
+			                  WHERE                                                   
+			                        1 = 1                                             
+			                        AND MEET_CD		= ? -- 0:MEET_CD 개최지 코드                            
+			                        AND STND_YEAR	= ? -- 1:STND_YEAR 기준년도                        
+			                  GROUP BY                                                
+			                        CASE                                              
+			                            WHEN PAYOFF <= 1.0                            
+			                               THEN 1                                     
+			                            WHEN PAYOFF >= 1.1 AND PAYOFF <= 5.0          
+			                               THEN 2                                     
+			                            WHEN PAYOFF >= 5.1 AND PAYOFF <= 10.0         
+			                               THEN 3                                     
+			                            WHEN PAYOFF >= 10.1 AND PAYOFF <= 20.0        
+			                               THEN 4                                     
+			                            WHEN PAYOFF >= 20.1 AND PAYOFF <= 30.0        
+			                               THEN 5                                     
+			                            WHEN PAYOFF >= 30.1 AND PAYOFF <= 40.0        
+			                               THEN 6                                     
+			                            WHEN PAYOFF >= 40.1 AND PAYOFF <= 50.0        
+			                               THEN 7                                     
+			                            WHEN PAYOFF >= 50.1 AND PAYOFF <= 60.0        
+			                               THEN 8                                     
+			                            WHEN PAYOFF >= 60.1 AND PAYOFF <= 99.9        
+			                               THEN 9                                     
+			                            WHEN PAYOFF >= 100.0 AND PAYOFF <= 199.9      
+			                               THEN 10                                    
+			                            WHEN PAYOFF >= 200.0                          
+			                               THEN 11                                    
+			                        END                                               
+			                   ) A,                                                   
+			                   (                                                      
+			                   SELECT                                                 
+			                            SUM (DECODE (POOL_CD, '001', 1, 0)) WIN_SUM,  
+			                            SUM (DECODE (POOL_CD, '002', 1, 0)) PLC_SUM,  
+			                            SUM (DECODE (POOL_CD, '005', 1, 0)) QU_SUM,   
+			                            SUM (DECODE (POOL_CD, '004', 1, 0)) EX_SUM,   
+			                            SUM (DECODE (POOL_CD, '006', 1, 0)) TRI_SUM,  
+			                            COUNT (*) TOT_SUM                             
+			                      FROM                                                
+			                            TBES_SDL_RS                                   
+			                     WHERE                                                
+			                            1 = 1                                         
+			                            AND MEET_CD		= ? -- 2:MEET_CD 개최지 코드                        
+			                            AND STND_YEAR	= ? -- 3:STND_YEAR 기준년도                    
+			                    ) B --각 구성비를 계산하기 위함                              
+			             WHERE 1 = 1                                                  
+			          GROUP BY A.PAYOFFS 
+			          -- ROLLUP (A.PAYOFFS)                                     
+			          )                                                               
+			   WHERE 1 = 1                                                            
+			ORDER BY 1
+			
+        ]]>
+    </query>
+    
+    <query id="rsm3140_s02" desc="승식별 배당률 기간별" fetchSize="10">
+        <![CDATA[        
+         	SELECT   /* rsm3140_s02 (승식별 배당률 기간별)*/
+         			 PAYOFFS,                                                         
+			         DECODE(PAYOFFS,                                                  
+			                 1, '1배이하',                                            
+			                 2, '1.1~5배',                                            
+			                 3, '5.1~10배',                                           
+			                 4, '10.1~20배',                                          
+			                 5, '20.1~30배',                                          
+			                 6, '30.1~40배',                                          
+			                 7, '40.1~50배',                                          
+			                 8, '50.1~60배',                                          
+			                 9, '60.1~99.9배',                                        
+			                 10, '100~199.9배',                                       
+			                 11, '200배이상',                                         
+			                 99, '계'                                                 
+			                ) AS GUBUN,			-- 확정 배당률  구분                                            
+			         WIN,                       -- 단승식 건수                       
+			         CASE                                                          
+			            WHEN WIN_SUM=0 THEN 0                                      
+			            ELSE DECODE(GP_PAYOFFS,0, ROUND(WIN/WIN_SUM*100,2),1,100.0) 
+			         END WIN_RATE,              -- 단승식 구성비                                   
+			         PLC,                       -- 연승식 건수                                    
+			         CASE                                                         
+			            WHEN PLC_SUM=0 THEN 0                                      
+			            ELSE DECODE(GP_PAYOFFS,0, ROUND(PLC/PLC_SUM*100,2),1,100.0) 
+			         END PLC_RATE,              -- 연승식 구성비                        
+			         QU,                        -- 복승식 건수                         
+			         CASE                                                          
+			            WHEN QU_SUM=0 THEN 0                                       
+			            ELSE DECODE(GP_PAYOFFS,0,ROUND(QU/QU_SUM*100,2),1,100.0)    
+			         END QU_RATE,               -- 복승식 구성비                       
+			         EX,                        -- 쌍승식 건수                      
+			         CASE                                                          
+			            WHEN EX_SUM=0 THEN 0                                       
+			            ELSE DECODE(GP_PAYOFFS,0,ROUND(EX/EX_SUM*100,2),1,100.0)    
+			         END EX_RATE,               -- 쌍승식 구성비                                   
+			         TRI,                       -- 삼복승식 건수                                   
+			         CASE                                                          
+			            WHEN TRI_SUM=0 THEN 0                                      
+			            ELSE DECODE(GP_PAYOFFS,0,ROUND(TRI/TRI_SUM*100,2),1,100.0)  
+			         END TRI_RATE,              -- 삼복승식 구성비                                   
+			         TOT ,                      -- 계 건수                                   
+			         CASE                                                          
+			            WHEN TOT_SUM=0 THEN 0                                      
+			            ELSE DECODE (GP_PAYOFFS,0,ROUND(TOT/TOT_SUM*100,2),1,100.0) 
+			         END TOT_RATE               -- 계 구성비                           
+			    FROM (                                                                
+			        SELECT                                                            
+			           GROUPING(A.PAYOFFS) GP_PAYOFFS,                                
+			           DECODE(GROUPING (A.PAYOFFS), 0, A.PAYOFFS, 1, 99) PAYOFFS,     
+			           SUM (A.WIN) WIN, SUM (A.PLC) PLC, SUM (A.QU) QU,               
+			           SUM (A.EX) EX, SUM (A.TRI) TRI, SUM (A.TOT) TOT,               
+			           SUM (B.WIN_SUM) WIN_SUM, SUM (B.PLC_SUM) PLC_SUM,              
+			           SUM (B.QU_SUM) QU_SUM, SUM (B.EX_SUM) EX_SUM,                  
+			           SUM (B.TRI_SUM) TRI_SUM, SUM (B.TOT_SUM) TOT_SUM               
+			              FROM                                                        
+			              (                                                           
+			                SELECT                                                    
+			                        CASE                                              
+			                            WHEN PAYOFF <= 1.0                            
+			                            THEN 1                                        
+			                            WHEN PAYOFF >= 1.1 AND PAYOFF <= 5.0          
+			                            THEN 2                                        
+			                            WHEN PAYOFF >= 5.1 AND PAYOFF <= 10.0         
+			                            THEN 3                                        
+			                            WHEN PAYOFF >= 10.1 AND PAYOFF <= 20.0        
+			                            THEN 4                                        
+			                            WHEN PAYOFF >= 20.1 AND PAYOFF <= 30.0        
+			                            THEN 5                                        
+			                            WHEN PAYOFF >= 30.1 AND PAYOFF <= 40.0        
+			                            THEN 6                                        
+			                            WHEN PAYOFF >= 40.1 AND PAYOFF <= 50.0        
+			                            THEN 7                                        
+			                            WHEN PAYOFF >= 50.1 AND PAYOFF <= 60.0        
+			                            THEN 8                                        
+			                            WHEN PAYOFF >= 60.1 AND PAYOFF <= 99.9        
+			                            THEN 9                                        
+			                            WHEN PAYOFF >= 100.0                          
+			                            AND PAYOFF <= 199.9                           
+			                            THEN 10                                       
+			                            WHEN PAYOFF >= 200.0                          
+			                            THEN 11                                       
+			                        END PAYOFFS,                                      
+			                        SUM (DECODE (POOL_CD, '001', 1, 0)) WIN,          
+			                        SUM (DECODE (POOL_CD, '002', 1, 0)) PLC,          
+			                        SUM (DECODE (POOL_CD, '005', 1, 0)) QU,           
+			                        SUM (DECODE (POOL_CD, '004', 1, 0)) EX,           
+			                        SUM (DECODE (POOL_CD, '006', 1, 0)) TRI,          
+			                        COUNT (*) TOT --우측 계 추가                      
+			                  FROM TBES_SDL_RS T1, VW_SDL_INFO T2                                        
+			                  WHERE 1 = 1                                             
+			                  	AND T1.MEET_CD		= ? -- 0:MEET_CD 개최지 코드
+			                  	AND T1.STND_YEAR = T2.STND_YEAR
+			                  	AND T1.MEET_CD = T2.MEET_CD
+			                  	AND T1.TMS = T2.TMS
+			                  	AND T1.DAY_ORD = T2.DAY_ORD
+			                  	AND T2.RACE_DAY BETWEEN ? AND ?
+			                  GROUP BY                                                
+			                        CASE                                              
+			                            WHEN PAYOFF <= 1.0                            
+			                               THEN 1                                     
+			                            WHEN PAYOFF >= 1.1 AND PAYOFF <= 5.0          
+			                               THEN 2                                     
+			                            WHEN PAYOFF >= 5.1 AND PAYOFF <= 10.0         
+			                               THEN 3                                     
+			                            WHEN PAYOFF >= 10.1 AND PAYOFF <= 20.0        
+			                               THEN 4                                     
+			                            WHEN PAYOFF >= 20.1 AND PAYOFF <= 30.0        
+			                               THEN 5                                     
+			                            WHEN PAYOFF >= 30.1 AND PAYOFF <= 40.0        
+			                               THEN 6                                     
+			                            WHEN PAYOFF >= 40.1 AND PAYOFF <= 50.0        
+			                               THEN 7                                     
+			                            WHEN PAYOFF >= 50.1 AND PAYOFF <= 60.0        
+			                               THEN 8                                     
+			                            WHEN PAYOFF >= 60.1 AND PAYOFF <= 99.9        
+			                               THEN 9                                     
+			                            WHEN PAYOFF >= 100.0 AND PAYOFF <= 199.9      
+			                               THEN 10                                    
+			                            WHEN PAYOFF >= 200.0                          
+			                               THEN 11                                    
+			                        END                                               
+			                   ) A,                                                   
+			                   (                                                      
+			                   SELECT                                                 
+			                            SUM (DECODE (POOL_CD, '001', 1, 0)) WIN_SUM,  
+			                            SUM (DECODE (POOL_CD, '002', 1, 0)) PLC_SUM,  
+			                            SUM (DECODE (POOL_CD, '005', 1, 0)) QU_SUM,   
+			                            SUM (DECODE (POOL_CD, '004', 1, 0)) EX_SUM,   
+			                            SUM (DECODE (POOL_CD, '006', 1, 0)) TRI_SUM,  
+			                            COUNT (*) TOT_SUM                             
+			                      FROM  TBES_SDL_RS T1, VW_SDL_INFO T2                                        
+			                  	WHERE 1 = 1                                             
+			                  		AND T1.MEET_CD	= ? -- 0:MEET_CD 개최지 코드
+			                  		AND T1.STND_YEAR= T2.STND_YEAR
+			                  		AND T1.MEET_CD 	= T2.MEET_CD
+			                  		AND T1.TMS 		= T2.TMS
+			                  		AND T1.DAY_ORD 	= T2.DAY_ORD
+			                  		AND T2.RACE_DAY BETWEEN ? AND ?               
+			                    ) B --각 구성비를 계산하기 위함                              
+			             WHERE 1 = 1                                                  
+			          GROUP BY A.PAYOFFS 
+			          -- ROLLUP (A.PAYOFFS)                                     
+			          )                                                               
+			   WHERE 1 = 1                                                            
+			ORDER BY 1
+			
+        ]]>
+    </query>
+    
+
+
+</queryMap>

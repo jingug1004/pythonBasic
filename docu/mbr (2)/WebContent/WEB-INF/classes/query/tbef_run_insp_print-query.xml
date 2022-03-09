@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_run_insp_print 출주검사표출력 ">
+	<query id="tbef_run_insp_print_ff001" desc="출주검사 조회 " fetchSize="50">
+        <![CDATA[
+            SELECT /* tbef_run_insp_print_ff001 */
+               TR.STND_YEAR,
+               TR.MBR_CD, 	-- 경정장 코드			   TSC.CD_NM AS MBR_CD_NM,         -- 경정장코드명 			   TR.TMS,                      -- 경주회차			   TR.DAY_ORD,                  -- 경주일차
+			   TRDO.RACE_DAY,               -- 경주일자
+			   TR.RACE_NO,                  -- 경주번호
+			   TRIP.TILT_PRINT_YN,          -- 틸트각 조정 신고서 출력 여부
+			   TRIP.BEFORE_INSP_PRINT_YN,   -- 출주전 검사표 출력 여부  
+			   TRIP.INSP_PRINT_YN           -- 출주 직전 검사표 출력 여부
+			FROM TBEB_RACE TR, TBEB_RACE_TMS TRM,  TBEB_RACE_DAY_ORD TRDO, TBEF_RUN_INSP_PRINT TRIP,
+			(SELECT CD,CD_NM FROM TBEA_SPEC_CD WHERE  GRP_CD = 'E00006') TSC
+			WHERE TR.STND_YEAR = TRM.STND_YEAR
+			AND TR.MBR_CD = TRM.MBR_CD
+			AND TR.TMS = TRM.TMS
+			AND TR.MBR_CD = TSC.CD
+			AND TR.STND_YEAR = TRDO.STND_YEAR
+			AND TR.MBR_CD = TRDO.MBR_CD
+			AND TR.TMS = TRDO.TMS
+			AND TR.DAY_ORD = TRDO.DAY_ORD
+			AND TR.STND_YEAR = TRIP.STND_YEAR(+)
+			AND TR.MBR_CD = TRIP.MBR_CD(+)
+			AND TR.TMS = TRIP.TMS(+)
+			AND TR.DAY_ORD = TRIP.DAY_ORD(+)
+			AND TR.RACE_NO  = TRIP.RACE_NO(+)
+			AND TRM.RACE_TMS_STAT_CD >='040' -- 편성 이후
+			AND TR.STND_YEAR = ?
+			AND TR.MBR_CD = ?
+			AND TR.TMS= TO_NUMBER(?)
+			AND TR.DAY_ORD= TO_NUMBER(?)
+			ORDER BY TR.DAY_ORD, TR.RACE_NO 
+        ]]>
+    </query>     
+    <query id="tbef_run_insp_print_ff002" desc="출주검사 상세 조회 " fetchSize="50">
+        <![CDATA[            -- 출주검사 상세 조회  			SELECT 		/* tbef_run_insp_print_ff002 IWORK_SFR-012 */			       A.STND_YEAR,			       A.RACE_NO,			       LPAD(A.RACE_NO,2,'0') AS  RACE_NO,   --경주번호        			       A.RACE_REG_NO,      -- 정번			       A.RACER_NO,            -- 선수번호			       B.NM_KOR,            -- 선수명			       SUBSTR(A.MOT_NO,1,1) || SUBSTR(A.MOT_NO,6,3) AS MOT_NO,           -- 모터번호			       SUBSTR(A.BOAT_NO,1,1) || SUBSTR(A.BOAT_NO,6,3) AS BOAT_NO,           -- 보트번호  			       (SELECT CD_NM||' ' ||RMK FROM TBEA_SPEC_CD TSC WHERE  TSC.GRP_CD = 'E00086' AND TSC.CD = C.TILT_CD) AS TILT_CD,			       (SELECT CD_NM FROM TBEA_SPEC_CD TSC WHERE  TSC.GRP_CD = 'E00087' AND TSC.CD = C.JACKET_ADD_WGHT_CD) AS JACKET_ADD_WGHT_CD,			       (SELECT CD_NM FROM TBEA_SPEC_CD TSC WHERE  TSC.GRP_CD = 'E00088' AND TSC.CD = C.BOAT_ADD_WGHT_CD) AS BOAT_ADD_WGHT_CD,                   D.PROPELLER1,                   D.PROPELLER2,                   D.PROPELLER3,                   D.PROPELLER4,                   D.PROPELLER5			 FROM TBEB_ORGAN A, TBEC_RACER_MASTER B, TBEC_RACER_TILT C, 
+			 	  VWEF_RACER_PROPELLER_NEW D			 WHERE  A.STND_YEAR = C.STND_YEAR(+)			 AND A.MBR_CD       = C.MBR_CD(+)			 AND A.TMS          = C.TMS(+)			 AND A.DAY_ORD      = C.DAY_ORD(+)			 AND A.RACE_NO      = C.RACE_NO(+)			 AND A.RACE_REG_NO  = C.RACE_REG_NO(+)			 AND A.RACER_NO     = C.RACER_NO(+)             AND A.MOT_NO       = D.MOT_NO(+)			 AND A.STND_YEAR    = ?			 AND A.MBR_CD       = ?			 AND A.TMS          = TO_NUMBER(?)			 AND A.DAY_ORD      = TO_NUMBER(?) 			 AND A.RACE_NO      = ?			 AND A.RACER_NO     = B.RACER_NO  			 ORDER BY A.RACE_REG_NO
+        ]]>
+    </query>     
+    
+    <query id="tbef_run_insp_print_ff003" desc="출주검사 점검내용 조회 " fetchSize="50">
+        <![CDATA[
+            -- 출주검사 점검내용 조회  
+			SELECT /* tbef_run_insp_print_ff003 */
+			       NVL(MEMO1,'') MEMO1,
+			       NVL(MEMO2,'') MEMO2
+			 FROM TBEF_REPORT_MEMO
+        ]]>
+    </query>     
+    
+     <query id="tbef_run_insp_print_mf001" desc="틸트각조정신고서 프린트 여부  " fetchSize="10">
+        <![CDATA[
+			-- 틸트각조정신고서 프린트 여부 등록 
+			MERGE /* tbef_run_insp_print_mf001 */
+			      INTO TBEF_RUN_INSP_PRINT TRIP
+			USING (
+				SELECT
+					? AS STND_YEAR, 	-- 기준년도
+					? AS MBR_CD,         -- 경정장
+				   	? AS TMS,                      -- 경주회차
+				   	? AS DAY_ORD,                  -- 경주일차
+				   	? AS RACE_NO,                  -- 경주번호
+				   	? AS TILT_PRINT_YN,          -- 틸트각 조정 신고서 출력 여부
+				    ? AS USER_ID -- 사용자 ID
+			    FROM DUAL ) TP
+			ON (
+					TRIP.STND_YEAR = TP.STND_YEAR 	-- 기준년도
+					AND TRIP.MBR_CD = TP.MBR_CD         -- 경정장
+				   	AND TRIP.TMS = TP.TMS                      -- 경주회차
+				   	AND TRIP.DAY_ORD = TP.DAY_ORD                  -- 경주일차
+				   	AND TRIP.RACE_NO = TP.RACE_NO                  -- 경주번호
+			    )
+			WHEN MATCHED THEN
+			UPDATE 
+			SET
+			    TRIP.TILT_PRINT_YN = TP.TILT_PRINT_YN,          -- 틸트각 조정 신고서 출력 여부
+			    TRIP.UPDT_ID = TP.USER_ID,
+			    TRIP.UPDT_DTM = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (
+				TRIP.STND_YEAR, 	-- 기준년도
+				TRIP.MBR_CD,         -- 경정장
+				TRIP.TMS,                      -- 경주회차
+				TRIP.DAY_ORD,                  -- 경주일차
+				TRIP.RACE_NO,                  -- 경주번호
+				TRIP.TILT_PRINT_YN,          -- 틸트각 조정 신고서 출력 여부
+			    TRIP.INST_ID,
+			    TRIP.INST_DTM
+			)			    
+			VALUES(
+				TP.STND_YEAR, 	-- 기준년도
+				TP.MBR_CD,         -- 경정장
+				TP.TMS,                      -- 경주회차
+				TP.DAY_ORD,                  -- 경주일차
+				TP.RACE_NO,                  -- 경주번호
+				TP.TILT_PRINT_YN,          -- 틸트각 조정 신고서 출력 여부
+			    TP.USER_ID,
+			    SYSDATE
+			  )
+        ]]>
+    </query> 
+
+     <query id="tbef_run_insp_print_mf002" desc="출주전(직전) 검사표 프린트 여부  " fetchSize="10">
+        <![CDATA[
+			-- 출주전(직전) 검사표 프린트 여부 등록 
+			MERGE /* tbef_run_insp_print_mf002 */
+			      INTO TBEF_RUN_INSP_PRINT TRIP
+			USING (
+				SELECT
+					? AS STND_YEAR, 	-- 기준년도
+					? AS MBR_CD,         -- 경정장
+				   	? AS TMS,                      -- 경주회차
+				   	? AS DAY_ORD,                  -- 경주일차
+				   	? AS RACE_NO,                  -- 경주번호
+				   	? AS BEFORE_INSP_PRINT_YN,   -- 출주전 검사표 출력 여부
+				   	? AS INSP_PRINT_YN,           -- 출주 직전 검사표 출력 여부
+				    ? AS USER_ID -- 사용자 ID
+			    FROM DUAL ) TP
+			ON (
+					TRIP.STND_YEAR = TP.STND_YEAR 	-- 기준년도
+					AND TRIP.MBR_CD = TP.MBR_CD         -- 경정장
+				   	AND TRIP.TMS = TP.TMS                      -- 경주회차
+				   	AND TRIP.DAY_ORD = TP.DAY_ORD                  -- 경주일차
+				   	AND TRIP.RACE_NO = TP.RACE_NO                  -- 경주번호
+			    )
+			WHEN MATCHED THEN
+			UPDATE 
+			SET
+				TRIP.BEFORE_INSP_PRINT_YN = TP.BEFORE_INSP_PRINT_YN,   -- 출주전 검사표 출력 여부
+				TRIP.INSP_PRINT_YN = TP.INSP_PRINT_YN,           -- 출주 직전 검사표 출력 여부 
+			    TRIP.UPDT_ID = TP.USER_ID,
+			    TRIP.UPDT_DTM = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (
+				TRIP.STND_YEAR, 	-- 기준년도
+				TRIP.MBR_CD,         -- 경정장
+				TRIP.TMS,                      -- 경주회차
+				TRIP.DAY_ORD,                  -- 경주일차
+				TRIP.RACE_NO,                  -- 경주번호
+				TRIP.BEFORE_INSP_PRINT_YN,   -- 출주전 검사표 출력 여부
+				TRIP.INSP_PRINT_YN,           -- 출주 직전 검사표 출력 여부
+			    TRIP.INST_ID,
+			    TRIP.INST_DTM
+			)			    
+			VALUES(
+				TP.STND_YEAR, 	-- 기준년도
+				TP.MBR_CD,         -- 경정장
+				TP.TMS,                      -- 경주회차
+				TP.DAY_ORD,                  -- 경주일차
+				TP.RACE_NO,                  -- 경주번호
+				TP.BEFORE_INSP_PRINT_YN,   -- 출주전 검사표 출력 여부
+				TP.INSP_PRINT_YN,           -- 출주 직전 검사표 출력 여부
+			    TP.USER_ID,
+			    SYSDATE
+			  )
+        ]]>
+    </query> 
+    
+     <query id="tbef_run_insp_print_uf001" desc="출주검사표 점검내용 수정  " fetchSize="10">
+        <![CDATA[
+			-- 출주검사표 점검내용 수정
+			UPDATE /* tbef_run_insp_print_uf001 */
+			       TBEF_REPORT_MEMO 
+			  SET
+					  MEMO1 = ?
+					, MEMO2 = ?
+					, UPDT_ID = ?
+					, UPDT_DTM = SYSDATE
+        ]]>
+    </query> 
+
+</queryMap>

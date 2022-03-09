@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS3010(소모품 등록)">
+    <query id="rbs3010_s01" desc="소모품이력 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3010_s01 */
+                 '0' AS CHK
+                ,S.SUPPL_CD   --소모품코드   
+                ,S.PRHS_DT    --구매일자
+                ,S.QTY        --수량
+                ,S.RMK        --비고
+               
+              FROM  TBRE_SUPPL_HIST S, TBRK_SPEC_CD C --소모품이력
+             WHERE  1=1
+               AND  S.SUPPL_CD LIKE '%' || NVL(? , SUPPL_CD) || '%'   --소모품코드
+               AND  S.PRHS_DT  BETWEEN ? AND ?                        --구매일자From~To
+               AND  S.QTY > 0       
+               AND  S.SUPPL_CD = C.CD
+               AND  C.GRP_CD = '031'	
+               AND  C.CD_TERM1 = ?
+             ORDER BY PRHS_DT DESC  ,SUPPL_CD           
+        ]]>
+    </query>
+    
+    <query id="rbs3010_s02" desc="소모품 재고 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs3010_s02 */
+                   '0' AS CHK
+                  ,C.CD_NM AS SUPPL_CD_NM  	--소모품명
+                  ,C.CD  AS SUPPL_CD     			--소모품코드    
+                  ,NVL(S.QTY, 0) AS QTY		--수량
+                  ,NVL((SELECT COUNT(*) FROM TBRE_SUPPL_HIST A WHERE A.SUPPL_CD = S.SUPPL_CD),0) AS HIST_CNT
+                  ,NVL(C.CD_TERM1,'001') AS BIZ_GBN 
+                  ,C.CD_NM2 AS MANUF_NM
+              FROM  TBRE_SUPPL_STK S, TBRK_SPEC_CD C --소모품재고
+             WHERE  1=1
+               AND  SUPPL_CD(+) LIKE '%' || NVL(? , SUPPL_CD(+)) || '%'   --소모품코드
+               --AND  QTY > 0
+               AND  S.SUPPL_CD(+) = C.CD
+               AND  C.GRP_CD = '031'	
+               AND  C.CD_TERM1 = ?
+             ORDER BY C.CD  
+        ]]>
+    </query>
+    
+    <query id="rbs3010_s03" desc="소모품재고 수량 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3010_s03 */
+                 QTY          --수량           
+                                
+              FROM  TBRE_SUPPL_STK  --소모품재고
+             WHERE  1=1
+               AND  SUPPL_CD = ?   --소모품코드
+        ]]>
+    </query>
+    
+    <query id="rbs3010_s04" desc="소모품이력 수량 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs3010_s04 */
+                 QTY          --수량           
+                                
+              FROM  TBRE_SUPPL_HIST
+             WHERE  1=1
+               AND  SUPPL_CD = ?   --소모품코드
+               AND  PRHS_DT  = ?   --구매일자
+        ]]>
+    </query>
+    
+    <query id="rbs3010_s05" desc="소모품재고 테이블에 재고 존재 여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs3010_s04 */
+                 COUNT(*) AS CNT   --0이면 재고없음           
+                                
+              FROM  TBRE_SUPPL_STK --소모품재고
+             WHERE  1=1
+               AND  SUPPL_CD = ?   --소모품코드
+        ]]>
+    </query>
+    
+    <query id="rbs3010_s06" desc="소모품명  조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3010_s06 */
+                 CD_NM          --상세코드명(소무품명)           
+                                
+              FROM  TBRK_SPEC_CD  --소모품재고
+             WHERE  1=1
+               AND  GRP_CD = '031'
+               AND  CD     = ?
+        ]]>
+    </query>
+    
+    <query id="rbs3010_s07" desc="소모품이력 기본키 개수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs3010_s04 */
+                 COUNT(*) AS CNT   --기본키개수           
+                                
+              FROM  TBRE_SUPPL_HIST
+             WHERE  1=1
+               AND  SUPPL_CD = ?   --소모품코드
+               AND  PRHS_DT  = ?   --구매일자
+        ]]>
+    </query>
+    
+    <query id="rbs3010_m01" desc="소모품이력 입력,수정" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBRE_SUPPL_HIST A /* rbs3010_m01 */  --소모품이력
+            USING
+                    (SELECT
+                             ? AS SUPPL_CD      --소모품코드
+							,? AS PRHS_DT       --구매일자
+							,? AS QTY           --수량
+							,? AS RMK           --비고
+                            ,? AS INST_ID       --작성자
+                            
+                            ,? AS UPDT_ID       --수정자
+                            
+                       FROM    DUAL ) B
+                ON (
+                        A.SUPPL_CD = B.SUPPL_CD   --소모품코드
+                    AND A.PRHS_DT  = B.PRHS_DT    --구매일자
+            )
+            
+            WHEN MATCHED THEN
+                UPDATE SET 
+					 A.QTY      = B.QTY            --수량
+					,A.RMK      = B.RMK            --비고
+
+                    ,A.UPDT_ID      = B.UPDT_ID    --수정자
+                    ,A.UPDT_DT      = SYSDATE      --수정일시
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+            
+                     A.SUPPL_CD     --소모품코드
+					,A.PRHS_DT      --구매일자
+					,A.QTY          --수량
+					,A.RMK          --비고
+                    ,A.INST_ID      --작성자
+                    
+                    ,A.INST_DT      --작성일시
+                    
+                ) VALUES (
+                     B.SUPPL_CD     --소모품코드
+                    ,B.PRHS_DT      --구매일자
+                    ,B.QTY          --수량
+                    ,B.RMK          --비고
+                    ,B.INST_ID      --작성자
+                    
+                    ,SYSDATE        --작성일시
+                )
+        ]]>
+    </query>
+    
+    <query id="rbs3010_d01" desc="소모품 이력 삭제" fetchSize="10">
+        <![CDATA[
+            DELETE  TBRE_SUPPL_HIST   /* rbs3010_d01 */  --소모품이력
+             WHERE  1=1
+               AND  SUPPL_CD = ?      --소모품코드
+               AND  PRHS_DT  = ?      --구매일자
+        ]]>
+    </query>
+    
+    <query id="rbs3010_m02" desc="소모품 재고 입력,수정" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBRE_SUPPL_STK A /* rbs3010_m02 */  --소모품재고
+            USING
+                    (SELECT
+                             ? AS SUPPL_CD      --소모품코드
+                            ,? AS QTY           --수량                            
+                            ,? AS UPDT_ID       --수정자
+                            
+                       FROM    DUAL ) B
+                ON (
+                        A.SUPPL_CD = B.SUPPL_CD   --소모품코드
+            )
+            
+            WHEN MATCHED THEN
+                UPDATE SET 
+                     A.QTY     = B.QTY        --수량
+                    ,A.UPDT_ID = B.UPDT_ID    --수정자
+                    ,A.UPDT_DT = SYSDATE      --수정일시
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+            
+                     A.SUPPL_CD     --소모품코드
+                    ,A.QTY          --수량
+                    ,A.UPDT_ID      --작성자
+                    ,A.UPDT_DT      --작성일시
+                    
+                ) VALUES (
+                     B.SUPPL_CD     --소모품코드
+                    ,B.QTY          --수량
+                    ,B.UPDT_ID      --작성자                  
+                    ,SYSDATE        --작성일시
+                )
+        ]]>
+    </query> 
+</queryMap>

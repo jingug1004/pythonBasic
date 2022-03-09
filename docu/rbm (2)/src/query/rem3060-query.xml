@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem3060(최고체류인원 현황)">
+    <query id="rem3060_s01" desc="최고체류인원  현황  조회" fetchSize="10">
+      <![CDATA[
+  
+		  SELECT /*rem3060_s01*/
+		          TMS,
+			      sum(MON_NUM+ TUE_NUM+WEN_NUM+THU_NUM+FRI_NUM+SAT_NUM+SUN_NUM) over(ORDER BY TMS rows between unbounded preceding and current row) TOT_MAX_NUM
+			     ,MON_MAX_NUM         --월요일 
+			     ,TUE_MAX_NUM         --화요일 
+			     ,WEN_MAX_NUM         --수요일 
+			     ,THU_MAX_NUM         --목요일 
+			     ,FRI_MAX_NUM         --금요일 
+			     ,SAT_MAX_NUM         --토요일 
+			     ,SUN_MAX_NUM         --일요일 
+			     ,MON_NUM         --월요일
+			     ,TUE_NUM         --화요일
+			     ,WEN_NUM         --수요일
+			     ,THU_NUM         --목요일
+			     ,FRI_NUM         --금요일
+			     ,SAT_NUM         --토요일
+			     ,SUN_NUM         --일요일
+			       
+			        
+			from (
+			    SELECT
+			                        TMS                         
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'2', DECODE(RACE_GBN,'01',A.RACE_NO|| ' ','02','','') || A.MAX_NUM_COMA,0 )) ,0) MON_MAX_NUM         --월요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'3', DECODE(RACE_GBN,'01',A.RACE_NO|| ' ','02','','') || A.MAX_NUM_COMA,0 )) ,0) TUE_MAX_NUM         --화요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'4', DECODE(RACE_GBN,'01',A.RACE_NO|| ' ','02','','') || A.MAX_NUM_COMA,0 )) ,0) WEN_MAX_NUM         --수요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'5', DECODE(RACE_GBN,'01',A.RACE_NO|| ' ','02','','') || A.MAX_NUM_COMA,0 )) ,0) THU_MAX_NUM         --목요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'6', DECODE(RACE_GBN,'01',A.RACE_NO|| ' ','02','','') || A.MAX_NUM_COMA,0 )) ,0) FRI_MAX_NUM         --금요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'7', DECODE(RACE_GBN,'01',A.RACE_NO|| ' ','02','','') || A.MAX_NUM_COMA,0 )) ,0) SAT_MAX_NUM         --토요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'1', DECODE(RACE_GBN,'01',A.RACE_NO|| ' ','02','','') || A.MAX_NUM_COMA,0 )) ,0) SUN_MAX_NUM         --일요일
+			                        
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'2', A.MAX_NUM,0 )) ,0) MON_NUM         --월요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'3', A.MAX_NUM,0 )) ,0) TUE_NUM         --화요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'4', A.MAX_NUM,0 )) ,0) WEN_NUM         --수요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'5', A.MAX_NUM,0 )) ,0) THU_NUM         --목요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'6', A.MAX_NUM,0 )) ,0) FRI_NUM         --금요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'7', A.MAX_NUM,0 )) ,0) SAT_NUM         --토요일
+			                        ,NVL(MAX( DECODE (RACE_YOIL,'1', A.MAX_NUM,0 )) ,0) SUN_NUM         --일요일
+			            
+			
+			                    FROM                                                                        
+			                     (                                                                           
+			                         SELECT 
+			                                ? RACE_GBN,                                                                 
+			                                TMS, 
+			                                RACE_YOIL, 
+			                                '['||RACE_NO||'경주] ' RACE_NO,               
+			                                MAX(MAX_NUM) OVER (PARTITION BY TMS,RACE_YOIL) MAX_STAY_NUM,                     
+			                                MAX_NUM,
+			                                TO_CHAR(MAX_NUM,'FM9,999,999') MAX_NUM_COMA                                                              
+			                         FROM                                                                    
+			                         (                                                                       
+			                             SELECT                                                              
+			                                  C.TMS TMS,                                               
+			                                  TO_CHAR(TO_DATE(A.RACE_DT),'D') RACE_YOIL,                                     
+			                                  TO_NUMBER(A.RACE_NO) RACE_NO,                                                     
+			                                  (                                                               
+			                                      SELECT                                                         
+			                                            
+			                                                     SUM(CASE                                                    
+			                                                          WHEN BRNC_CD='27' AND OUT_ENT_PRSN_NUM>0                  
+			                                                              THEN (OUT_ENT_PRSN_NUM-OUT_LEAV_PRSN_NUM)                   
+			                                                          ELSE (ENT_PRSN_NUM - LEAV_PRSN_NUM)                              
+			                                                      END    ) 
+			                                                                                           
+			                                      FROM TBRC_STAY_MANA B                                                
+			                                      WHERE B.RACE_DT=A.RACE_DT                                      
+			                                        AND B.MEET_CD=A.MEET_CD                                    
+			                                        AND TO_NUMBER(B.RACE_NO)<=TO_NUMBER(A.RACE_NO)                                  
+			                                        AND B.BRNC_CD=A.BRNC_CD                                
+			                                              ) MAX_NUM                                                         
+			                             FROM                                                                
+			                                  TBRC_STAY_MANA A,                                                     
+			         
+			                              (SELECT
+			                                 MEET_CD
+			                                ,STND_YEAR
+			                                ,TMS
+			                                ,RACE_DAY
+			                                FROM  VW_SDL_INFO
+			                                WHERE  RACE_DAY >= ?
+			                                  AND RACE_DAY <= ?
+			                                    AND MEET_CD =?
+			                                    
+			                              )C   
+			                    
+			                             WHERE                                                               
+			                                    A.RACE_DT >= ?
+			                                  AND A.RACE_DT <= ?
+			                                  AND A.MEET_CD= ?                                
+			                                  AND A.RACE_DT = C.RACE_DAY   
+			                                  AND A.BRNC_CD = ?
+			
+			                         )                                                                       
+			                     )  A                                                                          
+			                     WHERE MAX_NUM=MAX_STAY_NUM
+			                     GROUP BY TMS 
+			                 )
+			                    ORDER BY TMS 
+
+
+        ]]>
+    </query> 
+   
+</queryMap>

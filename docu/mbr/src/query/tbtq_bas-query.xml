@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbtq_bas_cd(TQC코드관련)">
+    <query id="tbtq_goal_fa001" desc="목표" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			       ? STND_YEAR
+			      ,A.CD
+	    		  ,A.CD_NM
+				  ,C.PART_NM
+		 		  ,B.GOAL
+		 		  ,B.CHK   
+					  FROM TBTQ_SPEC_CD A
+		   				 ,(SELECT CD,GOAL,0 CHK FROM TBTQ_CTL_GOAL WHERE STND_YEAR = ? 
+		   				 ) B 
+						 ,TBTQ_PART_CD C
+					  WHERE A.CD = B.CD(+)	
+					  AND   A.PART_CD = C.PART_CD
+					  AND   A.USE_YN = 'Y'
+					  ORDER BY A.ORD_NO	
+        ]]>
+    </query> 
+    <query id="tbtq_rate_fa001" desc="비중" fetchSize="10">
+        <![CDATA[
+				SELECT
+				   ? STND_YEAR
+				  ,A.CD
+			      ,A.CD_NM
+				  ,C.PART_NM
+				  ,(SELECT NVL(MAX(SEQ),0)+1 SEQ FROM TBTQ_CTL_RATE) SEQ 
+				  ,NVL(B.RATE,0) RATE 
+				  ,'' COMMENTS
+					FROM TBTQ_SPEC_CD A
+					    ,(SELECT  STND_YEAR,CD,RATE FROM TBTQ_CTL_RATE 
+					      WHERE SEQ = (SELECT MAX(SEQ) FROM TBTQ_CTL_RATE)) B 
+					    --  AND STND_YEAR = ? 
+						,TBTQ_PART_CD C
+					WHERE A.CD = B.CD(+)	
+					AND   A.PART_CD = C.PART_CD
+					AND   A.USE_YN = 'Y'
+					ORDER BY A.ORD_NO			
+        ]]>
+    </query>    
+    <query id="tbtq_bas_fa001" desc="평가기준" fetchSize="10">
+        <![CDATA[
+			SELECT  
+				   ? STND_YEAR
+				  ,A.CD
+			      ,A.CD_NM
+				  ,C.PART_NM
+				  ,B.QTY_A  
+				  ,B.QTY_B
+				  ,B.QTY_C
+				  ,B.QTY_D
+				  ,B.QTY_F
+					FROM TBTQ_SPEC_CD A
+					    ,(SELECT * FROM TBTQ_CTL_BAS WHERE STND_YEAR = ?) B 
+						,TBTQ_PART_CD C
+					WHERE A.CD = B.CD(+)	
+					AND   A.PART_CD = C.PART_CD
+					AND   A.USE_YN = 'Y'
+					ORDER BY A.ORD_NO			
+        ]]>
+    </query> 
+    <query id="tbtq_rate_fa002" desc="비중SEQ" fetchSize="10">
+        <![CDATA[
+			SELECT SEQ AS CD,COMMENTS FROM TBTQ_CTL_RATE
+			GROUP BY SEQ,COMMENTS 
+			ORDER BY SEQ DESC			
+        ]]>
+    </query> 
+    <query id="tbtq_rate_fa003" desc="비중COMBO선택" fetchSize="10">
+        <![CDATA[
+				SELECT
+				   ? STND_YEAR
+				  ,A.CD
+			      ,A.CD_NM
+				  ,C.PART_NM
+				  ,(SELECT NVL(MAX(SEQ),0)+1 SEQ FROM TBTQ_CTL_RATE) SEQ 
+				  ,NVL(B.RATE,0)RATE   
+					FROM TBTQ_SPEC_CD A
+					    ,(SELECT  STND_YEAR,CD,RATE FROM TBTQ_CTL_RATE 
+					      WHERE SEQ = ? 
+					      -- AND STND_YEAR = ?
+					      ) B 
+						,TBTQ_PART_CD C
+					WHERE A.CD = B.CD(+)	
+					AND   A.PART_CD = C.PART_CD
+					AND   A.USE_YN = 'Y'
+					ORDER BY A.ORD_NO			
+        ]]>
+    </query>   
+    <query id="tbtq_goal_ia001" desc="목표저장" fetchSize="10">
+        <![CDATA[
+			 MERGE INTO TBTQ_CTL_GOAL TCG
+    		 		   USING   DUAL
+					   ON	   (    TCG.STND_YEAR	= ?
+					   		   	AND TCG.CD 			= ?
+								)
+					   WHEN MATCHED THEN
+					    UPDATE SET
+						  GOAL   	  		  = ?
+						, UPDT_ID             = ?
+						, UPDT_DTM            = SYSDATE
+					   WHEN NOT MATCHED THEN
+						INSERT (
+							   	  STND_YEAR
+								, CD
+								, GOAL		   
+							    , INST_ID
+							    , INST_DTM
+								)VALUES (
+											 ?
+											,?
+											,?
+											,? 
+											,SYSDATE								
+										)
+        ]]>
+    </query> 
+    <query id="tbtq_rate_ia001" desc="비중저장" fetchSize="10">
+        <![CDATA[
+			 MERGE INTO TBTQ_CTL_RATE TCR
+    		 		   USING   DUAL
+					   ON	   (    TCR.STND_YEAR	= ?
+					   		   	AND TCR.CD 			= ?
+								AND TCR.SEQ 		= ?
+								)
+					   WHEN MATCHED THEN
+					    UPDATE SET
+						  RATE   	  		  = ?
+						, GBN                 ='B'
+						, UPDT_ID             = ?
+						, UPDT_DTM            = SYSDATE
+					   WHEN NOT MATCHED THEN
+						INSERT (
+							   	  STND_YEAR
+								, CD
+								, SEQ
+								, RATE	
+								, GBN	   
+							    , INST_ID
+							    , INST_DTM
+								)VALUES (
+											 ?
+											,?
+											,?
+											,?
+											,'B' 
+											,?
+											,SYSDATE								
+										)
+        ]]>
+    </query> 
+    <query id="tbtq_bas_ia001" desc="평가기준저장" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBTQ_CTL_BAS TCB
+			    		 		   USING   DUAL
+								   ON	   (    TCB.STND_YEAR	= ?
+								   		   	AND TCB.CD 			= ?
+											)
+								   WHEN MATCHED THEN
+								    UPDATE SET
+									  QTY_A   	  		  = ?
+									, QTY_B   	  		  = ?
+									, QTY_C   	  		  = ?
+									, QTY_D   	  		  = ?
+									, QTY_F   	  		  = ?
+									, UPDT_ID             = ?
+									, UPDT_DTM            = SYSDATE
+								   WHEN NOT MATCHED THEN
+									INSERT (
+										   	  STND_YEAR
+											, CD
+											, QTY_A   	  		  
+											, QTY_B   	  		  
+											, QTY_C   	  		  
+											, QTY_D   	  		  
+											, QTY_F   	  		  	   
+										    , INST_ID
+										    , INST_DTM
+											)VALUES (
+														 ?
+														,?
+														,?
+														,? 
+														,?
+														,?
+														,? 
+														,?
+														,SYSDATE								
+													)
+        ]]>
+    </query>            
+</queryMap>

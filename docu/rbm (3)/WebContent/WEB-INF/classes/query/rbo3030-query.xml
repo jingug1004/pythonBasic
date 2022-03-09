@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbo3030(회차별현황/용지마감)">
+    <query id="rbo3030_s01" desc="회차별현황 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbo3030_s01 */
+			   B.BRNC_CD	--지점코드
+			  ,B.BRNC_NM	--지점명
+			  ,B.TMS		--회차
+			  ,NVL(A.USGE_CNT,0) USGE_CNT --사용수량
+			FROM 
+			    (
+			        SELECT
+			          
+			             A.BRNC_CD
+			            ,A.STND_YEAR
+			            ,A.TMS
+			            ,SUM(DECODE(?,'001', NVL(A.MRA_USGE_CNT,0) + NVL(A.CRA_USGE_CNT ,0),'002',NVL(A.MAKE_STK_CNT,0) )  ) USGE_CNT
+			        FROM TBRB_ROLL_MANA A
+			        WHERE A.STND_YEAR = ?
+			        	
+			        	AND  REGEXP_LIKE (DECODE(?, '', '1',A.ROLL_GBN),DECODE(?,'','1',?) ) 
+			        	AND A.BRNC_CD  LIKE  '%' || NVL(? , A.BRNC_CD) || '%' 
+			        GROUP BY A.BRNC_CD, A.STND_YEAR,  A.TMS
+			
+			    ) A,
+			    (
+			       SELECT
+			          C.BRNC_CD
+			         ,C.BRNC_NM
+			         ,A.TMS
+			       FROM
+			       (    SELECT
+		                     STND_YEAR
+		                    ,TMS
+		                FROM  VW_SDL_INFO
+		                    WHERE  MEET_CD ='001'
+		                      AND STND_YEAR = ?
+		                    GROUP  BY STND_YEAR,TMS
+			        )A,
+			        (SELECT
+			                         CD BRNC_CD
+			                        ,CD_NM BRNC_NM
+			                    FROM TBRK_SPEC_CD WHERE GRP_CD = '018'
+			                         AND DEL_YN='N' 
+			                         AND CD  LIKE  '%' || NVL(? , CD) || '%' 
+			        ) C
+			        ORDER BY BRNC_CD,TMS
+			     )B
+			
+			WHERE  A.TMS(+) = B.TMS
+			    AND A.BRNC_CD(+) = B.BRNC_CD
+			ORDER BY B.BRNC_CD,B.TMS
+
+			
+        ]]>
+    </query>     
+      
+    <query id="rbo3030_s04" desc="회차별현황 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo3030_s04 */
+                '0' AS CHK
+                ,STND_YEAR    -- 기준년도
+                ,TMS          -- 회차
+                ,OUT_BRNC_CD  -- 출고지점코드
+                ,IN_BRNC_CD   -- 입고지점코드
+                ,ROLL_GBN     -- 용지구분
+                ,MOVE_CNT     -- 이동수량                
+                ,RMK          -- 비고
+                ,INST_ID      -- 작성자
+                ,TO_CHAR(INST_DT,'YYYY-MM-DD')   INST_DT -- 작성일시
+                ,UPDT_ID      -- 수정자
+                ,UPDT_DT      -- 수정일시
+            FROM        
+               TBRB_ROLL_BRNC_MOVE A
+               
+            WHERE
+                    A.STND_YEAR LIKE  '%' || NVL(? , STND_YEAR) || '%'
+                AND  REGEXP_LIKE (DECODE(?, '', '1',A.ROLL_GBN),DECODE(?,'','1',?) ) 
+                AND A.OUT_BRNC_CD LIKE  '%' || NVL(? , OUT_BRNC_CD) || '%'
+            ORDER BY TMS DESC, INST_DT DESC, ROLL_GBN, OUT_BRNC_CD,IN_BRNC_CD
+            
+        ]]>
+    </query>
+   <query id="rbo3030_u01" desc="용지마감" fetchSize="10">
+
+        <![CDATA[
+		
+				INSERT INTO TBRB_ROLL_END  /*rbo3030_u01*/
+				(
+				     BRNC_CD               --지점코드
+					,STND_YEAR             --기준년도
+					,ROLL_GBN              --용지구분
+					,END_STK_CNT           --마감재고수량
+					
+					,INST_ID               --작성자
+					,INST_DT               --작성시
+					,UPDT_ID               --수정자
+					,UPDT_DT               --수정일시
+					
+                )VALUES(
+                     ?                  --지점코드
+                    ,?                  --기준년도
+                    ,?                  --용지구분
+                    ,?                  --마감재고수량
+                    
+                    ,?                  --작성자
+                    ,SYSDATE            --작성시
+                    ,?                  --수정자
+                    ,SYSDATE            --수정일시
+            
+                )
+			
+        ]]>
+
+    </query>    
+
+   <query id="rbo3030_u02" desc="용지마감취소" fetchSize="10">
+
+        <![CDATA[
+			  DELETE  /*rbo3030_u02*/
+			  FROM TBRB_ROLL_END
+			  WHERE STND_YEAR = ?
+			
+        ]]>
+
+    </query>    
+
+   
+
+ 
+    <query id="rbo3030_s02" desc="용지재고 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbo3030_s02 */
+				MIN(STND_YEAR) STND_YEAR
+			FROM 		
+               TBRB_ROLL_MANA		
+        ]]>
+    </query>         
+
+   <query id="rbo3030_s03" desc="마감  조회" fetchSize="10">
+      <![CDATA[
+			SELECT  /* rbo3030_s03 */
+				 BRNC_CD		--지점코드
+				,STND_YEAR		--기준년도
+				,ROLL_GBN		--용지구분
+				,END_STK_CNT	--마감재고수량
+				
+				,INST_ID
+				,INST_DT
+				,UPDT_ID
+				,UPDT_DT
+
+			FROM TBRB_ROLL_END
+			WHERE STND_YEAR = ?		
+        ]]>
+    </query>
+    
+    
+    <query id="rbo3030_s05" desc="용지마감대상 조회" fetchSize="10">
+
+        <![CDATA[
+                SELECT /*rbo3030_s05*/
+                      BRNC_CD
+                     ,?  STND_YEAR  -- 기준년도
+                     ,ROLL_GBN  -- 용지구분
+                     ,FC_GET_ROLLSTKCNT(?,'',BRNC_CD, ROLL_GBN ,'02') END_STK_CNT  -- STND_YEAR , ROLL_GBN
+                     ,?         --작성자
+                     ,SYSDATE
+                     ,?         --작성자
+                     ,SYSDATE
+                FROM  
+                    ( 
+                            SELECT CD ROLL_GBN
+                            FROM TBRK_SPEC_CD 
+                            WHERE GRP_CD ='020'
+                                
+                    )A,
+                     (
+                                SELECT CD BRNC_CD
+                                FROM TBRK_SPEC_CD 
+                                WHERE GRP_CD ='018'
+                                AND DEL_YN ='N'
+                           
+                     ) C
+                ORDER BY BRNC_CD, ROLL_GBN
+            
+        ]]>
+
+    </query>       
+</queryMap>

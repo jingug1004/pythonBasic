@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5040(포상금 지급기준관리 )">
+  <query id="rbs5040_s01" desc="포상금 지급기준 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5040_s01 */
+                   '0' AS CHK
+                   ,R.GAME_CD					-- 종목코드
+		           ,R.CONTEST_TYPE_SEQ			-- 대회분류연번
+		           ,R.RWRD_RULE_SEQ				-- 대회연번
+		           ,R.RANK						-- 순위
+		           ,R.PRV_GRP_TYPE				-- 개인/단체 여부
+		           ,R.MRTN_RACE_TYPE			-- 마라콘 경주 종류
+		           ,R.CYCL_PLC_TYPE				-- 사이클 장소 구분
+		           ,R.CYCL_TERM_TYPE			-- 사이클 기간 구분
+		           ,R.PRTC_MEMR_TYPE			-- 참가인원 구분
+		           ,R.FB_LEG_TYPE				-- 축구리그구분
+		           ,R.RWRD_AMT_1				-- 포상금(갑)
+		           ,R.RWRD_AMT_2				-- 포상금(을)
+		           ,R.RWRD_AMT_3				-- 포상금(병)
+		           ,R.RWRD_AMT_4				-- 포상금(정)
+		           ,R.RMK						-- 비고
+		           ,R.WIN_RWRD					-- 승리포상
+		           ,R.AUTO_CALC_YN				-- 자동계산여부
+		           ,C1.CD_NM AS GAME_NM			-- 종목명
+		           ,T.INTL_TYPE					-- 국제대회 여부
+		           ,T.CONTEST_TYPE_NM			-- 대회분류명
+			FROM TBRS_RWRD_RULE R, TBRK_SPEC_CD C1, TBRS_CONTEST_TYPE T
+			WHERE   R.GAME_CD = C1.CD
+			    AND C1.GRP_CD = '144'
+			    AND R.GAME_CD = T.GAME_CD
+			    AND R.CONTEST_TYPE_SEQ = T.CONTEST_TYPE_SEQ  
+			    AND R.GAME_CD LIKE ?||'%'
+			ORDER BY R.GAME_CD, R.CONTEST_TYPE_SEQ, R.RWRD_RULE_SEQ
+        ]]>
+    </query>       
+    
+    <query id="rbs5040_m01" desc="포상금 지급기준 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5040_m01 */
+                  TBRS_RWRD_RULE DST
+           USING (
+                     SELECT   ? AS GAME_CD
+                             ,? AS CONTEST_TYPE_SEQ
+                             ,? AS RWRD_RULE_SEQ
+                             ,? AS RANK
+                             ,? AS PRV_GRP_TYPE
+                             ,? AS MRTN_RACE_TYPE
+                             ,? AS CYCL_PLC_TYPE
+                             ,? AS CYCL_TERM_TYPE
+                             ,? AS PRTC_MEMR_TYPE
+                             ,? AS FB_LEG_TYPE
+                             ,? AS RWRD_AMT_1
+                             ,? AS RWRD_AMT_2
+                             ,? AS RWRD_AMT_3
+                             ,? AS RWRD_AMT_4
+                             ,? AS RMK
+                             ,? AS WIN_RWRD					-- 승리포상
+                             ,? AS AUTO_CALC_YN				-- 자동계산 여부
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.GAME_CD      		= SRC.GAME_CD
+                     AND DST.CONTEST_TYPE_SEQ  	= SRC.CONTEST_TYPE_SEQ
+                     AND DST.RWRD_RULE_SEQ  	= SRC.RWRD_RULE_SEQ
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.RANK  	   		= SRC.RANK
+                        ,DST.PRV_GRP_TYPE  	= SRC.PRV_GRP_TYPE
+                        ,DST.MRTN_RACE_TYPE = SRC.MRTN_RACE_TYPE
+                        ,DST.CYCL_PLC_TYPE 	= SRC.CYCL_PLC_TYPE
+                        ,DST.CYCL_TERM_TYPE = SRC.CYCL_TERM_TYPE
+                        ,DST.PRTC_MEMR_TYPE = SRC.PRTC_MEMR_TYPE
+                        ,DST.FB_LEG_TYPE 	= SRC.FB_LEG_TYPE
+                        ,DST.RWRD_AMT_1 	= SRC.RWRD_AMT_1
+                        ,DST.RWRD_AMT_2 	= SRC.RWRD_AMT_2
+                        ,DST.RWRD_AMT_3 	= SRC.RWRD_AMT_3
+                        ,DST.RWRD_AMT_4 	= SRC.RWRD_AMT_4
+                        ,DST.RMK   			= SRC.RMK
+                        ,DST.WIN_RWRD   	= SRC.WIN_RWRD
+                        ,DST.AUTO_CALC_YN	= SRC.AUTO_CALC_YN
+                        ,DST.UPDT_ID 		= SRC.USER_ID
+                        ,DST.UPDT_DT 		= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  GAME_CD
+                , CONTEST_TYPE_SEQ
+                , RWRD_RULE_SEQ
+                , RANK
+                , PRV_GRP_TYPE
+                , MRTN_RACE_TYPE
+                , CYCL_PLC_TYPE
+                , CYCL_TERM_TYPE
+                , PRTC_MEMR_TYPE
+                , FB_LEG_TYPE
+                , RWRD_AMT_1
+                , RWRD_AMT_2
+                , RWRD_AMT_3
+                , RWRD_AMT_4
+                , RMK
+                , WIN_RWRD
+                , AUTO_CALC_YN
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.GAME_CD
+                , SRC.CONTEST_TYPE_SEQ
+                , (SELECT NVL(MAX(RWRD_RULE_SEQ)+1,1) 
+                   FROM TBRS_RWRD_RULE 
+                   WHERE GAME_CD          = ? --SRC.GAME_CD 
+                   AND   CONTEST_TYPE_SEQ = ? --SRC.CONTEST_TYPE_SEQ
+                   )
+                , SRC.RANK
+                , SRC.PRV_GRP_TYPE
+                , SRC.MRTN_RACE_TYPE
+                , SRC.CYCL_PLC_TYPE
+                , SRC.CYCL_TERM_TYPE
+                , SRC.PRTC_MEMR_TYPE
+                , SRC.FB_LEG_TYPE
+                , SRC.RWRD_AMT_1
+                , SRC.RWRD_AMT_2
+                , SRC.RWRD_AMT_3
+                , SRC.RWRD_AMT_4
+                , SRC.RMK
+                , SRC.WIN_RWRD
+                , SRC.AUTO_CALC_YN
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5040_d01" desc="포상금 지급기준 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5040_d01 */
+            FROM TBRS_RWRD_RULE
+           WHERE GAME_CD = ?
+             AND CONTEST_TYPE_SEQ = ?
+             AND RWRD_RULE_SEQ = ? 
+        ]]>
+    </query>    
+    
+</queryMap>

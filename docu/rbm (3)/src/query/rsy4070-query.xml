@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsy4070(주간업무관리)">
+    <query id="rsy4070_s01" desc="현재 주차 조회" fetchSize="10">
+      <![CDATA[
+             SELECT /* rsy4070_s01 */
+                    FLOOR((SYSDATE + 1 - TO_DATE('20000101', 'YYYYMMDD')) / 7)  AS CUR_WEEK_NO
+			   FROM DUAL 
+        ]]>
+    </query>       
+
+    <query id="rsy4070_s02" desc="주간업무 조회" fetchSize="10">
+      <![CDATA[
+             SELECT /* rsy4070_s02 */
+                    USER_ID AS EMP_NO
+                   ,USER_NM AS EMP_NM
+                   ,U.WEEK_NO AS WEEK_NO
+                   ,D.DONE
+                   ,D.PLAN
+                   ,TO_CHAR(TO_DATE('20000101','YYYYMMDD') - 1 + (WEEK_NO * 7), 'YYYYMMDD') AS WEEK_STR_DT
+                   ,TO_CHAR(TO_DATE('20000101','YYYYMMDD') + 5 + (WEEK_NO * 7), 'YYYYMMDD') AS WEEK_END_DT
+            FROM (
+                    SELECT  ? AS WEEK_NO
+                           ,USER_ID
+                           ,USER_NM
+                    FROM TBRK_USER
+                    WHERE GBN = '005'
+                    AND TEAM_CD LIKE 'GA124970'
+                    ORDER BY DISP_ORDER
+                    ) U LEFT OUTER JOIN
+                    (
+                    SELECT  EMP_NO
+                           ,DONE
+                           ,PLAN
+                    FROM TBRE_WEEK_DUTY
+                    WHERE WEEK_NO = ?
+                    ) D
+                ON U.USER_ID     = D.EMP_NO              
+             WHERE 1=1
+            ORDER BY  WEEK_NO, EMP_NO
+        ]]>
+    </query>       
+
+   <query id="rsy4070_u01" desc="홈피정보 입력/수정" fetchSize="10">
+
+        <![CDATA[
+        
+			 MERGE INTO TBRE_WEEK_DUTY DST  /* rsy4070_u01 */
+			 USING   
+			         (SELECT
+			             ? AS WEEK_NO                                  				                                    
+	                    ,? AS EMP_NO                                 
+	                    ,? AS DONE                        
+	                    ,? AS PLAN    		      
+			          FROM    DUAL ) SRC  
+			     
+			 ON (    
+			         DST.WEEK_NO   = SRC.WEEK_NO
+			     AND DST.EMP_NO    = SRC.EMP_NO   
+			 )           
+			 
+			 WHEN MATCHED THEN
+			     UPDATE SET
+                     DONE 		= SRC.DONE
+                    ,PLAN		= SRC.PLAN
+			 WHEN NOT MATCHED THEN 			     
+			     INSERT (
+			 		   WEEK_NO
+			 		  ,EMP_NO
+			 		  ,DONE
+			 		  ,PLAN                                   
+				  ) VALUES (
+			              SRC.WEEK_NO                                 				                                    
+	                    ,SRC.EMP_NO
+	                    ,SRC.DONE
+	                    ,SRC.PLAN   
+			     )                
+		
+        ]]>
+
+    </query>    
+    
+
+    <query id="rsy4070_d01" desc="홈피 정보삭제" fetchSize="10">
+
+        <![CDATA[
+
+			DELETE TBRE_WEEK_DUTY   /* rsy4070_d01 */	
+			WHERE WEEK_NO   = ?
+              AND EMP_NO    = ?
+        ]]>
+
+    </query>  
+
+</queryMap>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS1080(일자별 집행내역)">
+    
+    
+    <query id="rbs1080_s_list" desc="일자별 집행내역 조회" fetchSize="10">
+        <![CDATA[
+                   
+			SELECT   /*  rbs1080_s_list  */
+			         A.PREP_AMT_CD,   -- 시개금코드 
+			         A.ACC_BGN_CD,    -- 회계구분
+			         A.BUSI_NM,       -- 사업명
+			         
+			         (
+			          SELECT   GROUP_NAME
+			          FROM     V_GROUP DEPT
+			          WHERE    GROUP_ID = A.DPRT_CD
+			         )  AS DPRT_NAME,  -- 부서명
+			         
+			         (
+			          SELECT   USER_NM
+			          FROM     TBRK_USER
+			          WHERE    USER_ID = A.MNG_ID 
+			         ) AS MNG_NAME, -- 담당자 이름 
+			         
+			         NVL(B.EXEC_DT, '') AS EXEC_DT,  -- 집행일자         
+			         EXEC_CNTNT as BUSI_CNTNT_SMRY,                      -- 비고, 적요  
+			         NVL(B.EXEC_AMT, 0) AS EXEC_AMT          -- 집행금액   
+			                   
+			FROM     TBRE_BUSI_PLAN A, 
+			         (
+			          SELECT   B.PREP_AMT_CD,   -- 시개금코드 
+			                   B.EXEC_DT,       -- 집행일자
+			                   B.EXEC_CNTNT,    -- 비고, 적요           
+			                   B.EXEC_AMT       -- 집행금액                             
+			                             
+			          FROM     TBRE_BUSI_EXEC B
+			                    
+			          WHERE    B.EXEC_DT BETWEEN ? AND ?  -- 1. 집행일자 시작, 2. 집행일자 종료  
+			         )B
+			WHERE    A.PREP_AMT_CD = B.PREP_AMT_CD  
+			AND      A.BUSI_YEAR = ?                                        -- 3. 사업년도
+			AND      A.ACC_BGN_CD LIKE '%' || NVL(?, A.ACC_BGN_CD) || '%'   -- 4. 회계구분    
+			AND      A.BUSI_NM    LIKE '%' || NVL(?, A.BUSI_NM)    || '%'   -- 5. 사업명
+			AND      A.PREP_AMT_CD    LIKE '%' || NVL(?, A.PREP_AMT_CD)    || '%'   -- 6. 사업명
+			ORDER BY A.PREP_AMT_CD, B.EXEC_DT
+			
+        ]]>
+    </query>       
+
+	
+        
+</queryMap>

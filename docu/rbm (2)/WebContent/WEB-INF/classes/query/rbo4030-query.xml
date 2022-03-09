@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4030(보유현황)">
+    <query id="rbo4030_s01" desc="보유현황 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbo4030_s01 */
+			        D.BRNC_CD                               AS BRNC_CD     -- 지점코드
+			      , FC_CODE_NM('018', D.BRNC_CD)            AS BRNC_NM     -- 지점명
+			      , A.PARTS_LCD                             AS PARTS_LCD   -- 발매기코드
+			      , FC_CODE_NM('097', A.PARTS_LCD)          AS PARTS_LCD_NM   -- 발매기명
+			      , A.PARTS_MCD                             AS PARTS_MCD   -- 부품그룹코드
+			      , FC_CODE_NM('098', A.PARTS_MCD)          AS PARTS_MCD_NM   -- 부품그룹명
+			      , A.PARTS_CD                              AS PARTS_CD    -- 부품코드
+			      , A.PARTS_NM                              AS PARTS_NM    -- 부품명
+			      , D.STK_CNT     -- 현재고 수량
+			      , B.IN_CNT                        -- 입고수량
+			      , NVL(C.OUT_CNT, 0) AS OUT_CNT   -- 출고수량
+			FROM  TBRB_PARTS_MODEL A
+				,(SELECT PARTS_CD
+                        ,NVL(SUM(IN_CNT), 0) AS IN_CNT  
+		               FROM TBRB_PARTS_IN  
+		              WHERE DEL_YN='N'
+		              GROUP BY PARTS_CD) B
+                ,(SELECT PARTS_CD
+                        ,BRNC_CD
+                        ,NVL(SUM(OUT_CNT), 0) AS OUT_CNT  
+		               FROM TBRB_PARTS_OUT  
+                      WHERE 1 = 1 
+                        --AND OUT_DT BETWEEN ? AND ?
+		             GROUP BY PARTS_CD, BRNC_CD) C
+                , (SELECT PARTS_CD
+                        ,BRNC_CD 
+		                ,NVL(SUM(STK_CNT), 0) AS STK_CNT  
+		               FROM TBRB_PARTS_STOCK  
+		              WHERE BRNC_CD = '00' 
+		              GROUP BY PARTS_CD, BRNC_CD) D
+			WHERE D.PARTS_CD = A.PARTS_CD(+)   -- A,B 부품코드
+			AND   D.PARTS_CD = C.PARTS_CD(+)   -- A,C 부품코드
+			AND   D.PARTS_CD = B.PARTS_CD(+)    -- A,D 부품코드
+			AND   D.BRNC_CD = C.BRNC_CD(+)        -- B,C 부품코드
+			--AND   D.BRNC_CD   LIKE '%' || NVL(?, D.BRNC_CD  ) || '%'              지점코드
+			AND   A.PARTS_LCD LIKE '%' || NVL(?, A.PARTS_LCD) || '%'             -- 발매기코드
+			AND   A.PARTS_MCD LIKE '%' || NVL(?, A.PARTS_MCD) || '%'             -- 부품분류코드
+			AND   A.USE_YN ='Y'
+			ORDER BY D.BRNC_CD, A.PARTS_LCD, A.PARTS_MCD, A.PARTS_NM
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4030_s01_new" desc="보유현황 조회(new)" fetchSize="10">
+      <![CDATA[
+
+            SELECT         /* rbo4030_s01_new */
+                 A.PARTS_CD     AS PARTS_CD
+                ,B.PARTS_NM     AS PARTS_NM
+                ,A.STK_CNT      AS STK_CNT
+                ,B.PARTS_LCD    AS PARTS_LCD
+                ,FC_CODE_NM('097', B.PARTS_LCD) AS PARTS_LCD_NM
+                ,B.PARTS_MCD    AS PARTS_MCD
+                ,FC_CODE_NM('098', B.PARTS_MCD) AS PARTS_MCD_NM 
+                ,NVL((SELECT SUM(IN_CNT) FROM TBRB_PARTS_IN WHERE PARTS_CD=A.PARTS_CD  AND DEL_YN='N'),0) IN_SUM_CNT 
+                ,(SELECT 
+                        NVL(SUM(APRV_CNT), 0) 
+                     FROM TBRB_PARTS_REQ_APPR 
+                     WHERE PARTS_CD=A.PARTS_CD
+                        AND BRNC_IN_YN ='Y'
+                  ) OUT_SUM_CNT 
+            FROM TBRB_PARTS_STOCK A 
+                ,TBRB_PARTS_MODEL B 
+            WHERE 1=1 
+            AND A.BRNC_CD = '00' 
+            AND A.PARTS_CD = B.PARTS_CD
+            AND B.PARTS_LCD LIKE '%' || NVL(?, B.PARTS_LCD) || '%' -- 발매기코드
+            AND B.PARTS_MCD LIKE '%' || NVL(?, B.PARTS_MCD) || '%' -- 부품분류코드
+            ORDER BY B.PARTS_LCD, B.PARTS_MCD, B.PARTS_NM
+				
+      
+      ]]>
+    </query>
+    
+</queryMap>

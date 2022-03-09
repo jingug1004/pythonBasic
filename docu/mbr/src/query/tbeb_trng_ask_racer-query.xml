@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_trng_expt_racer(훈련요청선수)">
+    <query id="tbeb_trng_ask_racer_fb001" desc="훈련요청선수조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_trng_ask_racer_fb001 */
+			         TTAR.TRNG_ASK_SEQ       -- 훈련요청일련번호
+			       , TTAR.RACER_NO           -- 선수번호
+			       , TRM .NM_KOR             -- 선수명 
+			       , TRM .RACER_GRD_CD       -- 선수등급코드
+			       , TTER.TRNG_RSN_CD        -- 훈련사유코드
+			       , TTAR.TRNG_EXPT_SEQ      -- 훈련예정일련번호 
+			       , TTAR.RMK                -- 비고
+			       , TTAR.MENTO_GRP_NO		 -- 멘토그룹번호
+			       , TTAR.MENTO_YN			 -- 멘토여부
+			       , TTAR.COMMUTE_YN         -- 출퇴근 여부
+                   , CMPL_YN                 -- 훈련이수 여부
+			FROM     TBEB_TRNG_ASK_RACER  TTAR
+			       , TBEC_RACER_MASTER    TRM
+			       , TBEB_TRNG_EXPT_RACER TTER
+                   , USCANBOA.TBDO_RACER_TRNG_RSLT TRTR
+			WHERE  TTAR.RACER_NO        = TRM.RACER_NO
+			AND    TTAR.TRNG_EXPT_SEQ   = TTER.TRNG_EXPT_SEQ(+)
+			AND    TTAR.TRNG_ASK_SEQ    = ?
+            AND    TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO = TRTR.RACER_NO(+)
+			ORDER BY TTAR.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_trng_ask_racer_fb002" desc="훈련요청선수조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_trng_ask_racer_fb002 */
+			         TTER.TRNG_EXPT_SEQ      -- 훈련예정일련번호
+			       , TTAR.TRNG_ASK_SEQ       -- 훈련요청일련번호
+			       , TTER.RACER_NO           -- 선수번호
+			       , TRM .NM_KOR
+			       , TRM .RACER_GRD_CD
+			       , TTER.TRNG_RSN_CD        -- 훈련사유코드
+                   , TRS .SANC_RSN_CD        -- 사유코드      
+                   , DECODE(TTER.TRNG_RSN_CD, '001', '출전정지 ' || TRS .SANC_TERM || (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00116' AND CD = TRS .UNIT)) SANC_TERM         -- 제제처분기간  
+			       , TTER.TRNG_RQST_DD_NUM   -- 훈련요구일수
+			       , TTAR.ASK
+			       , TTAR.SUCC
+			       , TTAR.FAIL
+			       , NVL(TTAR.ASK, 0) + NVL(TTAR.SUCC, 0) + NVL(TTAR.FAIL, 0) TOT
+			       , CASE WHEN TTAR.FAIL IS NULL THEN TO_CHAR(TTAR.SUCC)
+			              WHEN TTAR.SUCC IS NULL THEN '불참'
+			              ELSE '참(' || TTAR.SUCC || ')/' || '불(' || TTAR.FAIL || ')'
+			         END  RESULT
+			       , TTAR.RMK
+			       , TTER.TRNG_EXPT_STAT_CD  -- 훈련예정상태코드  
+                   , CMPL_YN                        -- 훈련이수 여부
+			FROM     TBEB_TRNG_EXPT_RACER TTER
+			       , TBEC_RACER_MASTER    TRM
+			       , TBEE_RACER_SANC      TRS
+			       , (
+                        SELECT
+                                 TTAR .TRNG_EXPT_SEQ
+                               , TTAR .TRNG_ASK_SEQ
+                               , TTARR.RACER_NO
+                               , TTAR .RMK
+                               , SUM(DECODE(TTARR.TRNG_STAT_CD, '001', 1)) ASK
+                               , SUM(DECODE(TTARR.TRNG_STAT_CD, '002', 1)) SUCC
+                               , SUM(DECODE(TTARR.TRNG_STAT_CD, '003', 1)) FAIL
+                        FROM     TBEB_TRNG_ASK_RACER_RSLT TTARR
+                               , TBEB_TRNG_ASK_RACER      TTAR
+                               , TBEB_TRNG_ASK            TTA
+                        WHERE  TTARR.TRNG_ASK_SEQ   = TTA .TRNG_ASK_SEQ
+                        AND    TTARR.TRNG_ASK_SEQ   = TTAR.TRNG_ASK_SEQ
+                        AND    TTARR.RACER_NO       = TTAR.RACER_NO
+            			AND    TTA  .TRNG_ASK_STR_DT BETWEEN ? AND ?
+            			AND    TTA  .TRNG_ASK_STAT_CD = '004'
+                        GROUP  BY 
+                                 TTAR .TRNG_EXPT_SEQ
+                               , TTAR .TRNG_ASK_SEQ
+                               , TTARR.RACER_NO
+                               , TTAR .RMK
+			         ) TTAR -- 훈련결과
+                   , USCANBOA.TBDO_RACER_TRNG_RSLT TRTR
+			WHERE  TTER.RACER_NO             = TRM  .RACER_NO
+			AND    TTER.RACER_NO             = TRS  .RACER_NO     (+)
+			AND    TTER.SANC_ISSUE_NO        = TRS  .SANC_ISSUE_NO(+)
+			AND    TTER.TRNG_EXPT_SEQ        = TTAR .TRNG_EXPT_SEQ
+			AND    TTER.RACER_NO             = TTAR .RACER_NO
+			AND    TRM .NM_KOR     LIKE '%' || NVL(?, TRM.NM_KOR) || '%'
+            AND    TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO = TRTR.RACER_NO(+)      
+			ORDER BY TTAR.TRNG_ASK_SEQ DESC
+			       , TTER.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_trng_ask_racer_ib001" desc="훈련요청선수저장" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_trng_ask_racer_ib001 */
+			       INTO TBEB_TRNG_ASK_RACER
+			(
+			         TRNG_ASK_SEQ       -- 훈련요청일련번호
+			       , RACER_NO           -- 선수번호
+			       , TRNG_EXPT_SEQ      -- 훈련예정일련번호
+			       , RMK                -- 비고
+			       , MENTO_GRP_NO       -- 멘토그룹번호
+			       , MENTO_YN           -- 멘토여부
+			       , COMMUTE_YN         -- 출퇴근 여부      
+			       , INST_ID            -- 작성자ID        
+			       , INST_DTM           -- 작성일시        
+			       , UPDT_ID            -- 수정자ID        
+			       , UPDT_DTM           -- 수정일시        
+			) VALUES (
+			         ?                  -- 훈련요청일련번호
+			       , ?                  -- 선수번호
+			       , ?                  -- 훈련예정일련번호
+			       , ?                  -- 비고
+			       , ?       			-- 멘토그룹번호
+			       , ?           		-- 멘토여부
+			       , ?                  -- 출퇴근 여부 
+			       , ?                  -- 작성자ID        
+			       , SYSDATE            -- 작성일시        
+			       , ?                  -- 수정자ID        
+			       , SYSDATE            -- 수정일시        
+			)
+        ]]>
+    </query>
+    <query id="tbeb_trng_ask_racer_ub001" desc="훈련요청선수수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_trng_ask_racer_ub001 */
+			       TBEB_TRNG_ASK_RACER SET
+			         TRNG_EXPT_SEQ = ?       -- 훈련예정일련번호
+			       , RMK           = ?       -- 비고
+			       , MENTO_GRP_NO  = ?       -- 멘토그룹
+			       , MENTO_YN      = ?       -- 멘토여부
+			       , COMMUTE_YN    = ?       -- 출퇴근 여부            
+			       , UPDT_ID       = ?       -- 수정자ID        
+			       , UPDT_DTM      = SYSDATE -- 수정일시        
+			WHERE  TRNG_ASK_SEQ    = ?       -- 훈련요청일련번호
+			AND    RACER_NO        = ?       -- 선수번호
+        ]]>
+    </query> 
+    <query id="tbeb_trng_ask_racer_db001" desc="훈련요청선수삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  /* tbeb_trng_ask_racer_db001 */
+			FROM   TBEB_TRNG_ASK_RACER
+			WHERE  TRNG_ASK_SEQ    = ?                -- 훈련예정일련번호
+			AND    RACER_NO        = NVL(?, RACER_NO) -- 선수번호
+        ]]>
+    </query> 
+</queryMap>

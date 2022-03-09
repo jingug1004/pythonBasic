@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="e01010260(개인정보처리메뉴 권한부여 현황)">
+  <query id="e01010260_s01" desc="개인정보처리메뉴 권한부여 현황" fetchSize="10">
+        <![CDATA[
+            SELECT  
+                 A.USER_ID             -- 사용자ID     
+               , A.USER_NM             -- 사용자명
+               , A.DEPT_CD             -- 부서코드
+               , A.DEPT_NM             -- 부서이름
+               , A.TEAM_CD             -- 팀코드
+               , A.TEAM_NM             -- 팀이름
+               , A.FLOC                -- 직위코드
+               , A.FGRADE              -- 직위  
+               , B.SEQ_NO              -- 연번
+               , B.PERSONAL_MN_ID      -- 개인정보처리화면ID
+               , (SELECT TM.MN_NM FROM TBEA_MN TM WHERE TM.MN_ID = B.PERSONAL_MN_ID) AS PERSONAL_MN		-- 개인정보처리화면
+               , B.PERSONAL_AUTH_ID    -- 개인정보 권한부여자
+               , (SELECT VW.USER_NM FROM VWEA_USER VW WHERE VW.USER_ID = B.PERSONAL_AUTH_ID) AS PERSONAL_AUTH_NM
+               , DECODE(B.PERSONAL_AUTH_CHK, 'Y', '부여', 'N', '말소') AS PERSONAL_AUTH_CHK   				-- 개인정보 권한
+               , TO_CHAR(TO_DATE(B.PERSONAL_AUTH_DT, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI') AS PERSONAL_AUTH_DT    -- 개인정보 권한부여일시
+               , B.PERSONAL_MN_IP      -- 개인정보 권한부여IP
+         FROM  VWEA_USER A, TBEA_PERSONAL_MN_AUTH_HIST B,
+         	   (
+                 SELECT MN_ID
+                      , MN_NM
+                      , SUBSTR(UP_MN_ID, 0, 3) || '000000' UP_MN_ID
+                      , SCRN_ID
+                      , ROWNUM RR
+                      , PERSONAL_DATA_MN
+                 FROM TBEA_MN
+                START WITH UP_MN_ID = ?
+                CONNECT BY UP_MN_ID = PRIOR MN_ID
+                ORDER SIBLINGS BY UP_MN_ID , ORD_NO
+               ) C
+        WHERE A.USER_ID= B.USER_ID
+          AND B.PERSONAL_MN_ID = C.MN_ID
+          AND A.TEAM_CD LIKE '%' || NVL(?, A.TEAM_CD) || '%'
+          AND A.USER_NM LIKE '%' || NVL(?, A.USER_NM) || '%' 
+          AND B.PERSONAL_AUTH_CHK = NVL(?, B.PERSONAL_AUTH_CHK)
+        ORDER BY B.SEQ_NO, A.TEAM_CD, A.FGRADE, A.USER_ID
+        ]]>
+    </query>
+
+</queryMap>

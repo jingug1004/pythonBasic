@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_parts_price 부품 단가 ">
+	<query id="tbef_parts_price_ff001" desc="부품 단가 조회  " fetchSize="50">
+        <![CDATA[
+        -- 부품 단가 조회  
+		SELECT    /* tbef_parts_price_ff001 */
+		          ROWNUM AS NUM, A.* 
+		FROM (
+			    SELECT TP.PARTS_CD,            -- 부품코드 
+			          PARTS_TPE,            -- 부품구분 
+			          PARTS_COM_CD,        -- 부품업체코드
+			          COM_NM,            -- 부품업체명
+			          PARTS_ITEM_CD_NM, -- 품명
+			          SPEC,                -- 규격
+			          SAFT_UNIT_CNT,    -- 안전재고
+			          LOC,                -- 보관장소                                     
+			          USE_YN,     --     사용여부 
+			          TP.PRICE_STND_YEAR, -- 단가 기준년도
+			          TPP.UNIT_PRICE        -- 단가
+			    FROM (
+				        SELECT 
+				              ? AS PRICE_STND_YEAR, PARTS_CD, PARTS_TPE, 
+				              TPM.PARTS_COM_CD, COM_NM, PARTS_ITEM_CD_NM, SPEC, SAFT_UNIT_CNT, LOC, USE_YN
+				        FROM TBEF_PARTS_MASTER TPM, TBEF_PARTS_COM TPC 
+				            WHERE TPM.PARTS_COM_CD = TPC.PARTS_COM_CD(+)
+				            AND TPM.PARTS_CD LIKE ?||'%' 
+				            AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+				            AND TPM.PARTS_COM_CD LIKE ?||'%'
+				            AND TPM.USE_YN = DECODE(?, NULL, TPM.USE_YN, ?)
+						    AND TPM.PARTS_TPE LIKE ?||'%'
+						    AND DECODE(?, 'M', 1, 0) = SIGN(ASCII('W')-ASCII(TPM.PARTS_TPE))
+				    )TP, TBEF_PARTS_PRICE TPP
+			    WHERE TP.PARTS_CD = TPP.PARTS_CD(+)
+			    AND TP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR(+)
+			    AND TP.PRICE_STND_YEAR = ?
+			    ORDER BY TP.PARTS_CD
+			)A   
+        ]]>
+    </query> 
+    
+    <query id="tbef_parts_price_mf001" desc="부품 단가 등록  " fetchSize="10">
+        <![CDATA[
+        	-- 부품 단가 등록 
+			MERGE INTO TBEF_PARTS_PRICE TPP
+			USING (
+				SELECT 
+				   ? AS PRICE_STND_YEAR, -- 단가 년도 
+				   ? AS PARTS_CD,		-- 부품코드 
+				   ? AS UNIT_PRICE, 	-- 단가 
+				   ? AS USER_ID   -- 사용여부 
+			   FROM DUAL 
+			) TP
+			ON (
+				TPP.PRICE_STND_YEAR = TP.PRICE_STND_YEAR	-- 단가 년도 
+				AND TPP.PARTS_CD = TP.PARTS_CD	-- 부품코드 
+			    )
+			WHEN MATCHED THEN
+			UPDATE 
+				SET 
+				   TPP.UNIT_PRICE = TP.UNIT_PRICE,	-- 부품업체코드
+				   TPP.UPDT_ID = TP.USER_ID,	-- 수정자ID
+			       TPP.UPDT_DTM = SYSDATE	-- 수정일시 
+			WHEN NOT MATCHED THEN
+			INSERT (
+				TPP.PRICE_STND_YEAR,    	-- 단가 년도 
+				TPP.PARTS_CD,		-- 부품코드 
+				TPP.UNIT_PRICE,				-- 단가 	
+				TPP.INST_ID, 	-- 작성자ID
+				TPP.INST_DTM 	-- 작성일시 
+			 )
+			 VALUES(
+				TP.PRICE_STND_YEAR,    	-- 단가 년도 
+				TP.PARTS_CD,		-- 부품코드 
+				TP.UNIT_PRICE,				-- 단가 	
+				TP.USER_ID, 	-- 작성자ID
+				SYSDATE 	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    
+</queryMap>

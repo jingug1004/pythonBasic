@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR1015(매출관리)">	
+	<query id="rbr1015_s01" desc="매출관리 조회" fetchSize="10">
+		<![CDATA[
+ 			WITH TEMP_VIEW AS (
+ 			    /* rbr1015_s01 */
+		    SELECT STND_YEAR, 
+		           SUM(SALES_GOAL_CRA) SALES_GOAL_CRA, 
+		           SUM(SALES_GOAL_MRA) SALES_GOAL_MRA, 
+		           ROUND(SUM(CRA)/ 1000000) SALES_CRA, 
+		           ROUND(SUM(MRA)/ 1000000) SALES_MRA , 
+		           SUM(CRACNT) CRACNT, 
+		           SUM(MRACNT) MRACNT
+		      FROM (
+		             -- 목표액
+		            SELECT STND_YEAR,
+		                   SALES_GOAL_CRA,  --매출목표경륜
+		                   SALES_GOAL_MRA,  --매출목표경정
+		                   0 CRA,           --매출경륜
+		                   0 MRA,           --매출경정
+		                   0 CRACNT,        --입장인원경륜
+		                   0 MRACNT         -- 입장인원경정
+		            FROM TBRA_COMM_DESC --일반사항
+		            WHERE BRNC_CD = ?
+		              and STND_YEAR >= ? 
+		              and STND_YEAR <= ?  
+		           
+		           UNION ALL
+		            -- 매출액
+		            SELECT STND_YEAR, 
+		               0 SALES_GOAL_CRA,
+		               0 SALES_GOAL_MRA, 
+		               CRA, 
+		               MRA,
+		               0 CRACNT,
+		               0 MRACNT
+		              FROM (
+		               SELECT   STND_YEAR,          
+		                     SUM(NVL(CASE WHEN MEET_CD = '001' THEN A.DIV_TOTAL END,0))  CRA,    -- 경륜  
+		                     SUM(NVL(CASE WHEN MEET_CD = '003' THEN A.DIV_TOTAL END,0))  MRA -- 경정    
+		                 FROM VW_SDL_DT_SUM A  
+		                 WHERE 1 = 1
+		                   AND MEET_CD IN ('001','003')                        
+		                   AND SELL_CD IN ('01','03')
+		                   AND COMM_NO  = ?
+		                   AND ? NOT IN ('00','98')  -- 본장이 아닌경우		                   
+		                   AND STND_YEAR >= ? 
+		                   AND STND_YEAR <= ?   
+		              
+		                 GROUP BY STND_YEAR  
+		                UNION ALL
+		                SELECT  STND_YEAR  , 
+		                     SUM(NVL(CASE WHEN SELL_CD = '01' THEN A.DIV_TOTAL END,0))  ,
+		                     SUM(NVL(CASE WHEN SELL_CD = '03' THEN A.DIV_TOTAL END,0))  
+		                 FROM VW_SDL_DT_SUM A  
+		                 WHERE 1 = 1
+		                   AND MEET_CD IN ('001','003')                             
+		                   AND SELL_CD IN ('01','03')       
+		                   AND COMM_NO IN ('01','02','03','04','08')       
+		                   AND ? IN ('00','98')   -- 본장인 경우 (광명, 미사리)             
+		                   AND STND_YEAR >= ? 
+		                   AND STND_YEAR <= ?
+		                   GROUP BY STND_YEAR
+		              ) 
+		            UNION ALL
+		            -- 체류인원
+		             SELECT  STND_YEAR,
+		                 0 SALES_GOAL_CRA,
+		                 0 SALES_GOAL_MRA, 
+		                 0 CRA, 
+		                 0 MRA,
+		                     SUM(DECODE(MEET_CD,'001',ENT_PRSN_NUM,0)) CRACNT,
+		                     SUM(DECODE(MEET_CD,'003',0,ENT_PRSN_NUM)) MRACNT
+		            FROM ( SELECT MEET_CD,SUBSTR(RACE_DT,0,4) STND_YEAR,
+		                     SUM(CASE WHEN  BRNC_CD='27' AND OUT_ENT_PRSN_NUM>0 THEN OUT_ENT_PRSN_NUM
+		                           ELSE ENT_PRSN_NUM
+		                     END) ENT_PRSN_NUM
+		                   FROM TBRC_STAY_MANA 
+		                  WHERE BRNC_CD  = ?             
+		                   AND RACE_DT >= ?   ||'0101'
+		                   AND RACE_DT <= ?   ||'1231'
+		                 GROUP BY MEET_CD,SUBSTR(RACE_DT,0,4)
+		                ) E
+		            GROUP BY STND_YEAR
+		           )
+		    GROUP BY STND_YEAR
+		    ORDER BY STND_YEAR DESC
+		)
+		SELECT STND_YEAR, 
+		       SALES_GOAL_CRA, --매출목표경륜
+		       SALES_GOAL_MRA, --매출목표경정
+		       SALES_CRA,      --매출경륜
+		       SALES_MRA,      --매출경정
+		       ROUND(DECODE(SALES_GOAL_CRA,0,0, SALES_CRA/ SALES_GOAL_CRA),2) *100   RATE_CRA,  -- 경륜달성률 
+		       ROUND(DECODE(SALES_GOAL_MRA,0,0, SALES_MRA/ SALES_GOAL_MRA),2) *100   RATE_MRA,  -- 경정달성률
+		       CRACNT,         --입장인원경륜
+		       MRACNT          -- 입장인원경정
+		  FROM TEMP_VIEW
+        ]]>
+	</query>
+</queryMap>

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR4010(사건관리)">
+    <query id="rbr4010_s01" desc="사건조회" fetchSize="10">
+      <![CDATA[
+ 			SELECT /* rbr4010_s01 */
+				 '0' AS CHK			
+				,BRNC_CD    		--지점코드
+				,EVNT_SEQ			--사건순번
+				,EVNT_NO			--사건번호
+				,GEN_DT             --발생일자
+				,EVNT_NM            --사건명
+				
+				,MNG                --담당자
+				,EVNT_CNTNT			--사건요약
+				,END_YN				--종료여부
+				,RMK				--비고
+				,INST_ID			--작성자
+				
+				,INST_DT			--작성일시
+				,UPDT_ID			--수정자
+				,UPDT_DT			--수정일시
+				,DECODE((SELECT COUNT(*)
+                           FROM TBRA_EVNT_HIST_MANA
+                		  WHERE TBRA_EVNT_MANA.BRNC_CD  = TBRA_EVNT_HIST_MANA.BRNC_CD
+                            AND TBRA_EVNT_MANA.EVNT_SEQ = TBRA_EVNT_HIST_MANA.EVNT_SEQ
+                            AND UPPER(TBRA_EVNT_HIST_MANA.DEL_YN) = 'N') 
+                         , 0, 'Y', 'N') AS DELETE_CD	--삭제식별코드
+
+			  FROM  TBRA_EVNT_MANA   --사건관리
+			
+			 WHERE	1=1
+			   AND  UPPER(DEL_YN) = 'N'
+			   AND  GEN_DT     BETWEEN  ? AND ?                          --발생일자
+			   AND  EVNT_NM	      LIKE  '%' || NVL(? , EVNT_NM) || '%'   --사건명
+			   AND  END_YN	      LIKE  '%' || NVL(? , END_YN)  || '%'   --종료여부
+		
+		  ORDER BY 	BRNC_CD, EVNT_SEQ DESC, GEN_DT
+        ]]>
+    </query>
+    
+ 	<query id="rbr4010_s02" desc="사건이력 존재여부 조회" fetchSize="10">
+      <![CDATA[
+ 			SELECT /* rbr4010_s02 */		
+				    COUNT(*) AS CNT
+				    
+			  FROM 	TBRA_EVNT_HIST_MANA --사건이력
+			 WHERE	1=1
+			   AND  BRNC_CD  = ? 
+			   AND  EVNT_SEQ = ?
+			   AND  UPPER(DEL_YN) = 'N'
+        ]]>
+    </query>
+    
+    <query id="rbr4010_m01" desc="사건입력,수정" fetchSize="10">
+        <![CDATA[
+
+			MERGE INTO TBRA_EVNT_MANA A  /* rbr4010_m01 */
+			USING    
+                    (SELECT
+                         ? AS BRNC_CD           --지점코드
+						,? AS EVNT_SEQ          --사건순번
+						,? AS GEN_DT            --발생일자
+						,? AS EVNT_NO           --사건번호
+						,? AS EVNT_NM           --사건명
+						
+						,? AS MNG               --담당자
+						,? AS EVNT_CNTNT        --사건요약
+						,? AS END_YN            --종료여부
+						,? AS RMK               --비고
+						,? AS INST_ID           --작성자
+						
+                        ,? AS UPDT_ID           --수정자
+                         
+                    FROM    DUAL ) B
+			ON ( 
+                    A.BRNC_CD  = B.BRNC_CD      --지점코드
+                AND A.EVNT_SEQ = B.EVNT_SEQ     --사건순번        
+            )
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+				
+					 A.GEN_DT     = B.GEN_DT       --발생일자
+					,A.EVNT_NO    = B.EVNT_NO      --사건번호
+					,A.EVNT_NM    = B.EVNT_NM      --사건명
+					,A.MNG        = B.MNG          --담당자
+					,A.EVNT_CNTNT = B.EVNT_CNTNT   --사건요약
+					
+					,A.END_YN     = B.END_YN       --종료여부
+					,A.RMK        = B.RMK          --비고
+					,A.UPDT_ID    = B.UPDT_ID      --수정자
+					,A.UPDT_DT    = SYSDATE
+			    
+			WHEN NOT MATCHED THEN 
+				
+				INSERT (
+			
+					 A.BRNC_CD			--지점코드
+					,A.EVNT_SEQ			--사건순번
+					,A.EVNT_NO		    --사건번호
+					,A.GEN_DT			--발생일자
+					,A.EVNT_NM			--사건명
+					
+					,A.MNG				--담당자
+					,A.EVNT_CNTNT		--사건요약
+					,A.END_YN			--종료여부
+					,A.RMK				--비고
+					,A.INST_ID			--작성자
+					
+					,A.INST_DT			--작성일시
+					,A.DEL_YN           --삭제코드
+		
+				) VALUES (
+					 B.BRNC_CD           --지점코드
+					,(SELECT	NVL(MAX(EVNT_SEQ),0) + 1
+					    FROM	TBRA_EVNT_MANA
+					   WHERE	1=1
+					     AND    BRNC_CD = ?	
+					 )                  --사건순번
+					,B.EVNT_NO			--사건번호
+					,B.GEN_DT			--발생일자
+					,B.EVNT_NM			--사건명
+					
+					,B.MNG				--담당자
+					,B.EVNT_CNTNT		--사건요약
+					,B.END_YN			--종료여부
+					,B.RMK				--비고
+					,B.INST_ID			--작성자
+					
+					,SYSDATE			--작성일시
+					,'N'                --삭제코드
+				)
+        ]]>				
+    </query>
+        
+    <query id="rbr4010_d01" desc="사건삭제" fetchSize="10">
+        <![CDATA[
+
+			UPDATE 	TBRA_EVNT_MANA   /* rbr4010_d01 */	--사건관리
+			SET		DEL_YN  = 'Y'     --삭제코드
+			       ,UPDT_ID = ?       --수정자
+			       ,UPDT_DT = sysdate --수정일시
+			WHERE 	1=1
+			  AND   BRNC_CD  = ?      --지점코드
+			  AND   EVNT_SEQ = ?      --사건순번
+        ]]>
+
+    </query> 
+</queryMap>

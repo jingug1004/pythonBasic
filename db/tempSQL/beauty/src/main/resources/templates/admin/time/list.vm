@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!-- Meta, title, CSS, favicons, etc. -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+   	#parse ("/admin/layout/common_css.vm")	
+   	
+   	<link href="https://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/buttons/1.2.4/css/buttons.dataTables.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/buttons/1.2.4/css/buttons.bootstrap.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/select/1.2.1/css/select.dataTables.min.css" rel="stylesheet">
+	<link href="https://cdn.datatables.net/responsive/2.0.2/css/responsive.dataTables.min.css" rel="stylesheet" />
+</head>
+
+<body class="nav-md footer_fixed">
+	<div class="container body">
+		<div class="main_container">
+			#parse ("/admin/layout/header.vm")
+				<!-- page content -->
+				<div class="right_col" role="main">
+					<div class="col-md-4 col-sm-6 col-xs-12">
+		                <div class="x_panel">
+		                  <div class="x_title">
+		                    <h2>상품 <small>목록</small></h2>
+		                    <ul class="nav navbar-right">
+		                    </ul>
+		                    <div class="clearfix"></div>
+		                  </div>
+		                  <div class="x_content">
+		                    <table id="p-datatables" class="table table-striped table-bordered dt-responsive nowrap" cellspacing="0" width="100%">
+		                      <thead>
+		                        <tr>
+		                        	<th>ID</th>
+		                        	<th>상품이미지</th>
+		            			    <th>상품명</th>
+		                        </tr>
+		                      </thead>
+		                      <tbody>	
+		                      	<tr>
+		                      		<td></td>
+		                      		<td></td>
+		            			    <td></td>
+		                        </tr>
+		                      </tbody>
+		                    </table>
+		              </div>
+					</div>
+				</div>
+				<div class="col-md-8 col-sm-6 col-xs-12">
+	                <div class="x_panel">
+	                  <div class="x_title">
+	                    <h2>진행중인 한정특가 <small>목록</small></h2>
+	                    <ul class="nav navbar-right">
+	                    </ul>
+	                    <div class="clearfix"></div>
+	                  </div>
+	                  <div class="x_content">
+	                    <table id="datatables" class="table table-striped table-bordered dt-responsive nowrap" cellspacing="0" width="100%">
+	                      <thead>
+	                        <tr>
+	                        	<th width="20%">상품이미지</th>
+	            			    <th>상품명</th>
+	            			    <th>타임</th>
+	            			    <th width="30%">기준</th>
+	                        </tr>
+	                      </thead>
+	                      <tbody>	
+	                      	<tr>
+	                      		<td></td>
+	            			    <td></td>
+	            			    <td></td>
+	            			    <td></td>
+	                        </tr>
+	                      </tbody>
+	                    </table>
+	              </div>
+				</div>
+			</div>
+		</div>
+		<!-- page content end-->
+		#parse ("/admin/layout/footer.vm")
+	</div>
+</div>
+		#parse ("/admin/layout/common_js.vm")
+	<script src="https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js"></script>
+	<script src="https://cdn.datatables.net/buttons/1.2.4/js/dataTables.buttons.min.js"></script>
+	<script src="https://cdn.datatables.net/select/1.2.1/js/dataTables.select.min.js"></script>
+	<script src="https://cdn.datatables.net/responsive/2.0.2/js/dataTables.responsive.min.js"></script>
+    <script>
+    var myTable;
+    var pTable;
+    $( window ).on( "load", function() {
+        myTable = $('#datatables').DataTable({
+        	 dom: 'Bfrtip',
+			stateSave: true,	
+          	"processing": true,
+          	"serverSide": true,
+          	"searching":false,
+          	"order": [],
+          	"ajax": {
+          		"url": "list_processing",
+          		"data": function(data) {
+          			planify(data);
+                }
+          	},
+          	select:true,
+          	columns: [
+					{"data": "product.thumbUrl", "name": "product.thumbUrl"},
+					{"data": "product.prodName", "name": "product.prodName"},
+					{"data": "timeType", "name": "timeType"},
+					{"data": "prodCount", "name": "prodCount"}
+				],   
+			"columnDefs": [
+					{
+						"targets": 0,//index of column starting from 0	
+						"data": "product.thumbUrl", //this name should exist in your JSON response
+						"render": function ( data, type, full, meta ) {
+							if(data) {
+								return '<img src="' + "${image_url}" + data + '" height="70" />';	
+							} else {
+								return '';
+							}
+						}
+					},
+					{
+						"targets": 2,//index of column starting from 0	
+						"data": "timeType", //this name should exist in your JSON response
+						"render": function ( data, type, full, meta ) {
+							if(data == 0) {
+								return '시간';	
+							} else {
+								return '수량';
+							}
+						}
+					},
+					{
+						"targets": 3,//index of column starting from 0	
+						"data": "timeType", //this name should exist in your JSON response
+						"render": function ( data, type, full, meta ) {
+							if(full.timeType == 0) {
+								return new Date(full.endDate).format("yyyy-MM-dd HH:mm");	
+							} else {
+								return full.prodCount;
+							}
+						}
+					}
+			],
+			buttons: [
+				          {
+				              text: '삭제',
+				              enabled: false,
+				              action: function ( e, dt, button, config ) {
+				            	  var rowData = myTable.rows( '.selected' ).data().toArray();
+				            	 deleteTimeSale(rowData);
+				              }
+				          }
+				      ],
+			responsive: true
+        });
+        
+        myTable.on( 'select', function () {
+            var selectedRows = myTable.rows( { selected: true } ).count();
+            myTable.button( 0 ).enable( selectedRows > 0 );
+        } );
+        
+        myTable.on( 'deselect', function () {
+            var selectedRows = myTable.rows( { selected: true } ).count();
+            if(selectedRows == 0) {
+            	myTable.button( 0 ).disable();
+            }
+            
+        } );
+        
+
+        pTable = $('#p-datatables').DataTable({
+    	   	 dom: 'Bfrtip',
+    			stateSave: true,	
+    	     	"processing": true,
+    	     	"serverSide": true,
+    	     	"order": [],
+    	     	"ajax": {
+    	     		"url": "product_processing",
+    	     		"data": function(data) {
+    	     			planify(data);
+    	           }
+    	     	},
+    	     	select:true,
+    	     	columns: [
+    					{"data": "productId", "name": "productId"},
+    					{"data": "thumbUrl", "name": "thumbUrl"},
+    					{"data": "prodName", "name": "prodName"}
+    				],   
+    			"columnDefs": [
+    					{
+    					"targets": 1,//index of column starting from 0	
+    					"data": "product.thumbUrl", //this name should exist in your JSON response
+    					"render": function ( data, type, full, meta ) {
+    						if(data) {
+    							return '<img src="' + "${image_url}" + data + '" height="70" />';	
+    						} else {
+    							return '';
+    						}
+    							
+    					}
+    				}
+    			],
+    			buttons: [
+    				          {
+    				              text: '등록',
+    				              enabled: false,
+    				              action: function ( e, dt, button, config ) {
+    				            	  var rowData = pTable.rows( '.selected' ).data().toArray();
+    				            	  console.log(rowData);
+    				            	  addTimeSale(rowData);
+    				              }
+    				          }
+    				      ],
+    			responsive: true
+    	   });
+    	   
+    	   pTable.on( 'select', function () {
+    	       var selectedRows = pTable.rows( { selected: true } ).count();
+    	       pTable.button( 0 ).enable( selectedRows > 0 );
+    	   } );
+    	   
+    		pTable.on( 'deselect', function () {
+    	       var selectedRows = pTable.rows( { selected: true } ).count();
+    	       if(selectedRows == 0) {
+    	    	   pTable.button( 0 ).disable();
+    	       }
+    	    });
+    		
+    } );
+    
+    function planify(data) {
+        for (var i = 0; i < data.columns.length; i++) {
+            column = data.columns[i];
+            column.searchRegex = column.search.regex;
+            column.searchValue = column.search.value;
+            delete(column.search);
+        }
+    }
+   
+    function addTimeSale(rowData) {
+    	var timeType = '';
+    	var date = '';
+    	var time = '';
+    	var cnt = '';
+    	bootbox.prompt({
+    	    title: "타입을 선택 해 주세요.",
+    	    buttons: {
+    	        confirm: {
+    	            label: '다음',
+    	            className: 'btn-success'
+    	        },
+    	        cancel: {
+    	            label: '취소',
+    	            className: 'btn-danger'
+    	        }
+    	    },
+    	    inputType: 'select',
+    	    inputOptions: [
+	                   {
+	                       text: '날짜 기준',
+	                       value: '0',
+	                   },
+	                   {
+	                       text: '수량 기준',
+	                       value: '1',
+	                   }
+			],
+			callback: function (result) {
+				timeType = result;
+				if(timeType == 1) {
+					bootbox.prompt({
+					    title: "수량을 입력하세요.",
+					    inputType: 'number',
+					    value: '1',
+					    callback: function (result) {
+					    	console.log(timeType + " | " + result);
+					    	if(result) {
+					    		cnt = result;
+					    		add(rowData, timeType, date, time, cnt);
+					    	} else {
+					    		if(result == '') {
+					    			return false;	
+					    		}
+					    	}
+					    }
+					});					
+				} else if(timeType == 0) {
+					bootbox.prompt({
+					    title: "종료 날짜를 입력하세요",
+					    inputType: 'date',
+					    buttons: {
+			    	        confirm: {
+			    	            label: '다음',
+			    	            className: 'btn-success'
+			    	        },
+			    	        cancel: {
+			    	            label: '취소',
+			    	            className: 'btn-danger'
+			    	        }
+			    	    },
+					    callback: function (result) {
+					    	console.log(timeType + " | " + result);
+					    	if(result) {
+					    		date = result;
+					    		bootbox.prompt({
+								    title: "종료 시간을 입력하세요.",
+								    inputType: 'time',
+								    callback: function (result) {
+								    	console.log(timeType + " | " + result);
+								    	if(result) {
+								    		time = result;
+								    		add(rowData, timeType, date, time, cnt);
+								    	} else {
+								    		if(result == '') {
+								    			return false;	
+								    		}
+								    	}
+								    }
+								});	
+					    	} else {
+					    		if(result == '') {
+					    			return false;
+					    		}
+					    	}
+					        
+					    }
+					});					
+				}
+			}
+    	});
+		/*$.ajax({
+			url: "add",
+			contentType: 'application/json',
+		    mimeType: 'application/json',
+		    dataType: 'json', 
+		    data: JSON.stringify(rowData), 
+			type: 'POST',
+			success: function(result){
+				if(result.resultCode == 200) {
+					myTable.ajax.reload();
+					pTable.ajax.reload();
+				} else {
+					bootbox.alert(result.message, function() {});
+				}
+			},
+			error: function(){
+				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+			}
+		});*/
+    }
+    
+    function add(rowData, type, date, time, count) {
+    	
+    	if(type == 0) {
+    		var dateTime = date + " " + time;
+    		console.log(dateTime);
+    		$.ajax({
+    			url: "add?type=" + type + "&prodCount=0" + "&endDate=" + dateTime,
+    			contentType: 'application/json',
+    		    mimeType: 'application/json',
+    		    dataType: 'json', 
+    		    data: JSON.stringify(rowData), 
+    			type: 'POST',
+    			success: function(result){
+    				if(result.resultCode == 200) {
+    					myTable.ajax.reload();
+    					pTable.ajax.reload();
+    					pTable.button( 0 ).disable();
+    				} else {
+    					bootbox.alert(result.message, function() {});
+    				}
+    			},
+    			error: function(){
+    				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+    			}
+    		});
+    	} else if(type == 1) {
+    		$.ajax({
+    			url: "add?type=" + type + "&prodCount="+count+"&endDate=",
+    			contentType: 'application/json',
+    		    mimeType: 'application/json',
+    		    dataType: 'json', 
+    		    data: JSON.stringify(rowData), 
+    			type: 'POST',
+    			success: function(result){
+    				if(result.resultCode == 200) {
+    					myTable.ajax.reload();
+    					pTable.ajax.reload();
+    					pTable.button( 0 ).disable();
+    				} else {
+    					bootbox.alert(result.message, function() {});
+    				}
+    			},
+    			error: function(){
+    				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+    			}
+    		});
+    	}
+    }
+    
+    function deleteTimeSale(rowData) {
+	
+		$.ajax({
+			url: "delete",
+			contentType: 'application/json',
+		    mimeType: 'application/json',
+		    dataType: 'json', 
+		    data: JSON.stringify(rowData), 
+			type: 'POST',
+			success: function(result){
+				if(result.resultCode == 200) {
+					myTable.ajax.reload();
+					pTable.ajax.reload();
+					myTable.button( 0 ).disable();
+				} else {
+					bootbox.alert(result.message, function() {});
+				}
+			},
+			error: function(){
+				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+			}
+		});
+    }
+    </script>
+    <!-- /Datatables -->
+</body>
+</html>

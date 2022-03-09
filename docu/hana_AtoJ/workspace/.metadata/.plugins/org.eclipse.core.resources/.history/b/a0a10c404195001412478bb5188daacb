@@ -1,0 +1,822 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file ="/common/path.jsp" %>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<%@ include file ="/include/head.jsp" %>
+	<link rel="stylesheet" type="text/css" href="<%=ONLINE_WEB_ROOT%>/css/ui.jqgrid.css">
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/grid.locale-kr.js"></script>
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/jquery.jqGrid.min.js"></script>
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/formCheck.js"></script>
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/business.js"></script>
+	<script type="text/javascript">
+	
+	var orderApprovalFlag = false;
+	
+	$(document).ready(function(){
+		
+	    jsonReader : {
+            repeatitems: false;
+    	}
+	
+		// 담보 약속 목록
+		$("#grid_list_promise").jqGrid({
+			// 요청방식
+			mtype:"get",
+			// 결과물 받을 데이터 타입
+			datatype:"json",
+	
+			// 컬럼명
+			colNames:["주문요청일","약속기일","상태","담보약속내용","반려사유"],
+	
+			// 컬럼 데이터(추가, 삭제, 수정이 가능하게 하려면 autoincrement컬럼을 제외한 모든 컬럼을 editable:true로 지정)
+			// edittyped은 text, password, ... input type명을 사용 
+			
+			colModel:[
+						{name:"req_date",		index:"req_date",		width:75, align:"center"},
+						{name:"promise_date",	index:"promise_date",	width:75, align:"center"},
+						{name:"status",			index:"status",			width:60, align:"center"},
+						{name:"promise_bigo",	index:"promise_bigo", 	width:85, align:"left"},
+						{name:"return_desc",	index:"return_desc",	width:85, align:"left"}
+					],
+	
+			// 그리드 캡션
+			height:205,
+			rownumWidth : 30,
+			// 그리드(페이지)마다 보여줄 행의 수 -> 매개변수이름은 "rows"로 요청된다
+			page: 1,
+			rowNum: 20,
+			rownumbers: true, 
+			rowList: [20,30,40],
+			width: 360,
+			
+			pager: "#grid_Pager_promise"
+		});
+	
+		// 주문 내역 상세
+		$("#grid_list_orderDetail").jqGrid({
+			// 요청방식
+			mtype:"get",
+			// 결과물 받을 데이터 타입
+			datatype:"json",
+	
+			// 컬럼명
+			colNames:["코드","품목","규격","수량","단가","공급가액","세액","공급총액","사전(%)","할인액","주문한도","해당 월","초과수량","담당자"],
+	
+			// 컬럼 데이터(추가, 삭제, 수정이 가능하게 하려면 autoincrement컬럼을 제외한 모든 컬럼을 editable:true로 지정)
+			// edittyped은 text, password, ... input type명을 사용 
+	
+			colModel:[
+						{name:"item_id",	index:"item_id", 	align:"center"},
+						{name:"item_nm",	index:"item_nm", 	align:"left"},
+						{name:"standard",	index:"standard", 	align:"center"},
+						{name:"qty",		index:"qty", 		align:"right"},
+						{name:"danga",		index:"danga", 		align:"right",	formatter:"integer"},
+						{name:"amt",		index:"amt", 		align:"right",	formatter:"integer"},
+						{name:"vat",		index:"vat", 		align:"right",	formatter:"integer"},
+						{name:"tot_amt",	index:"tot_amt", 	align:"right",	formatter:"integer"},
+						{name:"rate",		index:"rate", 		align:"right"},
+						{name:"dc_amt",		index:"dc_amt", 	align:"right"},
+						{name:"mavg_qty",	index:"mavg_qty", 	align:"right"},
+						{name:"mqty",		index:"mqty", 		align:"right"},
+						{name:"psb_qty",	index:"psb_qty", 	align:"right"},
+						{name:"sawon_nm",	index:"sawon_nm", 	align:"center"}
+					],
+			
+			formatter : {
+				integer : {thousandsSeparator: ",", defaultValue: '0'} // 천단위 마다 콤마
+	        },
+	        
+			// 그리드 캡션
+			height:205,
+			rownumWidth : 30,
+			// 그리드(페이지)마다 보여줄 행의 수 -> 매개변수이름은 "rows"로 요청된다
+			page: 1,
+			rowNum: 20,
+			rownumbers: true, 
+			rowList: [20,30,40],
+			//autowidth:true,
+			
+			afterInsertRow:function(rowid, rowdata , rowelem){
+				if ("" != rowdata.mavg_qty && rowdata.mavg_qty < 0) {
+					$("#grid_list_orderDetail tr[id=" + rowid + "]").css('color', 'red');
+				}
+			},
+			
+			loadComplete: function(data){
+				if (data.records > 0) {
+					
+					// 결과내용
+					var total_amt = data.totalCountInfo.total_amt;
+					var total_vat = data.totalCountInfo.total_vat;
+					var total_tot_amt = data.totalCountInfo.total_tot_amt;
+					var reamt = data.totalCountInfo.reamt;
+					
+					$("#reamt").text(Commons.addComma(reamt));
+					$("#total_amt").text(Commons.addComma(total_amt));
+					$("#total_vat").text(Commons.addComma(total_vat));
+					$("#total_tot_amt").text(Commons.addComma(total_tot_amt));
+					
+					// 참조사항
+					var input_ymd = data.approvalInfo.input_ymd; // 주문일시
+					var sawon_nm = data.approvalInfo.sawon_nm; // 거래처 담당자
+					var wiban_conf_dtm = data.approvalInfowiban_conf_dtm; // 팀장 승인
+					var rsawon_nm = data.approvalInfo.rsawon_nm; // 판매처 담당자
+					var credit_limit_amt = data.customerInfo.credit_limit_amt; // 여신한도
+					var before_amt = data.customerInfo.before_amt; // 전월잔고
+					var dambo = data.customerInfo.dambo == 0 ? "" : data.customerInfo.dambo; // 연대보증인
+					var sale_amt = data.customerInfo.sale_amt; // 금월판매
+					var sale_dambo_amt = data.customerInfo.sale_dambo_amt; // 담보확보액
+					var cash_amt = data.customerInfo.cash_amt; // 전월수금
+					var cur_amt = data.customerInfo.cur_amt; // 현잔고
+					var bill_kind = data.customerInfo.bill_kind; // 담보종류
+					var bill_cnt = data.customerInfo.bill_cnt; // 담보갯수
+					var jasu_amt = data.customerInfo.jasu_amt; // 미도래(자수)
+					var tasu_amt = data.customerInfo.tasu_amt; // 미도래(타수)
+					var tot_credit = Number(cur_amt) + Number(jasu_amt); // 총 여신
+					var control_rate_day = data.approvalInfo.control_rate_day; // 회전일
+					var credit_rate = "0.00%"; // 담보확보율
+					
+					if ((Number(cur_amt) + Number(jasu_amt)) > 0) { // 분모가 0이 아닐 경우 연산
+						credit_rate = String(((Number(sale_dambo_amt) / (Number(cur_amt) + Number(jasu_amt))) * 100).toFixed(2)) + "%";
+					}
+					
+					if (bill_cnt > 1) { // 담보가 다수일 경우
+						bill_kind += " 外 " + bill_cnt + "건";
+					}
+					
+					$("#input_ymd").text(input_ymd.substring(0, (input_ymd.length-2)));
+					$("#sawon_nm").text(sawon_nm);
+					$("#wiban_conf_dtm").text(wiban_conf_dtm);
+					$("#rsawon_nm").text(rsawon_nm);
+					$("#credit_limit_amt").text(Commons.addComma(credit_limit_amt));
+					$("#before_amt").text(Commons.addComma(before_amt));
+					$("#dambo").text(dambo);
+					$("#sale_amt").text(Commons.addComma(sale_amt));
+					$("#sale_dambo_amt").text(Commons.addComma(sale_dambo_amt));
+					$("#cash_amt").text(Commons.addComma(cash_amt));
+					$("#credit_rate").text(credit_rate);
+					$("#cur_amt").text(Commons.addComma(cur_amt));
+					$("#bill_kind").text(bill_kind);
+					$("#jasu_amt").text(Commons.addComma(jasu_amt));
+					$("#tasu_amt").text(Commons.addComma(tasu_amt));
+					$("#tot_credit").text(Commons.addComma(tot_credit));
+					$("#control_rate_day").text(Commons.addComma(control_rate_day));
+				}
+			},
+			
+			pager: "#grid_Pager_orderDetail"
+		});
+		
+			
+		// 주문 내역
+		$("#grid_list_order").jqGrid({
+			// 요청방식
+			mtype:"get",
+			// 결과물 받을 데이터 타입
+			datatype:"json",
+	
+			// 컬럼명
+			colNames:["<input type='checkbox' id='chk_header' onclick='checkBox(event, this)'/>","승인상태","주문요청일","거래처","거래처명","판매처","판매처명","접수번호","요청사항","회전일 위반 주문 여부", "회전일 위반 주문 승인 여부"],
+	
+			// 컬럼 데이터(추가, 삭제, 수정이 가능하게 하려면 autoincrement컬럼을 제외한 모든 컬럼을 editable:true로 지정)
+			// edittyped은 text, password, ... input type명을 사용 
+			
+			colModel:[
+						{name:"chk",					index:"chk", 					align:"center", sortable:false, width:20, fixed:true, formatter:orderCheckbox},
+						{name:"receipt_gb",				index:"receipt_gb", 			align:"center", formatter:receiptGbFormatter},
+						{name:"ymd",					index:"ymd", 					align:"center"},
+						{name:"cust_id",				index:"cust_id", 				align:"center"},
+						{name:"cust_nm",				index:"cust_nm", 				align:"left"},
+						{name:"rcust_id",				index:"rcust_id", 				align:"center"},
+						{name:"rcust_nm",				index:"rcust_nm", 				align:"left"},
+						{name:"gumae_no",				index:"gumae_no", 				align:"center", formatter:Commons.gumaeNo},
+						{name:"bigo",					index:"bigo", 					align:"left"},
+						{name:"wiban_order_req_yn",		index:"wiban_order_req_yn",		hidden:true},
+						{name:"wiban_order_conf_yn",	index:"wiban_order_conf_yn",	hidden:true}
+					],
+
+			// 그리드 캡션
+			height:205,
+			rownumWidth : 30,
+			// 그리드(페이지)마다 보여줄 행의 수 -> 매개변수이름은 "rows"로 요청된다
+			page: 1,
+			rowNum: 20,
+			rownumbers: true,
+			rowList: [20,30,40],
+			//autowidth:true,
+			
+			loadComplete: function(data){
+				// 하위 그리드 초기화
+				$("#grid_list_orderDetail").jqGrid("clearGridData");
+				$("#grid_list_promise").jqGrid("clearGridData");
+				
+				if (data.records > 0) {
+					$("#total_cnt").text(data.records);
+					$("#total_reamt").text(Commons.addComma(data.totalCountInfo.total_reamt));
+					$("#grid_list_order").setSelection(1, true);
+					
+					orderApprovalFlag = true;
+				} else {
+					alert("조회 결과가 없습니다.");
+					orderApprovalFlag = false;
+				}
+			},
+			
+			onSelectRow: function(id){
+				var ret = $("#grid_list_order").getRowData(id);
+				
+				// 회전일 위반 주문 여부
+				$("#wiban_order_req_yn").text(ret.wiban_order_req_yn);
+				// 회전일 위반 주문 승인 여부
+				$("#wiban_order_conf_yn").text(ret.wiban_order_conf_yn);
+				
+				// 상세 호출
+				getOrderDetail(ret);
+				
+				// 담보약속 목록 호출
+				getPromiseGridList(ret);
+			},
+			
+			pager: "#grid_Pager_order"
+   		});
+		
+		setDays("adt_fr_date", "adt_to_date", "as_app_date");
+		Business.setThisMonth("as_avg_month");
+		
+		// 조회 버튼 클릭
+		$("#ct_retrieve_btn_type03").on("click",function(){
+			getOrderApprovalGridList();
+		});
+		
+		// 저장 버튼 클릭 
+		$("#cb_save_appro_result_btn").on("click",function(){
+			goUpdateApproval();
+		});
+		
+		// 인쇄 버튼 클릭
+		$("#p_print").on("click",function(){
+			Commons.extraAction(orderApprovalFlag, 'print', '<%=ONLINE_ROOT%>/common/commonPrint.do', 'orderApproval');
+		});
+		
+		// 엑셀 버튼 클릭
+		$("#p_excel").on("click",function(){
+			Commons.extraAction(orderApprovalFlag, 'excel', '<%=ONLINE_ROOT%>/business/orderApprovalGridListExcelDown.do', '');
+		});
+		
+		// 닫기 버튼 클릭
+		$("#p_close").on("click",function(){
+			parent.Commons.closeTab('주문승인');
+		});
+		
+		var width = document.documentElement.clientWidth - $("#grid_list_order").parents('td').next().width() - ($("#grid_list_order").parents('table').offset().left * 2) - 4;
+		
+		$("#grid_list_order").setGridWidth(width, false);
+		$("#grid_list_orderDetail").setGridWidth(width, false);
+	});
+	
+	$(window).resize(function(){
+		// 그리드 영역 width
+		var width = document.documentElement.clientWidth - $("#grid_list_order").parents('td').next().width() - ($("#grid_list_order").parents('table').offset().left * 2) - 4;
+		
+		$("#grid_list_order").setGridWidth(width, false);
+		$("#grid_list_orderDetail").setGridWidth(width, false);
+	});
+	
+	$(window).load(function(){
+		$("body").on("keydown", function(event){
+			if($("#ct_retrieve_btn_type03").prop('disabled') == false){
+				if(event.keyCode==13 && event.target.name!="grid_count"){
+					getOrderApprovalGridList();
+				return false;
+				}
+			}
+		});
+	});
+	
+	// 승인상태 포맷
+	function receiptGbFormatter(cellvalue){
+		var returnValue = "";
+		
+		if ("1" == cellvalue) {
+			returnValue = "접수";
+		} else if ("2" == cellvalue) {
+			returnValue = "승인";
+		} else if ("3" == cellvalue) {
+			returnValue = "반려";
+		}
+		
+		return returnValue;
+	}
+	
+	// 헤더 체크박스 클릭 시 이벤트
+	function checkBox(e, obj) 
+	{ 
+	   e = e||event;/* get IE event ( not passed ) */ 
+	   e.stopPropagation? e.stopPropagation() : e.cancelBubble = true;
+	   
+	   // 전체 선택 여부에 따라 하위 체크박스 check
+	   $("input:checkbox[name='chk_order']").prop("checked", obj.checked);
+	}
+	
+	// checkbox formatter
+	function orderCheckbox(cellvalue, rowObject){
+		var returnValue = "<input type='checkbox' name='chk_order' value='"+rowObject.rowId+"'/>";
+		
+		return returnValue;
+	}
+	
+	
+	// 주문내역 검색
+	function getOrderApprovalGridList(){
+		// 유효성 체크
+		if (!formCheck.isDateFormat($("#adt_fr_date").val())) {
+			alert("조회 기간을 입력하세요!");
+			$("#adt_fr_date").focus();
+			return false;
+		}
+		
+		if (!formCheck.isHour($("#adt_fr_hour"))) {
+			alert("올바른 시간을 입력하세요!");
+			$("#adt_fr_hour").focus();
+			return false;
+		}
+		
+		if (!formCheck.isMinutes($("#adt_fr_minute"))) {
+			alert("올바른 시간을 입력하세요!");
+			$("#adt_fr_minute").focus();
+			return false;
+		}
+		
+		if (!formCheck.isDateFormat($("#adt_to_date").val())) {
+			alert("조회 기간을 입력하세요!");
+			$("#adt_to_date").focus();
+			return false;
+		}
+		
+		if (!formCheck.isHour($("#adt_to_hour"))) {
+			alert("올바른 시간을 입력하세요!");
+			$("#adt_to_hour").focus();
+			return false;
+		}
+		
+		if (!formCheck.isMinutes($("#adt_to_minute"))) {
+			alert("올바른 시간을 입력하세요!");
+			$("#adt_to_minute").focus();
+			return false;
+		}
+		
+		if (formCheck.timeChk("adt_fr", "adt_to") < 0) {
+			alert("조회기간을 확인하세요.");
+			return false;
+		}
+		
+		// 파라미터 셋팅
+		var paramStr = $("#frm").serialize();
+		
+		// 헤더 체크박스 체크 해제
+		$("#chk_header").attr("checked", false);
+		
+		// 호출
+		$("#grid_list_order").jqGrid('setGridParam',{url:"<%=ONLINE_ROOT%>/business/orderApprovalGridList.do?"+paramStr}).trigger("reloadGrid", [{page:1}]);
+	}
+	
+	// 주문세부내역 검색
+	function getOrderDetail(obj){
+		
+		// 파라미터 셋팅
+		var params = {
+			adt_fr_date : $("#adt_fr_date").val(),
+			adt_fr_hour : $("#adt_fr_hour").val(),
+			adt_fr_minute : $("#adt_fr_minute").val(),
+			adt_to_date : $("#adt_to_date").val(),
+			adt_to_hour : $("#adt_to_hour").val(),
+			adt_to_minute : $("#adt_to_minute").val(),
+			ls_ymd : obj.ymd,
+			as_cust_id : obj.cust_id,
+			as_rcust_id : obj.rcust_id,
+			as_gumae_no : obj.gumae_no,
+			as_avg_month : $("#as_avg_month").val(),
+			as_slip_gb : $("#as_slip_gb").val()
+		};
+		
+		var paramStr = $.param(params);
+		
+		$("#grid_list_orderDetail").jqGrid('setGridParam',{url:"<%=ONLINE_ROOT%>/business/orderDetail.do?" + paramStr}).trigger("reloadGrid", [{page:1}]);		
+	}
+	
+	// 주문세부내역 검색
+	function getPromiseGridList(obj){
+		
+		// 파라미터 셋팅
+		var params = {
+			adt_fr_date : $("#adt_fr_date").val(),
+			adt_fr_hour : $("#adt_fr_hour").val(),
+			adt_fr_minute : $("#adt_fr_minute").val(),
+			adt_to_date : $("#adt_to_date").val(),
+			adt_to_hour : $("#adt_to_hour").val(),
+			adt_to_minute : $("#adt_to_minute").val(),
+			as_cust_id : obj.cust_id
+		};
+		
+		var paramStr = $.param(params);
+		
+		$("#grid_list_promise").jqGrid('setGridParam',{url:"<%=ONLINE_ROOT%>/business/promiseGridList.do?" + paramStr}).trigger("reloadGrid", [{page:1}]);		
+	}
+	
+	// 거래처명, 거래처 타입 검색
+	function getCustomerType(){
+		var cust_id = $("#as_cust_id").val();
+		
+		if ("" != cust_id) {
+			$.ajax({
+				type:"POST",
+				url:ONLINE_ROOT + "/business/common/customerTypeAjax.do",
+				data:{ cust_id : cust_id },
+				dataType:"json",
+				success:function(data){
+					if (null != data && "" != data.cust_type) {
+						$("#as_cust_id_name").val(data.cust_type);
+					} else {
+						alert("등록된 거래처 코드가 아닙니다.");
+						$("#as_cust_id_name").val("");
+					}
+				}
+			});
+		} else {
+			$("#as_cust_id_name").val("");
+		}
+	}
+	
+	// 주문일, 승인일 셋팅
+	function setDays(yesterdayInput, todayInput, tomorrowInput){
+		var today = new Date();
+		var yesterday = new Date(today.valueOf() - (24*60*60*1000));
+		
+		var year = "";
+		var month = "";
+		var day = "";
+		
+		// 주문일 셋팅
+		year = yesterday.getFullYear();
+		month = (yesterday.getMonth()+1)>9 ? ""+(yesterday.getMonth()+1) : "0"+(yesterday.getMonth()+1);
+		day = yesterday.getDate()>9 ? ""+yesterday.getDate() : "0"+yesterday.getDate();
+		
+		$("#" + yesterdayInput).val(year + "-" + month + "-" + day);
+		
+		year = today.getFullYear();
+		month = (today.getMonth()+1)>9 ? ""+(today.getMonth()+1) : "0"+(today.getMonth()+1);
+		day = today.getDate()>9 ? ""+today.getDate() : "0"+today.getDate();
+		
+		$("#" + todayInput).val(year + "-" + month + "-" + day);
+		
+		// 승인일 셋팅
+		year = today.getFullYear();
+		month = (today.getMonth()+1)>9 ? ""+(today.getMonth()+1) : "0"+(today.getMonth()+1);
+		day = today.getDate()>9 ? ""+today.getDate() : "0"+today.getDate();
+		
+		$("#" + tomorrowInput).val(year + "-" + month + "-" + day);
+	}
+	
+	// 주문 승인
+	function goUpdateApproval(){
+		var selectedOrder = $("input:checkbox[name='chk_order']:checked");
+		
+		// 유효성 체크
+		if (selectedOrder.length == 0) {
+			alert("주문내역을 선택해 주세요.");
+			return false;
+		}
+		
+		// 폼에 parameter set
+		var frm = $("#approvalFrm"); // 승인 폼
+		
+		// 기본 승인 정보
+		$("<input></input>").attr({type:"hidden", name:"receipt_gb", value: $("#as_receipt_gb2").val()}).appendTo(frm);
+		$("<input></input>").attr({type:"hidden", name:"return_desc", value: $("#as_return_desc").val()}).appendTo(frm);
+		$("<input></input>").attr({type:"hidden", name:"app_date", value: $("#as_app_date").val()}).appendTo(frm);
+		
+		selectedOrder.each(function(){ // 선택한 거래내역의 내용을 set
+			var ret = $("#grid_list_order").getRowData($(this).val());
+			$("<input></input>").attr({type:"hidden", name:"gumae_no", value: ret.gumae_no}).appendTo(frm);
+			$("<input></input>").attr({type:"hidden", name:"req_date", value: ret.ymd}).appendTo(frm);
+			$("<input></input>").attr({type:"hidden", name:"cust_id", value: ret.cust_id}).appendTo(frm);
+			$("<input></input>").attr({type:"hidden", name:"cust_nm", value: ret.cust_nm}).appendTo(frm);
+			$("<input></input>").attr({type:"hidden", name:"rcust_id", value: ret.rcust_id}).appendTo(frm);
+			$("<input></input>").attr({type:"hidden", name:"rcust_nm", value: ret.cust_nm}).appendTo(frm);
+		});
+		
+		// update ajax 실행
+		$.ajax({
+			type:"POST",
+			data: frm.serialize(),
+			url:"<%=ONLINE_ROOT%>/business/updateOrderApproval.do",
+			dataType:"json",
+			success:function(data){
+				if (data.updateResult) { // 전체 프로세스 결과
+					var msg = ""; // 결과 alert
+					var successCount = 0; // 성공 row 갯수
+					var failCount = 0; // 실패 row 갯수
+					var errorMessageArr = []; // 실패 row 위치
+					var rowResultArr = data.rowResultArr; // 각 row 별 성공실패여부 
+					
+					for (var i = 0; i < rowResultArr.length; i++) {
+						if (rowResultArr[i]) {
+							successCount++;
+						} else {
+							failCount++;
+							errorMessageArr.push(i); // 실패한 row의 결과 저장 위치를 담는다
+						}
+					}
+					
+					msg = "성공 총 " + successCount + "건, 실패 총 " + failCount + "건\n처리 되었습니다.";
+					
+					if (failCount > 0) { // 저장 실패한 row가 있을 경우 상세 내역 표시
+						for (var i = 0; i< errorMessageArr.length; i++) {
+							msg += "\n\n" + data.resultMessageArr[errorMessageArr[i]];
+						}
+					}
+					
+					alert(msg);
+					getOrderApprovalGridList();
+				} else {
+					alert(data.resultMessageArr[0]);
+				}
+				
+			},complete:function(){
+				frm.html(""); // 폼 초기화
+				$("#chk_header").prop("checked", false); // checkbox 해제
+				$("input:checkbox[name='chk_order']").prop("checked", false); // checkbox 해제
+			}
+		});
+	}
+	
+	// 주문 구분에 따른 검색조건 변경
+	function changeSlibGb(val){
+		if ("1" == val) {
+			$("#as_limit_yn option:first").attr("selected", "selected");
+			$("#limitYn").css("display", "inline-block");
+			$("#wibanKind").css("display", "none");
+		} else if ("2" == val) {
+			$("#as_wiban_kind option:first").attr("selected", "selected");
+			$("#wibanKind").css("display", "inline-block");
+			$("#limitYn").css("display", "none");
+		}
+			
+	}
+	
+	</script>
+</head>
+
+<body>
+		<form name="frm" id="frm">
+			<div class="wrap_search">
+				<div class="search">
+					<div class="float_l">
+						<label class="w70">주문일</label>
+						<p class="wrap_date">
+							<input type="text" name="adt_fr_date" id="adt_fr_date" maxlength="10">
+							<button type="button" class="btn_date"><span class="blind">달력보기</span></button>
+						</p>
+						<input type="text" class="w50" name="adt_fr_hour" id="adt_fr_hour" value="00" maxlength="2"/>
+						<input type="text" class="w50" name="adt_fr_minute" id="adt_fr_minute" value="00" maxlength="2"/>
+						~
+						<p class="wrap_date">
+							<input type="text" name="adt_to_date" id="adt_to_date" maxlength="10">
+							<button type="button" class="btn_date"><span class="blind">달력보기</span></button>
+						</p>
+						<input type="text" class="w50" name="adt_to_hour" id="adt_to_hour" value="23" maxlength="2"/>
+						<input type="text" class="w50" name="adt_to_minute" id="adt_to_minute" value="59" maxlength="2"/>
+						
+						<label class="ml10">승인일</label>
+						<p class="wrap_date">
+							<input type="text" name="as_app_date" id="as_app_date" maxlength="10"/>
+							<button type="button" class="btn_date"><span class="blind">달력보기</span></button>
+						</p>
+						
+						<label class="ml10">월평균주문월</label>
+						<input type="text" class="w80" name="as_avg_month" id="as_avg_month" maxlength="7"/><br>
+						
+						<label class="w70">수량한도</label>
+						<select class="w125" name="as_psb_gb" id="as_psb_gb">
+							<option value="0">전체</option>
+							<option value="1">이내(승인가)</option>
+							<option value="2">초과(승인불)</option>
+						</select>
+						
+						<label class="ml10">승인구분</label>
+						<select class="w125" name="as_receipt_gb" id="as_receipt_gb">
+							<option value="0">전체</option>
+							<option value="1">접수</option>
+							<option value="2">승인</option>
+							<option value="3">반려</option>
+						</select>
+						
+						<label class="ml10">주문구분</label>
+						<select class="w125" name="as_slip_gb" id="as_slip_gb" onchange="javascript:changeSlibGb(this.value);">
+							<option value="1">온라인 주문</option>
+							<option value="2">PDA 주문</option>
+						</select>
+						
+						<div id="limitYn" style="display:inline-block;">
+							<label class="ml10">여신규정</label>
+							<select class="w125" name="as_limit_yn" id="as_limit_yn">
+								<option value="A">전체</option>
+								<option value="N">이내</option>
+								<option value="Y">초과</option>
+								<option value="E">예외</option>
+							</select>
+						</div>
+						
+						<div id="wibanKind" style="display:none;">
+							<label class="ml10">위반종류</label>
+							<select class="w125" name="as_wiban_kind" id="as_wiban_kind">
+								<option value="%">전체</option>
+								<option value="0">정상주문</option>
+								<option value="1">회전일위반</option>
+								<option value="2">수량위반</option>
+							</select>
+						</div>
+						
+						<input type="checkbox" name="as_pre_deposit" id="as_pre_deposit" value="Y"/>
+						<label>선입금거래처</label><br>
+						
+						<label class="w70">거래처</label>
+						<input type="text" class="w140" name="as_cust_id" id="as_cust_id" onblur="javascript:getCustomerType();"/>
+						<button type="button" class="btn_search" onclick="javascript:Commons.popupOpen('as_cust_id', '<%=ONLINE_ROOT%>/business/common/customerList.do', '600', '655');" ><span class="blind">찾기</span></button>
+						<input type="text" class="w435 ipt_disable" name="as_cust_nm" id="as_cust_id_name" readonly/>
+						
+						<label class="ml10">간납구분</label>
+						<select class="w125" name="as_part_gb" id="as_part_gb">
+							<option value="%">전체</option>
+							<option value="0">일반</option>
+							<option value="1">약국분</option>
+						</select>
+					</div>
+					<div class="wrap_search_btn">
+						<%=WebUtil.createButtonArea(currPgmNoByUri, "ct_")%>
+					</div>
+				</div>
+			</div>
+			<div class="inner_cont2">
+				<div class="wrap_btn_group">
+					<div class="btn_group">
+						<div class="float_l">
+							<div class="approval_txt">
+								<span class="float_l">결과 총 <span id="total_cnt">0</span>건</span>
+								<dl class="float_l">
+									<dt class="float_l ml20">총미승인액</dt>
+									<dd class="float_l" id="total_reamt">0</dd>
+									<dt class="float_l ml20">미승인액</dt>
+									<dd class="float_l" id="reamt">0</dd>
+									<dt class="float_l ml20">공급가액</dt>
+									<dd class="float_l" id="total_amt">0</dd>
+									<dt class="float_l ml20">세액</dt>
+									<dd class="float_l" id="total_vat">0</dd>
+									<dt class="float_l ml20">공급총액</dt>
+									<dd class="float_l" id="total_tot_amt">0</dd>
+								</dl>
+							</div>
+						</div>
+						<div class="float_r ta_r">
+							<%=WebUtil.createButtonArea(currPgmNoByUri, "p_")%>
+						</div>
+					</div>
+				</div>		
+				<div class="table_appro_box">
+					<table>
+					<colgroup>
+						<col style="width:100%" />
+						<col style="width:360px;" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th><h2>주문내역</h2></th>
+							<th><h2 class="pl20">참조사항</h2></th>
+						</tr>
+						<tr>
+							<td>
+								<div class="wrap_approval01 box_type01">
+									<div id="orderApproval">
+										<table id="grid_list_order"></table>
+										<div id="grid_Pager_order" class="orderApproval"></div>
+									</div>
+								</div>
+							</td>
+							<td>
+								<div class="table_appro_r">
+									<div class="wrap_approval02 box_type01">
+										<table id="infoTb" class="type01 re_style04">
+											<colgroup>
+												<col style="width:25%" />
+												<col style="width:25%" />
+												<col style="width:25%" />
+												<col style="width:25%" />
+											</colgroup>
+											<tbody>
+												<tr>
+													<th class="no_border_l">주문일시</th>
+													<td id="input_ymd"></td>
+													<th>거래처 담당자</th>
+													<td class="no_border_r" id="sawon_nm"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l">팀장승인</th>
+													<td id="wiban_conf_dtm"></td>
+													<th>판매처 담당자</th>
+													<td class="no_border_r" id="rsawon_nm"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l">전월잔고</th>
+													<td id="before_amt"></td>
+													<th>연대보증인</th>
+													<td class="no_border_r" id="dambo"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l">금월판매</th>
+													<td id="sale_amt"></td>
+													<th>담보확보액</th>
+													<td class="no_border_r" id="sale_dambo_amt"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l">금월수금</th>
+													<td id="cash_amt"></td>
+													<th>담보확보율</th>
+													<td class="no_border_r" id="credit_rate"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l">현잔고</th>
+													<td id="cur_amt"></td>
+													<th>담보종류</th>
+													<td class="no_border_r" id="bill_kind"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l">미도래(자수)</th>
+													<td id="jasu_amt"></td>
+													<th>여신한도액</th>
+													<td class="no_border_r" id="credit_limit_amt"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l">미도래(타수)</th>
+													<td id="tasu_amt"></td>
+													<th>미정리매출할인</th>
+													<td class="no_border_r"></td>
+												</tr>
+												<tr>
+													<th class="no_border_l no_border_b">총여신</th>
+													<td class=" no_border_b" id="tot_credit"></td>
+													<th class="no_border_b">회전일</th>
+													<td class="no_border_r no_border_b" id="control_rate_day"></td>
+												</tr>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</td>
+						</tr>
+						<tr>
+							<th><h2>주문세부내역</h2></th>	
+							<th><h2 class="pl20">담보약속내용</h2>	</th>
+						</tr>
+						<tr>
+							<td>
+								<div class="wrap_approval01 box_type01">
+									<table id="grid_list_orderDetail"></table>
+									<div id="grid_Pager_orderDetail"></div>
+								</div>
+							</td>
+							<td>
+								<div class="table_appro_r wrap_approval02" id="promise">
+									<div class="wrap_approval02 box_type01">
+										<table id="grid_list_promise"></table>
+										<div id="grid_Pager_promise"></div>
+									</div>
+								</div>	
+							</td>
+						</tr>
+					</tbody>
+					</table>
+				</div>
+				<div class="wrap_result_group">
+					<div class="result_group">
+						<div class="float_r">
+							<label class="point">승인구분</label>
+							<select class="w100" name="as_receipt_gb2" id="as_receipt_gb2">
+								<option value="approval">승인</option>
+								<option value="return">반려</option>
+								<option value="add_order">추가승인</option>
+								<option value="cancel_order">취소</option>
+							</select>
+							<label class="point ml10">승인/반려 사유</label>
+							<input type="text" class="w350" name="as_return_desc" id="as_return_desc"/>
+							<span class="appro_result_txt ml10">위 : <span id="wiban_order_req_yn"></span> 승 : <span id="wiban_order_conf_yn"></span></span>
+							<%=WebUtil.createButtonArea(currPgmNoByUri, "cb_")%>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
+		<form id="approvalFrm" name="approvalFrm"></form>
+	</body>
+	<%@include file="/include/footer.jsp"%>
+</html>

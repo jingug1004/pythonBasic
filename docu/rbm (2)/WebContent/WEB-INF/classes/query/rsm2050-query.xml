@@ -1,0 +1,2115 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="RSM2050(리포트경륜)">    
+    <query id="rsm2050_s01" desc="전회 전년 동회대비 매출현황" fetchSize="10">
+        <![CDATA[	 
+			 SELECT /* rsm2050_s01 */
+			 		0 AS ORD,
+			 		MEET_CD,	-- 경륜 구분 코드
+			        TDIV_NO,	-- 지점 번호
+			        NO_ORDER,	-- 지점 번호 순서
+			        DECODE(NO_ORDER,'B01','창원','B02','부산',CD_NM) AS BRNCH_NM,       -- 지점명
+			        
+			        ROUND(SUM(NET_AMT) OVER(),0) AS N_DIV_TOTAL_SUM,	-- 금액 합계
+			        NET_AMT AS N_DIV_TOTAL,        			-- 금액
+			        --DECODE(NET_AMT,0,0,ROUND(NET_AMT/SUM(NET_AMT) OVER()*100,1)) AS DIV_TOTAL_RATE,	-- 구성비
+			        DECODE(round(NET_AMT,0),0,0,ROUND(round(NET_AMT,0)/SUM(round(NET_AMT,0)) OVER()*100,1)) AS DIV_TOTAL_RATE,	-- 구성비
+			        ROUND(SUM(B_AMT) OVER(),0) AS  B_DIV_TOTAL_SUM,				-- 전회합계
+			        B_AMT AS B_DIV_TOTAL,								-- 전회
+			        
+			        CASE WHEN B_AMT > NET_AMT THEN '△'		
+			             WHEN B_AMT = NET_AMT THEN '-'
+			             WHEN B_AMT < NET_AMT THEN '' 
+			        END B_DIV_TOTAL_SIGN,              							-- 전회 사인
+			        
+			        --DECODE(B_AMT,0,0,ROUND(ABS(B_AMT-NET_AMT)/B_AMT*100,1)) B_DIV_TOTAL_RATE,	-- 전회 증감률
+			        DECODE(B_AMT,0,0,ROUND(ABS(round(B_AMT,0)-round(NET_AMT,0))/B_AMT*100,1)) B_DIV_TOTAL_RATE,	-- 전회 증감률
+			        ROUND(SUM(L_AMT) OVER(),0) AS TOT_L_AMT,		-- 전년 동회 대비금액 전체
+			        
+			        L_AMT AS L_DIV_TOTAL
+			        ,CASE WHEN L_AMT > NET_AMT THEN '△' --감소  
+			             WHEN L_AMT = NET_AMT THEN '-'
+			             WHEN L_AMT < NET_AMT THEN ''
+			         END L_DIV_TOTAL_SIGN 							-- 전년 동회 대비금액 사인	
+			        
+			        ,DECODE(L_AMT,0,0,ROUND(ABS(L_AMT - NET_AMT)/L_AMT*100,1)) L_DIV_TOTAL_RATE -- 전년 동회 대비금액 증감률
+			        
+			FROM(
+			    
+			    SELECT MEET_CD,TDIV_NO,NO_ORDER,NET_AMT,B_AMT,L_AMT
+			    FROM
+			    (
+			        SELECT MEET_CD,TDIV_NO,
+			               'A'||TDIV_NO AS NO_ORDER
+			        ,SUM(NET_AMT)/10000 AS NET_AMT,SUM(B_AMT)/10000 AS B_AMT,SUM(L_AMT)/10000 AS L_AMT
+			        FROM
+			        (
+			        	-- 현재 매출
+			        	SELECT MEET_CD,
+			        	--        STND_YEAR,
+			        		TDIV_NO,
+			        		
+			        		SUM(NET_AMT) AS NET_AMT,
+			        		0 AS B_AMT,
+			        		0 AS L_AMT
+			        	FROM
+			        	(
+			        	    SELECT                                                                                       
+			        		B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+			        		CASE WHEN SELL_CD = '01' AND COMM_NO < '11' THEN '01'	--본장
+			        		     WHEN SELL_CD = '03' AND COMM_NO < '11' THEN '98'	--미사리
+			        		     ELSE COMM_NO
+			        		END AS TDIV_NO,
+			        		
+			        		SUM(A.NET_AMT) AS NET_AMT                                            
+			        	    FROM VW_SDL_INFO B,                                                                                 
+			        		VW_PC_SATLIT_SUM_GSUM A                                                                                  
+			        	    WHERE 1 = 1                                                                                         
+			        		AND B.MEET_CD = '001'       	-- MEET_CD       
+			        		AND B.STND_YEAR = ?		-- 0:STND_YEAR 기준년도
+			        		AND B.TMS		= ?		-- 1:TMS
+			        		AND A.MEET_CD = B.MEET_CD                 
+			        		AND A.STND_YEAR = B.STND_YEAR                                                                   
+			        		AND A.TMS = B.TMS                                                                               
+			        		AND A.DAY_ORD = B.DAY_ORD                                                                       
+			        	    GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+			        	)AA	
+			        	GROUP BY AA.MEET_CD,AA.TDIV_NO
+			        	UNION 
+			        	
+			        	-- 전회 매출
+			        	SELECT MEET_CD,
+			        	--        STND_YEAR,
+			        		TDIV_NO,
+			        		
+			        		0 AS NET_AMT,
+			        		SUM(NET_AMT) AS B_AMT,
+			        		0 AS L_AMT
+			        	FROM
+			        	(
+			        	    SELECT                                                                                       
+			        		B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+			        		CASE WHEN SELL_CD = '01' AND COMM_NO < '11' THEN '01'	--본장
+			        		     WHEN SELL_CD = '03' AND COMM_NO < '11' THEN '98'	--미사리
+			        		     ELSE COMM_NO
+			        		END AS TDIV_NO,
+			        		
+			        		SUM(A.NET_AMT) AS NET_AMT                                            
+			        	    FROM VW_SDL_INFO B,                                                                                 
+			        		VW_PC_SATLIT_SUM_GSUM A                                                                                  
+			        	    WHERE 1 = 1                                                                                         
+			        		AND B.MEET_CD = '001'   -- :MEET_CD      
+			        		AND B.STND_YEAR = ?		-- 2:B_TMS_YEAR        
+			        		AND B.TMS		= ? 	-- 3:B_TMS
+			        		AND A.MEET_CD = B.MEET_CD                 
+			        		AND A.STND_YEAR = B.STND_YEAR                                                                   
+			        		AND A.TMS = B.TMS                                                                               
+			        		AND A.DAY_ORD = B.DAY_ORD                                                                       
+			        	    GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+			        	)BB
+			        	GROUP BY BB.MEET_CD,BB.TDIV_NO
+			        	UNION 
+			        	
+			        	-- 전회 동회대비 매출
+			        	SELECT MEET_CD,
+			        	--        STND_YEAR,
+			        		TDIV_NO,
+			        		
+			        		0 AS NET_AMT,
+			        		0 AS B_AMT,
+			        		SUM(NET_AMT) AS L_AMT
+			        	FROM
+			        	(
+			        	    SELECT                                                                                       
+			        		B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+			        		CASE WHEN SELL_CD = '01' AND COMM_NO < '11' THEN '01'	--본장
+			        		     WHEN SELL_CD = '03' AND COMM_NO < '11' THEN '98'	--미사리
+			        		     ELSE COMM_NO
+			        		END AS TDIV_NO,
+			        		
+			        		SUM(A.NET_AMT) AS NET_AMT                                            
+			        	    FROM VW_SDL_INFO B,                                                                                 
+			        		VW_PC_SATLIT_SUM_GSUM A                                                                                  
+			        	    WHERE 1 = 1                                                                                         
+			        		AND B.MEET_CD = '001'       	-- :MEET_CD      
+			        		AND B.STND_YEAR = ? 		-- 4:B_STND_YEAR
+			        		AND B.TMS		= ? 		-- 5:TMS
+			        		AND A.MEET_CD = B.MEET_CD
+			        		AND A.STND_YEAR = B.STND_YEAR                                                                   
+			        		AND A.TMS = B.TMS                                                                               
+			        		AND A.DAY_ORD = B.DAY_ORD                                                                       
+			        	    GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+			        	)CC
+			        	GROUP BY CC.MEET_CD,CC.TDIV_NO
+			        )CCC		 
+			        GROUP BY CCC.MEET_CD,CCC.TDIV_NO
+			    )DDD
+			        
+			    UNION ALL
+			    
+			    -- 창원, 부산
+			    SELECT MEET_CD,
+			    	   SELL_CD,
+			    	   NO_ORDER,
+			    	   N_AMT,                                      
+			    	   B_AMT,
+			    	   L_AMT
+			    FROM(	   
+			        SELECT                                      
+			        			 MEET_CD,
+			        			  SELL_CD                                    
+			        			 ,DECODE(SELL_CD,'02','B01','04','B02') AS NO_ORDER 
+			        			 ,N_AMT                                      
+			        			 ,B_AMT                                      
+			        			 ,CASE WHEN B_AMT > N_AMT THEN '△' --감소   
+			        			       WHEN B_AMT = N_AMT THEN '-'  --같음   
+			        			       WHEN B_AMT < N_AMT THEN ''   --중가   
+			        			  END B_AMT_SIGN                             
+			        			 ,DECODE(B_AMT,0,0,ROUND(ABS(B_AMT-N_AMT)/B_AMT*100,1)) B_AMT_RATE 
+			        			 ,L_AMT                                      
+			        			 ,CASE WHEN L_AMT > N_AMT THEN '△' --감소   
+			        			       WHEN L_AMT = N_AMT THEN '-'  --같음   
+			        			       WHEN L_AMT < N_AMT THEN ''   --증가   
+			        			  END L_AMT_SIGN                             
+			        			 ,DECODE(L_AMT,0,0,ROUND(ABS(L_AMT-N_AMT)/L_AMT*100,1)) L_AMT_RATE 
+			        			 FROM (                                      
+			        			 	SELECT                                    
+			        			 	    MEET_CD
+			        			 		,SELL_CD                                 
+			        			 		,SUM(N_AMT)/1000000 N_AMT      
+			        			 		,SUM(B_AMT)/1000000 B_AMT      
+			        			 		,SUM(L_AMT)/1000000 L_AMT      
+			        			 	FROM (                                    
+			        			 		SELECT   
+			        			 		      MEET_CD,                               
+			        			 			SELL_CD                               
+			        			 			,SUM(NET_AMT) N_AMT                   
+			        			 			,0 B_AMT                              
+			        			 			,0 L_AMT                              
+			        			 		FROM VW_PC_PAYOFFS                    
+			        			 		WHERE 1=1
+			        			 		AND MEET_CD = '001'     -- MEET_CD                               
+			        			 		AND STND_YEAR	= ?		-- 6:STND_YEAR
+			        			 		AND TMS			= ?		-- 7:TMS  
+			        			 		AND SELL_CD IN ('02','04')              
+			        			 		GROUP BY MEET_CD,SELL_CD                        
+			        			 		UNION                                   
+			        			 			SELECT    
+			        			 			MEET_CD,                                 
+			        			 			SELL_CD                               
+			        			 			,0 N_AMT                              
+			        			 			,SUM(NET_AMT) B_AMT                   
+			        			 			,0 L_AMT                              
+			        			 		FROM VW_PC_PAYOFFS                    
+			        			 		WHERE 1=1
+			        			 		AND MEET_CD = '001'     -- MEET_CD                               
+			        			 		AND STND_YEAR	= ?		-- 8:B_TMS_YEAR
+			        			 		AND TMS 		= ? 	-- 9:B_TMS
+			        			 		AND SELL_CD IN ('02','04')              
+			        			 		GROUP BY MEET_CD,SELL_CD                        
+			        			 		UNION                                   
+			        			 			SELECT   
+			        			 			MEET_CD,                                  
+			        			 			SELL_CD                               
+			        			 			,0 N_AMT                              
+			        			 			,0 B_AMT                              
+			        			 			,SUM(NET_AMT) L_AMT                   
+			        			 		FROM VW_PC_PAYOFFS                    
+			        			 		WHERE 1=1                               
+			        			 		AND STND_YEAR = (                       
+			        			 			SELECT DISTINCT STND_YEAR             
+			        			 			FROM VW_SDL_INFO                      
+			        			 			WHERE 1=1
+			        			 			AND STND_YEAR = ? 	-- 10:B_STND_YEAR  
+			        			 		)
+			        			 		AND MEET_CD = '001'         -- MEET_CD                                       
+			        			 		AND TMS = ?					-- 11:TMS
+			        			 		AND SELL_CD IN ('02','04')              
+			        			 		GROUP BY MEET_CD,SELL_CD                        
+			        			 	) GROUP BY MEET_CD,SELL_CD                        
+			        			 )                                
+			    )EEE    			 
+			)AAAA,
+			(
+			-- 지점명 호출 하기 위한 공통 코드 조회
+            SELECT  CD,
+                    DECODE(CD,'01','본장',CD_NM) AS CD_NM
+              FROM 	TBRK_SPEC_CD A  
+             WHERE 	1=1
+             AND  A.GRP_CD = '060' 
+             AND A.CD NOT IN('00','29','06')
+             UNION ALL
+             SELECT '98', '미사리'
+             FROM DUAL
+            ) BB    
+            WHERE 1=1
+            AND TDIV_NO= BB.CD(+)
+            AND TDIV_NO <> '999'
+			GROUP BY MEET_CD,TDIV_NO,NO_ORDER,CD_NM,NET_AMT,B_AMT,L_AMT
+			ORDER BY AAAA.NO_ORDER		                                                                                                                                                                                                     
+			            		                                                                                                                                                                                                     
+			            
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2050_s02" desc="점유율(본장/지점/창원/부산)" fetchSize="10">
+        <![CDATA[
+        
+	         SELECT  /* rsm2050_s02*/                                                     
+			 	 DECODE(TOT_AMT,0,0,ROUND(BON_AMT/TOT_AMT*100,1)) CRA_RATE -- 본장
+			 	,DECODE(TOT_AMT,0,0,ROUND(BRN_AMT/TOT_AMT*100,1)) BRN_RATE -- 지점
+			 	,DECODE(TOT_AMT,0,0,ROUND(CHA_AMT/TOT_AMT*100,1)) CHA_RATE -- 창원
+			 	,DECODE(TOT_AMT,0,0,ROUND(BUS_AMT/TOT_AMT*100,1)) BUS_RATE -- 부산
+			                                                              
+			 FROM (                                                       
+			 	SELECT                                                     
+			 	 B.CRA_AMT                                                 
+			 	,A.BON_AMT                                                 
+			 	,A.BRN_AMT                                                 
+			 	,B.CHA_AMT                                                 
+			 	,B.BUS_AMT                                                 
+			 	,B.CRA_AMT+B.BUS_AMT+B.CHA_AMT TOT_AMT                     
+			 	FROM                                                       
+			 	(                                                          
+			 		SELECT                                                   
+			 		 TMS                                                     
+			 		,BON_AMT+BON_CAT_AMT BON_AMT                             
+			 		,BRN_AMT+BRN_CAT_AMT BRN_AMT                             
+			 		FROM (                                                   
+			 			SELECT                                                 
+			 				TMS                                                  
+			 				,SUM(CASE WHEN SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN NET_AMT END)*100 AS BON_AMT       -- 본장
+			 				,SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '00' THEN NET_AMT END)*100  BON_CAT_AMT   -- 마이켓 본장
+			 				,SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO != '00' THEN NET_AMT END)*100 BRN_CAT_AMT   -- 마이켓 (논현, 올림픽공원)
+			 				,SUM(CASE WHEN SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08','06') THEN 0 ELSE NET_AMT END)*100 AS BRN_AMT -- 지점       
+			 			FROM VW_PC_SATLIT_SUM                                     
+			 			WHERE 1=1                                              
+			 			AND STND_YEAR	= ? -- 0:STND_YEAR 기준년도                             
+			 			AND MEET_CD = '001'                                    
+			 			AND TMS			= ?	-- 1:TMS 회차                                         
+			 			GROUP BY TMS                                           
+			 		)                                                        
+			 	) A,                                                       
+			 	(                                                          
+			 		SELECT                                                   
+			 			TMS                                                    
+			 			,SUM(CASE WHEN SELL_CD = '01' THEN NET_AMT END) CRA_AMT	-- 광명
+			 			,SUM(CASE WHEN SELL_CD = '02' THEN NET_AMT END) CHA_AMT -- 창원
+			 			,SUM(CASE WHEN SELL_CD = '04' THEN NET_AMT END) BUS_AMT -- 부산
+			 		FROM VW_PC_PAYOFFS                                     
+			 		WHERE 1=1                                                
+			 		AND STND_YEAR	= ? -- 2:STND_YEAR 기준년도                               
+			 		AND MEET_CD = '001'                                      
+			 		AND TMS 		= ? -- 3:TMS 회차                                           
+			 		GROUP BY TMS                                             
+			 	) B                                                        
+			 	WHERE 1=1                                                  
+			 	AND A.TMS = B.TMS                                          
+			 )                                                                                                                                                                               
+			            
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2050_s03" desc="요일별 매출액(경륜)" fetchSize="10">
+        <![CDATA[
+        
+	          
+			SELECT /* rsm2050_s03 */
+					DECODE(RACE_YOIL, NULL, 'ATOT', RACE_YOIL) RACE_YOIL -- 요일
+				  , RACE_YOIL_KOR 	-- 요일(kor)                      
+				  , N_DIV_TOTAL 	-- 금회              
+				  , B_DIV_TOTAL 	-- 전회            
+				  , CASE WHEN B_DIV_TOTAL > N_DIV_TOTAL THEN '△' 	--감소                    
+					  WHEN B_DIV_TOTAL = N_DIV_TOTAL THEN '-' 		--같음                    
+					  WHEN B_DIV_TOTAL < N_DIV_TOTAL THEN '' 		--증가                    
+				   END B_DIV_TOTAL_SIGN 							-- 증감 표시            
+				  ,ABS(B_DIV_TOTAL-N_DIV_TOTAL) B_DIV_TOTAL_DIFF 	-- 증감
+				  ,TO_CHAR(ABS(B_DIV_TOTAL-N_DIV_TOTAL),'FM999,999,999,999') AS B_DIV_TOTAL_DIFF_C
+				  , DECODE(B_DIV_TOTAL, 0, 0, ROUND(ABS(B_DIV_TOTAL-N_DIV_TOTAL)/B_DIV_TOTAL*100, 1)) AS B_DIV_TOTAL_RATE -- 증감율    
+			FROM (
+			    SELECT AA.RACE_YOIL ,
+			      DECODE(RACE_YOIL, 'MON', '월요일', 'TUE', '화요일', 'WED', '수요일', 'THU', '목요일', 'FRI', '금요일', 'SAT', '토요일', 'SUN', '일요일', '계(백만원)') AS RACE_YOIL_KOR ,
+			      ROUND(SUM(AA.N_NET_AMT)/1000000, 0) N_DIV_TOTAL ,
+			      ROUND(SUM(AA.B_NET_AMT)/1000000, 0) B_DIV_TOTAL
+			    FROM (
+			        SELECT B.RACE_YOIL,
+			          A.NET_AMT AS N_NET_AMT,
+			          0 AS B_NET_AMT
+			        FROM VW_PC_PAYOFFS A,
+			          ( -->>>>>>>>>>>>>>>>현회차                 
+			            SELECT STND_YEAR,
+			              MEET_CD,
+			              TMS,
+			              DAY_ORD,
+			              RACE_YOIL
+			            FROM VW_SDL_INFO
+			            WHERE 1=1
+			              AND STND_YEAR = ? -- 0:STND_YEAR                                         
+			              AND MEET_CD = '001'
+			              AND TMS		= ? -- 1:TMS                                                     
+			              ) B
+			        WHERE 1=1
+			          AND A.STND_YEAR = B.STND_YEAR
+			          AND A.MEET_CD = B.MEET_CD
+			          AND A.TMS = B.TMS
+			          AND A.DAY_ORD = B.DAY_ORD
+			        UNION ALL
+			        SELECT B.RACE_YOIL,
+			          0 AS N_NET_AMT,
+			          A.NET_AMT AS B_NET_AMT
+			        FROM VW_PC_PAYOFFS A,
+			          ( -->>>>>>>>>>>>>>>>현회차                 
+			            SELECT STND_YEAR,
+			              MEET_CD,
+			              TMS,
+			              DAY_ORD,
+			              RACE_YOIL
+			            FROM VW_SDL_INFO
+			            WHERE 1=1
+			              AND STND_YEAR = ? -- 2:STND_YEAR                                         
+			              AND MEET_CD = '001'
+			              AND TMS 		= ? -- 3:B_TMS                                                     
+			              ) B
+			        WHERE 1=1
+			          AND A.STND_YEAR = B.STND_YEAR
+			          AND A.MEET_CD = B.MEET_CD
+			          AND A.TMS = B.TMS
+			          AND A.DAY_ORD = B.DAY_ORD )AA
+			    GROUP BY AA.RACE_YOIL )
+			ORDER BY DECODE(RACE_YOIL, 'WED',3,'THU',4,'FRI',5,'SAT',6,'SUN',7,0) 
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2050_s04" desc="참고자료(입장인원)" fetchSize="10">
+        <![CDATA[
+        SELECT /* rsm2050_s04 */ 
+			BRNC_CD AS BRANCH_CD	-- 설명 코드
+			,DECODE(BRNC_CD,'000','[입장인원]합 계','100','[입장인원]본 장','200','[입장인원]지 점','300','베팅건수(단위:천건)','400','평균금액(단위:원)','평균금액') AS BRANCH_DESC -- 설명                                         
+			,N_ENT_PRSN_NUM AS N_IN_INWON -- 금회                                         
+			,B_ENT_PRSN_NUM AS B_IN_INWON -- 전회                                         
+			,B_ENT_PRSN_NUM_SIGN AS B_IN_INWON_SIGN 	-- 전회 실적 사인                              
+			,B_DIFF           	-- 전회 증감
+			,TO_CHAR(B_DIFF,'FM999,999,999,999') AS B_DIFF_C 
+			,B_ENT_PRSN_NUM_RATE AS B_IN_INWON_RATE	-- 전회 증감율
+			,L_ENT_PRSN_NUM  AS L_IN_INWON   	-- 금회 실적
+			,L_ENT_PRSN_NUM_SIGN AS L_IN_INWON_SIGN	--  금회 증감 사인                               
+			,L_DIFF             --  금회 증감     
+			,L_ENT_PRSN_NUM_RATE AS L_IN_INWON_RATE	--  금회 증감율
+			FROM
+			(
+	        SELECT 
+				BRNC_CD                                          
+				,N_ENT_PRSN_NUM                                         
+				,B_ENT_PRSN_NUM                                         
+				,B_ENT_PRSN_NUM_SIGN                                
+				,B_DIFF                  
+				,B_ENT_PRSN_NUM_RATE 
+				,L_ENT_PRSN_NUM                                         
+				,L_ENT_PRSN_NUM_SIGN                                
+				,L_DIFF                  
+				,L_ENT_PRSN_NUM_RATE  
+			FROM
+				(        
+				SELECT                                              
+		              BRNC_CD                                          
+		             ,N_ENT_PRSN_NUM                                         
+		             ,B_ENT_PRSN_NUM                                         
+		             ,CASE WHEN B_ENT_PRSN_NUM > N_ENT_PRSN_NUM THEN '△'  -- 감소 
+		                   WHEN B_ENT_PRSN_NUM = N_ENT_PRSN_NUM THEN '-'  -- 같음 
+		                   WHEN B_ENT_PRSN_NUM < N_ENT_PRSN_NUM THEN ''   -- 증가 
+		              END B_ENT_PRSN_NUM_SIGN                                
+		             ,ABS(B_ENT_PRSN_NUM-N_ENT_PRSN_NUM) B_DIFF                  
+		             ,DECODE(B_ENT_PRSN_NUM,0,0,ROUND(ABS(B_ENT_PRSN_NUM-N_ENT_PRSN_NUM)/B_ENT_PRSN_NUM*100,1)) B_ENT_PRSN_NUM_RATE 
+		             ,L_ENT_PRSN_NUM                                         
+		             ,CASE WHEN L_ENT_PRSN_NUM > N_ENT_PRSN_NUM THEN '△' -- 감소 
+		                   WHEN L_ENT_PRSN_NUM = N_ENT_PRSN_NUM THEN '-'  -- 같음
+		                   WHEN L_ENT_PRSN_NUM < N_ENT_PRSN_NUM THEN ''   -- 증가
+		              END L_ENT_PRSN_NUM_SIGN                                
+		             ,ABS(L_ENT_PRSN_NUM-N_ENT_PRSN_NUM) L_DIFF                  
+		             ,DECODE(L_ENT_PRSN_NUM,0,0,ROUND(ABS(L_ENT_PRSN_NUM-N_ENT_PRSN_NUM)/L_ENT_PRSN_NUM*100,1)) L_ENT_PRSN_NUM_RATE 
+		             FROM ( 
+		             
+		              -- 입장인원		                                                        
+		                   SELECT                                            
+                                   BRNC_CD,                                      
+                                   SUM(N_ENT_PRSN_NUM) N_ENT_PRSN_NUM,       
+                                   SUM(B_ENT_PRSN_NUM) B_ENT_PRSN_NUM,       
+                                   SUM(L_ENT_PRSN_NUM) L_ENT_PRSN_NUM        
+                            FROM (                                            
+                                   SELECT                                          
+                               BRNC_CD,                                    
+                                   SUM(ENT_PRSN_NUM) N_ENT_PRSN_NUM,                       
+                                   0 B_ENT_PRSN_NUM,                                   
+                                   0 L_ENT_PRSN_NUM                                    
+                                   FROM (                                          
+                                           SELECT DECODE(BRNC_CD,'00','100','200') BRNC_CD,ENT_PRSN_NUM 
+                                           FROM VWRC_STAY_MANA_TSUM E,TBRK_SPEC_CD C       -->>>>>>>>>>>>>>>     
+                                           WHERE 1=1   
+                                           AND C.CD=E.BRNC_CD           
+                                           AND C.GRP_CD='018'            
+                            	           AND E.MEET_CD='001'                                                             
+                                           AND EXISTS (                                 
+                                                   SELECT 1
+                                                     FROM VW_SDL_INFO IA                               
+                                                    WHERE 1=1
+                                                      AND RACE_DAY = RACE_DT                                       
+                                                      AND STND_YEAR = ? -- 0:STND_YEAR    -- 기준년도    
+                                                      AND MEET_CD = '001'                            
+                                                      AND TMS 		 = ? -- 1:TMS            -- 회차        
+                                           )                                                
+                                           UNION ALL                                        
+                                           SELECT '000' BRNC_CD,ENT_PRSN_NUM                  
+                                           FROM VWRC_STAY_MANA_TSUM E,TBRK_SPEC_CD C       -->>>>>>>>>>>>>>>     
+                                           WHERE 1=1                                        
+                                           AND C.CD=E.BRNC_CD           
+                                           AND C.GRP_CD='018'            
+                            	           AND E.MEET_CD='001'                        
+                                           AND EXISTS (                                 
+                                                   SELECT 1
+                                                   FROM VW_SDL_INFO                               
+                                                   WHERE 1=1          
+                                                      AND RACE_DAY = RACE_DT                               
+                                                   AND STND_YEAR = ? -- 2:STND_YEAR 기준년도    
+                                                   AND MEET_CD = '001'                            
+                                                   AND TMS		 = ? -- 3:TMS 회차        
+                                           )                                                
+                                   ) GROUP BY BRNC_CD                               
+                                   UNION ALL                                          
+                                   SELECT                                             
+                               BRNC_CD,                                       
+                                   0 N_ENT_PRSN_NUM,                                      
+                                   SUM(ENT_PRSN_NUM) B_ENT_PRSN_NUM,                          
+                                   0 L_ENT_PRSN_NUM                                       
+                                   FROM (                                             
+                                           SELECT DECODE(BRNC_CD,'00','100','200') BRNC_CD,ENT_PRSN_NUM 
+                                           FROM VWRC_STAY_MANA_TSUM E,TBRK_SPEC_CD C       -->>>>>>>>>>>>>>>>     
+                                           WHERE 1=1              
+                                           AND C.CD=E.BRNC_CD           
+                                           AND C.GRP_CD='018'            
+                            	           AND E.MEET_CD='001'                                                  
+                                           AND EXISTS (                                 
+                                                   SELECT 1
+                                                   FROM VW_SDL_INFO                               
+                                                   WHERE 1=1                
+                                                   AND RACE_DAY = RACE_DT                           
+                                                   AND STND_YEAR	= ? -- 4:STND_YEAR 기준년도   
+                                                   AND MEET_CD = '001'                            
+                                                   AND TMS			= ?	-- 5:B_TMS 회차  
+                                           )                                                
+                                           UNION ALL                                        
+                                           SELECT '000' BRNC_CD,ENT_PRSN_NUM                  
+                                           FROM VWRC_STAY_MANA_TSUM E,TBRK_SPEC_CD C       -->>>>>>>>>>>>>>>>     
+                                           WHERE 1=1 
+                                           AND C.CD=E.BRNC_CD           
+                                           AND C.GRP_CD='018'            
+                            	           AND E.MEET_CD='001'                                                 
+                                           AND EXISTS (                                 
+                                                   SELECT 1
+                                                   FROM VW_SDL_INFO                               
+                                                   WHERE 1=1                
+                                                   AND RACE_DAY = RACE_DT                                   
+                                                   AND STND_YEAR	= ? -- 6:STND_YEAR 기준년도   
+                                                   AND MEET_CD = '001'                            
+                                                   AND TMS			= ? -- 7:B_TMS 전회차
+                                           )                                                
+                                   ) GROUP BY BRNC_CD                               
+                                   UNION ALL                                          
+                                   SELECT                                             
+                               BRNC_CD,                                       
+                                   0 N_ENT_PRSN_NUM,                                      
+                                   0 B_ENT_PRSN_NUM,                                      
+                                   SUM(ENT_PRSN_NUM) L_ENT_PRSN_NUM                           
+                                   FROM (                                             
+                                           SELECT DECODE(BRNC_CD,'00','100','200') BRNC_CD,ENT_PRSN_NUM 
+                                           FROM VWRC_STAY_MANA_TSUM E,TBRK_SPEC_CD C       -->>>>>>>>>>>>>>>>   
+                                           WHERE 1=1               
+                                           AND C.CD=E.BRNC_CD           
+                                           AND C.GRP_CD='018'            
+                            	           AND E.MEET_CD='001'                                               
+                                           AND EXISTS (                                 
+                                                   SELECT 1
+                                                   FROM VW_SDL_INFO                               
+                                                   WHERE 1=1                
+                                                   AND RACE_DAY = RACE_DT                                    
+                                                   AND STND_YEAR = ?	-- 8:B_STND_YEAR 기준년도 
+                                                   AND MEET_CD = '001'                            
+                                                   AND TMS 		= ? 	-- 9:TMS 회차        
+                                           )                                                
+                                           UNION ALL                                        
+                                           SELECT '000' BRNC_CD,ENT_PRSN_NUM                  
+                                           FROM VWRC_STAY_MANA_TSUM E,TBRK_SPEC_CD C       -->>>>>>>>>>>>>>>>   
+                                           WHERE 1=1 
+                                           AND C.CD=E.BRNC_CD           
+                                           AND C.GRP_CD='018'            
+                            	           AND E.MEET_CD='001'                                               
+                                           AND EXISTS (                                 
+                                                   SELECT 1
+                                                   FROM VW_SDL_INFO                               
+                                                   WHERE 1=1                
+                                                   AND RACE_DAY = RACE_DT                                    
+                                                   AND STND_YEAR	= ?	-- 10:B_STND_YEAR 기준년
+                                                   AND MEET_CD = '001'                            
+                                                   AND TMS			= ? -- 11:TMS 회차        
+                                           )                                                
+                                   ) GROUP BY BRNC_CD                               
+                            )GROUP BY BRNC_CD      
+		                                                    
+		             ) ORDER BY 1
+		    ) -- 입장인원
+		    UNION ALL
+		    -- 배팅건수
+		    SELECT
+		    	'300' BRANCH_CD                                                            
+				 , N_CNT                                                            
+				 ,B_CNT
+				  ,CASE WHEN B_CNT > N_CNT THEN '△' --감소                         
+				       WHEN B_CNT = N_CNT THEN '-'  --같음                         
+				       WHEN B_CNT < N_CNT THEN ''   --증가                         
+				  END B_CNT_SIGN
+			
+				 ,ABS(B_CNT-N_CNT) B_DIFF                                          
+				 ,DECODE(B_CNT,0,0,ROUND(ABS(B_CNT-N_CNT)/B_CNT*100,1)) B_CNT_RATE 
+				 ,L_CNT                                                            
+				 ,CASE WHEN L_CNT > N_CNT THEN '△' --감소                         
+				       WHEN L_CNT = N_CNT THEN '-'  --같음                         
+				       WHEN L_CNT < N_CNT THEN ''   --증가                         
+				  END L_CNT_SIGN
+				 ,ABS(L_CNT-N_CNT) L_DIFF                                          
+				 ,DECODE(L_CNT,0,0,ROUND(ABS(L_CNT-N_CNT)/L_CNT*100,1)) L_CNT_RATE 
+				 FROM (                                                            
+				       SELECT                                                          
+					       ROUND(SUM(N_CNT)/1000,0) N_CNT,                               
+					       ROUND(SUM(B_CNT)/1000,0) B_CNT,                               
+					       ROUND(SUM(L_CNT)/1000,0) L_CNT                                
+				       FROM (                                                          
+					       SELECT                                                        
+						       SUM(COUNT8) N_CNT,                                          
+						       0 B_CNT,                                                    
+						       0 L_CNT                                                     
+					       FROM VW_PC_SELLST -->>>>>>>>>> 
+					       WHERE 1=1                                                     
+					       AND STND_YEAR = ? -- 12:STND_YEAR 기준년도  
+					       AND MEET_CD = '001'                                           
+					       AND TMS 		=  ? -- 13:TMS 회차
+					       UNION ALL                                                     
+					       SELECT                                                        
+						       0 N_CNT,                                                    
+						       SUM(COUNT8) B_CNT,                                          
+						       0 L_CNT                                                     
+					       FROM VW_PC_SELLST -->>>>>>>>>> 
+					       WHERE 1=1                                                     
+					       AND STND_YEAR = ? -- 14:B_TMS_YEAR 
+					       AND MEET_CD = '001'                                           
+					       AND TMS			=  ?	-- 15:B_TMS
+					       UNION ALL                                                     
+					       SELECT                                                        
+						       0 N_CNT,                                                    
+						       0 B_CNT,                                                    
+						       SUM(COUNT8) L_CNT                                           
+					       FROM VW_PC_SELLST -->>>>>>>>>> 
+					       WHERE 1=1                                                     
+					       AND STND_YEAR =  ?	-- 16:B_STND_YEAR 기준년도                 
+					       AND MEET_CD = '001'                                           
+					       AND TMS = ? -- 17:TMS 회차
+				       )                                                               
+				 ) -- 배팅건수                                                                                                                                                                                                                      
+
+			UNION ALL
+			
+			-- 평균금액
+			
+			SELECT                                    
+			    '400' AS BRANCH_CD
+			             ,N_AVG                                    
+			             ,B_AVG                                    
+			             ,CASE WHEN B_AVG > N_AVG THEN '△' --
+			                   WHEN B_AVG = N_AVG THEN '-'  --
+			                   WHEN B_AVG < N_AVG THEN ''   --
+			              END B_AVG_SIGN                           
+			             ,ABS(B_AVG-N_AVG) B_DIFF                  
+			             ,DECODE(B_AVG,0,0,ROUND(ABS(B_AVG-N_AVG)/B_AVG*100,1)) B_AVG_RATE 
+			             ,L_AVG                                                            
+			             ,CASE WHEN L_AVG > N_AVG THEN '△' --
+			                   WHEN L_AVG = N_AVG THEN '-'  --
+			                   WHEN L_AVG < N_AVG THEN ''   --
+			              END L_AVG_SIGN                                                   
+			             ,ABS(L_AVG-N_AVG) L_DIFF                  
+			             ,DECODE(L_AVG,0,0,ROUND(ABS(L_AVG-N_AVG)/L_AVG*100,1)) L_AVG_RATE 
+			             FROM (                                     
+			                   SELECT                                   
+			                           ROUND(DECODE(SUM(N_CNT),0,0,SUM(N_AMT)/SUM(N_CNT)),0) N_AVG,  
+			                           ROUND(DECODE(SUM(B_CNT),0,0,SUM(B_AMT)/SUM(B_CNT)),0) B_AVG,  
+			                           ROUND(DECODE(SUM(L_CNT),0,0,SUM(L_AMT)/SUM(L_CNT)),0) L_AVG      
+			                   FROM (                                   
+			                           SELECT                                 
+			                                   SUM(SOLD_NUM-CNCL_NUM) N_CNT,        
+			                                   0 B_CNT,                             
+			                                   0 L_CNT,                             
+			                                   SUM(SOLD_AMT-CNCL_AMT) N_AMT,        
+			                                   0 B_AMT,                             
+			                                   0 L_AMT                              
+			                           FROM VW_PC_TELMP -->>>>>>>>>> 
+			                           WHERE 1=1                                  
+			                           AND STND_YEAR =? -- 18:STND_YEAR 기준년도
+			                           AND MEET_CD = '001'                        
+			                           AND TMS = ?           --* 19:TMS 회차
+			                           UNION ALL                                  
+			                           SELECT                                     
+			                                   0 N_CNT,                                 
+			                                   SUM(SOLD_NUM-CNCL_NUM) B_CNT,            
+			                                   0 L_CNT,                                 
+			                                   0 N_AMT,                                 
+			                                   SUM(SOLD_AMT-CNCL_AMT) B_AMT,            
+			                                   0 L_AMT                                  
+			                           FROM VW_PC_TELMP -->>>>>>>>>> 
+			                           WHERE 1=1                                  
+			                           AND STND_YEAR = ?    --* 20:STND_YEAR 기준년도 '2009'
+			                           AND MEET_CD = '001'                        
+			                           AND TMS			= ?         -- 21:B_TMS
+			                           UNION ALL                                  
+			                           SELECT                                     
+			                                   0 N_CNT,                                 
+			                                   0 B_CNT,                                 
+			                                   SUM(SOLD_NUM-CNCL_NUM) L_CNT,            
+			                                   0 N_AMT,                                 
+			                                   0 B_AMT,                                 
+			                                   SUM(SOLD_AMT-CNCL_AMT) L_AMT             
+			                           FROM VW_PC_TELMP -->>>>>>>>>>
+			                           WHERE 1=1                                  
+			                           AND STND_YEAR =  ?	-- 22:B_STND_YEAR  기준년도 * 
+			                           AND MEET_CD = '001'                            
+			                           AND TMS = ?            -- 23:TMS 회차
+			                   )                                                
+			             ) -- 평균 금액        
+			        )                                                                      
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2050_s05" desc="교차매출액(1일 4경주)" fetchSize="10">
+        <![CDATA[
+        
+        SELECT  /* rsm2050_s05 */                                    
+                    N_AMT	-- 금회                                    
+                   ,B_AMT   -- 실적                           
+                   ,ROUND(N_AMT*0.075,0) N_AMT_COMMI	-- 현재 교차투표 수수료 수입         
+                   ,ROUND(B_AMT*0.075,0) B_AMT_COMMI	-- 전회 교차투표 수수료 수입
+                   ,CASE WHEN B_AMT > N_AMT THEN '△'  
+                         WHEN B_AMT = N_AMT THEN '-'  
+                         WHEN B_AMT < N_AMT THEN ''   
+                    END B_AMT_SIGN                      -- 전회 증감 표시     
+                   ,ABS(B_AMT-N_AMT) B_DIFF             -- 전회 증감
+                   ,DECODE(B_AMT,0,0,ROUND(ABS(B_AMT-N_AMT)/B_AMT*100,1)) B_AMT_RATE -- 전회 증감률 
+                   ,L_AMT                           	-- 전년 실적
+                   ,CASE WHEN L_AMT > N_AMT THEN '△'  
+                         WHEN L_AMT = N_AMT THEN '-'  
+                         WHEN L_AMT < N_AMT THEN ''   
+                    END L_AMT_SIGN                      -- 전년 실적 사인
+                   ,ABS(L_AMT-N_AMT) L_DIFF             -- 전년 증감
+                   ,DECODE(L_AMT,0,0,ROUND(ABS(L_AMT-N_AMT)/L_AMT*100,1)) L_AMT_RATE -- 전년 증감율 
+             FROM 
+             (                                      
+			      SELECT                                    
+			               ROUND(SUM(N_AMT)/1000000,0) N_AMT      
+			              ,ROUND(SUM(B_AMT)/1000000,0) B_AMT      
+			              ,ROUND(SUM(L_AMT)/1000000,0) L_AMT      
+			      FROM (                                    
+			                      SELECT                                
+			                              SUM(A.DIV_TOTAL) N_AMT,             
+			                              0 B_AMT,                            
+			                              0 L_AMT                             
+			                      FROM VW_SDL_DT_SUM A, (       -->>>>>>>>>>>>>>>>현회차 
+			                              SELECT STND_YEAR, MEET_CD, TMS, DAY_ORD, RACE_YOIL 
+			                              FROM VW_SDL_INFO                    
+			                              WHERE 1=1                           
+			                              AND RACE_DAY IN (                   
+			                                              SELECT DISTINCT RACE_DAY        
+			                                              FROM VW_SDL_INFO                
+			                                              WHERE 1=1                       
+			                                              AND STND_YEAR = ?  -- 0:STND_YEAR *조건(년도) 
+			                                              AND MEET_CD = '001'                       
+			                                              AND TMS = ?          -- 1:TMS *조건(회차)     
+			                                      )                                 
+			                      ) B                                   
+			                      WHERE 1=1                             
+			                      AND A.STND_YEAR = B.STND_YEAR         
+			                      AND A.MEET_CD = B.MEET_CD             
+			                      AND A.TMS = B.TMS                     
+			                      AND A.DAY_ORD = B.DAY_ORD             
+			                      AND A.MEET_CD NOT IN ('001','003')    
+			                      AND A.SELL_CD = '01'                  
+			                                            
+			                      UNION ALL                             
+			                                            
+			                      SELECT                                
+			                              0 N_AMT,                            
+			                              SUM(A.DIV_TOTAL) B_AMT,             
+			                              0 L_AMT                             
+			                      FROM VW_SDL_DT_SUM A, (       -->>>>>>>>>>>>>>>>전회차 
+			                              SELECT STND_YEAR, MEET_CD, TMS, DAY_ORD, RACE_YOIL 
+			                              FROM VW_SDL_INFO                    
+			                              WHERE 1=1                           
+			                              AND RACE_DAY IN (                   
+			                                              SELECT DISTINCT RACE_DAY        
+			                                              FROM VW_SDL_INFO                
+			                                              WHERE 1=1                       
+			                                              AND STND_YEAR = ? -- 2:B_TMS_YEAR *조건(전회차 년도)       
+			                                              AND MEET_CD = '001'                             
+			                                              AND TMS = ?     -- 3:B_TMS *조건(전회차)         
+			                                      )                                  
+			                      ) B                                    
+			                      WHERE 1=1                              
+			                      AND A.STND_YEAR = B.STND_YEAR          
+			                      AND A.MEET_CD = B.MEET_CD              
+			                      AND A.TMS = B.TMS                      
+			                      AND A.DAY_ORD = B.DAY_ORD              
+			                      AND A.MEET_CD NOT IN ('001','003')     
+			                      AND A.SELL_CD = '01'                   
+			                                             
+			                      UNION ALL                              
+			                                             
+			                      SELECT                                 
+			                              0 N_AMT,                             
+			                              0 B_AMT,                             
+			                              SUM(A.DIV_TOTAL) L_AMT               
+			                      FROM VW_SDL_DT_SUM A, (       -->>>>>>>>>>>>>>>>작년회차  ");
+			                              SELECT STND_YEAR, MEET_CD, TMS, DAY_ORD, RACE_YOIL    
+			                              FROM VW_SDL_INFO                     
+			                              WHERE 1=1                            
+			                              AND RACE_DAY IN (                    
+			                                              SELECT DISTINCT RACE_DAY         
+			                                              FROM VW_SDL_INFO                 
+			                                              WHERE 1=1                        
+			                                              AND STND_YEAR = ?  	-- 4:B_STND_YEAR *조건(년도)        
+			                                              AND MEET_CD = '001'                                
+			                                              AND TMS = ?          	-- 5:TMS *조건(회차)              
+			                                      )                                   
+			                      ) B                                     
+			                      WHERE 1=1                               
+			                      AND A.STND_YEAR = B.STND_YEAR           
+			                      AND A.MEET_CD = B.MEET_CD               
+			                      AND A.TMS = B.TMS                       
+			                      AND A.DAY_ORD = B.DAY_ORD               
+			                      AND A.MEET_CD NOT IN ('001','003')      
+			                      AND A.SELL_CD = '01'                    
+			      )                                           
+			)                                             
+			              
+                                   
+        
+        ]]>
+    </query>
+    
+    <query id="rsm2050_s06" desc="누계" fetchSize="10">
+        <![CDATA[        
+			 	SELECT	/* rsm2050_s06 */                                                            
+					  N_TOT                             -- 금회                               
+					 ,B_TOT                             -- 전회                                
+					 ,CASE WHEN B_TOT > N_TOT THEN '△'  --감소                         
+					       WHEN B_TOT = N_TOT THEN '-'  --같음                         
+					       WHEN B_TOT < N_TOT THEN ''   --중가                         
+					  END B_TOT_SIGN                                                   
+					 ,DECODE(B_TOT,0,0,ROUND(ABS(B_TOT-N_TOT)/B_TOT*100,1)) B_TOT_RATE -- 증감률(%)
+					 ,L_TOT                                                            
+					 ,CASE WHEN L_TOT > N_TOT THEN '△' --감소                         
+					       WHEN L_TOT = N_TOT THEN '-'  --같음                         
+					       WHEN L_TOT < N_TOT THEN ''   --증가                         
+					  END L_TOT_SIGN                                                   
+					 ,DECODE(L_TOT,0,0,ROUND(ABS(L_TOT-N_TOT)/L_TOT*100,1)) L_TOT_RATE -- 증감률(%)
+				 FROM                                                              
+				 (                                                                 
+				 	SELECT                                                          
+				 	 ROUND(SUM(N_TOT)/1000000,0) N_TOT                                               
+				 	,ROUND(SUM(B_TOT)/1000000,0) B_TOT                                               
+				 	,ROUND(SUM(L_TOT)/1000000,0) L_TOT                                               
+				 	FROM                                                            
+				 	(                                                               
+				 		SELECT                                                        
+				 			 SUM(DIV_TOTAL) N_TOT                                       
+				 			,0 B_TOT                                                    
+				 			,0 L_TOT                                                    
+				 		FROM VW_SDL_DT_SUM                                              
+				 		WHERE 1=1                                                     
+				 		AND STND_YEAR	= ? 	-- 0:STND_YEAR 기준년도                                    
+				 		AND MEET_CD		= '001'                                           
+				 		AND TMS 		<= ?		-- 1:TMS 회차		                                               
+				 		UNION ALL                                                     
+				 		SELECT                                                        
+				 			 0 N_TOT                                                    
+				 			,SUM(DIV_TOTAL) B_TOT                                       
+				 			,0 L_TOT                                                    
+				 		FROM VW_SDL_DT_SUM                                              
+				 		WHERE 1=1                                                     
+				 		AND STND_YEAR	= ? -- 2:STND_YEAR 기준년도  (전년도 회차가 아닌 당해년도 기준)                                  
+				 		AND MEET_CD = '001'                                           
+				 		AND TMS			< ?	-- 3:TMS 회차                                                
+				 		UNION ALL                                                     
+				 		SELECT                                                        
+				 			 0 N_TOT                                                    
+				 			,0 B_TOT                                                    
+				 			,SUM(DIV_TOTAL) L_TOT                                       
+				 		FROM VW_SDL_DT_SUM                                              
+				 		WHERE 1=1                                                     
+				 		AND STND_YEAR = ? 	-- 4:B_STND_YEAR                                  
+				 		AND MEET_CD = '001'                                           
+				 		AND TMS <= ?  --  -- 5:TMS 회차	                                          
+				 	)                                                               
+				 )
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2050_s07" desc="년도별 가까운 회차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2050_s07 */
+			        TMS,					-- 회차
+			        TMS||'회' AS TMS_DESC,	-- 회차 표현
+				    NVL(MAX(TMS) OVER(),0) AS MAX_TMS, -- 최근 회차
+				     MIN(RACE_DAY) RACE_STR_DAY,
+                    MAX(RACE_DAY) RACE_END_DAY
+			FROM VW_SDL_INFO
+			WHERE 1=1
+			  --AND MEET_CD 	<> '003'
+			  AND MEET_CD 	= '001'
+			  AND STND_YEAR = ?
+			GROUP BY TMS			  
+			ORDER BY TMS DESC			  
+        ]]>
+    </query>
+    
+    <query id="rsm2050_s09" desc="회차별매출추이" fetchSize="10">
+        <![CDATA[
+		SELECT  /* rsm2050_s09 */
+		        AA.STND_YEAR AS B_STND_YEAR,
+		        BB.STND_YEAR,
+		        DU.LEV,
+				AA.TMS AS B_TMS,  -- 전년도 회차
+                BB.TMS AS TMS,      -- 현년도 회차
+                AA.B_POOL_TOTAL,    -- 전년도 합계
+                BB.POOL_TOTAL       -- 현재 년도 합계
+            FROM    
+            (
+                -- 전년도
+                SELECT
+                     A.STND_YEAR,
+                     A.TMS,
+                     ROUND(SUM(A.POOL_TOTAL)/100000000,0) AS B_POOL_TOTAL
+                 FROM                                                                                 
+                     VW_SDL_PT A
+                 WHERE 1 = 1
+                   AND A.MEET_CD = '001'
+                   AND A.STND_YEAR = ? -- 0:B_STND_YEAR 전년도                            
+                 GROUP BY A.STND_YEAR, A.TMS
+                 
+            )AA,
+            (
+                -- 현재년도
+                SELECT
+                     A.STND_YEAR,
+                     A.TMS ,
+                     ROUND(SUM(A.POOL_TOTAL)/100000000,0) AS POOL_TOTAL
+                 FROM                                                                                 
+                     VW_SDL_PT A
+                 WHERE 1 = 1
+                   AND A.MEET_CD = '001'
+                   AND A.STND_YEAR = ?  -- 1:STND_YEAR 현재 년도                            
+                   AND A.TMS		<= ? -- 2:TMS 회차
+                 GROUP BY A.STND_YEAR, A.TMS
+                 
+            )BB,
+            (SELECT LEVEL AS LEV FROM DUAL CONNECT BY LEVEL <= 55) DU
+            WHERE 1=1
+              AND DU.LEV = AA.TMS(+)
+              AND DU.LEV = BB.TMS(+)
+         ORDER BY LEV
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2050_s10" desc="회차별매출추이(회차 글씨 제외)" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2050_s10 */ 
+			    MAX(STND_YEAR)||'년' AS STND_YEAR_DESC,
+			    ROUND(SUM(CASE WHEN TMS='1' THEN POOL_TOTAL END)/100000000,0) AS TMS_1,     --  1  회차    
+			    ROUND(SUM(CASE WHEN TMS='2' THEN POOL_TOTAL END)/100000000,0) AS TMS_2,	   --  2  회차    
+			    ROUND(SUM(CASE WHEN TMS='3' THEN POOL_TOTAL END)/100000000,0) AS TMS_3,	   --  3  회차    
+			    ROUND(SUM(CASE WHEN TMS='4' THEN POOL_TOTAL END)/100000000,0) AS TMS_4,	   --  4  회차    
+			    ROUND(SUM(CASE WHEN TMS='5' THEN POOL_TOTAL END)/100000000,0) AS TMS_5,	   --  5  회차    
+			    ROUND(SUM(CASE WHEN TMS='6' THEN POOL_TOTAL END)/100000000,0) AS TMS_6,	   --  6  회차    
+			    ROUND(SUM(CASE WHEN TMS='7' THEN POOL_TOTAL END)/100000000,0) AS TMS_7,	   --  7  회차    
+			    ROUND(SUM(CASE WHEN TMS='8' THEN POOL_TOTAL END)/100000000,0) AS TMS_8,	   --  8  회차    
+			    ROUND(SUM(CASE WHEN TMS='9' THEN POOL_TOTAL END)/100000000,0) AS TMS_9,	   --  9  회차    
+			    ROUND(SUM(CASE WHEN TMS='10' THEN POOL_TOTAL END)/100000000,0) AS TMS_10,   --  10 회차    
+			    
+			    ROUND(SUM(CASE WHEN TMS='11' THEN POOL_TOTAL END)/100000000,0) AS TMS_11,   --  11 회차
+			    ROUND(SUM(CASE WHEN TMS='12' THEN POOL_TOTAL END)/100000000,0) AS TMS_12,   --  12 회차
+			    ROUND(SUM(CASE WHEN TMS='13' THEN POOL_TOTAL END)/100000000,0) AS TMS_13,   --  13 회차
+			    ROUND(SUM(CASE WHEN TMS='14' THEN POOL_TOTAL END)/100000000,0) AS TMS_14,   --  14 회차
+			    ROUND(SUM(CASE WHEN TMS='15' THEN POOL_TOTAL END)/100000000,0) AS TMS_15,   --  15 회차
+			    ROUND(SUM(CASE WHEN TMS='16' THEN POOL_TOTAL END)/100000000,0) AS TMS_16,   --  16 회차
+			    ROUND(SUM(CASE WHEN TMS='17' THEN POOL_TOTAL END)/100000000,0) AS TMS_17,   --  17 회차
+			    ROUND(SUM(CASE WHEN TMS='18' THEN POOL_TOTAL END)/100000000,0) AS TMS_18,   --  18 회차
+			    ROUND(SUM(CASE WHEN TMS='19' THEN POOL_TOTAL END)/100000000,0) AS TMS_19,   --  19 회차
+			    ROUND(SUM(CASE WHEN TMS='20' THEN POOL_TOTAL END)/100000000,0) AS TMS_20,   --  20 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='21' THEN POOL_TOTAL END)/100000000,0) AS TMS_21,  --  21 회차
+			    ROUND(SUM(CASE WHEN TMS='22' THEN POOL_TOTAL END)/100000000,0) AS TMS_22,  --  22 회차
+			    ROUND(SUM(CASE WHEN TMS='23' THEN POOL_TOTAL END)/100000000,0) AS TMS_23,  --  23 회차
+			    ROUND(SUM(CASE WHEN TMS='24' THEN POOL_TOTAL END)/100000000,0) AS TMS_24,  --  24 회차
+			    ROUND(SUM(CASE WHEN TMS='25' THEN POOL_TOTAL END)/100000000,0) AS TMS_25,  --  25 회차
+			    ROUND(SUM(CASE WHEN TMS='26' THEN POOL_TOTAL END)/100000000,0) AS TMS_26,  --  26 회차
+			    ROUND(SUM(CASE WHEN TMS='27' THEN POOL_TOTAL END)/100000000,0) AS TMS_27,  --  27 회차
+			    ROUND(SUM(CASE WHEN TMS='28' THEN POOL_TOTAL END)/100000000,0) AS TMS_28,  --  28 회차
+			    ROUND(SUM(CASE WHEN TMS='29' THEN POOL_TOTAL END)/100000000,0) AS TMS_29,  --  29 회차
+			    ROUND(SUM(CASE WHEN TMS='30' THEN POOL_TOTAL END)/100000000,0) AS TMS_30,  --  30 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='31' THEN POOL_TOTAL END)/100000000,0) AS TMS_31,  --  31 회차
+			    ROUND(SUM(CASE WHEN TMS='32' THEN POOL_TOTAL END)/100000000,0) AS TMS_32,  --  32 회차
+			    ROUND(SUM(CASE WHEN TMS='33' THEN POOL_TOTAL END)/100000000,0) AS TMS_33,  --  33 회차
+			    ROUND(SUM(CASE WHEN TMS='34' THEN POOL_TOTAL END)/100000000,0) AS TMS_34,  --  34 회차
+			    ROUND(SUM(CASE WHEN TMS='35' THEN POOL_TOTAL END)/100000000,0) AS TMS_35,  --  35 회차
+			    ROUND(SUM(CASE WHEN TMS='36' THEN POOL_TOTAL END)/100000000,0) AS TMS_36,  --  36 회차
+			    ROUND(SUM(CASE WHEN TMS='37' THEN POOL_TOTAL END)/100000000,0) AS TMS_37,  --  37 회차
+			    ROUND(SUM(CASE WHEN TMS='38' THEN POOL_TOTAL END)/100000000,0) AS TMS_38,  --  38 회차
+			    ROUND(SUM(CASE WHEN TMS='39' THEN POOL_TOTAL END)/100000000,0) AS TMS_39,  --  39 회차
+			    ROUND(SUM(CASE WHEN TMS='40' THEN POOL_TOTAL END)/100000000,0) AS TMS_40,  --  40 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='41' THEN POOL_TOTAL END)/100000000,0) AS TMS_41,  --  41 회차
+			    ROUND(SUM(CASE WHEN TMS='42' THEN POOL_TOTAL END)/100000000,0) AS TMS_42,  --  42 회차
+			    ROUND(SUM(CASE WHEN TMS='43' THEN POOL_TOTAL END)/100000000,0) AS TMS_43,  --  43 회차
+			    ROUND(SUM(CASE WHEN TMS='44' THEN POOL_TOTAL END)/100000000,0) AS TMS_44,  --  44 회차
+			    ROUND(SUM(CASE WHEN TMS='45' THEN POOL_TOTAL END)/100000000,0) AS TMS_45,  --  45 회차
+			    ROUND(SUM(CASE WHEN TMS='46' THEN POOL_TOTAL END)/100000000,0) AS TMS_46,  --  46 회차
+			    ROUND(SUM(CASE WHEN TMS='47' THEN POOL_TOTAL END)/100000000,0) AS TMS_47,  --  47 회차   
+			    ROUND(SUM(CASE WHEN TMS='48' THEN POOL_TOTAL END)/100000000,0) AS TMS_48,  --  48 회차
+			    ROUND(SUM(CASE WHEN TMS='49' THEN POOL_TOTAL END)/100000000,0) AS TMS_49,  --  49 회차
+			    ROUND(SUM(CASE WHEN TMS='50' THEN POOL_TOTAL END)/100000000,0) AS TMS_50,  --  50 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='51' THEN POOL_TOTAL END)/100000000,0) AS TMS_51,  --  51 회차
+			    ROUND(SUM(CASE WHEN TMS='52' THEN POOL_TOTAL END)/100000000,0) AS TMS_52,  --  52 회차
+			    ROUND(SUM(CASE WHEN TMS='53' THEN POOL_TOTAL END)/100000000,0) AS TMS_53,  --  53 회차
+			    ROUND(SUM(CASE WHEN TMS='54' THEN POOL_TOTAL END)/100000000,0) AS TMS_54,  --  54 회차
+			    ROUND(SUM(CASE WHEN TMS='55' THEN POOL_TOTAL END)/100000000,0) AS TMS_55	  --  55 회차
+			 FROM                                                                                 
+			     VW_SDL_PT A
+			 WHERE 1 = 1
+			   AND A.MEET_CD = '001'
+			   AND A.STND_YEAR = ?  -- 0:STND_YEAR 현재 년도                            
+			   AND A.TMS		<= ? -- 1:TMS 회차
+			UNION ALL
+			
+			-- 이전 년도
+			SELECT
+			    MAX(STND_YEAR)||'년' AS STND_YEAR_DESC,
+			    ROUND(SUM(CASE WHEN TMS='1' THEN POOL_TOTAL END)/100000000,0) AS TMS_1,     --  1  회차    
+			    ROUND(SUM(CASE WHEN TMS='2' THEN POOL_TOTAL END)/100000000,0) AS TMS_2,	   --  2  회차    
+			    ROUND(SUM(CASE WHEN TMS='3' THEN POOL_TOTAL END)/100000000,0) AS TMS_3,	   --  3  회차    
+			    ROUND(SUM(CASE WHEN TMS='4' THEN POOL_TOTAL END)/100000000,0) AS TMS_4,	   --  4  회차    
+			    ROUND(SUM(CASE WHEN TMS='5' THEN POOL_TOTAL END)/100000000,0) AS TMS_5,	   --  5  회차    
+			    ROUND(SUM(CASE WHEN TMS='6' THEN POOL_TOTAL END)/100000000,0) AS TMS_6,	   --  6  회차    
+			    ROUND(SUM(CASE WHEN TMS='7' THEN POOL_TOTAL END)/100000000,0) AS TMS_7,	   --  7  회차    
+			    ROUND(SUM(CASE WHEN TMS='8' THEN POOL_TOTAL END)/100000000,0) AS TMS_8,	   --  8  회차    
+			    ROUND(SUM(CASE WHEN TMS='9' THEN POOL_TOTAL END)/100000000,0) AS TMS_9,	   --  9  회차    
+			    ROUND(SUM(CASE WHEN TMS='10' THEN POOL_TOTAL END)/100000000,0) AS TMS_10,   --  10 회차    
+			    
+			    ROUND(SUM(CASE WHEN TMS='11' THEN POOL_TOTAL END)/100000000,0) AS TMS_11,   --  11 회차
+			    ROUND(SUM(CASE WHEN TMS='12' THEN POOL_TOTAL END)/100000000,0) AS TMS_12,   --  12 회차
+			    ROUND(SUM(CASE WHEN TMS='13' THEN POOL_TOTAL END)/100000000,0) AS TMS_13,   --  13 회차
+			    ROUND(SUM(CASE WHEN TMS='14' THEN POOL_TOTAL END)/100000000,0) AS TMS_14,   --  14 회차
+			    ROUND(SUM(CASE WHEN TMS='15' THEN POOL_TOTAL END)/100000000,0) AS TMS_15,   --  15 회차
+			    ROUND(SUM(CASE WHEN TMS='16' THEN POOL_TOTAL END)/100000000,0) AS TMS_16,   --  16 회차
+			    ROUND(SUM(CASE WHEN TMS='17' THEN POOL_TOTAL END)/100000000,0) AS TMS_17,   --  17 회차
+			    ROUND(SUM(CASE WHEN TMS='18' THEN POOL_TOTAL END)/100000000,0) AS TMS_18,   --  18 회차
+			    ROUND(SUM(CASE WHEN TMS='19' THEN POOL_TOTAL END)/100000000,0) AS TMS_19,   --  19 회차
+			    ROUND(SUM(CASE WHEN TMS='20' THEN POOL_TOTAL END)/100000000,0) AS TMS_20,   --  20 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='21' THEN POOL_TOTAL END)/100000000,0) AS TMS_21,  --  21 회차
+			    ROUND(SUM(CASE WHEN TMS='22' THEN POOL_TOTAL END)/100000000,0) AS TMS_22,  --  22 회차
+			    ROUND(SUM(CASE WHEN TMS='23' THEN POOL_TOTAL END)/100000000,0) AS TMS_23,  --  23 회차
+			    ROUND(SUM(CASE WHEN TMS='24' THEN POOL_TOTAL END)/100000000,0) AS TMS_24,  --  24 회차
+			    ROUND(SUM(CASE WHEN TMS='25' THEN POOL_TOTAL END)/100000000,0) AS TMS_25,  --  25 회차
+			    ROUND(SUM(CASE WHEN TMS='26' THEN POOL_TOTAL END)/100000000,0) AS TMS_26,  --  26 회차
+			    ROUND(SUM(CASE WHEN TMS='27' THEN POOL_TOTAL END)/100000000,0) AS TMS_27,  --  27 회차
+			    ROUND(SUM(CASE WHEN TMS='28' THEN POOL_TOTAL END)/100000000,0) AS TMS_28,  --  28 회차
+			    ROUND(SUM(CASE WHEN TMS='29' THEN POOL_TOTAL END)/100000000,0) AS TMS_29,  --  29 회차
+			    ROUND(SUM(CASE WHEN TMS='30' THEN POOL_TOTAL END)/100000000,0) AS TMS_30,  --  30 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='31' THEN POOL_TOTAL END)/100000000,0) AS TMS_31,  --  31 회차
+			    ROUND(SUM(CASE WHEN TMS='32' THEN POOL_TOTAL END)/100000000,0) AS TMS_32,  --  32 회차
+			    ROUND(SUM(CASE WHEN TMS='33' THEN POOL_TOTAL END)/100000000,0) AS TMS_33,  --  33 회차
+			    ROUND(SUM(CASE WHEN TMS='34' THEN POOL_TOTAL END)/100000000,0) AS TMS_34,  --  34 회차
+			    ROUND(SUM(CASE WHEN TMS='35' THEN POOL_TOTAL END)/100000000,0) AS TMS_35,  --  35 회차
+			    ROUND(SUM(CASE WHEN TMS='36' THEN POOL_TOTAL END)/100000000,0) AS TMS_36,  --  36 회차
+			    ROUND(SUM(CASE WHEN TMS='37' THEN POOL_TOTAL END)/100000000,0) AS TMS_37,  --  37 회차
+			    ROUND(SUM(CASE WHEN TMS='38' THEN POOL_TOTAL END)/100000000,0) AS TMS_38,  --  38 회차
+			    ROUND(SUM(CASE WHEN TMS='39' THEN POOL_TOTAL END)/100000000,0) AS TMS_39,  --  39 회차
+			    ROUND(SUM(CASE WHEN TMS='40' THEN POOL_TOTAL END)/100000000,0) AS TMS_40,  --  40 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='41' THEN POOL_TOTAL END)/100000000,0) AS TMS_41,  --  41 회차
+			    ROUND(SUM(CASE WHEN TMS='42' THEN POOL_TOTAL END)/100000000,0) AS TMS_42,  --  42 회차
+			    ROUND(SUM(CASE WHEN TMS='43' THEN POOL_TOTAL END)/100000000,0) AS TMS_43,  --  43 회차
+			    ROUND(SUM(CASE WHEN TMS='44' THEN POOL_TOTAL END)/100000000,0) AS TMS_44,  --  44 회차
+			    ROUND(SUM(CASE WHEN TMS='45' THEN POOL_TOTAL END)/100000000,0) AS TMS_45,  --  45 회차
+			    ROUND(SUM(CASE WHEN TMS='46' THEN POOL_TOTAL END)/100000000,0) AS TMS_46,  --  46 회차
+			    ROUND(SUM(CASE WHEN TMS='47' THEN POOL_TOTAL END)/100000000,0) AS TMS_47,  --  47 회차   
+			    ROUND(SUM(CASE WHEN TMS='48' THEN POOL_TOTAL END)/100000000,0) AS TMS_48,  --  48 회차
+			    ROUND(SUM(CASE WHEN TMS='49' THEN POOL_TOTAL END)/100000000,0) AS TMS_49,  --  49 회차
+			    ROUND(SUM(CASE WHEN TMS='50' THEN POOL_TOTAL END)/100000000,0) AS TMS_50,  --  50 회차
+			    
+			    ROUND(SUM(CASE WHEN TMS='51' THEN POOL_TOTAL END)/100000000,0) AS TMS_51,  --  51 회차
+			    ROUND(SUM(CASE WHEN TMS='52' THEN POOL_TOTAL END)/100000000,0) AS TMS_52,  --  52 회차
+			    ROUND(SUM(CASE WHEN TMS='53' THEN POOL_TOTAL END)/100000000,0) AS TMS_53,  --  53 회차
+			    ROUND(SUM(CASE WHEN TMS='54' THEN POOL_TOTAL END)/100000000,0) AS TMS_54,  --  54 회차
+			    ROUND(SUM(CASE WHEN TMS='55' THEN POOL_TOTAL END)/100000000,0) AS TMS_55	  --  55 회차
+			 FROM                                                                                 
+			     VW_SDL_PT A
+			 WHERE 1 = 1
+			   AND A.MEET_CD = '001'
+			   AND A.STND_YEAR = ? -- 2:B_STND_YEAR 현재 년도                            
+			                                             
+                 
+        ]]>
+    </query>
+    
+    
+    
+    
+    <query id="rsm2050_s08" desc="경륜매출현황리포트" fetchSize="10">
+        <![CDATA[
+		SELECT /* rsm2050_s08 */
+			   LEV,
+		       GUBUN,   -- 구분
+		       STND_YEAR,   -- 구분 기준년도
+		       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((DIV_TOTAL-B_DIV_TOTAL),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((DIV_TOTAL-B_DIV_TOTAL),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((DIV_TOTAL-B_DIV_TOTAL),1) > 0 THEN ''
+		       END AS DIV_TOTAL_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(DIV_TOTAL,0)
+		            WHEN LEV='3' THEN ROUND(ABS(DIV_TOTAL-B_DIV_TOTAL),0)
+		            WHEN LEV='4' THEN ROUND(ABS((DIV_TOTAL-B_DIV_TOTAL)/B_DIV_TOTAL*100),1)
+		            WHEN LEV IN ('5','6') THEN ROUND(DIV_TOTAL,1)
+		            ELSE DIV_TOTAL
+		       END AS DIV_TOTAL,    -- 매출총계
+		       B_DIV_TOTAL,         -- 전년도 매출총계
+		       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((BONGJANG-B_BONGJANG),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((BONGJANG-B_BONGJANG),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((BONGJANG-B_BONGJANG),1) > 0 THEN ''
+		       END AS BONGJANG_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(BONGJANG,0)
+		            WHEN LEV='3' THEN ROUND(ABS(BONGJANG-B_BONGJANG),0) 
+		            WHEN LEV='4' THEN DECODE(B_BONGJANG,0,0,ROUND(ABS((BONGJANG-B_BONGJANG)/B_BONGJANG*100),1))
+		            WHEN LEV IN ('5','6') THEN ROUND(BONGJANG,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(BONGJANG-B_BONGJANG),1)
+		            ELSE BONGJANG   -- 본장
+		       END AS BONGJANG,
+		       DECODE(B_BONGJANG,0,0,ROUND(B_BONGJANG,1)) AS B_BONGJANG,         -- 전년도 매출총계
+		       
+		       
+		       -- 지점계       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JIJUM-B_JIJUM),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JIJUM-B_JIJUM),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JIJUM-B_JIJUM),1) > 0 THEN ''
+		       END AS JIJUM_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JIJUM,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JIJUM-B_JIJUM),0) 
+		            WHEN LEV='4' THEN ROUND(ABS((JIJUM-B_JIJUM)/B_JIJUM*100),1)
+		            WHEN LEV IN ('5','6') THEN ROUND(JIJUM,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JIJUM-B_JIJUM),1)
+		            ELSE JIJUM   -- 지점 전체
+		       END AS JIJUM,
+		       ROUND(B_JIJUM,1) AS B_JIJUM,         -- 전년도 지점 매출총계
+		       
+		       -- 수원       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG01-B_JANG01),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG01-B_JANG01),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG01-B_JANG01),1) > 0 THEN ''
+		       END AS JANG01_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG01,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG01-B_JANG01),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG01,0,0,ROUND(ABS((JANG01-B_JANG01)/B_JANG01*100),0))
+		            WHEN LEV IN ('5','6') THEN JANG01
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG01-B_JANG01),1)
+		            ELSE JANG01   -- 수원 전체
+		       END AS JANG01,
+		       DECODE(B_JANG01,0,0,ROUND(B_JANG01,1)) AS B_JANG01,         -- 전년도 지점 매출총계
+		       
+		        
+		       -- 상봉       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG02-B_JANG02),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG02-B_JANG02),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG02-B_JANG02),1) > 0 THEN ''
+		       END AS JANG02_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG02,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG02-B_JANG02),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG02,0,0,ROUND(ABS((JANG02-B_JANG02)/B_JANG02*100),0))
+		            WHEN LEV IN ('5','6') THEN JANG02
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG02-B_JANG02),1)
+		            ELSE JANG02   -- 상봉 전체
+		       END AS JANG02,
+		       DECODE(B_JANG02,0,0,ROUND(B_JANG02,1)) AS B_JANG02,         -- 전년도 상봉 매출총계       
+		
+		
+		       -- 일산       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG03-B_JANG03),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG03-B_JANG03),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG03-B_JANG03),1) > 0 THEN ''
+		       END AS JANG03_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG03,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG03-B_JANG03),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG03,0,0,ROUND(ABS((JANG03-B_JANG03)/B_JANG03*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG03,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG03-B_JANG03),1)
+		            ELSE JANG03   -- 일산 전체
+		       END AS JANG03,
+		       DECODE(B_JANG03,0,0,ROUND(B_JANG03,1)) AS B_JANG03,         -- 전년도 일산 매출총계                     
+		       
+		       
+		       -- 동대문       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG04-B_JANG04),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG04-B_JANG04),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG04-B_JANG04),1) > 0 THEN ''
+		       END AS JANG04_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG04,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG04-B_JANG04),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG04,0,0,ROUND(ABS((JANG04-B_JANG04)/B_JANG04*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG04,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG04-B_JANG04),1)
+		            ELSE JANG04   -- 동대문 전체
+		       END AS JANG04,
+		       DECODE(B_JANG04,0,0,ROUND(B_JANG04,1)) AS B_JANG04,         -- 전년도 동대문 매출총계                            
+		       
+		       
+		
+		       -- 분당       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG05-B_JANG05),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG05-B_JANG05),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG05-B_JANG05),1) > 0 THEN ''
+		       END AS JANG05_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG05,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG05-B_JANG05),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG05,0,0,ROUND(ABS((JANG05-B_JANG05)/B_JANG05*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG05,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG05-B_JANG05),1)
+		            ELSE JANG05   -- 분당 전체
+		       END AS JANG05,
+		       DECODE(B_JANG05,0,0,ROUND(B_JANG05,1)) AS B_JANG05,         -- 전년도 분당 매출총계                  
+		       
+		
+		       -- 장안       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG06-B_JANG06),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG06-B_JANG06),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG06-B_JANG06),1) > 0 THEN ''
+		       END AS JANG06_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG06,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG06-B_JANG06),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG06,0,0,ROUND(ABS((JANG06-B_JANG06)/B_JANG06*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG06,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG06-B_JANG06),1)
+		            ELSE JANG06   -- 장안 전체
+		       END AS JANG06,
+		       DECODE(B_JANG06,0,0,ROUND(B_JANG06,1)) AS B_JANG06,         -- 장안 전년도 매출총계                                                           
+		       
+		
+		       -- 산본       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG07-B_JANG07),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG07-B_JANG07),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG07-B_JANG07),1) > 0 THEN ''
+		       END AS JANG07_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG07,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG07-B_JANG07),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG07,0,0,ROUND(ABS((JANG07-B_JANG07)/B_JANG07*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG07,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG07-B_JANG07),1)
+		            ELSE JANG07   -- 산본 전체
+		       END AS JANG07,
+		       DECODE(B_JANG07,0,0,ROUND(B_JANG07,1)) AS B_JANG07,         -- 전년도 산본 매출총계                                                                  
+		       
+		       -- 부천       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG08-B_JANG08),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG08-B_JANG08),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG08-B_JANG08),1) > 0 THEN ''
+		       END AS JANG08_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG08,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG08-B_JANG08),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG08,0,0,ROUND(ABS((JANG08-B_JANG08)/B_JANG08*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG08,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG08-B_JANG08),1)
+		            ELSE JANG08   -- 부천 전체
+		       END AS JANG08,
+		       DECODE(B_JANG08,0,0,ROUND(B_JANG08,1)) AS B_JANG08,         -- 전년도 부천 매출총계                                                                         
+		       
+		
+		       -- 관악       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG09-B_JANG09),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG09-B_JANG09),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG09-B_JANG09),1) > 0 THEN ''
+		       END AS JANG09_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG09,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG09-B_JANG09),0)
+		            WHEN LEV='4' THEN DECODE(B_JANG09,0,0,ROUND(ABS((JANG09-B_JANG09)/B_JANG09*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG09,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG09-B_JANG09),1)
+		            ELSE JANG09   -- 관악 전체
+		       END AS JANG09,
+		       DECODE(B_JANG09,0,0,ROUND(B_JANG09,1)) AS B_JANG09,         -- 전년도 관악 매출총계                                                                                
+		       
+		       
+		       -- 길음       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG10-B_JANG10),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG10-B_JANG10),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG10-B_JANG10),1) > 0 THEN ''
+		       END AS JANG10_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG10,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG10-B_JANG10),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG10,0,0,ROUND(ABS((JANG10-B_JANG10)/B_JANG10*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG10,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG10-B_JANG10),1)
+		            ELSE JANG10   -- 길음 전체
+		       END AS JANG10,
+		       DECODE(B_JANG10,0,0,ROUND(B_JANG10,1)) AS B_JANG10,         -- 전년도 길음 매출총계                                                                                       
+		       
+		       -- 당산       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG11-B_JANG11),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG11-B_JANG11),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG11-B_JANG11),1) > 0 THEN ''
+		       END AS JANG11_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG11,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG11-B_JANG11),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG11,0,0,ROUND(ABS((JANG11-B_JANG11)/B_JANG11*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG11,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG11-B_JANG11),1)
+		            ELSE JANG11   -- 당산 전체
+		       END AS JANG11,
+		       DECODE(B_JANG11,0,0,ROUND(B_JANG11,1)) AS B_JANG11,         -- 전년도 당산 매출총계                                                                                              
+		
+		
+		       -- 유성       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG12-B_JANG12),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG12-B_JANG12),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG12-B_JANG12),1) > 0 THEN ''
+		       END AS JANG12_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG12,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG12-B_JANG12),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG12,0,0,ROUND(ABS((JANG12-B_JANG12)/B_JANG12*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG12,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG12-B_JANG12),1)
+		            ELSE JANG12   -- 유성 전체
+		       END AS JANG12,
+		       DECODE(B_JANG12,0,0,ROUND(B_JANG12,1)) AS B_JANG12,         -- 전년도 유성 매출총계
+		       
+		       -- 인천       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG13-B_JANG13),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG13-B_JANG13),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG13-B_JANG13),1) > 0 THEN ''
+		       END AS JANG13_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG13,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG13-B_JANG13),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG13,0,0,ROUND(ABS((JANG13-B_JANG13)/B_JANG13*100)))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG13,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG13-B_JANG13),1)
+		            ELSE JANG13   -- 인천 전체
+		       END AS JANG13,
+		       DECODE(B_JANG13,0,0,ROUND(B_JANG13,1)) AS B_JANG13,         -- 전년도 인천 매출총계      
+		       
+		     
+		       -- 시흥       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG14-B_JANG14),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG14-B_JANG14),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG14-B_JANG14),1) > 0 THEN ''
+		       END AS JANG14_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG14,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG14-B_JANG14),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG14,0,0,ROUND(ABS((JANG14-B_JANG14)/B_JANG14*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG14,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG14-B_JANG14),1)
+		            ELSE JANG14   -- 시흥 전체
+		       END AS JANG14,
+		       DECODE(B_JANG14,0,0,ROUND(B_JANG14,1)) AS B_JANG14,         -- 전년도 시흥 매출총계       
+		       
+		       
+		       -- 논현       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG15-B_JANG15),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG15-B_JANG15),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG15-B_JANG15),1) > 0 THEN ''
+		       END AS JANG15_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG15,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG15-B_JANG15),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG15,0,0,ROUND(ABS((JANG15-B_JANG15)/B_JANG15*100)))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG15,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG15-B_JANG15),1)
+		            ELSE JANG15   -- 논현 전체
+		       END AS JANG15,
+		       DECODE(B_JANG15,0,0,ROUND(B_JANG15,1)) AS B_JANG15,         -- 전년도 논현 매출총계       
+		       
+		       
+		       -- 천안       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG16-B_JANG16),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG16-B_JANG16),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG16-B_JANG16),1) > 0 THEN ''
+		       END AS JANG16_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG16,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG16-B_JANG16),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG16,0,0,ROUND(ABS((JANG16-B_JANG16)/B_JANG16*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG16,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG16-B_JANG16),1)
+		            ELSE JANG16   -- 천안 전체
+		       END AS JANG16,
+		       DECODE(B_JANG16,0,0,ROUND(B_JANG16,1)) AS B_JANG16,         -- 전년도 천안 매출총계       
+		       
+		
+		
+		       -- 올림픽       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG17-B_JANG17),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG17-B_JANG17),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG17-B_JANG17),1) > 0 THEN ''
+		       END AS JANG17_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG17,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG17-B_JANG17),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG17,0,0,ROUND(ABS((JANG17-B_JANG17)/B_JANG17*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG17,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG17-B_JANG17),1)
+		            ELSE JANG17   -- 올림픽 전체
+		       END AS JANG17,
+		       DECODE(B_JANG17,0,0,ROUND(B_JANG17,1)) AS B_JANG17,         -- 전년도 올림픽 매출총계       
+		       
+		       -- 창원/부산       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA-B_GYOCHA),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA-B_GYOCHA),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA-B_GYOCHA),1) > 0 THEN ''
+		       END AS GYOCHA_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(GYOCHA,0)
+		            WHEN LEV='3' THEN ROUND(ABS(GYOCHA-B_GYOCHA),0) 
+		            WHEN LEV='4' THEN DECODE(B_GYOCHA,0,0,ROUND(ABS((GYOCHA-B_GYOCHA)/B_GYOCHA*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(GYOCHA,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(GYOCHA-B_GYOCHA),1)
+		            ELSE GYOCHA   -- 창원/부산 전체
+		       END AS GYOCHA,
+		       DECODE(B_GYOCHA,0,0,ROUND(B_GYOCHA,1)) AS B_GYOCHA,         -- 전년도 창원/부산 매출총계       
+		       
+		       -- 창원       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA02-B_GYOCHA02),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA02-B_GYOCHA02),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA02-B_GYOCHA02),1) > 0 THEN ''
+		       END AS GYOCHA02_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(GYOCHA02,0)
+		            WHEN LEV='3' THEN ROUND(ABS(GYOCHA02-B_GYOCHA02),0) 
+		            WHEN LEV='4' THEN DECODE(B_GYOCHA02,0,0,ROUND(ABS((GYOCHA02-B_GYOCHA02)/B_GYOCHA02*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(GYOCHA02,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(GYOCHA02-B_GYOCHA02),1)
+		            ELSE GYOCHA02   -- 창원 전체
+		       END AS GYOCHA02,
+		       DECODE(B_GYOCHA02,0,0,ROUND(B_GYOCHA02,1)) AS B_GYOCHA02,         -- 전년도 창원 매출총계       
+		       
+		       -- 부산       
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA04-B_GYOCHA04),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA04-B_GYOCHA04),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((GYOCHA04-B_GYOCHA04),1) > 0 THEN ''
+		       END AS GYOCHA04_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(GYOCHA04,0)
+		            WHEN LEV='3' THEN ROUND(ABS(GYOCHA04-B_GYOCHA04),0) 
+		            WHEN LEV='4' THEN DECODE(B_GYOCHA04,0,0,ROUND(ABS((GYOCHA04-B_GYOCHA04)/B_GYOCHA04*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(GYOCHA04,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(GYOCHA04-B_GYOCHA04),1)
+		            ELSE GYOCHA04   -- 부산 전체
+		       END AS GYOCHA04,
+		       DECODE(B_GYOCHA04,0,0,ROUND(B_GYOCHA04,1)) AS B_GYOCHA04,         -- 전년도 부산 매출총계       
+		       
+		       -- 의정부
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG18-B_JANG18),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG18-B_JANG18),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG18-B_JANG18),1) > 0 THEN ''
+		       END AS JANG18_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG18,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG18-B_JANG18),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG18,0,0,ROUND(ABS((JANG18-B_JANG18)/B_JANG18*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG18,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG18-B_JANG18),1)
+		            ELSE JANG18   -- 의정부 전체
+		       END AS JANG18,
+		       DECODE(B_JANG18,0,0,ROUND(B_JANG18,1)) AS B_JANG18,         -- 전년도 지점 매출총계       
+		       
+		       -- 미사리
+		       CASE             
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG98-B_JANG98),1) < 0 THEN '△'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG98-B_JANG98),1) = 0  THEN '-'
+		            WHEN LEV IN ('3','4','7') AND ROUND((JANG98-B_JANG98),1) > 0 THEN ''
+		       END AS JANG98_SIGN,    -- 증감 표시
+		       
+		       CASE 
+		            WHEN LEV IN ('1','2') THEN ROUND(JANG98,0)
+		            WHEN LEV='3' THEN ROUND(ABS(JANG98-B_JANG98),0) 
+		            WHEN LEV='4' THEN DECODE(B_JANG98,0,0,ROUND(ABS((JANG98-B_JANG98)/B_JANG98*100),0))
+		            WHEN LEV IN ('5','6') THEN ROUND(JANG98,1)
+		            WHEN LEV IN ('7') THEN ROUND(ABS(JANG98-B_JANG98),1)
+		            ELSE JANG98   -- 의정부 전체
+		       END AS JANG98,
+		       DECODE(B_JANG98,0,0,ROUND(B_JANG98,1)) AS B_JANG98         -- 전년도 지점 매출총계       
+		       
+		FROM
+		(
+		    SELECT  LEV,
+		            CASE 
+		                WHEN LEV IN ('1','2','3','4') THEN '매출액'
+		                WHEN LEV IN ('5','6','7') THEN '매출액구성비'
+		                
+		            END AS GUBUN,		-- 구분
+		    
+		            CASE 
+		                WHEN LEV IN ('1','5') THEN DU.STND_YEAR 
+		                WHEN LEV IN ('2','6') THEN DU.B_STND_YEAR
+		                WHEN LEV='3' THEN '증감'
+		                WHEN LEV='4' THEN '증감율'
+		                WHEN LEV IN ('7') THEN '중감(point)'                
+		            END AS STND_YEAR,		-- 기준년도       
+		            
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN DIV_TOTAL
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN DIV_TOTAL
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN DIV_TOTAL/DIV_TOTAL*100    -- 금회 매출액 구성비
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN DIV_TOTAL/DIV_TOTAL*100  -- 전회 매출액 구성비                     
+		            END) AS DIV_TOTAL,   -- 매출총계
+		            SUM(CASE WHEN A.STND_YEAR=DU.B_STND_YEAR THEN DIV_TOTAL END) AS B_DIV_TOTAL,    -- 전년도 매출총계
+		            
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN BONGJANG
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN BONGJANG
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(BONGJANG/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(BONGJANG/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(BONGJANG/DIV_TOTAL*100,1)
+		            END) AS BONGJANG,   -- 본장
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN BONGJANG
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN BONGJANG/DIV_TOTAL*100
+		                END) AS B_BONGJANG, -- 본장 전년도
+		            
+		            -- 지점
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JIJUM
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JIJUM
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JIJUM/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JIJUM/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JIJUM/DIV_TOTAL*100,1)
+		            END) AS JIJUM,   -- 지점
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JIJUM
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JIJUM/DIV_TOTAL*100
+		                END) AS B_JIJUM, -- 지점 전년도
+		            
+		            -- 수원
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG01
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG01
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG01/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG01/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG01/DIV_TOTAL*100,1)
+		            END) AS JANG01,   -- 수원
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG01
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG01/DIV_TOTAL*100
+		                END) AS B_JANG01, -- 수원 전년도
+		           
+		           -- 상봉
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG02
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG02
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG02/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG02/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG02/DIV_TOTAL*100,1)
+		            END) AS JANG02,   -- 상봉
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG02
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG02/DIV_TOTAL*100
+		                END) AS B_JANG02, -- 상봉 전년도
+		            
+		            -- 일산
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG03
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG03
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG03/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG03/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG03/DIV_TOTAL*100,1)
+		            END) AS JANG03,   -- 일산
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG03
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG03/DIV_TOTAL*100
+		                END) AS B_JANG03, -- 일산 전년도
+		           
+		            -- 동대문
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG04
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG04
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG04/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG04/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG04/DIV_TOTAL*100,1)
+		            END) AS JANG04,   -- 동대문
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG04
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG04/DIV_TOTAL*100
+		                END) AS B_JANG04, -- 동대문 전년도
+		
+		            -- 분당
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG05
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG05
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG05/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG05/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG05/DIV_TOTAL*100,1)
+		            END) AS JANG05,   -- 분당
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG05
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG05/DIV_TOTAL*100
+		                END) AS B_JANG05, -- 분당 전년도           
+		
+		            
+		            -- 장안
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG06
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG06
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG06/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG06/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG06/DIV_TOTAL*100,1)
+		            END) AS JANG06,   -- 장안
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG06
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG06/DIV_TOTAL*100
+		                END) AS B_JANG06, -- 장안 전년도           
+		           
+		            -- 산본
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG07
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG07
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG07/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG07/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG07/DIV_TOTAL*100,1)
+		            END) AS JANG07,   -- 산본
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG07
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG07/DIV_TOTAL*100
+		                END) AS B_JANG07, -- 산본 전년도                      
+		                
+		            -- 부천
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG08
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG08
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG08/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG08/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG08/DIV_TOTAL*100,1)
+		            END) AS JANG08,   -- 부천
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG08
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG08/DIV_TOTAL*100
+		                END) AS B_JANG08, -- 부천 전년도                                      
+		
+		            -- 관악
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG09
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG09
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG09/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG09/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG09/DIV_TOTAL*100,1)
+		            END) AS JANG09,   -- 관악
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG09
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG09/DIV_TOTAL*100
+		                END) AS B_JANG09, -- 관악 전년도                                                      
+		
+		            -- 길음
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG10
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG10
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG10/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG10/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG10/DIV_TOTAL*100,1)
+		            END) AS JANG10,   -- 길음
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG10
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG10/DIV_TOTAL*100
+		                END) AS B_JANG10, -- 길음 전년도                                                      
+		
+		
+		            -- 당산
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG11
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG11
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG11/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG11/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG11/DIV_TOTAL*100,1)
+		            END) AS JANG11,   -- 당산
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG11
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG11/DIV_TOTAL*100
+		                END) AS B_JANG11, -- 당산 전년도                                                      
+		
+		
+		            -- 유성
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG12
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG12
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG12/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG12/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG12/DIV_TOTAL*100,1)
+		            END) AS JANG12,   -- 유성
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG12
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG12/DIV_TOTAL*100
+		                END) AS B_JANG12, -- 유성 전년도                                                      
+		
+		            -- 인천
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG13
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG13
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG13/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG13/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG13/DIV_TOTAL*100,1)
+		            END) AS JANG13,   -- 인천
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG13
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG13/DIV_TOTAL*100
+		                END) AS B_JANG13, -- 인천 전년도                                                      
+		
+		            
+		            -- 시흥
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG14
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG14
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG14/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG14/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG14/DIV_TOTAL*100,1)
+		            END) AS JANG14,   -- 시흥
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG14
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG14/DIV_TOTAL*100
+		                END) AS B_JANG14, -- 시흥 전년도                                                      
+		
+		
+		            -- 논현
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG15
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG15
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG15/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG15/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG15/DIV_TOTAL*100,1)
+		            END) AS JANG15,   -- 논현
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG15
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG15/DIV_TOTAL*100
+		                END) AS B_JANG15, -- 논현 전년도
+		
+		
+		            -- 천안
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG16
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG16
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG16/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG16/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG16/DIV_TOTAL*100,1)
+		            END) AS JANG16,   -- 천안
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG16
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG16/DIV_TOTAL*100
+		                END) AS B_JANG16, -- 천안 전년도                                                      
+		
+		            -- 올림픽
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG17
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG17
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG17/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG17/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG17/DIV_TOTAL*100,1)
+		            END) AS JANG17,   -- 올림픽
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG17
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG17/DIV_TOTAL*100
+		                END) AS B_JANG17, -- 올림픽 전년도                                                      
+		
+		
+		            -- 창원/부산 합계
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN GYOCHA
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(GYOCHA/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(GYOCHA/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(GYOCHA/DIV_TOTAL*100,1)
+		            END) AS GYOCHA,   -- 창원/부산
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA/DIV_TOTAL*100
+		                END) AS B_GYOCHA, -- 창원/부산 전년도                                                      
+		
+		
+		            -- 창원
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN GYOCHA02
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA02
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(GYOCHA02/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(GYOCHA02/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(GYOCHA02/DIV_TOTAL*100,1)
+		            END) AS GYOCHA02,   -- 창원
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA02
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA02/DIV_TOTAL*100
+		                END) AS B_GYOCHA02, -- 창원 전년도                                                      
+		
+		
+		            -- 부산
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN GYOCHA04
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA04
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(GYOCHA04/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(GYOCHA04/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(GYOCHA04/DIV_TOTAL*100,1)
+		            END) AS GYOCHA04,   -- 부산
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA04
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN GYOCHA04/DIV_TOTAL*100
+		                END) AS B_GYOCHA04, -- 부산 전년도                                                      
+		
+		
+		            -- 의정부
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG18
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG18
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG18/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG18/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG18/DIV_TOTAL*100,1)
+		            END) AS JANG18,   -- 의정부
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG18
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG18/DIV_TOTAL*100
+		                END) AS B_JANG18, -- 의정부 전년도                                                      
+		           
+		           
+		            -- 미사리
+		            SUM(CASE 
+		                     WHEN LEV IN ('1','3','4') AND A.STND_YEAR=DU.STND_YEAR THEN JANG98
+		                     WHEN LEV='2' AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG98
+		                     WHEN LEV IN ('5') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG98/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('6') AND A.STND_YEAR=DU.B_STND_YEAR THEN ROUND(JANG98/DIV_TOTAL*100,1)
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.STND_YEAR THEN ROUND(JANG98/DIV_TOTAL*100,1)
+		            END) AS JANG98,   -- 의정부
+		            SUM(CASE
+		                     WHEN LEV IN ('1','2','3','4','5','6') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG98
+		                     WHEN LEV IN ('7') AND A.STND_YEAR=DU.B_STND_YEAR THEN JANG98/DIV_TOTAL*100
+		                END) AS B_JANG98 -- 의정부 전년도                                                      
+		           
+		                                
+		        FROM        
+		        (
+		            SELECT   
+					        STND_YEAR,		-- 기준년도       
+					        ROUND(SUM(DIV_TOTAL)/1000000,0)  DIV_TOTAL,													-- 매출총계
+						    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END)/1000000,0)  BONGJANG, -- 본장
+		                    ROUND((SUM(CASE WHEN SELL_CD = '01' AND COMM_NO IN('01','02','03','04','08') THEN 0 ELSE DIV_TOTAL END)+SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN DIV_TOTAL END))/1000000,0) JIJUM, -- 지점
+					        ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN DIV_TOTAL END)/1000000,0) JANG01,	-- 수원
+					        ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN DIV_TOTAL END)/1000000,0) JANG02,	-- 상봉
+					        ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN DIV_TOTAL END)/1000000,0) JANG03,    -- 일산
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN DIV_TOTAL END)/1000000,0) JANG04,    -- 동대문
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN DIV_TOTAL END)/1000000,0) JANG05,    -- 분당
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN DIV_TOTAL END)/1000000,0) JANG06,    -- 장안
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN DIV_TOTAL END)/1000000,0) JANG07,    -- 산본
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN DIV_TOTAL END)/1000000,0) JANG08,    -- 부천
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN DIV_TOTAL END)/1000000,0) JANG09,    -- 관악
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN DIV_TOTAL END)/1000000,0) JANG10,    -- 길음
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN DIV_TOTAL END)/1000000,0) JANG11,    -- 당산
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN DIV_TOTAL END)/1000000,0) JANG12,    -- 유성
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN DIV_TOTAL END)/1000000,0) JANG13,    -- 인천
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN DIV_TOTAL END)/1000000,0) JANG14,    -- 시흥
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN DIV_TOTAL END)/1000000,0) JANG15,    -- 논현
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN DIV_TOTAL END)/1000000,0) JANG16,    -- 천안
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN DIV_TOTAL END)/1000000,0) JANG17,    -- 올림픽
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN DIV_TOTAL END)/1000000,0) JANG18,    -- 의정부
+		                    ROUND(SUM(CASE WHEN SELL_CD = '03' AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END)/1000000,0)  JANG98, -- 미사리본장
+		                    ROUND(SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN DIV_TOTAL END)/1000000,0) GYOCHA,           -- 교차합계                           
+		                    ROUND(SUM(CASE WHEN SELL_CD = '02' THEN DIV_TOTAL END)/1000000,0) GYOCHA02,                    -- 교차(창원)                           
+		                    ROUND(SUM(CASE WHEN SELL_CD = '04' THEN DIV_TOTAL END)/1000000,0) GYOCHA04                     -- 교차(부산)                         
+		                FROM 
+		                    (
+		                        SELECT
+		                            STND_YEAR
+		                            , SELL_CD
+		                            , COMM_NO
+		                            , DIV_NO
+		                            , SUM(DIV_TOTAL) DIV_TOTAL
+		                        FROM     
+		                            VW_SDL_DT_SUM_GSUM   -- 지점                                                                                                                                                                                          
+		                        WHERE 1 = 1                                                                                                                
+		                        AND MEET_CD = '001'   -- 경륜
+		                        AND STND_YEAR = ? 			-- 0:STND_YEAR
+                                AND SELL_CD NOT IN ('02','04')              
+		                        AND TMS BETWEEN '1' AND ? 	-- 1:TMS
+		                        GROUP BY STND_YEAR,SELL_CD, COMM_NO, DIV_NO                                                                          
+		                        UNION ALL    
+                                SELECT  --- 전년도 교차 총 매출금액
+                                       STND_YEAR,
+                                       SELL_CD,
+                                       SELL_CD AS COMM_NO,
+                                       '01' AS DIV_NO,
+                                       SUM(NET_AMT) NET_AMT_SUM                                 
+                                FROM  VW_PC_PAYOFFS                    
+                                WHERE MEET_CD = '001'     	-- MEET_CD                               
+                                  AND STND_YEAR = ?        	   -- 2:STND_YEAR
+                                  AND TMS BETWEEN '1' AND  ?    -- 3:TMS
+                                  AND SELL_CD IN ('02','04')              
+                                GROUP BY STND_YEAR, SELL_CD  
+		                    )GROUP BY STND_YEAR
+		                UNION ALL
+		                SELECT   
+					        STND_YEAR,		-- 기준년도       
+					        ROUND(SUM(DIV_TOTAL)/1000000,0)  DIV_TOTAL,													-- 매출총계
+						    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END)/1000000,0)  BONGJANG, -- 본장
+		                    ROUND((SUM(CASE WHEN SELL_CD = '01' AND COMM_NO IN('01','02','03','04','08') THEN 0 ELSE DIV_TOTAL END)+SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN DIV_TOTAL END))/1000000,0) JIJUM, -- 지점
+					        ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN DIV_TOTAL END)/1000000,0) JANG01,	-- 수원
+					        ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN DIV_TOTAL END)/1000000,0) JANG02,	-- 상봉
+					        ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN DIV_TOTAL END)/1000000,0) JANG03,    -- 일산
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN DIV_TOTAL END)/1000000,0) JANG04,    -- 동대문
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN DIV_TOTAL END)/1000000,0) JANG05,    -- 분당
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN DIV_TOTAL END)/1000000,0) JANG06,    -- 장안
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN DIV_TOTAL END)/1000000,0) JANG07,    -- 산본
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN DIV_TOTAL END)/1000000,0) JANG08,    -- 부천
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN DIV_TOTAL END)/1000000,0) JANG09,    -- 관악
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN DIV_TOTAL END)/1000000,0) JANG10,    -- 길음
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN DIV_TOTAL END)/1000000,0) JANG11,    -- 당산
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN DIV_TOTAL END)/1000000,0) JANG12,    -- 유성
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN DIV_TOTAL END)/1000000,0) JANG13,    -- 인천
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN DIV_TOTAL END)/1000000,0) JANG14,    -- 시흥
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN DIV_TOTAL END)/1000000,0) JANG15,    -- 논현
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN DIV_TOTAL END)/1000000,0) JANG16,    -- 천안
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN DIV_TOTAL END)/1000000,0) JANG17,    -- 올림픽
+		                    ROUND(SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN DIV_TOTAL END)/1000000,0) JANG18,    -- 의정부
+		                    ROUND(SUM(CASE WHEN SELL_CD = '03' AND COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL END)/1000000,0)  JANG98, -- 미사리본장
+		                    ROUND(SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN DIV_TOTAL END)/1000000,0) GYOCHA,            -- 교차합계                           
+		                    ROUND(SUM(CASE WHEN SELL_CD = '02' THEN DIV_TOTAL END)/1000000,0) GYOCHA02,                     -- 교차(창원)                          
+		                    ROUND(SUM(CASE WHEN SELL_CD = '04' THEN DIV_TOTAL END)/1000000,0) GYOCHA04                      -- 교차(부산)                          
+		                FROM 
+		                    (
+		                        SELECT
+		                            STND_YEAR
+		                            , SELL_CD
+		                            , COMM_NO
+		                            , DIV_NO
+		                            , SUM(DIV_TOTAL) DIV_TOTAL
+		                        FROM     
+		                            VW_SDL_DT_SUM_GSUM   -- 지점                                                                                                                                                                                          
+		                        WHERE 1 = 1                                                                                                                
+		                        AND MEET_CD = '001'   --  경륜
+		                        AND STND_YEAR = ?  		-- 4:B_STND_YEAR
+                                AND SELL_CD NOT IN ('02','04')              
+		                        AND TMS BETWEEN '1' AND ?    -- 5:TMS
+		                        GROUP BY STND_YEAR,SELL_CD, COMM_NO, DIV_NO      
+		                        UNION ALL   
+                                SELECT  --- 전년도 교차 총 매출금액
+                                       STND_YEAR,
+                                       SELL_CD,
+                                       SELL_CD AS COMM_NO,
+                                       '01' AS DIV_NO,
+                                       SUM(NET_AMT) NET_AMT_SUM                                 
+                                FROM  VW_PC_PAYOFFS                    
+                                WHERE MEET_CD = '001'     -- MEET_CD                               
+                                  AND STND_YEAR = ?        -- 6:STND_YEAR
+                                  AND TMS BETWEEN '1' AND  ?     -- 7:TMS
+                                  AND SELL_CD IN ('02','04')              
+                                GROUP BY STND_YEAR, SELL_CD  
+		                    )GROUP BY STND_YEAR
+		                )A,
+		            (SELECT LEVEL AS LEV, ? AS STND_YEAR,? AS B_STND_YEAR FROM DUAL CONNECT BY LEVEL<=7) DU -- 4:B_STND_YEAR , 5:B_STND_YEAR
+		            GROUP BY DU.LEV,DU.STND_YEAR,DU.B_STND_YEAR
+		        )
+		        ORDER BY LEV 
+		                                  
+					  
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2050_s11" desc="경륜매출현황리포트" fetchSize="10">
+        <![CDATA[
+	        SELECT /* rsm2050_s11 */
+	        	   STND_YEAR,       -- 기준년도
+			       MAX_RACE_DAY,    -- 최대일자 YYYYMMDD
+			       TO_CHAR(TO_DATE(MAX_RACE_DAY,'YYYYMMDD'),'MM.DD') AS MAX_RACE_DAY_DESC, -- 최대 일자 표현 MM.DD
+			       MAX_RACE_DAY_2,  -- 최대일자2 MMDD
+			       TO_NUMBER(SUBSTR(MAX_RACE_DAY_2,0,2))||'.'||TO_NUMBER(SUBSTR(MAX_RACE_DAY_2,3,2)) AS MAX_RACE_DAY_2_DESC,       
+			       MIN_RACE_DAY,    -- 최소일자 YYYYMMDD
+			       TO_CHAR(TO_DATE(MIN_RACE_DAY,'YYYYMMDD'),'MM.DD') AS MIN_RACE_DAY_DESC,  -- 최소 일자 표현 MM.DD
+			       MIN_RACE_DAY_2,  -- 최소일자2 MMDD
+			       TO_NUMBER(SUBSTR(MIN_RACE_DAY_2,0,2))||'.'||TO_NUMBER(SUBSTR(MIN_RACE_DAY_2,3,2)) AS MIN_RACE_DAY_2_DESC -- 최소일자2 표현 MMDD
+			       
+			FROM
+			(
+			    SELECT MAX(STND_YEAR) AS STND_YEAR,
+			           MAX(RACE_DAY) AS MAX_RACE_DAY,
+			           MAX(TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'MMDD')) AS MAX_RACE_DAY_2,
+			           MIN(RACE_DAY) AS MIN_RACE_DAY,
+			           MIN(TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'MMDD')) AS MIN_RACE_DAY_2
+			     FROM VW_SDL_INFO
+			    WHERE 1=1
+			      AND MEET_CD = '001'   -- 경정  
+			      AND STND_YEAR	= ?  -- 0:기준년도 2011
+			      AND TMS		= ?  -- 1:회차 20
+			)  
+		       
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm2050_s12" desc="그린카드 지점별 매출액 " fetchSize="10">
+	    <![CDATA[
+             SELECT /* rsm2050_s12 */
+	                  A.DIV_NO
+	                  , C.CD_NM AS DIV_NM
+                      , THIS_DIV_AMT AS THIS_DIV_AMT
+                      , PREV_DIV_AMT AS PREV_DIV_AMT
+                      ,CASE WHEN THIS_DIV_AMT < PREV_DIV_AMT THEN '△'        
+                        WHEN THIS_DIV_AMT = PREV_DIV_AMT THEN '-'
+                        WHEN THIS_DIV_AMT > PREV_DIV_AMT THEN '' 
+                      END PREV_RATIO_SIGN 
+                      , CASE WHEN PREV_DIV_AMT = 0 THEN 0 ELSE ROUND(ABS(THIS_DIV_AMT - PREV_DIV_AMT) / PREV_DIV_AMT*100, 1) END AS PREV_RATIO
+                      , NVL(LYST_DIV_AMT,0) AS LYST_DIV_AMT
+                      ,CASE WHEN THIS_DIV_AMT < LYST_DIV_AMT THEN '△'        
+                        WHEN THIS_DIV_AMT = LYST_DIV_AMT THEN '-'
+                        WHEN THIS_DIV_AMT > LYST_DIV_AMT THEN '' 
+                      END LYST_RATIO_SIGN  
+                      , CASE WHEN NVL(LYST_DIV_AMT,0)=0 THEN 0 ELSE ROUND(ABS(THIS_DIV_AMT-LYST_DIV_AMT)/LYST_DIV_AMT*100,1) END AS LYST_RATIO
+                      , NVL(TY_DIV_AMT,0) AS TY_DIV_AMT
+                      , CASE WHEN SUM(THIS_DIV_AMT) OVER()=0 THEN 0 ELSE ROUND(THIS_DIV_AMT / SUM(THIS_DIV_AMT) OVER() * 100, 1) END AS THIS_TOT_RATIO
+	          FROM (                      
+	                     SELECT CASE WHEN SELL_CD = '03' AND DIV_NO = '00' THEN '98' ELSE DIV_NO END AS DIV_NO 
+	                           ,NVL(ROUND(SUM(CASE WHEN TMS =  ? THEN DIV_TOTAL ELSE 0 END)/1000000,0),0) AS THIS_DIV_AMT
+	                           ,NVL(ROUND(SUM(CASE WHEN TMS <= ? THEN DIV_TOTAL END)/1000000,0),0) AS TY_DIV_AMT
+	                     FROM                                                                
+	                            TBES_SDL_DT_SUM                -- 현회차 지점별 매출액                                    
+	                     WHERE 1=1
+	                           AND MEET_CD = '001'
+	                           AND STND_YEAR =  ?
+	                           AND COMM_NO = '06'
+	                   GROUP BY CASE WHEN SELL_CD = '03' AND DIV_NO = '00' THEN '98' ELSE DIV_NO END
+	                   ) A,
+	                   (
+	                     SELECT CASE WHEN SELL_CD = '03' AND DIV_NO = '00' THEN '98' ELSE DIV_NO END AS DIV_NO 
+	                           ,NVL(ROUND(SUM(DIV_TOTAL)/1000000,0),0) AS LYST_DIV_AMT
+	                     FROM                                                                
+	                            TBES_SDL_DT_SUM                -- 전년 동회차 매출액                                    
+	                     WHERE 1=1
+	                           AND MEET_CD = '001'
+	                           AND STND_YEAR =  ?
+	                           AND TMS =  ?
+	                           AND COMM_NO = '06'
+	                      GROUP BY CASE WHEN SELL_CD = '03' AND DIV_NO = '00' THEN '98' ELSE DIV_NO END
+	                   ) B,
+	                   (
+	                     SELECT CASE WHEN SELL_CD = '03' AND DIV_NO = '00' THEN '98' ELSE DIV_NO END AS DIV_NO 
+                               ,NVL(ROUND(SUM(DIV_TOTAL)/1000000,0),0) AS PREV_DIV_AMT                                         
+	                     FROM                                                                
+	                            TBES_SDL_DT_SUM                -- 전회차 지점별 매출액                                    
+	                     WHERE 1=1
+	                           AND MEET_CD = '001'
+	                           AND STND_YEAR =  ?
+	                           AND TMS =  ? 
+	                           AND COMM_NO = '06'
+	                      GROUP BY CASE WHEN SELL_CD = '03' AND DIV_NO = '00' THEN '98' ELSE DIV_NO END
+	                   ) D,
+	                   TBRK_SPEC_CD C
+	       WHERE  A.DIV_NO      = B.DIV_NO(+)  	  
+	           AND  A.DIV_NO    = D.DIV_NO(+)       
+               AND  C.GRP_CD(+) = '127'
+               AND  C.CD(+)     = A.DIV_NO       
+               AND  (A.THIS_DIV_AMT + A.TY_DIV_AMT) > 0         
+	       ORDER BY DIV_NO                                                                         
+	    ]]>
+    </query>
+    
+    <query id="rsm2050_s13" desc="년도별 마지막 회차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2050_s13 */
+			        STND_YEAR,
+			        MAX(TMS) AS MAX_TMS					-- 회차
+			FROM VW_SDL_INFO
+			WHERE 1=1
+			  --AND MEET_CD 	<> '003'
+			  AND MEET_CD = '001'
+			GROUP BY STND_YEAR			  
+			ORDER BY STND_YEAR DESC			  
+        ]]>
+    </query>
+    
+</queryMap>

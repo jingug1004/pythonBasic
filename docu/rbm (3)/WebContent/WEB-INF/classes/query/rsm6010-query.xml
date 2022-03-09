@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm6010(TSN조회)">
+    
+    <query id="rsm6010_s01" desc="창구번호  조회" fetchSize="10">
+      <![CDATA[
+             SELECT                                                                                                        
+				    YEAR_TOTE,                                                                         
+				    TO_CHAR(TO_DATE(DATE_TOTE,'MMDD'),'MM-DD') DATE_TOTE,                                                         
+				    TO_CHAR(TO_DATE(TIME_TOTE,'HH24MISS'),'HH24:MI:SS') TIME_TOTE,                     
+				    GUBUN,                                                                             
+				    CASE                                                                               
+				     WHEN GUBUN<>'POOL'  THEN                                                          
+				     	SUBSTR(TSN,4,1) || '-' ||                                                       
+				     	SUBSTR(TSN,5,4) || '-' ||                                                       
+				     	SUBSTR(TSN,9,4) || '-' ||                                                       
+				     	SUBSTR(TSN,13,4)                                                                
+				    ELSE  TSN                                                                         
+				    END TSN,                                                                           
+				    WIN_NO,                                                                            
+				    TELLER_ID,                                                                         
+				    TRAN_TYPE,                                                                         
+				    STATUS,                                                                            
+				    PERF_NO,                                                                           
+				    MEET_NO,                                                                           
+				    RACE_NO,                                                                           
+				    AMOUNT,                                                                            
+				    REPLACE(CONT2, '<BR>', chr(13)||chr(10)) AS CONT2                                                                                                     
+				 FROM                                                                                                          
+				 (                                                                                     
+				    SELECT /*+ INDEX(B) */                                                                                                   
+				        YEAR_TOTE,                                                                                                 
+				        DATE_TOTE,                                                                     
+				        TIME_TOTE,                                                                     
+				        GUBUN,                                                                                         
+				        TSN,                                                                           
+				        TFA,
+				    	WIN_NO,                                                                                                  
+				        TELLER_ID,                                                                                               
+				        TRAN_TYPE,                                                                                             
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,                                           
+				        TO_CHAR(PERF_NO) PERF_NO,                                                                                   
+				        TO_CHAR(MEET_NO) MEET_NO,                                                                                   
+				        TO_CHAR(RACE_NO) RACE_NO,                                                                                   
+				        AMOUNT,                                                                        
+				        CASE                                                                           
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)||'<BR>'||BET1_SUMMARY||'<BR>'||BET2_SUMMARY||'<BR>'||BET3_SUMMARY 
+				         ELSE BET1_SUMMARY||'<BR>'||BET2_SUMMARY||'<BR>'||BET3_SUMMARY                 
+				        END CONT2                                                                                           
+				    FROM                                                                                                      
+				        VW_TF_SELL_01 B                                                                                     
+				    WHERE                                                                                                     
+				        YEAR_TOTE=SUBSTR(?,1,4) -- race_day                                                                       
+				        AND DATE_TOTE=SUBSTR(?,5,4) -- race_day                                                                  
+				        AND WIN_NO=? -- win_no
+				        AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN) ) -- tsn                                                             
+				    UNION ALL                                                                          
+				    SELECT                                                                                                    
+				        YEAR_TOTE,                                                                                                 
+				        DATE_TOTE,                                                                     
+				        TIME_TOTE,                                                                     
+				        GUBUN,                                                                                         
+				        TSN,                                                                           
+				        TFA,
+				    	WIN_NO,                                                                                                  
+				        TELLER_ID,                                                                                               
+				        TRAN_TYPE,                                                                     
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,                                           
+				        '' PERF_NO,                                                                                              
+				        '' MEET_NO,                                                                                              
+				        'PAID:' RACE_NO,                                                                                         
+				        AMOUNT_PAID AMOUNT,                                                                                   
+				        CASE                                                                           
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)                 
+				         ELSE ''                                                                       
+				        END CONT2                                                                                           
+				    FROM                                                                                                      
+				        VW_TF_CASH_S01_01                                                                                     
+				    WHERE                                                                                                     
+				        YEAR_TOTE=SUBSTR(?,1,4) -- race_day                                                                      
+				        AND DATE_TOTE=SUBSTR(?,5,4) -- race_day                                                                  
+				        AND WIN_NO=?  -- win_no
+				        AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN)  ) -- tsn                                                           
+				    UNION ALL                                                                          
+				    SELECT                                                                                                    
+				        YEAR_TOTE,                                                                                                 
+				        DATE_TOTE,                                                                     
+				        TIME_TOTE,                                                                     
+				        GUBUN,                                                                                         
+				        TSN,                                                                           
+				        TFA,
+				    	WIN_NO,                                                                                                  
+				        TELLER_ID,                                                                                               
+				        TRAN_TYPE,                                                                                             
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,                                           
+				        '' PERF,                                                                                              
+				        '' MEET,                                                                                              
+				        '' RACE,                                                                                              
+				        AMOUNT,                                                                                               
+				        CASE                                                                           
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)                 
+				         ELSE ''                                                                       
+				        END CONT2                                                                                               
+				    FROM                                                                                                      
+				        VW_TF_VOUCHER_SELL_01                                                                                 
+				    WHERE                                                                                                     
+				        YEAR_TOTE=SUBSTR(?,1,4) -- race_day                                                                       
+				        AND DATE_TOTE=SUBSTR(?,5,4) -- race_day                                                                  
+				        AND WIN_NO=? -- win_no
+				        AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN)  ) -- tsn                                                            
+				    UNION ALL                                                                          
+				    SELECT                                                                                                    
+				        YEAR_TOTE,                                                                                                 
+				        DATE_TOTE,                                                                     
+				        TIME_TOTE,                                                                     
+				        GUBUN,                                                                                        
+				        TSN,                                                                           
+				        TFA,
+				    	WIN_NO,                                                                                                  
+				        TELLER_ID,                                                                                               
+				        TRAN_TYPE,                                                                     
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,                                           
+				        '' PERF_NO,                                                                                              
+				        '' MEET_NO,                                                                                              
+				        'PAID:' RACE_NO,                                                                                         
+				        AMOUNT_PAID AMOUNT,                                                                                   
+				        CASE                                                                           
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)                 
+				         ELSE ''                                                                       
+				        END CONT2                                                                                               
+				    FROM                                                                                                      
+				        VW_TF_VOUCH_CASH_S01_01                                                                               
+				    WHERE                                                                                                     
+				        YEAR_TOTE=SUBSTR(?,1,4) -- race_day                                                                       
+				        AND DATE_TOTE=SUBSTR(?,5,4) -- race_day                                                                  
+				        AND WIN_NO=?    -- win_no
+				        AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN)) -- tsn                                                         
+				    UNION ALL                                                                                                 
+				    SELECT                                                                                                    
+				        YEAR_TOTE,                                                                                                 
+				        DATE_TOTE,                                                                     
+				        TIME_TOTE,                                                                                      
+				        'DRAW' GUBUN,                                                                                         
+				        TSN,                                                                           
+				        TFA,
+				    	WINDOW_ID WIN_NO,                                                                                        
+				        TELLER_ID,                                                                                     
+				        FUNC_TRANS_TYPE(TRANS_TYPE) TRAN_TYPE,                                                                 
+				        DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,                             
+				        '' PERF,                                                                                              
+				        '' MEET,                                                                                              
+				        'CHECK:' RACE,                                                                                        
+				        AMOUNT,                                                                                               
+				        CASE                                                                           
+				         WHEN RECORD_STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS)   
+				         ELSE ''                                                                       
+				        END CONT2                                                                                              
+				    FROM                                                                                                      
+				        TF_DRAW_01                                                                                            
+				    WHERE                                                                                                     
+				        YEAR_TOTE=SUBSTR(?,1,4)      -- race_day                                                                 
+				        AND DATE_TOTE=SUBSTR(?,5,4)  -- race_day                                                                
+				        AND WINDOW_ID=?			-- win_no
+				        AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN) )-- tsn                                                                                   
+				    UNION ALL                                                                                                 
+				    SELECT                                                                                                    
+				        YEAR_TOTE,                                                                                                 
+				        DATE_TOTE,                                                                     
+				        TIME_TOTE,                                                                                      
+				        'RTRN' GUBUN,                                                                                         
+				        TSN,                                                                           
+				        TFA,
+				    	WINDOW_ID WIN_NO,                                                                                        
+				        TELLER_ID,                                                                                     
+				        FUNC_TRANS_TYPE(TRANS_TYPE) TRAN_TYPE,                                                                 
+				        DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,                             
+				        '' PERF_NO,                                                                                              
+				        '' MEET_NO,                                                                                              
+				        'CHECK:' RACE_NO,                                                                                        
+				        AMOUNT,                                                                                               
+				        CASE                                                                           
+				         WHEN RECORD_STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS)   
+				         ELSE ''                                                                       
+				        END CONT2                                                                                              
+				    FROM                                                                                                      
+				        TF_RETURN_01                                                                                          
+				    WHERE                                                                                                     
+				        YEAR_TOTE=SUBSTR(?,1,4)   	-- race_day                                                                    
+				        AND DATE_TOTE=SUBSTR(?,5,4) -- race_day                                                                 
+				        AND WINDOW_ID=?	-- win_no
+				        AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN) ) -- tsn                                                                                   
+				    UNION ALL                                                                                                 
+				    SELECT                                                                                                    
+				        YEAR_TOTE,                                                                                                 
+				        DATE_TOTE,                                                                     
+				        TIME_TOTE,                                                                                       
+				        'POOL' GUBUN,                                                                                         
+				        'CLOSE POOLS FOR CARD:'|| WRITE_CARD_NUMBER TSN,                                                      
+				        TFA,
+				    	'' WIN_NO,                                                                                               
+				        TO_NUMBER('') TELLER_ID,                                                                                 
+				        '' TRAN_TYPE,                                                                                          
+				        '' STATUS,                                                                                            
+				        TO_CHAR(INFO_PERF_NO) PERF_NO,                                                                           
+				        TO_CHAR(INFO_MEET_NO) MEET_NO,                                                                           
+				        TO_CHAR(WRITE_RACE_NUMBER) RACE_NO,                                                                      
+				        TO_NUMBER('') AMOUNT,                                                                                 
+				        '' CONT2                                                                                              
+				    FROM                                                                                                      
+				        TF_CARD_UPD_S59_01                                                                                    
+				    WHERE                                                                                                     
+				        YEAR_TOTE=SUBSTR(?,1,4)     -- race_day                                                                   
+				        AND DATE_TOTE=SUBSTR(?,5,4) -- race_day 
+				        AND (WRITE_CARD_NUMBER  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', WRITE_CARD_NUMBER)  ) -- tsn                                           
+				    UNION ALL                                                                        
+				    SELECT                                                                           
+				          YEAR_TOTE,                                                                 
+				          DATE_TOTE,                                                                 
+				          TIME_TOTE,                                                                 
+				          'CASH' GUBUN,                                                              
+				          TSN,                                                                       
+				          TFA,
+				    	  WINDOW_ID WIN_NO,                                                          
+				          TELLER_ID,                                                                 
+				          PKG_DAS.FUNC_GET_TRANS_TYPE (TRANS_TYPE) TRAN_TYPE,                        
+				          DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,                         
+				        '' PERF_NO,                                                                                             
+				        '' MEET_NO,                                                                                             
+				        '' RACE_NO,                                                                  
+				        TO_NUMBER('0') AMOUNT,                                                       
+				        PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS) CONT2                            
+				     FROM TF_CASH_S00_01                                                             
+				    WHERE                                                                                                    
+				        YEAR_TOTE=SUBSTR(?,1,4)        -- race_day                                                              
+				        AND DATE_TOTE=SUBSTR(?,5,4)    -- race_day                                      
+				        AND WINDOW_ID=?			-- win_no
+				        AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN)  ) -- tsn                                                        	    
+				
+				    UNION ALL                                                                                                
+				
+				 SELECT                                                                          
+				       YEAR_TOTE,                                                                
+				       DATE_TOTE,                                                                
+				       TIME_TOTE,                                                                
+				       'VCASH' GUBUN,                                                             
+				       TSN,                                                                      
+				       TFA,
+				       WINDOW_ID WIN_NO,                                                         
+				       TELLER_ID,                                                                
+				       PKG_DAS.FUNC_GET_TRANS_TYPE (TRANS_TYPE) TRAN_TYPE,                       
+				       DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,                        
+				     '' PERF_NO,                                                                                       
+				     '' MEET_NO,                                                                                       
+				     '' RACE_NO,                                                                 
+				     TO_NUMBER('0') AMOUNT,                                                      
+				       PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS) CONT2                         	 
+				  FROM TF_VOUCH_CASH_S00_01                                                            
+				 WHERE                                                                                              
+				     YEAR_TOTE=SUBSTR(?,1,4)            -- race_day                                                    
+				     AND DATE_TOTE=SUBSTR(?,5,4)        -- race_day           	                      
+				     AND WINDOW_ID=?	-- win_no
+				     AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN)  )-- tsn                                                       
+				
+				    UNION ALL                                                                                                
+				
+				 SELECT                                                                          
+				       YEAR_TOTE,                                                                
+				       DATE_TOTE,                                                                
+				       TIME_TOTE,                                                                
+				       'IRSC' GUBUN,                                                             
+				       TSN,                                                                      
+				       TFA,
+				       WINDOW_ID WIN_NO,                                                         
+				       TELLER_ID,                                                                
+				       PKG_DAS.FUNC_GET_TRANS_TYPE (TRANS_TYPE) TRAN_TYPE,                       
+				       DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,                        
+				     '' PERF_NO,                                                                                       
+				     '' MEET_NO,                                                                                       
+				        'PAID:' RACE_NO,                                                                                         
+				        AMOUNT_PAID AMOUNT,                                                                                   
+				        CASE                                                                           
+				         WHEN RECORD_STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS)                 
+				         ELSE ''                                                                       
+				        END CONT2                                                                
+				  FROM TF_IRS_CASH_S01_01_CRA                                                           
+				 WHERE                                                                                              
+				     YEAR_TOTE=SUBSTR(?,1,4)     -- race_day                                                            
+				     AND DATE_TOTE=SUBSTR(?,5,4) -- race_day                                        
+				     AND WINDOW_ID=?		-- win_no
+				     AND (TSN  LIKE NVL('%' || REPLACE(UPPER(?),'-','') || '%', TSN) ) -- tsn                                                      
+
+				    UNION ALL                                                                                                
+				
+                  SELECT YEAR_TOTE,
+                         DATE_TOTE,
+                         TIME_TOTE,
+                         'CAPO' GUBUN,
+                         '' TSN,
+                         TFA,
+                         WINDOW_ID WIN_NO,
+                         TELLER_ID,
+                         PKG_DAS.FUNC_GET_TRANS_TYPE(TRANS_TYPE) TRAN_TYPE,
+                         DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,   
+                         '' PERF_NO,
+                         '' MEET_NO,
+                         '' RACE_NO,
+                         NULL AMOUNT,
+                         WINDOW_ID AS CONT2
+                    FROM TF_CASH_POSITION_REQ_01
+                   WHERE                                                                          
+				     YEAR_TOTE=SUBSTR(?,1,4)     	-- race_day                                                            
+				     AND DATE_TOTE=SUBSTR(?,5,4) 	-- race_day                                        
+				     AND WINDOW_ID=?				-- win_no
+				
+				 )                                                                                     
+				 ORDER BY YEAR_TOTE, DATE_TOTE, TFA --1,2,3                                                                         
+        ]]>
+    </query>
+    
+    <query id="rsm6010_s02" desc="TSN번호 조회" fetchSize="10">
+      <![CDATA[
+            SELECT                                                                                                      
+				    YEAR_TOTE,                                                                                     
+				    TO_CHAR(TO_DATE(DATE_TOTE,'MMDD'),'MM-DD') DATE_TOTE,                                                       
+				    TO_CHAR(TO_DATE(TIME_TOTE,'HH24MISS'),'HH24:MI:SS') TIME_TOTE,                                 
+				    GUBUN,                                                                                         
+				    SUBSTR(TSN,4,1) || '-' ||SUBSTR(TSN,5,4) || '-' ||SUBSTR(TSN,9,4) || '-' ||SUBSTR(TSN,13,4) TSN,
+				    WIN_NO,
+				    TELLER_ID,
+				    TRAN_TYPE,
+				    STATUS,
+				    PERF_NO,
+				    MEET_NO,
+				    RACE_NO,
+				    AMOUNT,
+				    REPLACE(CONT2, '<BR>', chr(13)||chr(10)) AS CONT2
+				 FROM
+				 (
+				    SELECT /*+ INDEX(B) */
+				        YEAR_TOTE,
+				        DATE_TOTE,
+				        TIME_TOTE,
+				        GUBUN,
+				        TSN,
+				        TFA,
+				        WIN_NO,
+				        TELLER_ID,
+				        TRAN_TYPE,
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,                                               
+				        TO_CHAR(PERF_NO) PERF_NO,
+				        TO_CHAR(MEET_NO) MEET_NO,
+				        TO_CHAR(RACE_NO) RACE_NO,
+				        AMOUNT,                                                                  
+				        CASE                                                                                    
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)||'<BR>'||BET1_SUMMARY||'<BR>'||BET2_SUMMARY||'<BR>'||BET3_SUMMARY
+				         ELSE BET1_SUMMARY||'<BR>'||BET2_SUMMARY||'<BR>'||BET3_SUMMARY                             
+				        END CONT2                                                                                         
+				    FROM                                                                                                    
+				        VW_TF_SELL_01 B                                                                                   
+				    WHERE                                                                                          
+				        TSN = '002'||REPLACE(UPPER(?),'-','')    -- tsn                                                      
+				    UNION ALL                                                                                      
+				    SELECT  /*+ INDEX(B) */
+				        YEAR_TOTE,
+				        DATE_TOTE,
+				        TIME_TOTE,
+				        GUBUN,                                                                                   
+				        TSN,                                                                                     
+				        TFA,
+				        WIN_NO,
+				        TELLER_ID,
+				        TRAN_TYPE,
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,
+				        '' PERF_NO,
+				        '' MEET_NO,
+				        'PAID:' RACE_NO,                                                                                       
+				        AMOUNT_PAID AMOUNT,
+				        CASE
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)
+				         ELSE ''
+				        END CONT2
+				    FROM
+				        VW_TF_CASH_S01_01 B
+				    WHERE                                                                        
+				        TSN = '002'||REPLACE(UPPER(?),'-','')  -- tsn
+				    UNION ALL
+				    SELECT   /*+ INDEX(B) */
+				        YEAR_TOTE,
+				        DATE_TOTE,
+				        TIME_TOTE,
+				        GUBUN,
+				        TSN,
+				        TFA,
+				        WIN_NO,
+				        TELLER_ID,
+				        TRAN_TYPE,
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,
+				        '' PERF,
+				        '' MEET,
+				        '' RACE,
+				        AMOUNT,
+				        CASE
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)
+				         ELSE ''
+				        END CONT2
+				    FROM
+				        VW_TF_VOUCHER_SELL_01 B
+				    WHERE
+				        TSN = '002'||REPLACE(UPPER(?),'-','')  -- tsn
+				    UNION ALL
+				    SELECT  /*+ INDEX(B) */
+				        YEAR_TOTE,
+				        DATE_TOTE,
+				        TIME_TOTE,
+				        GUBUN,
+				        TSN,
+				        TFA,
+				        WIN_NO,
+				        TELLER_ID,
+				        TRAN_TYPE,
+				        DECODE(STATUS,1,'VALID','INVALID')  STATUS,
+				        '' PERF_NO,
+				        '' MEET_NO,
+				        'PAID:' RACE_NO,
+				        AMOUNT_PAID AMOUNT,
+				        CASE
+				         WHEN STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(STATUS)
+				         ELSE ''
+				        END CONT2
+				    FROM
+				        VW_TF_VOUCH_CASH_S01_01 B 
+				    WHERE
+				        TSN = '002'||REPLACE(UPPER(?),'-','') -- tsn
+				    UNION ALL
+				    SELECT   /*+ INDEX(B) */
+				          YEAR_TOTE,
+				          DATE_TOTE,
+				          TIME_TOTE,
+				          'CASH' GUBUN,
+				          TSN,
+				          TFA,
+				          WINDOW_ID WIN_NO,
+				          TELLER_ID,
+				          PKG_DAS.FUNC_GET_TRANS_TYPE (TRANS_TYPE) TRAN_TYPE,
+				          DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,
+				        '' PERF_NO,
+				        '' MEET_NO,
+				        '' RACE_NO,
+				        TO_NUMBER('0') AMOUNT,
+				         PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS) CONT2
+				     FROM TF_CASH_S00_01 B
+				    WHERE
+				        TSN = '002'||REPLACE(UPPER(?),'-','')  -- tsn
+				    UNION ALL
+				 SELECT /*+ INDEX(B) */
+				       YEAR_TOTE,
+				       DATE_TOTE,
+				       TIME_TOTE,
+				       'CASH' GUBUN,
+				       TSN,
+				       TFA,
+				       WINDOW_ID WIN_NO,
+				       TELLER_ID,
+				       PKG_DAS.FUNC_GET_TRANS_TYPE (TRANS_TYPE) TRAN_TYPE,
+				       DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,
+				     '' PERF_NO,
+				     '' MEET_NO,
+				     '' RACE_NO,
+				     TO_NUMBER('0') AMOUNT,
+				     PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS) CONT2
+				  FROM TF_VOUCH_CASH_S00_01 B
+				 WHERE
+				     TSN = '002'||REPLACE(UPPER(?),'-','')  -- tsn
+				 UNION ALL
+				 SELECT
+				 		/*+ INDEX(B) */
+				       	YEAR_TOTE,
+				       	DATE_TOTE,
+				       	TIME_TOTE,
+				       	'IRSC' GUBUN,
+				       	TSN,
+				       	TFA,
+				       	WINDOW_ID WIN_NO,
+				       	TELLER_ID,
+				       	PKG_DAS.FUNC_GET_TRANS_TYPE (TRANS_TYPE) TRAN_TYPE,
+				       	DECODE(RECORD_STATUS,1,'VALID','INVALID')  STATUS,
+				     	'' PERF_NO,
+				     	'' MEET_NO,
+				        'PAID:' RACE_NO,
+				        AMOUNT_PAID AMOUNT,
+				        CASE
+				        	WHEN RECORD_STATUS <>'1' THEN PKG_DAS.FUNC_GET_RECORD_STATUS(RECORD_STATUS)
+				        	ELSE ''
+				        END CONT2
+				  FROM TF_IRS_CASH_S01_01_CRA B
+				 WHERE
+				     TSN = '002' || REPLACE(UPPER(?),'-','') -- tsn
+				 ) ORDER BY YEAR_TOTE, DATE_TOTE, TFA --1,2,3
+        ]]>
+    </query>
+    
+</queryMap>

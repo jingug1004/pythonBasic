@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_race_day_ord(경주일차)">
+    <query id="tbeg_racer_award_his_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         PRZ.STND_YEAR    -- 기준년도
+			       , PRZ.RACE_DAY     -- 경주일자
+			       , PRZ.RACER_NO     -- 선수번호
+			       , TRM.NM_KOR       -- 성명
+			       , PRZ.RANK         -- 순위
+			       , PRZ.AWARD_AMT    -- 상금액
+			       , PRZ.RMK          -- 비고
+			       , PRZ.GBN          -- 입/포상 구분
+			FROM
+			         (
+			            SELECT /*입상 2007년 이후*/
+			                     TRT .STND_YEAR       -- 기준년도
+			                   , TRDO.RACE_DAY        -- 경주일자
+			                   , TOR .RACER_NO        -- 선수번호
+			                   , TO_CHAR(TOR .RANK) RANK -- 순위
+			                   , NULL AS AWARD_AMT	  -- 상금액
+			                   , TRT .TMS_NM AS RMK   -- 회차명
+			                   , '002' AS GBN         -- 입/포상 구분
+			            FROM     TBEB_RACE_TMS     TRT
+			                   , TBEB_RACE         TR
+			                   , TBEB_ORGAN        TOR
+			                   , TBEB_RACE_DAY_ORD TRDO
+			            WHERE  TRT .STND_YEAR       = TRDO.STND_YEAR
+			            AND    TRT .MBR_CD          = TRDO.MBR_CD
+			            AND    TRT .TMS             = TRDO.TMS
+			            AND    TRDO.STND_YEAR       = TR  .STND_YEAR
+			            AND    TRDO.MBR_CD          = TR  .MBR_CD
+			            AND    TRDO.TMS             = TR  .TMS
+			            AND    TRDO.DAY_ORD         = TR  .DAY_ORD
+			            AND    TR  .STND_YEAR       = TOR .STND_YEAR
+			            AND    TR  .MBR_CD          = TOR .MBR_CD
+			            AND    TR  .TMS             = TOR .TMS
+			            AND    TR  .DAY_ORD         = TOR .DAY_ORD
+			            AND    TR  .RACE_NO         = TOR .RACE_NO
+			            AND    TOR .RANK      BETWEEN 1
+			                                      AND 3
+			            AND    TR  .RACE_DGRE_CD LIKE '9%'
+			            AND    '002'                = NVL(?, '002')
+			            AND    TRT .STND_YEAR       > 2006
+			            
+			            UNION
+			            
+			            SELECT  /*2006년 이전 입상*/
+			                     SUBSTR(AWARD_DT,0,4) AS STND_YEAR	-- 기준년도
+			                   , AWARD_DT             AS RACE_DAY	-- 경주일자
+			                   , RACER_NO             AS RACER_NO	-- 선수번호
+			                   , AWARD_RMK            AS RANK		-- 순위
+			                   , AWARD_AMT            AS AWARD_AMT	-- 상금액
+			                   , AWARD_DESC           AS RMK		-- 상명
+			                   , '002'                AS GBN		-- 입/포상 구분
+			            FROM   TBEG_RACER_AWARD_HIS TRAH
+			            WHERE  AWARD_GBN               = '002'
+			            AND    '002'                   = NVL(?, '002')
+			            
+			            UNION
+			            
+			            SELECT  /*포상*/
+			                     SUBSTR(AWARD_DT,0,4) AS STND_YEAR	-- 기준년도
+			                   , AWARD_DT             AS RACE_DAY	-- 경주일자
+			                   , RACER_NO             AS RACER_NO	-- 선수번호
+			                   , NULL                 AS RANK		-- 순위
+			                   , AWARD_AMT            AS AWARD_AMT	-- 상금액
+			                   , AWARD_DESC           AS RMK		-- 상명
+			                   , '001'                AS GBN		-- 입/포상 구분
+			            FROM   TBEG_RACER_AWARD_HIS TRAH
+			            WHERE  AWARD_GBN               = '001'
+			            AND    '001'                   = NVL(?, '001')
+			         ) PRZ
+			       , TBEC_RACER_MASTER TRM
+			WHERE  PRZ.RACER_NO     = TRM.RACER_NO
+			AND    PRZ.STND_YEAR 	= NVL(?, PRZ.STND_YEAR)
+			AND    PRZ.RMK       LIKE NVL('%'||?||'%', PRZ.RMK)
+			AND    TRM.NM_KOR    LIKE NVL(?, TRM.NM_KOR) || '%'
+			AND    PRZ.RACER_NO     = NVL(?, TRM.RACER_NO)
+			ORDER BY PRZ.RACE_DAY DESC
+			       , GBN
+			       , RANK
+			       , AWARD_AMT DESC
+			       , RACER_NO
+        ]]>
+    </query> 
+</queryMap>

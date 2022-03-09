@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_parts 부품 등록 ">
+	<query id="tbef_parts_master_ff001" desc="부품 마스터 조회 " fetchSize="50">
+        <![CDATA[
+            -- 부품 마스터 조회  
+			SELECT ROWNUM AS NUM, TP.* FROM (
+			SELECT 
+			      0 AS CHK, 
+			      PARTS_CD,            -- 부품코드 
+			      PARTS_TPE,            -- 부품구분 
+			      MODULE_CODE,	-- 식별번호 
+			      SUBSTR(MODULE_CODE,1,1) || '-'|| 
+				  DECODE(SUBSTR(MODULE_CODE,2,1),0,'',SUBSTR(MODULE_CODE,2,1)) || SUBSTR(MODULE_CODE,3,1) || '-'||
+				  DECODE(SUBSTR(MODULE_CODE,4,1),0,'',SUBSTR(MODULE_CODE,4,1)) || SUBSTR(MODULE_CODE,5,1) || '-'||
+				  DECODE(SUBSTR(MODULE_CODE,6,1),0,'',SUBSTR(MODULE_CODE,6,1)) || SUBSTR(MODULE_CODE,7,1) as PRINT_MODULE_CODE, -- 프린트 식별번호 
+			      TPM.PARTS_COM_CD,        -- 부품업체코드
+			      COM_NM,            -- 부품업체명
+			      PARTS_ITEM_CD_NM, -- 품명
+			      SPEC,                -- 규격
+			      SAFT_UNIT_CNT,    -- 안전재고
+			      LOC,                -- 보관장소                                     
+			      USE_YN     -- 사용여부 
+			FROM TBEF_PARTS_MASTER TPM, TBEF_PARTS_COM TPC 
+			    WHERE TPM.PARTS_COM_CD = TPC.PARTS_COM_CD(+)
+			    AND TPM.PARTS_CD LIKE ?||'%' 
+			    AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+			    AND TPM.MODULE_CODE LIKE ?||'%' 
+			    AND TPM.PARTS_COM_CD LIKE ?||'%'
+			    AND TPM.USE_YN = DECODE(?, NULL, TPM.USE_YN, ?)
+			    ORDER BY TPM.MODULE_CODE, TPM.PARTS_CD,TPM.PARTS_COM_CD
+			)TP
+        ]]>
+    </query> 
+    
+   <query id="tbef_parts_master_ff101" desc="부품 조회(최종단가   기준 / 주문  대상 품목 조회)  " fetchSize="50">
+    <![CDATA[
+            -- 부품 조회(최종단가   기준 /주문   대상 품목 조회)  
+            SELECT ROWNUM AS NUM,  A.* FROM (
+				SELECT 
+				    TPM.STND_YEAR,
+                    TPM.MBR_CD,
+				    TPM.PARTS_CD,            -- 부품코드 
+				    TPM.PARTS_TPE, -- 부품 구분 
+				    TPM.MODULE_CODE,	-- 식별번호 
+				    TPM.PRICE_STND_YEAR,           -- 부품일련번호 
+				    TPM.PARTS_COM_CD,        -- 부품업체코드
+				    TPM.COM_NM,            -- 부품업체명
+				    TPM.PARTS_ITEM_CD_NM, -- 품명
+				    TPM.SPEC,                -- 규격
+                    TPM.UNIT_PRICE,        -- 단가
+				    TPM.SAFT_UNIT_CNT,    -- 안전재고
+				    TP.CRFW_UNIT_CNT,    -- 이월재고
+				    TP.NOW_UNIT_CNT,     -- 현재재고
+				    TPM.LOC,                -- 보관장소                                     
+				     TPM.USE_YN     -- 사용여부  
+				 FROM (
+                    SELECT * FROM (
+    				     SELECT 
+                                ? AS STND_YEAR,        -- 기준년도
+				                ? AS MBR_CD,            -- 경정장코드
+    				           TPM.PARTS_CD, PARTS_TPE, MODULE_CODE, TPM.PARTS_COM_CD,
+    				           COM_NM, PARTS_ITEM_CD_NM, SPEC, SAFT_UNIT_CNT, LOC, USE_YN, UNIT_PRICE, PRICE_STND_YEAR,
+                              ROW_NUMBER() OVER  (PARTITION BY TPP.PARTS_CD ORDER BY TPP.PARTS_CD, TPP.PRICE_STND_YEAR DESC) AS PARTS_SEQ
+    				     FROM TBEF_PARTS_MASTER TPM, TBEF_PARTS_COM TPC , TBEF_PARTS_PRICE TPP
+    				         WHERE TPM.PARTS_COM_CD = TPC.PARTS_COM_CD(+)
+                             AND TPM.PARTS_CD = TPP.PARTS_CD
+    				         AND TPM.PARTS_CD LIKE ?||'%' 
+    				         AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+    				         AND TPM.MODULE_CODE LIKE ?||'%' 
+    				         AND TPM.PARTS_COM_CD LIKE ?||'%'
+    				         AND TPM.USE_YN = DECODE(?, NULL, TPM.USE_YN, ?)
+                     )
+                     WHERE PARTS_SEQ=1
+				 )TPM, 
+				 (           
+                     SELECT 
+                         TP.STND_YEAR, TP.MBR_CD, TP.PARTS_CD, SUM(CRFW_UNIT_CNT)AS CRFW_UNIT_CNT, NVL(SUM(NOW_UNIT_CNT),0) AS NOW_UNIT_CNT, SUM(SIGHT_CNT) AS SIGHT_CNT
+                     FROM  TBEF_PARTS TP
+                     WHERE TP.STND_YEAR=?
+                     AND TP.MBR_CD=?
+                     GROUP BY TP.STND_YEAR, TP.MBR_CD, TP.PARTS_CD
+                ) TP
+                WHERE  TPM.STND_YEAR = TP.STND_YEAR(+)
+                AND TPM.MBR_CD = TP.MBR_CD(+)
+                AND TPM.PARTS_CD = TP.PARTS_CD(+)
+                ORDER BY TPM.MODULE_CODE
+            )A
+        ]]>
+    </query> 
+    
+    
+    <query id="tbef_parts_master_ff102" desc="부품 조회(현재고 기준 조회/출고 대상 품목 조회)  " fetchSize="50">
+    <![CDATA[
+            -- 부품 조회(현재고 기준 조회/출고 대상 품목 조회)
+            SELECT ROWNUM AS NUM, A.* FROM(
+				SELECT 
+				    TP.STND_YEAR,        -- 기준년도
+				    TP.MBR_CD,            -- 경정장코드
+				    TP.PARTS_CD,            -- 부품코드 
+				    TPM.PARTS_TPE, -- 부품 구분 
+				    TPM.MODULE_CODE,	-- 식별번호 
+				    TP.PRICE_STND_YEAR,           -- 부품일련번호 
+				    TPM.PARTS_COM_CD,        -- 부품업체코드
+				    TPM.COM_NM,            -- 부품업체명
+				    TPM.PARTS_ITEM_CD_NM, -- 품명
+				    TPM.SPEC,                -- 규격
+				    TP.UNIT_PRICE,        -- 단가
+				    TPM.SAFT_UNIT_CNT,    -- 안전재고
+				    TP.CRFW_UNIT_CNT,    -- 이월재고
+				    NVL(TP.NOW_UNIT_CNT,0) AS NOW_UNIT_CNT,     -- 현재재고
+				    TPM.LOC,                -- 보관장소                                     
+				    TPM.USE_YN 	-- 사용여부  
+				FROM (
+				    SELECT 
+				          PARTS_CD, PARTS_TPE, TPM.MODULE_CODE, TPM.PARTS_COM_CD,
+				          COM_NM, PARTS_ITEM_CD_NM, SPEC, SAFT_UNIT_CNT, LOC, USE_YN 
+				    FROM TBEF_PARTS_MASTER TPM, TBEF_PARTS_COM TPC 
+				        WHERE TPM.PARTS_COM_CD = TPC.PARTS_COM_CD(+)
+				        AND TPM.PARTS_CD LIKE ?||'%' 
+				        AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+				        AND TPM.MODULE_CODE LIKE ?||'%' 
+				        AND TPM.PARTS_COM_CD LIKE ?||'%'
+				        AND TPM.USE_YN = DECODE(?, NULL, TPM.USE_YN, ?)
+				)TPM, 
+				(SELECT TP.STND_YEAR, TP.MBR_CD, TP.PARTS_CD, TP.PRICE_STND_YEAR, TPP.UNIT_PRICE, 
+					TP.CRFW_UNIT_CNT, TP.NOW_UNIT_CNT 
+					FROM TBEF_PARTS TP, TBEF_PARTS_PRICE TPP
+					WHERE TP.PARTS_CD= TPP.PARTS_CD
+					AND TP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+					AND TP.STND_YEAR=?
+					AND TP.MBR_CD =?
+				) TP
+				WHERE TPM.PARTS_CD = TP.PARTS_CD(+)
+				ORDER BY TPM.MODULE_CODE, TP.PRICE_STND_YEAR
+			)A
+			
+        ]]>
+    </query> 
+    
+    <query id="tbef_parts_master_mf001" desc="부품 목록 정보 등록 " fetchSize="10">
+        <![CDATA[        	-- 부품 등록 			MERGE INTO TBEF_PARTS_MASTER TPM			USING (				SELECT 				   ? AS PARTS_CD,		-- 부품코드 				   ? AS PARTS_TPE, 	--부품 구분 				   ? AS PARTS_COM_CD,	-- 부품업체코드				   ? AS MODULE_CODE,		-- 식별번호				   ? AS PARTS_ITEM_CD_NM, -- 품명				   ? AS SPEC,			-- 규격				   ? AS SAFT_UNIT_CNT,	-- 안전재고				   ? AS LOC,				-- 보관장소 					   ? AS USE_YN,				-- 사용여부 						   ? AS USER_ID   -- 사용여부 			   FROM DUAL 			) TP			ON (				TPM.PARTS_CD = TP.PARTS_CD	-- 부품코드			    )			WHEN MATCHED THEN			UPDATE 				SET 				   TPM.PARTS_TPE = TP.PARTS_TPE,	-- 부품업체코드				   TPM.PARTS_COM_CD = TP.PARTS_COM_CD,	-- 부품업체코드				   TPM.MODULE_CODE = TP.MODULE_CODE,		-- 식별번호				   TPM.PARTS_ITEM_CD_NM = TP.PARTS_ITEM_CD_NM, -- 품명				   TPM.SPEC = TP.SPEC,			-- 규격				   TPM.SAFT_UNIT_CNT = TP.SAFT_UNIT_CNT,	-- 안전재고				   TPM.LOC = TP.LOC,				-- 보관장소 					   TPM.USE_YN = TP.USE_YN,				-- 보관장소 					       TPM.UPDT_ID = TP.USER_ID,	-- 수정자ID			       TPM.UPDT_DTM = SYSDATE	-- 수정일시 			WHEN NOT MATCHED THEN			INSERT (				TPM.PARTS_CD,		-- 부품코드 				TPM.PARTS_TPE,		-- 부품구분  				TPM.PARTS_COM_CD,	-- 부품업체코드				TPM.MODULE_CODE,		-- 식별번호				TPM.PARTS_ITEM_CD_NM, -- 품명				TPM.SPEC,			-- 규격				TPM.SAFT_UNIT_CNT,	-- 안전재고				TPM.LOC,				-- 보관장소 					TPM.USE_YN,				-- 보관장소 					TPM.INST_ID, 	-- 작성자ID				TPM.INST_DTM 	-- 작성일시 			 )			 VALUES(				TP.PARTS_CD,		-- 부품코드 				TP.PARTS_TPE,		-- 부품구분 				TP.PARTS_COM_CD,	-- 부품업체코드				TP.MODULE_CODE,		-- 식별번호				TP.PARTS_ITEM_CD_NM, -- 품명				TP.SPEC,			-- 규격				TP.SAFT_UNIT_CNT,	-- 안전재고				TP.LOC,				-- 보관장소 					TP.USE_YN,				-- 보관장소 					TP.USER_ID, 	-- 작성자ID				SYSDATE 	-- 작성일시 			 )
+        ]]>
+    </query>        
+    <query id="tbef_parts_master_df001" desc="부품 목록 정보  삭제 " fetchSize="10">
+        <![CDATA[
+           	-- 부품 삭제 
+			DELETE 			FROM TBEF_PARTS_MASTER			WHERE  PARTS_CD    = ?	-- 부품코드 
+        ]]>
+    </query> 
+    
+</queryMap>

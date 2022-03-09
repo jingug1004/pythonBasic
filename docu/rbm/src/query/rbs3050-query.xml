@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS3050(소모품 주문내역)">
+    <query id="rbs3050_s01" desc="소모품이력 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs3050_s01 */
+			       '0' AS CHK,
+			       A.PRHS_DT,
+			       C.CD_NM ||DECODE(A.QTY_CNT, 1,' ', '외 '||TO_CHAR(A.QTY_CNT-1)||'종 ')||A.QTY_SUM||'개' AS ORDER_DESC,
+			       A.RMK_MAX AS RMK,
+			       U.USER_NM
+			FROM (
+			            SELECT  /* rbs3010_s01 */
+			                 S.PRHS_DT    --구매일자
+			                ,MIN(S.SUPPL_CD) AS SUPPL_CD   --소모품코드   
+			                ,SUM(S.QTY) AS QTY_SUM      --수량
+			                ,COUNT(S.QTY) AS QTY_CNT    -- 종류
+			                ,MAX(S.RMK) AS RMK_MAX       --비고
+			                ,MIN(S.INST_ID) AS USER_ID
+			               
+			              FROM  TBRE_SUPPL_HIST S, TBRK_SPEC_CD C --소모품이력
+			             WHERE  1=1
+			               AND  S.PRHS_DT  BETWEEN ? AND ?                        --구매일자From~To
+			               AND  C.CD_TERM1 = ?
+			               AND  S.QTY > 0       
+			               AND  S.SUPPL_CD = C.CD
+			               AND  C.GRP_CD = '031'    
+			             GROUP BY S.PRHS_DT   
+			      ) A, TBRK_SPEC_CD C, TBRK_USER U
+			WHERE A.SUPPL_CD = C.CD
+			  AND C.GRP_CD = '031'
+			  AND A.USER_ID = U.USER_ID
+			ORDER BY PRHS_DT DESC 
+          
+        ]]>
+    </query>
+    
+    <query id="rbs3050_s02" desc="주문세부내역  조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs3050_s02 */
+                 '0' AS CHK
+                ,S.SUPPL_CD   --소모품코드   
+                ,C.CD_NM AS SUPPL_CD_NM   --소모품명   
+                ,S.PRHS_DT    --구매일자
+                ,S.QTY        --수량
+                ,S.RMK        --비고
+                ,C.CD_NM AS SUPPL_CD_NM
+                ,C.CD_NM2 AS MANUF_NM
+               
+              FROM  TBRE_SUPPL_HIST S, TBRK_SPEC_CD C --소모품이력
+             WHERE  1=1
+               AND  S.PRHS_DT  = ?                       --주문일자
+               AND  S.QTY > 0       
+               AND  S.SUPPL_CD = C.CD
+               AND  C.GRP_CD = '031'	
+               AND  C.CD_TERM1 = ?
+             ORDER BY PRHS_DT DESC  ,SUPPL_CD           
+        ]]>
+    </query>
+     
+    <query id="rbs3050_s03" desc="요청자료 취합" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs3050_s03 */
+                  '0' AS CHK,
+			       S.SUPPL_CD,					-- 소모품 코드
+			       C.CD_NM AS SUPPL_CD_NM,		-- 소모품명
+			       C.CD_NM2 AS MANUF_NM, 		-- 제조사	
+			       SUM(S.QTY) AS QTY 			-- 요청수량
+			FROM TBRE_SUPPL_REGI S, TBRK_SPEC_CD C
+			WHERE 1=1
+               AND  S.REQ_DT BETWEEN ? AND ?    -- 주문일자
+               AND  S.QTY > 0       
+               AND  S.SUPPL_CD = C.CD
+               AND  C.GRP_CD = '031'	
+               AND  C.CD_TERM1 = ?
+			GROUP BY S.SUPPL_CD, C.CD_NM, C.CD_NM2
+			ORDER BY 1                 
+        ]]>
+    </query>   
+    
+</queryMap>

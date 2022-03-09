@@ -1,0 +1,1287 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_outparts_total 부품출납총괄표 ">
+	<query id="tbef_outparts_total_ff001" desc="부품출납총괄표 조회 " fetchSize="50">
+        <![CDATA[
+            -- 부품출납총괄표 조회  
+			SELECT 
+			    TP.STND_YEAR,
+			    CASE WHEN NUM IN (1,2,3) THEN '모터'
+			         WHEN NUM IN (4,5,6) THEN '보트'
+			         WHEN NUM IN (7,8,9) THEN '합계'
+			    END GUBUN,
+			    CASE WHEN NUM IN (1,2,3) THEN 1
+			         WHEN NUM IN (4,5,6) THEN 2
+			         WHEN NUM IN (7,8,9) THEN 3
+			    END SEQ,
+			    CASE WHEN NUM IN (1,4,7) THEN '종류'
+			         WHEN NUM IN (2,5,8) THEN '수량'
+			         WHEN NUM IN (3,6,9) THEN '금액'
+			    END SPEC_GUBUN,
+			    CASE WHEN NUM=1 THEN MOT_CRFW_CNT
+			         WHEN NUM=2 THEN MOT_CRFW_UNIT_CNT
+			         WHEN NUM=3 THEN MOT_CRFW_UNIT_CNT_AMT
+			         WHEN NUM=4 THEN BOAT_CRFW_CNT
+			         WHEN NUM=5 THEN BOAT_CRFW_UNIT_CNT
+			         WHEN NUM=6 THEN BOAT_CRFW_UNIT_CNT_AMT
+			         WHEN NUM=7 THEN TOT_CRFW_CNT
+			         WHEN NUM=8 THEN TOT_CRFW_UNIT_CNT
+			         WHEN NUM=9 THEN TOT_CRFW_UNIT_CNT_AMT
+			    END CRFW_UNIT_CNT,
+			    CASE WHEN NUM=1 THEN MOT_ENT_CNT
+			         WHEN NUM=2 THEN MOT_ENT_UNIT_CNT
+			         WHEN NUM=3 THEN MOT_ENT_UNIT_CNT_AMT
+			         WHEN NUM=4 THEN BOAT_ENT_CNT
+			         WHEN NUM=5 THEN BOAT_ENT_UNIT_CNT
+			         WHEN NUM=6 THEN BOAT_ENT_UNIT_CNT_AMT
+			         WHEN NUM=7 THEN TOT_ENT_CNT
+			         WHEN NUM=8 THEN TOT_ENT_UNIT_CNT
+			         WHEN NUM=9 THEN TOT_ENT_UNIT_CNT_AMT
+			    END ENT_CNT,
+			    CASE WHEN NUM=1 THEN MOT_DELV_CNT
+			         WHEN NUM=2 THEN MOT_DELV_UNIT_CNT
+			         WHEN NUM=3 THEN MOT_DELV_UNIT_CNT_AMT
+			         WHEN NUM=4 THEN BOAT_DELV_CNT
+			         WHEN NUM=5 THEN BOAT_DELV_UNIT_CNT
+			         WHEN NUM=6 THEN BOAT_DELV_UNIT_CNT_AMT
+			         WHEN NUM=7 THEN TOT_DELV_CNT
+			         WHEN NUM=8 THEN TOT_DELV_UNIT_CNT
+			         WHEN NUM=9 THEN TOT_DELV_UNIT_CNT_AMT
+			    END DELV_CNT,
+			    CASE WHEN NUM=1 THEN MOT_NOW_CNT
+			         WHEN NUM=2 THEN MOT_NOW_UNIT_CNT
+			         WHEN NUM=3 THEN MOT_NOW_UNIT_CNT_AMT
+			         WHEN NUM=4 THEN BOAT_NOW_CNT
+			         WHEN NUM=5 THEN BOAT_NOW_UNIT_CNT
+			         WHEN NUM=6 THEN BOAT_NOW_UNIT_CNT_AMT
+			         WHEN NUM=7 THEN TOT_NOW_CNT
+			         WHEN NUM=8 THEN TOT_NOW_UNIT_CNT
+			         WHEN NUM=9 THEN TOT_NOW_UNIT_CNT_AMT
+			    END NOW_UNIT_CNT
+			FROM
+			(
+			    SELECT 
+			        MAX(TP.STND_YEAR) STND_YEAR,
+			        '1' AS SEQ,
+			        COUNT(DISTINCT CASE WHEN CRFW_UNIT_CNT>0 THEN TP.PARTS_CD ELSE NULL END) AS TOT_CRFW_CNT, -- 이월 재고  품목 종류
+			        COUNT(DISTINCT CASE WHEN CRFW_UNIT_CNT>0 AND TPM.PARTS_TPE='M' THEN TP.PARTS_CD ELSE NULL END) AS MOT_CRFW_CNT, -- 이월  모터   품목 종류
+			        COUNT(DISTINCT CASE WHEN CRFW_UNIT_CNT>0 AND TPM.PARTS_TPE='B' THEN TP.PARTS_CD ELSE NULL END) AS BOAT_CRFW_CNT, -- 이월 보트  품목 종류
+			        --
+			        COUNT(DISTINCT CASE WHEN NOW_UNIT_CNT>0 THEN TP.PARTS_CD ELSE NULL END) AS TOT_NOW_CNT, -- 현재고 품목 종류
+			        COUNT(DISTINCT CASE WHEN NOW_UNIT_CNT>0  AND TPM.PARTS_TPE='M' THEN TP.PARTS_CD ELSE NULL END) AS MOT_NOW_CNT, -- 현재고 모터  품목 종류
+			        COUNT(DISTINCT CASE WHEN NOW_UNIT_CNT>0  AND TPM.PARTS_TPE='B' THEN TP.PARTS_CD ELSE NULL END) AS BOAT_NOW_CNT, -- 현재고 보트 품목 종류
+			        --
+			        SUM(CRFW_UNIT_CNT) AS TOT_CRFW_UNIT_CNT, -- 이월 품목 수량 
+			        SUM(NOW_UNIT_CNT) AS TOT_NOW_UNIT_CNT,  -- 현재고 수량 
+			        SUM(CRFW_UNIT_CNT*UNIT_PRICE) AS TOT_CRFW_UNIT_CNT_AMT, -- 이월 부품 금액  
+			        SUM(NOW_UNIT_CNT*UNIT_PRICE) AS TOT_NOW_UNIT_CNT_AMT,   -- 현재고 금액 
+			        --
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN CRFW_UNIT_CNT ELSE 0 END) AS MOT_CRFW_UNIT_CNT, -- 이월 모터 품목 수량 
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN NOW_UNIT_CNT ELSE 0 END) AS MOT_NOW_UNIT_CNT,  -- 현재고 모터 품목 수량 
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN CRFW_UNIT_CNT*UNIT_PRICE ELSE 0 END) AS MOT_CRFW_UNIT_CNT_AMT, -- 이월 재고 모터 금액 
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN NOW_UNIT_CNT*UNIT_PRICE ELSE 0 END) AS MOT_NOW_UNIT_CNT_AMT, -- 현재고 모터 금액 
+			        --
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN CRFW_UNIT_CNT ELSE 0 END) AS BOAT_CRFW_UNIT_CNT,-- 이월 보트  품목 수량 
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN NOW_UNIT_CNT ELSE 0 END) AS BOAT_NOW_UNIT_CNT, -- 현재고 보트 품목 수량 
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN CRFW_UNIT_CNT*UNIT_PRICE ELSE 0 END) AS BOAT_CRFW_UNIT_CNT_AMT, -- 이월재고 보트 금액 
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN NOW_UNIT_CNT*UNIT_PRICE ELSE 0 END) AS BOAT_NOW_UNIT_CNT_AMT  -- 현재고 보트금액 
+			    FROM TBEF_PARTS TP, TBEF_PARTS_PRICE TPP, TBEF_PARTS_MASTER TPM
+			    WHERE TP.PARTS_CD = TPP.PARTS_CD
+			    AND TP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+			    AND TP.PARTS_CD = TPM.PARTS_CD
+			    AND TP.STND_YEAR=?
+			    AND TP.MBR_CD=?
+			)TP,                
+			(
+			    SELECT 
+			        MAX(TEP.STND_YEAR) STND_YEAR,
+			        '1' AS SEQ,
+			        COUNT(DISTINCT TEP.PARTS_CD) AS TOT_ENT_CNT,  -- 입고 품목 종류
+			        SUM(ENT_CNT) AS TOT_ENT_UNIT_CNT, -- 임고수량 
+			        SUM(ENT_CNT*UNIT_PRICE) AS TOT_ENT_UNIT_CNT_AMT, -- 입고 금액
+			        --
+			        COUNT(DISTINCT CASE WHEN TPM.PARTS_TPE='M' THEN TEP.PARTS_CD ELSE NULL END) AS MOT_ENT_CNT, -- 입고  모터 품목 종류
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN ENT_CNT ELSE 0 END) AS MOT_ENT_UNIT_CNT,  -- 입고 모터 부품 수량 
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN ENT_CNT*UNIT_PRICE ELSE 0 END) AS MOT_ENT_UNIT_CNT_AMT, -- 입모 모터 부품 금액 
+			        --
+			        COUNT(DISTINCT CASE WHEN TPM.PARTS_TPE='B' THEN TEP.PARTS_CD ELSE NULL END) AS BOAT_ENT_CNT, -- 입고 보트 품목 종류 
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN ENT_CNT ELSE 0 END) AS BOAT_ENT_UNIT_CNT, -- 입고 보트 부품 수량 
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN ENT_CNT*UNIT_PRICE ELSE 0 END) AS BOAT_ENT_UNIT_CNT_AMT -- 입고 보트 부품 금액 
+			    FROM TBEF_ENT_PARTS TEP, TBEF_PARTS_PRICE TPP, TBEF_PARTS_MASTER TPM
+			    WHERE TEP.PARTS_CD = TPP.PARTS_CD
+			    AND TEP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+			    AND TEP.PARTS_CD = TPM.PARTS_CD
+			    AND TEP.STND_YEAR=?
+			    AND TEP.MBR_CD=?
+			)TEP,
+			(
+			    SELECT 
+			        MAX(TDP.STND_YEAR) STND_YEAR,
+			        '1' AS SEQ,
+			        COUNT(DISTINCT TDP.PARTS_CD) AS TOT_DELV_CNT, 
+			        SUM(DELV_CNT) AS TOT_DELV_UNIT_CNT,
+			        SUM(DELV_CNT*UNIT_PRICE) AS TOT_DELV_UNIT_CNT_AMT,
+			        --
+			        COUNT(DISTINCT CASE WHEN TPM.PARTS_TPE='M' THEN TDP.PARTS_CD ELSE NULL END) AS MOT_DELV_CNT, 
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN DELV_CNT ELSE 0 END) AS MOT_DELV_UNIT_CNT,
+			        SUM(CASE WHEN TPM.PARTS_TPE='M' THEN DELV_CNT*UNIT_PRICE ELSE 0 END) AS MOT_DELV_UNIT_CNT_AMT,
+			        --
+			        COUNT(DISTINCT CASE WHEN TPM.PARTS_TPE='B' THEN TDP.PARTS_CD ELSE NULL END) AS BOAT_DELV_CNT, 
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN DELV_CNT ELSE 0 END) AS BOAT_DELV_UNIT_CNT,
+			        SUM(CASE WHEN TPM.PARTS_TPE='B' THEN DELV_CNT*UNIT_PRICE ELSE 0 END) AS BOAT_DELV_UNIT_CNT_AMT
+			    FROM TBEF_DELV_PARTS TDP, TBEF_PARTS_PRICE TPP, TBEF_PARTS_MASTER TPM
+			    WHERE TDP.PARTS_CD = TPP.PARTS_CD
+			    AND TDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+			    AND TDP.PARTS_CD = TPM.PARTS_CD
+			    AND TDP.STND_YEAR=?
+			    AND TDP.MBR_CD=?
+			)TDP , (SELECT ROWNUM AS NUM FROM TBEF_EQUIP WHERE ROWNUM<10) TMP
+			WHERE TP.SEQ = TEP.SEQ
+			AND TP.SEQ = TDP.SEQ
+        ]]>
+    </query> 
+    
+	<query id="tbef_outparts_total_ff011" desc="부품출납총괄표 월별 조회 " fetchSize="50">
+        <![CDATA[
+        -- 부품출납총괄표 월별조회  
+        SELECT 
+              ? STND_YEAR,
+              CASE WHEN NUM IN (1,2,3) THEN '모터'
+                   WHEN NUM IN (4,5,6) THEN '보트'
+                   WHEN NUM IN (7,8,9) THEN '합계'
+              END  GUBUN,
+              CASE WHEN NUM IN (1,2,3) THEN 1
+                   WHEN NUM IN (4,5,6) THEN 2
+                   WHEN NUM IN (7,8,9) THEN 3
+              END  SEQ,
+              CASE WHEN NUM IN (1,4,7) THEN '종류'
+                   WHEN NUM IN (2,5,8) THEN '수량'
+                   WHEN NUM IN (3,6,9) THEN '금액'
+              END  SPEC_GUBUN,
+              CASE WHEN NUM=1 THEN MOT_CRFW_CNT
+                   WHEN NUM=2 THEN MOT_CRFW_UNIT_CNT
+                   WHEN NUM=3 THEN MOT_CRFW_UNIT_CNT_AMT
+                   WHEN NUM=4 THEN BOAT_CRFW_CNT
+                   WHEN NUM=5 THEN BOAT_CRFW_UNIT_CNT
+                   WHEN NUM=6 THEN BOAT_CRFW_UNIT_CNT_AMT
+                   WHEN NUM=7 THEN TOT_CRFW_CNT
+                   WHEN NUM=8 THEN TOT_CRFW_UNIT_CNT
+                   WHEN NUM=9 THEN TOT_CRFW_UNIT_CNT_AMT
+              END  CRFW_UNIT_CNT,
+              CASE WHEN NUM=1 THEN MOT_ENT_CNT
+                   WHEN NUM=2 THEN MOT_ENT_UNIT_CNT
+                   WHEN NUM=3 THEN MOT_ENT_UNIT_CNT_AMT
+                   WHEN NUM=4 THEN BOAT_ENT_CNT
+                   WHEN NUM=5 THEN BOAT_ENT_UNIT_CNT
+                   WHEN NUM=6 THEN BOAT_ENT_UNIT_CNT_AMT
+                   WHEN NUM=7 THEN TOT_ENT_CNT
+                   WHEN NUM=8 THEN TOT_ENT_UNIT_CNT
+                   WHEN NUM=9 THEN TOT_ENT_UNIT_CNT_AMT
+              END  ENT_CNT,
+              CASE WHEN NUM=1 THEN MOT_DELV_CNT
+                   WHEN NUM=2 THEN MOT_DELV_UNIT_CNT
+                   WHEN NUM=3 THEN MOT_DELV_UNIT_CNT_AMT
+                   WHEN NUM=4 THEN BOAT_DELV_CNT
+                   WHEN NUM=5 THEN BOAT_DELV_UNIT_CNT
+                   WHEN NUM=6 THEN BOAT_DELV_UNIT_CNT_AMT
+                   WHEN NUM=7 THEN TOT_DELV_CNT
+                   WHEN NUM=8 THEN TOT_DELV_UNIT_CNT
+                   WHEN NUM=9 THEN TOT_DELV_UNIT_CNT_AMT
+              END  DELV_CNT,
+              CASE WHEN NUM=1 THEN MOT_NOW_CNT
+                   WHEN NUM=2 THEN MOT_NOW_UNIT_CNT
+                   WHEN NUM=3 THEN MOT_NOW_UNIT_CNT_AMT
+                   WHEN NUM=4 THEN BOAT_NOW_CNT
+                   WHEN NUM=5 THEN BOAT_NOW_UNIT_CNT
+                   WHEN NUM=6 THEN BOAT_NOW_UNIT_CNT_AMT
+                   WHEN NUM=7 THEN TOT_NOW_CNT
+                   WHEN NUM=8 THEN TOT_NOW_UNIT_CNT
+                   WHEN NUM=9 THEN TOT_NOW_UNIT_CNT_AMT
+              END  NOW_UNIT_CNT
+        FROM (
+              SELECT   COUNT(DISTINCT CASE WHEN CRFW_CNT > 0 THEN PARTS_CD ELSE NULL END) AS TOT_CRFW_CNT
+                     , COUNT(DISTINCT CASE WHEN ENT_CNT > 0 THEN PARTS_CD ELSE NULL END) AS TOT_ENT_CNT
+                     , COUNT(DISTINCT CASE WHEN DELV_CNT > 0 THEN PARTS_CD ELSE NULL END) AS TOT_DELV_CNT
+                     , COUNT(DISTINCT CASE WHEN NOW_CNT > 0 THEN PARTS_CD ELSE NULL END) AS TOT_NOW_CNT
+                     --
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'M', CASE WHEN CRFW_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS MOT_CRFW_CNT
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'M', CASE WHEN ENT_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS MOT_ENT_CNT
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'M', CASE WHEN DELV_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS MOT_DELV_CNT
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'M', CASE WHEN NOW_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS MOT_NOW_CNT
+                     --
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'B', CASE WHEN CRFW_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS BOAT_CRFW_CNT
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'B', CASE WHEN ENT_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS BOAT_ENT_CNT
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'B', CASE WHEN DELV_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS BOAT_DELV_CNT
+                     , COUNT(DISTINCT DECODE(PARTS_TPE, 'B', CASE WHEN NOW_CNT > 0 THEN PARTS_CD ELSE NULL END, '')) AS BOAT_NOW_CNT
+                     --
+                     , SUM(CRFW_CNT) AS TOT_CRFW_UNIT_CNT
+                     , SUM(ENT_CNT) AS TOT_ENT_UNIT_CNT
+                     , SUM(DELV_CNT) AS TOT_DELV_UNIT_CNT
+                     , SUM(NOW_CNT) AS TOT_NOW_UNIT_CNT
+                     --
+                     , SUM(DECODE(PARTS_TPE, 'M', CRFW_CNT, 0)) AS MOT_CRFW_UNIT_CNT
+                     , SUM(DECODE(PARTS_TPE, 'M', ENT_CNT, 0)) AS MOT_ENT_UNIT_CNT
+                     , SUM(DECODE(PARTS_TPE, 'M', DELV_CNT, 0)) AS MOT_DELV_UNIT_CNT
+                     , SUM(DECODE(PARTS_TPE, 'M', NOW_CNT, 0)) AS MOT_NOW_UNIT_CNT
+                     --
+                     , SUM(DECODE(PARTS_TPE, 'B', CRFW_CNT, 0)) AS BOAT_CRFW_UNIT_CNT
+                     , SUM(DECODE(PARTS_TPE, 'B', ENT_CNT, 0)) AS BOAT_ENT_UNIT_CNT
+                     , SUM(DECODE(PARTS_TPE, 'B', DELV_CNT, 0)) AS BOAT_DELV_UNIT_CNT
+                     , SUM(DECODE(PARTS_TPE, 'B', NOW_CNT, 0)) AS BOAT_NOW_UNIT_CNT
+                     --
+                     , SUM(CRFW_AMT) AS TOT_CRFW_UNIT_CNT_AMT
+                     , SUM(ENT_AMT) AS TOT_ENT_UNIT_CNT_AMT
+                     , SUM(DELV_AMT) AS TOT_DELV_UNIT_CNT_AMT
+                     , SUM(NOW_AMT) AS TOT_NOW_UNIT_CNT_AMT
+                     --
+                     , SUM(DECODE(PARTS_TPE, 'M', CRFW_AMT, 0)) AS MOT_CRFW_UNIT_CNT_AMT
+                     , SUM(DECODE(PARTS_TPE, 'M', ENT_AMT, 0)) AS MOT_ENT_UNIT_CNT_AMT
+                     , SUM(DECODE(PARTS_TPE, 'M', DELV_AMT, 0)) AS MOT_DELV_UNIT_CNT_AMT
+                     , SUM(DECODE(PARTS_TPE, 'M', NOW_AMT, 0)) AS MOT_NOW_UNIT_CNT_AMT
+                     --
+                     , SUM(DECODE(PARTS_TPE, 'B', CRFW_AMT, 0)) AS BOAT_CRFW_UNIT_CNT_AMT
+                     , SUM(DECODE(PARTS_TPE, 'B', ENT_AMT, 0)) AS BOAT_ENT_UNIT_CNT_AMT
+                     , SUM(DECODE(PARTS_TPE, 'B', DELV_AMT, 0)) AS BOAT_DELV_UNIT_CNT_AMT
+                     , SUM(DECODE(PARTS_TPE, 'B', NOW_AMT, 0)) AS BOAT_NOW_UNIT_CNT_AMT
+              FROM   ( SELECT   TPM.PARTS_CD 
+                              , TPM.PARTS_TPE
+                              , CRFW_CNT
+                              , ENT_CNT
+                              , DELV_CNT
+                              , CRFW_CNT + ENT_CNT - DELV_CNT NOW_CNT
+                              , CRFW_AMT
+                              , ENT_AMT
+                              , DELV_AMT
+                              , CRFW_AMT + ENT_AMT - DELV_AMT NOW_AMT
+                       FROM     TBEF_PARTS_MASTER TPM
+                              ,(SELECT   PARTS_CD
+                                       , SUM(DECODE(GBN, 'E', CASE WHEN MM < ? THEN CNT ELSE 0 END, 0))
+                                       - SUM(DECODE(GBN, 'D', CASE WHEN MM < ? THEN CNT ELSE 0 END, 0)) CRFW_CNT
+                                       , SUM(DECODE(GBN, 'E', CASE WHEN MM = ? THEN CNT ELSE 0 END, 0)) ENT_CNT
+                                       , SUM(DECODE(GBN, 'D', CASE WHEN MM = ? THEN CNT ELSE 0 END, 0)) DELV_CNT
+                                       , SUM(DECODE(GBN, 'E', CASE WHEN MM < ? THEN AMT ELSE 0 END, 0))
+                                       - SUM(DECODE(GBN, 'D', CASE WHEN MM < ? THEN AMT ELSE 0 END, 0)) CRFW_AMT
+                                       , SUM(DECODE(GBN, 'E', CASE WHEN MM = ? THEN AMT ELSE 0 END, 0)) ENT_AMT
+                                       , SUM(DECODE(GBN, 'D', CASE WHEN MM = ? THEN AMT ELSE 0 END, 0)) DELV_AMT
+                                FROM    (SELECT   TP.STND_YEAR
+                                                , '00' MM
+                                                , 'E' GBN
+                                                , TP.PARTS_CD
+                                                , NVL(TP.CRFW_UNIT_CNT,0) CNT
+                                                , NVL(TP.CRFW_UNIT_CNT,0)*NVL(TPP.UNIT_PRICE,0) AMT
+                                         FROM     TBEF_PARTS TP
+                                                , TBEF_PARTS_PRICE TPP
+                                         WHERE    TPP.PARTS_CD        = TP.PARTS_CD
+                                         AND      TPP.PRICE_STND_YEAR = TP.PRICE_STND_YEAR
+                                         AND      TP .STND_YEAR       = ?
+                                         AND      TP .MBR_CD          = ?
+                                         AND      TP .CRFW_UNIT_CNT   > 0
+                                         UNION ALL
+                                         SELECT   TE .STND_YEAR
+                                                , SUBSTR(TE.ENT_DT,5,2) MM
+                                                , 'E' GBN
+                                                , TEP.PARTS_CD
+                                                , NVL(TEP.ENT_CNT,0) CNT
+                                                , NVL(TEP.ENT_CNT,0)*NVL(TPP.UNIT_PRICE,0) AMT
+                                         FROM     TBEF_ENT TE
+                                                , TBEF_ENT_PARTS TEP
+                                                , TBEF_PARTS_PRICE TPP
+                                         WHERE    TPP.PARTS_CD        = TEP.PARTS_CD
+                                         AND      TPP.PRICE_STND_YEAR = TEP.PRICE_STND_YEAR
+                                         AND      TE .STND_YEAR       = TEP.STND_YEAR
+                                         AND      TE .MBR_CD          = TEP.MBR_CD
+                                         AND      TE .ENT_SEQ         = TEP.ENT_SEQ
+                                         AND      TE .STND_YEAR       = ?
+                                         AND      TE .MBR_CD          = ?
+                                         AND      TE .ENT_DT          <= ?||?||'99'
+                                         UNION ALL
+                                         SELECT   TD .STND_YEAR
+                                                , SUBSTR(TD.DELV_DT,5,2) MM
+                                                , 'D' GBN
+                                                , TDP.PARTS_CD
+                                                , NVL(TDP.DELV_CNT,0) CNT
+                                                , NVL(TDP.DELV_CNT,0)*NVL(TPP.UNIT_PRICE,0) AMT
+                                         FROM     TBEF_DELV TD
+                                                , TBEF_DELV_PARTS TDP
+                                                , TBEF_PARTS_PRICE TPP
+                                         WHERE    TPP.PARTS_CD        = TDP.PARTS_CD
+                                         AND      TPP.PRICE_STND_YEAR = TDP.PRICE_STND_YEAR
+                                         AND      TD .STND_YEAR       = TDP.STND_YEAR
+                                         AND      TD .MBR_CD          = TDP.MBR_CD
+                                         AND      TD .DELV_SEQ        = TDP.DELV_SEQ
+                                         AND      TD .STND_YEAR       = ?
+                                         AND      TD .MBR_CD          = ?
+                                         AND      TD .DELV_DT         <= ?||?||'99'
+                                        ) TP
+                                GROUP BY PARTS_CD 
+                               )TP
+                       WHERE    TPM.PARTS_CD = TP.PARTS_CD
+                     )
+		),  ( SELECT ROWNUM AS NUM FROM TBEF_EQUIP WHERE ROWNUM < 10) TMP
+
+        ]]>
+    </query> 
+    
+    <query id="tbef_outparts_total_ff002" desc="부품출납연보 조회 " fetchSize="50">
+        <![CDATA[
+			SELECT  ROWNUM AS NUM
+			      , GUBUN
+			      , DECODE(PARTS_CD, '', '', PARTS_CD) AS PARTS_CD
+			      , DECODE(PARTS_CD, '', '', PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+			      , DECODE(PARTS_CD, '', '', SPEC) AS SPEC
+			      , DECODE(PARTS_CD, '', DECODE(GUBUN, 'A', '합계', 'M', '모터계', 'B', '보트계'), MODULE_CODE) AS MODULE_CODE
+			      , CRFW_UNIT_CNT
+			      , ENT_CNT
+			      , DELV_CNT
+			      , CRFW_UNIT_CNT + ENT_CNT - DELV_CNT AS NOW_UNIT_CNT
+			      , PRICE_STND_YEAR
+			      , DECODE(PARTS_CD, '', '', UNIT_PRICE) AS UNIT_PRICE
+			      , DELV_AMT
+			FROM  (
+			        SELECT  NVL(GUBUN,'A') AS GUBUN
+			              , PARTS_CD
+			              , PRICE_STND_YEAR
+			              , CASE WHEN GUBUN IS NULL AND PARTS_CD IS NULL AND PRICE_STND_YEAR IS NULL THEN 1
+			                     WHEN PARTS_CD IS NULL AND PRICE_STND_YEAR IS NULL THEN 2
+			                     WHEN PRICE_STND_YEAR IS NULL THEN 3
+			                     ELSE 4
+			                END AS ROLLUP_TPE
+			              , MAX(MODULE_CODE) AS MODULE_CODE
+			              , MAX(PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+			              , MAX(SPEC) AS SPEC
+			              , SUM(CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+			              , SUM(ENT_CNT) AS ENT_CNT
+			              , SUM(DELV_CNT) AS DELV_CNT
+			              , SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT
+			              , SUM(UNIT_PRICE) AS UNIT_PRICE
+			              , SUM(DELV_CNT * UNIT_PRICE) DELV_AMT    
+			        FROM  (                  
+			                SELECT  TP.PARTS_CD
+			                      , TP.PRICE_STND_YEAR
+			                      , TP.PARTS_TPE AS GUBUN
+				                  , TP.MODULE_CODE
+				                  , TP.PARTS_ITEM_CD_NM
+				                  , TP.SPEC
+			                      , TP.CRFW_UNIT_CNT
+				                  , TP.ENT_CNT
+				                  , TP.DELV_CNT
+				                  , TP.NOW_UNIT_CNT
+				                  , TPP.UNIT_PRICE
+			                FROM  (
+			                        SELECT  PARTS_CD
+				                          , PRICE_STND_YEAR
+			                              , PARTS_TPE
+			                              , MODULE_CODE
+			                              , PARTS_ITEM_CD_NM
+					                      , SPEC
+			                              , SUM(CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+					                      , SUM(ENT_CNT) AS ENT_CNT
+					                      , SUM(DELV_CNT) AS DELV_CNT
+					                      , SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT
+			                        FROM  (
+			                                -- 부품출납내역서(이월)
+			                                SELECT   TPM.PARTS_CD
+                                                   , VEDP.PRICE_STND_YEAR
+                                                   , TPM.PARTS_TPE
+                                                   , TPM.MODULE_CODE
+                                                   , TPM.PARTS_ITEM_CD_NM
+                                                   , TPM.SPEC
+                                                   , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) - SUM(DECODE(VEDP.GBN,'D', VEDP.CNT,0)) CRFW_UNIT_CNT
+                                                   , 0 AS ENT_CNT
+                                                   , 0 AS DELV_CNT
+                                                   , 0 AS NOW_UNIT_CNT
+                                            FROM     VWEF_ENT_DELV_PARTS VEDP
+                                                   , TBEF_PARTS_MASTER TPM
+                                            WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                                            AND      VEDP.STND_YEAR = SUBSTR(?,1,4) 
+                                            AND      VEDP.MBR_CD = ?
+                                            AND      VEDP.DT < ?
+                                            AND      TPM.MODULE_CODE LIKE ?||'%'
+                                            AND      TPM.PARTS_CD LIKE ?||'%'
+                                            AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                                            GROUP BY TPM.PARTS_CD
+                                                   , VEDP.PRICE_STND_YEAR
+			                                       , TPM.MODULE_CODE
+			                                       , TPM.PARTS_ITEM_CD_NM
+			                                       , TPM.PARTS_TPE
+						                           , TPM.SPEC
+			                                UNION ALL        
+			                                --부품출납내역서(입고/출고)
+			                                SELECT   TPM.PARTS_CD
+			                                       , VEDP.PRICE_STND_YEAR
+			                                       , TPM.PARTS_TPE
+			                                       , TPM.MODULE_CODE
+			                                       , TPM.PARTS_ITEM_CD_NM
+						                           , TPM.SPEC
+			                                       , 0 CRFW_UNIT_CNT
+			                                       , SUM(DECODE(GBN, 'E', VEDP.CNT, 0)) AS ENT_CNT
+			                                       , SUM(DECODE(GBN, 'D', VEDP.CNT, 0)) AS DELV_CNT
+			                                       , 0 AS NOW_UNIT_CNT               
+			                                FROM     VWEF_ENT_DELV_PARTS VEDP
+			                                       , TBEF_PARTS_MASTER TPM
+			                                WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+			                                AND      VEDP.GBN IN ('E','D')
+			                                AND      VEDP.DT BETWEEN ? AND ?
+			                                AND      VEDP.MBR_CD    = ?
+                                            AND      TPM.MODULE_CODE LIKE ?||'%'
+			                                AND      TPM.PARTS_CD LIKE ?||'%'
+			                                AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+			                                GROUP BY TPM.PARTS_CD
+			                                       , VEDP.PRICE_STND_YEAR
+			                                       , TPM.PARTS_TPE
+			                                       , TPM.MODULE_CODE
+			                                       , TPM.PARTS_ITEM_CD_NM
+						                           , TPM.SPEC
+			                              )
+			                        GROUP BY PARTS_CD
+				                          , PRICE_STND_YEAR
+			                              , PARTS_TPE
+			                              , MODULE_CODE
+			                              , PARTS_ITEM_CD_NM
+					                      , SPEC
+			                      ) TP
+				                  , TBEF_PARTS_PRICE TPP
+			                WHERE TP.PARTS_CD = TPP.PARTS_CD
+			                AND   TP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+			              )
+			        GROUP BY ROLLUP(GUBUN,PARTS_CD, PRICE_STND_YEAR)    
+			        ORDER BY NVL(GUBUN,'A') DESC
+			               , MODULE_CODE
+			               , PRICE_STND_YEAR ASC
+			      )
+			WHERE ROLLUP_TPE<>3
+        ]]>
+    </query>
+
+    <query id="tbef_outparts_total_ff003" desc="부품출납내역서 조회 " fetchSize="50">
+        <![CDATA[
+			-- 부품출납내역서 조회  
+			SELECT   ROWNUM AS NUM                      
+			       , DT                   -- 입출고일
+			       , PARTS_CD             -- 품번
+			       , MODULE_CODE          -- 식별번호
+			       , PARTS_ITEM_CD_NM     -- 품명
+			       , SEQ                  -- 구분
+			       , RMK                  -- 내역
+			       , ENT_CNT              -- 입고량
+			       , DELV_CNT             -- 출고량
+			       , NOW_UNIT_CNT         -- 현재고        
+			FROM   ( 
+			         SELECT   DECODE(SEQ,4,'',DT) AS DT
+			                , PARTS_CD
+			                , MODULE_CODE
+			                , PARTS_ITEM_CD_NM
+			                , SEQ
+			                , RMK
+			                , ENT_CNT
+			                , DELV_CNT
+			                , NOW_UNIT_CNT
+			         FROM   (
+                              -- 부품출납내역서(이월)
+                              SELECT   SUBSTR(?,1,6)||'00' DT
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+			                         , TPM.PARTS_TPE  
+                                     , 0 AS SEQ
+                                     , '이월' AS RMK           
+                                     , MAX(TEMP.ENT_CNT) - MAX(TEMP.DELV_CNT) ENT_CNT
+                                     , 0 AS DELV_CNT
+                                     , 0 AS NOW_UNIT_CNT
+                              FROM     VWEF_ENT_DELV_PARTS VEDP
+                                     , TBEF_PARTS_MASTER TPM
+                                     , ( 
+                                         SELECT   PARTS_CD
+                                                , SUM(DECODE(GBN, 'C', CNT, 'E', CNT, 0)) ENT_CNT
+                                                , SUM(DECODE(GBN,'D', CNT,0)) DELV_CNT
+                                         FROM VWEF_ENT_DELV_PARTS
+                                         WHERE STND_YEAR = SUBSTR(?,1,4) 
+                                         AND MBR_CD = ?
+                                         AND DT < ?
+                                         GROUP BY PARTS_CD
+                                       ) TEMP
+                              WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                              AND      VEDP.PARTS_CD  = TEMP.PARTS_CD
+                              AND      VEDP.GBN IN ('E','D')
+                              AND      VEDP.DT BETWEEN ? AND ?
+                              AND      VEDP.MBR_CD    = ?
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+                              AND      TPM.PARTS_CD LIKE ?||'%'
+                              AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                              GROUP BY TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+                                     , TPM.PARTS_TPE  
+			                  UNION ALL        
+			                  --부품출납내역서(입고/출고)
+			                  SELECT   VEDP.DT
+			                         , TPM.PARTS_CD
+			                         , TPM.MODULE_CODE
+			                         , TPM.PARTS_ITEM_CD_NM  
+			                         , TPM.PARTS_TPE  
+			                         , DECODE(GBN, 'E', 1, 'D', 2) AS SEQ
+			                         , DECODE(GBN, 'E', '입고', 'D', RMK) AS RMK        
+			                         , DECODE(GBN, 'E', VEDP.CNT, 0) AS ENT_CNT
+			                         , DECODE(GBN, 'D', VEDP.CNT, 0) AS DELV_CNT
+			                         , 0 AS NOW_UNIT_CNT               
+			                  FROM     VWEF_ENT_DELV_PARTS VEDP
+			                         , TBEF_PARTS_MASTER TPM
+			                  WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+			                  AND      VEDP.GBN IN ('E','D')
+			                  AND      VEDP.DT BETWEEN ? AND ?
+			                  AND      VEDP.MBR_CD    = ?
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+			                  AND      TPM.PARTS_CD LIKE ?||'%'
+			                  AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+			                  UNION ALL        
+			                  --부품출납내역서 (월계)
+			                  SELECT   SUBSTR(VEDP.DT,1,6)||'99' AS DT
+			                         , TPM.PARTS_CD
+			                         , TPM.MODULE_CODE
+			                         , TPM.PARTS_ITEM_CD_NM
+			                         , TPM.PARTS_TPE  
+			                         , 3 AS SEQ
+			                         , '월계' AS RMK
+			                         , SUM(DECODE(GBN, 'E', VEDP.CNT, 0)) AS ENT_CNT
+			                         , SUM(DECODE(GBN, 'D', VEDP.CNT, 0)) AS DELV_CNT
+			                         , 0 AS NOW_UNIT_CNT
+			                  FROM     VWEF_ENT_DELV_PARTS VEDP
+			                         , TBEF_PARTS_MASTER TPM
+			                  WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+			                  AND      VEDP.GBN IN ('E','D')
+			                  AND      VEDP.DT BETWEEN ? AND ?
+			                  AND      VEDP.MBR_CD    = ?
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+			                  AND      TPM.PARTS_CD LIKE ?||'%'
+			                  AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+			                  GROUP BY SUBSTR(VEDP.DT,1,6)
+			                         , TPM.PARTS_CD
+			                         , TPM.MODULE_CODE
+			                         , TPM.PARTS_ITEM_CD_NM
+                                     , TPM.PARTS_TPE  
+			                  UNION ALL        
+                              --부품출납내역서 (합계)    
+                              SELECT   SUBSTR(MAX(VEDP.DT),1,4)||'9999' AS DT
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+			                         , TPM.PARTS_TPE  
+                                     , 4 AS SEQ
+                                     , '합계' AS RMK
+                                     , MAX(TEMP.ENT_CNT) - MAX(TEMP.DELV_CNT) + SUM(DECODE(GBN, 'E', VEDP.CNT, 0)) AS ENT_CNT
+                                     , SUM(DECODE(GBN, 'D', VEDP.CNT, 0)) AS DELV_CNT
+                                     , MAX(TEMP.ENT_CNT) - MAX(TEMP.DELV_CNT) + SUM(DECODE(GBN, 'E', VEDP.CNT, 0)) - SUM(DECODE(GBN, 'D', VEDP.CNT, 0)) AS NOW_UNIT_CNT
+                              FROM     VWEF_ENT_DELV_PARTS VEDP
+                                     , TBEF_PARTS_MASTER TPM
+                                     , ( 
+                                         SELECT   PARTS_CD
+                                                , SUM(DECODE(GBN, 'C', CNT, 'E', CNT, 0)) ENT_CNT
+                                                , SUM(DECODE(GBN,'D', CNT,0)) DELV_CNT
+                                         FROM VWEF_ENT_DELV_PARTS
+                                         WHERE STND_YEAR = SUBSTR(?,1,4)
+                                         AND MBR_CD = ?
+                                         AND DT < ?
+                                         GROUP BY PARTS_CD
+                                       ) TEMP
+                              WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                              AND      VEDP.PARTS_CD  = TEMP.PARTS_CD
+                              AND      VEDP.GBN IN ('E','D')
+                              AND      VEDP.DT BETWEEN ? AND ?
+                              AND      VEDP.MBR_CD    = ?
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+                              AND      TPM.PARTS_CD LIKE ?||'%'
+                              AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                              GROUP BY TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+                                     , TPM.PARTS_TPE  
+                                     
+                            ) 
+                     ORDER BY PARTS_TPE DESC
+                            , MODULE_CODE
+                            , PARTS_CD
+                            , DT
+                            , SEQ    
+			       )
+        ]]>
+    </query>
+
+    <query id="tbef_outparts_total_ff013" desc="월부품출납내역서 조회 " fetchSize="50">
+        <![CDATA[
+            -- 월부품출납내역서 조회  
+            SELECT   ROWNUM AS NUM                      
+                   , DT                   -- 입출고일
+                   , PARTS_CD             -- 품번
+                   , MODULE_CODE          -- 식별번호
+                   , PARTS_ITEM_CD_NM     -- 품명
+                   , SEQ                  -- 구분
+                   , DECODE(PARTS_CD, '', DECODE(PARTS_TPE, 'A', '합계', 'M', '모터계', 'B', '보트계'), RMK) AS RMK -- 내역
+                   , ENT_CNT              -- 입고량
+                   , ENT_AMT              -- 입고금액
+                   , DELV_CNT             -- 출고량
+                   , DELV_AMT             -- 출고금액
+                   , NOW_UNIT_CNT         -- 현재고        
+                   , NOW_UNIT_AMT         -- 재고금액
+            FROM   ( 
+                     SELECT   DECODE(SEQ,4,'',DT) AS DT
+                            , PARTS_CD
+                            , MODULE_CODE
+                            , PARTS_ITEM_CD_NM
+                            , PARTS_TPE
+                            , SEQ
+                            , RMK
+                            , ENT_CNT
+                            , ENT_AMT
+                            , DELV_CNT
+                            , DELV_AMT
+                            , NOW_UNIT_CNT
+                            , NOW_UNIT_AMT
+                     FROM   (
+                              --부품출납내역서(입고/출고)
+                              SELECT   VEDP.DT
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM  
+                                     , TPM.PARTS_TPE  
+                                     , DECODE(VEDP.GBN, 'C', 1, 'E', 1, 'D', 2) AS SEQ
+                                     , DECODE(VEDP.GBN, 'C', '이월', 'E', '입고', 'D', RMK) AS RMK        
+                                     , DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0) AS ENT_CNT
+                                     , DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0) AS ENT_AMT
+                                     , DECODE(VEDP.GBN, 'D', VEDP.CNT, 0) AS DELV_CNT
+                                     , DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0) AS DELV_AMT
+                                     , 0 AS NOW_UNIT_CNT               
+                                     , 0 AS NOW_UNIT_AMT               
+                              FROM     VWEF_ENT_DELV_PARTS VEDP
+                                     , TBEF_PARTS_MASTER TPM
+                                     , TBEF_PARTS_PRICE TPP
+                              WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                              AND      VEDP.PARTS_CD = TPP.PARTS_CD
+                              AND      VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                              AND      VEDP.STND_YEAR = SUBSTR(?,1,4)
+                              AND      VEDP.MBR_CD    = ?
+                              AND      VEDP.DT LIKE ?||'%'
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+                              AND      TPM.PARTS_CD LIKE ?||'%'
+                              AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                              UNION ALL        
+                              --부품출납내역서 (월계)
+                              SELECT   SUBSTR(VEDP.DT,1,6)||'99' AS DT
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+                                     , TPM.PARTS_TPE  
+                                     , 3 AS SEQ
+                                     , '월계' AS RMK
+                                     , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) AS ENT_CNT
+                                     , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS ENT_AMT
+                                     , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) AS DELV_CNT
+                                     , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS DELV_AMT
+                                     , MAX(TEMP.NOW_UNIT_CNT) AS NOW_UNIT_CNT
+                                     , MAX(TEMP.NOW_UNIT_AMT) AS NOW_UNIT_AMT
+                              FROM     VWEF_ENT_DELV_PARTS VEDP
+                                     , TBEF_PARTS_MASTER TPM
+                                     , TBEF_PARTS_PRICE TPP
+                                     , ( 
+                                         SELECT   VEDP.PARTS_CD
+                                                , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) NOW_UNIT_CNT
+                                                , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0))
+                                                - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) NOW_UNIT_AMT
+                                         FROM     VWEF_ENT_DELV_PARTS VEDP
+                                                , TBEF_PARTS_PRICE TPP
+                                         WHERE VEDP.PARTS_CD = TPP.PARTS_CD
+                                         AND VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                         AND VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                         AND VEDP.MBR_CD = ?
+                                         AND VEDP.DT < ?||'99'
+                                         GROUP BY VEDP.PARTS_CD
+                                       ) TEMP
+                              WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                              AND      VEDP.PARTS_CD  = TEMP.PARTS_CD
+                              AND      VEDP.PARTS_CD = TPP.PARTS_CD
+                              AND      VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                              AND      VEDP.STND_YEAR = SUBSTR(?,1,4)
+                              AND      VEDP.MBR_CD    = ?
+                              AND      VEDP.DT LIKE ?||'%'
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+                              AND      TPM.PARTS_CD LIKE ?||'%'
+                              AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                              GROUP BY SUBSTR(VEDP.DT,1,6)
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+                                     , TPM.PARTS_TPE  
+                              UNION ALL        
+                              --부품출납내역서 (합계 : 월계의 SUM)    
+                              SELECT   '' AS DT
+                                     , '' AS PARTS_CD
+                                     , '' AS MODULE_CODE
+                                     , '' AS PARTS_ITEM_CD_NM
+                                     , NVL(PARTS_TPE,'A') PARTS_TPE  
+                                     , 4 AS SEQ
+                                     , '' AS RMK
+                                     , SUM(ENT_CNT) AS ENT_CNT
+                                     , SUM(ENT_AMT) AS ENT_AMT
+                                     , SUM(DELV_CNT) AS DELV_CNT
+                                     , SUM(DELV_AMT) AS DELV_AMT
+                                     , SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT
+                                     , SUM(NOW_UNIT_AMT) AS NOW_UNIT_AMT
+                              FROM   ( --부품출납내역서 (월계)
+                                       SELECT   SUBSTR(VEDP.DT,1,6)
+                                              , TPM.PARTS_CD
+                                              , TPM.PARTS_TPE  
+                                              , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) AS ENT_CNT
+                                              , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS ENT_AMT
+                                              , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) AS DELV_CNT
+                                              , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS DELV_AMT
+                                              , MAX(TEMP.NOW_UNIT_CNT) AS NOW_UNIT_CNT
+                                              , MAX(TEMP.NOW_UNIT_AMT) AS NOW_UNIT_AMT
+                                       FROM     VWEF_ENT_DELV_PARTS VEDP
+                                              , TBEF_PARTS_MASTER TPM
+                                              , TBEF_PARTS_PRICE TPP
+                                              , ( 
+                                                  SELECT   VEDP.PARTS_CD
+                                                         , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) NOW_UNIT_CNT
+                                                         , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0))
+                                                         - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) NOW_UNIT_AMT
+                                                  FROM     VWEF_ENT_DELV_PARTS VEDP
+                                                         , TBEF_PARTS_PRICE TPP
+                                                  WHERE VEDP.PARTS_CD = TPP.PARTS_CD
+                                                  AND VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                                  AND VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                                  AND VEDP.MBR_CD = ?
+                                                  AND VEDP.DT < ?||'99'
+                                                  GROUP BY VEDP.PARTS_CD
+                                                ) TEMP
+                                       WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                                       AND      VEDP.PARTS_CD  = TEMP.PARTS_CD
+                                       AND      VEDP.PARTS_CD = TPP.PARTS_CD
+                                       AND      VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                       AND      VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                       AND      VEDP.MBR_CD    = ?
+                                       AND      VEDP.DT LIKE ?||'%'
+                                       AND      TPM.MODULE_CODE LIKE ?||'%'
+                                       AND      TPM.PARTS_CD LIKE ?||'%'
+                                       AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                                       GROUP BY SUBSTR(VEDP.DT,1,6)
+                                              , TPM.PARTS_CD
+                                              , TPM.PARTS_TPE  
+                                     )
+                              GROUP BY ROLLUP(NVL(PARTS_TPE,'A'))
+                            ) 
+                     ORDER BY NVL(PARTS_TPE,'A') DESC
+                            , MODULE_CODE
+                            , PARTS_CD
+                            , DT
+                            , SEQ    
+                   )
+        ]]>
+    </query>
+
+    <query id="tbef_outparts_total_ff023" desc="월부품출납내역서 조회(전월재고포함) " fetchSize="50">
+        <![CDATA[
+            -- 월부품출납내역서 조회  
+            SELECT   ROWNUM AS NUM                      
+                   , DT                   -- 입출고일
+                   , PARTS_CD             -- 품번
+                   , MODULE_CODE          -- 식별번호
+                   , PARTS_ITEM_CD_NM     -- 품명
+                   , SEQ                  -- 구분
+                   , DECODE(PARTS_CD, '', DECODE(PARTS_TPE, 'A', '합계', 'M', '모터계', 'B', '보트계'), RMK) AS RMK -- 내역
+                   , CRFW_UNIT_CNT        -- 전월재고량
+                   , CRFW_UNIT_AMT        -- 전월재고금액
+                   , ENT_CNT              -- 입고량
+                   , ENT_AMT              -- 입고금액
+                   , DELV_CNT             -- 출고량
+                   , DELV_AMT             -- 출고금액
+                   , NOW_UNIT_CNT         -- 현재고        
+                   , NOW_UNIT_AMT         -- 재고금액
+            FROM   ( 
+                     SELECT   DECODE(SEQ,4,'',DT) AS DT
+                            , PARTS_CD
+                            , MODULE_CODE
+                            , PARTS_ITEM_CD_NM
+                            , PARTS_TPE
+                            , SEQ
+                            , RMK
+                            , CRFW_UNIT_CNT
+                            , CRFW_UNIT_AMT
+                            , ENT_CNT
+                            , ENT_AMT
+                            , DELV_CNT
+                            , DELV_AMT
+                            , NOW_UNIT_CNT
+                            , NOW_UNIT_AMT
+                     FROM   (
+                              --부품출납내역서(입고/출고)
+                              SELECT   VEDP.DT
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM  
+                                     , TPM.PARTS_TPE  
+                                     , DECODE(VEDP.GBN, 'C', 1, 'E', 1, 'D', 2) AS SEQ
+                                     , DECODE(VEDP.GBN, 'C', '이월', 'E', '입고', 'D', RMK) AS RMK
+                                     , 0 CRFW_UNIT_CNT
+                                     , 0 CRFW_UNIT_AMT     
+                                     , DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0) AS ENT_CNT
+                                     , DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0) AS ENT_AMT
+                                     , DECODE(VEDP.GBN, 'D', VEDP.CNT, 0) AS DELV_CNT
+                                     , DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0) AS DELV_AMT
+                                     , 0 AS NOW_UNIT_CNT               
+                                     , 0 AS NOW_UNIT_AMT               
+                              FROM     VWEF_ENT_DELV_PARTS VEDP
+                                     , TBEF_PARTS_MASTER TPM
+                                     , TBEF_PARTS_PRICE TPP
+                              WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                              AND      VEDP.PARTS_CD = TPP.PARTS_CD
+                              AND      VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                              AND      VEDP.STND_YEAR = SUBSTR(?,1,4)
+                              AND      VEDP.MBR_CD    = ?
+                              AND      VEDP.DT LIKE ?||'%'
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+                              AND      TPM.PARTS_CD LIKE ?||'%'
+                              AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                              UNION ALL        
+                              --부품출납내역서 (월계)
+                              SELECT   SUBSTR(VEDP.DT,1,6)||'99' AS DT
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+                                     , TPM.PARTS_TPE  
+                                     , 3 AS SEQ
+                                     , '월계' AS RMK
+                                     , MAX(PRE.CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+                                     , MAX(PRE.CRFW_UNIT_AMT) AS CRFW_UNIT_AMT     
+                                     , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) AS ENT_CNT
+                                     , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS ENT_AMT
+                                     , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) AS DELV_CNT
+                                     , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS DELV_AMT
+                                     , MAX(TEMP.NOW_UNIT_CNT) AS NOW_UNIT_CNT
+                                     , MAX(TEMP.NOW_UNIT_AMT) AS NOW_UNIT_AMT
+                              FROM     VWEF_ENT_DELV_PARTS VEDP
+                                     , TBEF_PARTS_MASTER TPM
+                                     , TBEF_PARTS_PRICE TPP
+                                     , ( 
+                                         SELECT   VEDP.PARTS_CD
+                                                , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) CRFW_UNIT_CNT
+                                                , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0))
+                                                - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) CRFW_UNIT_AMT
+                                         FROM     VWEF_ENT_DELV_PARTS VEDP
+                                                , TBEF_PARTS_PRICE TPP
+                                         WHERE VEDP.PARTS_CD = TPP.PARTS_CD
+                                         AND VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                         AND VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                         AND VEDP.MBR_CD = ?
+                                         AND VEDP.DT < ?||'01'
+                                         GROUP BY VEDP.PARTS_CD
+                                       ) PRE --기준월 이전재고
+                                     , ( 
+                                         SELECT   VEDP.PARTS_CD
+                                                , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) NOW_UNIT_CNT
+                                                , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0))
+                                                - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) NOW_UNIT_AMT
+                                         FROM     VWEF_ENT_DELV_PARTS VEDP
+                                                , TBEF_PARTS_PRICE TPP
+                                         WHERE VEDP.PARTS_CD = TPP.PARTS_CD
+                                         AND VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                         AND VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                         AND VEDP.MBR_CD = ?
+                                         AND VEDP.DT < ?||'99'
+                                         GROUP BY VEDP.PARTS_CD
+                                       ) TEMP --기준월 재고
+                              WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                              AND      VEDP.PARTS_CD  = PRE.PARTS_CD
+                              AND      VEDP.PARTS_CD  = TEMP.PARTS_CD
+                              AND      VEDP.PARTS_CD = TPP.PARTS_CD
+                              AND      VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                              AND      VEDP.STND_YEAR = SUBSTR(?,1,4)
+                              AND      VEDP.MBR_CD    = ?
+                              AND      VEDP.DT LIKE ?||'%'
+                              AND      TPM.MODULE_CODE LIKE ?||'%'
+                              AND      TPM.PARTS_CD LIKE ?||'%'
+                              AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                              GROUP BY SUBSTR(VEDP.DT,1,6)
+                                     , TPM.PARTS_CD
+                                     , TPM.MODULE_CODE
+                                     , TPM.PARTS_ITEM_CD_NM
+                                     , TPM.PARTS_TPE  
+                              UNION ALL        
+                              --부품출납내역서 (합계 : 월계의 SUM)    
+                              SELECT   '' AS DT
+                                     , '' AS PARTS_CD
+                                     , '' AS MODULE_CODE
+                                     , '' AS PARTS_ITEM_CD_NM
+                                     , NVL(PARTS_TPE,'A') PARTS_TPE  
+                                     , 4 AS SEQ
+                                     , '' AS RMK
+                                     , SUM(CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+                                     , SUM(CRFW_UNIT_AMT) AS CRFW_UNIT_AMT
+                                     , SUM(ENT_CNT) AS ENT_CNT
+                                     , SUM(ENT_AMT) AS ENT_AMT
+                                     , SUM(DELV_CNT) AS DELV_CNT
+                                     , SUM(DELV_AMT) AS DELV_AMT
+                                     , SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT
+                                     , SUM(NOW_UNIT_AMT) AS NOW_UNIT_AMT
+                              FROM   ( --부품출납내역서 (월계)
+                                       SELECT   SUBSTR(VEDP.DT,1,6)
+                                              , TPM.PARTS_CD
+                                              , TPM.PARTS_TPE  
+                                              , MAX(PRE.CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+                                              , MAX(PRE.CRFW_UNIT_AMT) AS CRFW_UNIT_AMT
+                                              , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) AS ENT_CNT
+                                              , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS ENT_AMT
+                                              , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) AS DELV_CNT
+                                              , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) AS DELV_AMT
+                                              , MAX(TEMP.NOW_UNIT_CNT) AS NOW_UNIT_CNT
+                                              , MAX(TEMP.NOW_UNIT_AMT) AS NOW_UNIT_AMT
+                                       FROM     VWEF_ENT_DELV_PARTS VEDP
+                                              , TBEF_PARTS_MASTER TPM
+                                              , TBEF_PARTS_PRICE TPP
+                                              , ( 
+                                                  SELECT   VEDP.PARTS_CD
+                                                         , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) CRFW_UNIT_CNT
+                                                         , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0))
+                                                         - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) CRFW_UNIT_AMT
+                                                  FROM     VWEF_ENT_DELV_PARTS VEDP
+                                                         , TBEF_PARTS_PRICE TPP
+                                                  WHERE VEDP.PARTS_CD = TPP.PARTS_CD
+                                                  AND VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                                  AND VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                                  AND VEDP.MBR_CD = ?
+                                                  AND VEDP.DT < ?||'01'
+                                                  GROUP BY VEDP.PARTS_CD
+                                                ) PRE --기준월 이전재고
+                                              , ( 
+                                                  SELECT   VEDP.PARTS_CD
+                                                         , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT, 'E', VEDP.CNT, 0)) - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) NOW_UNIT_CNT
+                                                         , SUM(DECODE(VEDP.GBN, 'C', VEDP.CNT*TPP.UNIT_PRICE, 'E', VEDP.CNT*TPP.UNIT_PRICE, 0))
+                                                         - SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT*TPP.UNIT_PRICE, 0)) NOW_UNIT_AMT
+                                                  FROM     VWEF_ENT_DELV_PARTS VEDP
+                                                         , TBEF_PARTS_PRICE TPP
+                                                  WHERE VEDP.PARTS_CD = TPP.PARTS_CD
+                                                  AND VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                                  AND VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                                  AND VEDP.MBR_CD = ?
+                                                  AND VEDP.DT < ?||'99'
+                                                  GROUP BY VEDP.PARTS_CD
+                                                ) TEMP --기준월 재고
+                                       WHERE    VEDP.PARTS_CD  = TPM.PARTS_CD
+                                       AND      VEDP.PARTS_CD  = PRE.PARTS_CD
+                                       AND      VEDP.PARTS_CD  = TEMP.PARTS_CD
+                                       AND      VEDP.PARTS_CD = TPP.PARTS_CD
+                                       AND      VEDP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                                       AND      VEDP.STND_YEAR = SUBSTR(?,1,4)
+                                       AND      VEDP.MBR_CD    = ?
+                                       AND      VEDP.DT LIKE ?||'%'
+                                       AND      TPM.MODULE_CODE LIKE ?||'%'
+                                       AND      TPM.PARTS_CD LIKE ?||'%'
+                                       AND      TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                                       GROUP BY SUBSTR(VEDP.DT,1,6)
+                                              , TPM.PARTS_CD
+                                              , TPM.PARTS_TPE  
+                                     )
+                              GROUP BY ROLLUP(NVL(PARTS_TPE,'A'))
+                            ) 
+                     ORDER BY NVL(PARTS_TPE,'A') DESC
+                            , MODULE_CODE
+                            , PARTS_CD
+                            , DT
+                            , SEQ    
+                   )
+        ]]>
+    </query>
+
+    <query id="tbef_outparts_total_ff004_1" desc="부품출납월보 조회(입출고있는 품목만 조회) " fetchSize="50">
+        <![CDATA[
+			-- 부품출납월보 조회 (입출고있는 품목만 조회)
+			SELECT
+			        NVL(GUBUN,'A') AS GUBUN
+			      , DECODE(PARTS_CD,'','',PARTS_CD) AS PARTS_CD
+			      , DECODE(PARTS_CD,'','',PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+			      , DECODE(PARTS_CD,'','',SPEC) AS SPEC
+			      , DECODE(PARTS_CD,'',DECODE(NVL(GUBUN,'A'),'A','합계',DECODE(GUBUN,'M','모터계','보트계')),MODULE_CODE) AS MODULE_CODE
+			      , CRFW_UNIT_CNT
+			      , MONTH_1_ENT
+			      , MONTH_1_DELV
+			      , MONTH_2_ENT
+			      , MONTH_2_DELV
+			      , MONTH_3_ENT
+			      , MONTH_3_DELV
+			      , MONTH_4_ENT
+			      , MONTH_4_DELV
+			      , MONTH_5_ENT
+			      , MONTH_5_DELV
+			      , MONTH_6_ENT
+			      , MONTH_6_DELV
+			      , MONTH_7_ENT
+			      , MONTH_7_DELV
+			      , MONTH_8_ENT
+			      , MONTH_8_DELV
+			      , MONTH_9_ENT
+			      , MONTH_9_DELV
+			      , MONTH_10_ENT
+			      , MONTH_10_DELV
+			      , MONTH_11_ENT
+			      , MONTH_11_DELV
+			      , MONTH_12_ENT
+			      , MONTH_12_DELV
+			      , MONTH_TOTAL_ENT
+			      , MONTH_TOTAL_DELV
+			      , CRFW_UNIT_CNT + MONTH_TOTAL_ENT - MONTH_TOTAL_DELV AS NOW_UNIT_CNT             
+			FROM  (    
+			        SELECT
+			                GUBUN
+			              , PARTS_CD
+			              , MAX(MODULE_CODE) AS MODULE_CODE
+			              , MAX(PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+			              , MAX(SPEC) AS SPEC      
+			              , SUM(CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+			              , SUM(MONTH_1_ENT) AS MONTH_1_ENT
+			              , SUM(MONTH_1_DELV) AS MONTH_1_DELV
+			              , SUM(MONTH_2_ENT) AS MONTH_2_ENT
+			              , SUM(MONTH_2_DELV) AS MONTH_2_DELV
+			              , SUM(MONTH_3_ENT) AS MONTH_3_ENT
+			              , SUM(MONTH_3_DELV) AS MONTH_3_DELV
+			              , SUM(MONTH_4_ENT) AS MONTH_4_ENT
+			              , SUM(MONTH_4_DELV) AS MONTH_4_DELV
+			              , SUM(MONTH_5_ENT) AS MONTH_5_ENT
+			              , SUM(MONTH_5_DELV) AS MONTH_5_DELV
+			              , SUM(MONTH_6_ENT) AS MONTH_6_ENT
+			              , SUM(MONTH_6_DELV) AS MONTH_6_DELV
+			              , SUM(MONTH_7_ENT) AS MONTH_7_ENT
+			              , SUM(MONTH_7_DELV) AS MONTH_7_DELV
+			              , SUM(MONTH_8_ENT) AS MONTH_8_ENT
+			              , SUM(MONTH_8_DELV) AS MONTH_8_DELV
+			              , SUM(MONTH_9_ENT) AS MONTH_9_ENT
+			              , SUM(MONTH_9_DELV) AS MONTH_9_DELV
+			              , SUM(MONTH_10_ENT) AS MONTH_10_ENT
+			              , SUM(MONTH_10_DELV) AS MONTH_10_DELV
+			              , SUM(MONTH_11_ENT) AS MONTH_11_ENT
+			              , SUM(MONTH_11_DELV) AS MONTH_11_DELV
+			              , SUM(MONTH_12_ENT) AS MONTH_12_ENT
+			              , SUM(MONTH_12_DELV) AS MONTH_12_DELV
+			              , SUM(MONTH_TOTAL_ENT) AS MONTH_TOTAL_ENT
+			              , SUM(MONTH_TOTAL_DELV) AS MONTH_TOTAL_DELV
+			        FROM  (            
+			                --부품출납월보(입출고)
+			                SELECT 
+			                        TPM.PARTS_TPE AS GUBUN
+			                      , TPM.MODULE_CODE
+			                      , VEDP.PARTS_CD
+			                      , TPM.PARTS_ITEM_CD_NM
+			                      , TPM.SPEC
+			                      , VEDP.PRICE_STND_YEAR
+			                      , MAX(TP.CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '01', VEDP.CNT, 0), 0)) AS MONTH_1_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '01', VEDP.CNT, 0), 0)) AS MONTH_1_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '02', VEDP.CNT, 0), 0)) AS MONTH_2_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '02', VEDP.CNT, 0), 0)) AS MONTH_2_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '03', VEDP.CNT, 0), 0)) AS MONTH_3_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '03', VEDP.CNT, 0), 0)) AS MONTH_3_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '04', VEDP.CNT, 0), 0)) AS MONTH_4_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '04', VEDP.CNT, 0), 0)) AS MONTH_4_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '05', VEDP.CNT, 0), 0)) AS MONTH_5_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '05', VEDP.CNT, 0), 0)) AS MONTH_5_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '06', VEDP.CNT, 0), 0)) AS MONTH_6_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '06', VEDP.CNT, 0), 0)) AS MONTH_6_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '07', VEDP.CNT, 0), 0)) AS MONTH_7_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '07', VEDP.CNT, 0), 0)) AS MONTH_7_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '08', VEDP.CNT, 0), 0)) AS MONTH_8_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '08', VEDP.CNT, 0), 0)) AS MONTH_8_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '09', VEDP.CNT, 0), 0)) AS MONTH_9_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '09', VEDP.CNT, 0), 0)) AS MONTH_9_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '10', VEDP.CNT, 0), 0)) AS MONTH_10_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '10', VEDP.CNT, 0), 0)) AS MONTH_10_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '11', VEDP.CNT, 0), 0)) AS MONTH_11_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '11', VEDP.CNT, 0), 0)) AS MONTH_11_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '12', VEDP.CNT, 0), 0)) AS MONTH_12_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '12', VEDP.CNT, 0), 0)) AS MONTH_12_DELV
+			                      , SUM(DECODE(VEDP.GBN, 'E', VEDP.CNT, 0)) AS MONTH_TOTAL_ENT
+			                      , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) AS MONTH_TOTAL_DELV
+			                FROM    VWEF_ENT_DELV_PARTS VEDP
+			                      , TBEF_PARTS_MASTER TPM
+			                    --, TBEF_PARTS TP
+			                      , ( 
+			                          SELECT   STND_YEAR
+			                                 , MBR_CD
+			                                 , PARTS_CD
+			                                 , PRICE_STND_YEAR
+			                                 , SUM(DECODE(GBN, 'C', CNT, 'E', CNT, 0)) - SUM(DECODE(GBN, 'D', CNT, 0)) CRFW_UNIT_CNT
+			                          FROM     VWEF_ENT_DELV_PARTS
+			                          WHERE STND_YEAR = ?
+			                          AND MBR_CD = ?
+			                          AND DT < ?||'01'
+			                          GROUP BY STND_YEAR
+			                                 , MBR_CD
+			                                 , PARTS_CD
+			                                 , PRICE_STND_YEAR
+			                        ) TP
+			                WHERE   VEDP.STND_YEAR       = TP.STND_YEAR
+			                AND     VEDP.MBR_CD          = TP.MBR_CD
+			                AND     VEDP.PARTS_CD        = TP.PARTS_CD
+			                AND     VEDP.PRICE_STND_YEAR = TP.PRICE_STND_YEAR
+			                AND     VEDP.PARTS_CD        = TPM.PARTS_CD
+			                AND     VEDP.STND_YEAR       = ?
+			                AND     VEDP.MBR_CD          = ?
+			                AND     SUBSTR(VEDP.DT,1,6) BETWEEN ? AND ?
+			                AND     TPM.MODULE_CODE LIKE ?||'%'
+			                AND     TPM.PARTS_CD LIKE ?||'%'
+			                AND     TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+			                GROUP BY TPM.PARTS_TPE
+			                      , TPM.MODULE_CODE
+			                      , VEDP.PARTS_CD
+			                      , TPM.PARTS_ITEM_CD_NM
+			                      , TPM.SPEC
+			                      , VEDP.PRICE_STND_YEAR   
+			              )
+			        GROUP BY ROLLUP(GUBUN, PARTS_CD)    
+			      )
+			ORDER BY NVL(GUBUN,'A') DESC, MODULE_CODE    
+        ]]>
+    </query>
+
+    <query id="tbef_outparts_total_ff004_2" desc="부품출납월보 조회(이월/입출고/재고 모두있는 품목 조회) " fetchSize="50">
+        <![CDATA[
+            -- 부품출납월보 조회 (이월/입출고/재고 모두있는 품목 조회)
+            SELECT
+                    NVL(GUBUN,'A') AS GUBUN
+                  , DECODE(PARTS_CD,'','',PARTS_CD) AS PARTS_CD
+                  , DECODE(PARTS_CD,'','',PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+                  , DECODE(PARTS_CD,'','',SPEC) AS SPEC
+                  , DECODE(PARTS_CD,'',DECODE(NVL(GUBUN,'A'),'A','합계',DECODE(GUBUN,'M','모터계','보트계')),MODULE_CODE) AS MODULE_CODE
+                  , CRFW_UNIT_CNT
+                  , MONTH_1_ENT
+                  , MONTH_1_DELV
+                  , MONTH_2_ENT
+                  , MONTH_2_DELV
+                  , MONTH_3_ENT
+                  , MONTH_3_DELV
+                  , MONTH_4_ENT
+                  , MONTH_4_DELV
+                  , MONTH_5_ENT
+                  , MONTH_5_DELV
+                  , MONTH_6_ENT
+                  , MONTH_6_DELV
+                  , MONTH_7_ENT
+                  , MONTH_7_DELV
+                  , MONTH_8_ENT
+                  , MONTH_8_DELV
+                  , MONTH_9_ENT
+                  , MONTH_9_DELV
+                  , MONTH_10_ENT
+                  , MONTH_10_DELV
+                  , MONTH_11_ENT
+                  , MONTH_11_DELV
+                  , MONTH_12_ENT
+                  , MONTH_12_DELV
+                  , MONTH_TOTAL_ENT
+                  , MONTH_TOTAL_DELV
+                  , CRFW_UNIT_CNT + MONTH_TOTAL_ENT - MONTH_TOTAL_DELV AS NOW_UNIT_CNT             
+            FROM  (    
+                    SELECT
+                            TP.GUBUN
+                          , TP.PARTS_CD
+                          , MAX(TP.MODULE_CODE) AS MODULE_CODE
+                          , MAX(TP.PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+                          , MAX(TP.SPEC) AS SPEC      
+                          , SUM(TP.CRFW_UNIT_CNT) AS CRFW_UNIT_CNT
+                          , SUM(NVL(MONTH_1_ENT,0)) AS MONTH_1_ENT
+                          , SUM(NVL(MONTH_1_DELV,0)) AS MONTH_1_DELV
+                          , SUM(NVL(MONTH_2_ENT,0)) AS MONTH_2_ENT
+                          , SUM(NVL(MONTH_2_DELV,0)) AS MONTH_2_DELV
+                          , SUM(NVL(MONTH_3_ENT,0)) AS MONTH_3_ENT
+                          , SUM(NVL(MONTH_3_DELV,0)) AS MONTH_3_DELV
+                          , SUM(NVL(MONTH_4_ENT,0)) AS MONTH_4_ENT
+                          , SUM(NVL(MONTH_4_DELV,0)) AS MONTH_4_DELV
+                          , SUM(NVL(MONTH_5_ENT,0)) AS MONTH_5_ENT
+                          , SUM(NVL(MONTH_5_DELV,0)) AS MONTH_5_DELV
+                          , SUM(NVL(MONTH_6_ENT,0)) AS MONTH_6_ENT
+                          , SUM(NVL(MONTH_6_DELV,0)) AS MONTH_6_DELV
+                          , SUM(NVL(MONTH_7_ENT,0)) AS MONTH_7_ENT
+                          , SUM(NVL(MONTH_7_DELV,0)) AS MONTH_7_DELV
+                          , SUM(NVL(MONTH_8_ENT,0)) AS MONTH_8_ENT
+                          , SUM(NVL(MONTH_8_DELV,0)) AS MONTH_8_DELV
+                          , SUM(NVL(MONTH_9_ENT,0)) AS MONTH_9_ENT
+                          , SUM(NVL(MONTH_9_DELV,0)) AS MONTH_9_DELV
+                          , SUM(NVL(MONTH_10_ENT,0)) AS MONTH_10_ENT
+                          , SUM(NVL(MONTH_10_DELV,0)) AS MONTH_10_DELV
+                          , SUM(NVL(MONTH_11_ENT,0)) AS MONTH_11_ENT
+                          , SUM(NVL(MONTH_11_DELV,0)) AS MONTH_11_DELV
+                          , SUM(NVL(MONTH_12_ENT,0)) AS MONTH_12_ENT
+                          , SUM(NVL(MONTH_12_DELV,0)) AS MONTH_12_DELV
+                          , SUM(NVL(MONTH_TOTAL_ENT,0)) AS MONTH_TOTAL_ENT
+                          , SUM(NVL(MONTH_TOTAL_DELV,0)) AS MONTH_TOTAL_DELV
+                    FROM  (            
+                            --부품출납월보(입출고)
+                            SELECT
+                                    VEDP.PARTS_CD
+                                  , VEDP.PRICE_STND_YEAR
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '01', VEDP.CNT, 0), 0)) AS MONTH_1_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '01', VEDP.CNT, 0), 0)) AS MONTH_1_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '02', VEDP.CNT, 0), 0)) AS MONTH_2_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '02', VEDP.CNT, 0), 0)) AS MONTH_2_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '03', VEDP.CNT, 0), 0)) AS MONTH_3_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '03', VEDP.CNT, 0), 0)) AS MONTH_3_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '04', VEDP.CNT, 0), 0)) AS MONTH_4_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '04', VEDP.CNT, 0), 0)) AS MONTH_4_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '05', VEDP.CNT, 0), 0)) AS MONTH_5_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '05', VEDP.CNT, 0), 0)) AS MONTH_5_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '06', VEDP.CNT, 0), 0)) AS MONTH_6_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '06', VEDP.CNT, 0), 0)) AS MONTH_6_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '07', VEDP.CNT, 0), 0)) AS MONTH_7_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '07', VEDP.CNT, 0), 0)) AS MONTH_7_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '08', VEDP.CNT, 0), 0)) AS MONTH_8_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '08', VEDP.CNT, 0), 0)) AS MONTH_8_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '09', VEDP.CNT, 0), 0)) AS MONTH_9_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '09', VEDP.CNT, 0), 0)) AS MONTH_9_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '10', VEDP.CNT, 0), 0)) AS MONTH_10_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '10', VEDP.CNT, 0), 0)) AS MONTH_10_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '11', VEDP.CNT, 0), 0)) AS MONTH_11_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '11', VEDP.CNT, 0), 0)) AS MONTH_11_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', DECODE(SUBSTR(VEDP.DT, 5, 2), '12', VEDP.CNT, 0), 0)) AS MONTH_12_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', DECODE(SUBSTR(VEDP.DT, 5, 2), '12', VEDP.CNT, 0), 0)) AS MONTH_12_DELV
+                                  , SUM(DECODE(VEDP.GBN, 'E', VEDP.CNT, 0)) AS MONTH_TOTAL_ENT
+                                  , SUM(DECODE(VEDP.GBN, 'D', VEDP.CNT, 0)) AS MONTH_TOTAL_DELV
+                            FROM    VWEF_ENT_DELV_PARTS VEDP
+                                  , TBEF_PARTS_MASTER TPM
+                            WHERE   VEDP.PARTS_CD        = TPM.PARTS_CD
+                            AND     VEDP.STND_YEAR       = ?
+                            AND     VEDP.MBR_CD          = ?
+                            AND     SUBSTR(VEDP.DT,1,6) BETWEEN ? AND ?
+                            AND     TPM.MODULE_CODE LIKE ?||'%'
+                            AND     TPM.PARTS_CD LIKE ?||'%'
+                            AND     TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                            GROUP BY VEDP.PARTS_CD
+                                  , VEDP.PRICE_STND_YEAR   
+                          ) VEDP
+                        , ( 
+                            SELECT  TPM.PARTS_TPE AS GUBUN
+                                  , TPM.MODULE_CODE
+                                  , VEDP.PARTS_CD
+                                  , TPM.PARTS_ITEM_CD_NM
+                                  , TPM.SPEC
+                                  , PRICE_STND_YEAR
+                                  , SUM(DECODE(GBN, 'C', CNT, 'E', CNT, 0)) - SUM(DECODE(GBN, 'D', CNT, 0)) CRFW_UNIT_CNT
+                            FROM    VWEF_ENT_DELV_PARTS VEDP
+                                  , TBEF_PARTS_MASTER TPM
+                            WHERE   VEDP.PARTS_CD        = TPM.PARTS_CD
+                            AND     VEDP.STND_YEAR = ?
+                            AND     VEDP.MBR_CD = ?
+                            AND     VEDP.DT < ?||'01'
+                            AND     TPM.MODULE_CODE LIKE ?||'%'
+                            AND     TPM.PARTS_CD LIKE ?||'%'
+                            AND     TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                            GROUP BY TPM.PARTS_TPE
+                                   , TPM.MODULE_CODE
+                                   , VEDP.PARTS_CD
+                                   , TPM.PARTS_ITEM_CD_NM
+                                   , TPM.SPEC
+                                   , PRICE_STND_YEAR
+                          ) TP
+                    WHERE  TP.PARTS_CD        = VEDP.PARTS_CD(+)
+                    AND    TP.PRICE_STND_YEAR = VEDP.PRICE_STND_YEAR(+)
+                    GROUP BY ROLLUP(TP.GUBUN, TP.PARTS_CD)    
+                  )                                
+            ORDER BY NVL(GUBUN,'A') DESC, MODULE_CODE    
+        ]]>
+    </query>
+
+</queryMap>

@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="420" Id="comSendMessage" Left="8" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="쪽지전송" Top="8" Ver="1.0" Width="550" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsSendMsg">
+				<Contents>
+					<colinfo id="SEND_USER" size="256" summ="default" type="STRING"/>
+					<colinfo id="RECV_USER" size="256" summ="default" type="STRING"/>
+					<colinfo id="TITLE" size="256" summ="default" type="STRING"/>
+					<colinfo id="LINK_URL" size="256" summ="default" type="STRING"/>
+					<colinfo id="DESC" size="256" summ="default" type="STRING"/>
+					<colinfo id="COMP_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="CHK" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsRecvUser">
+				<Contents>
+					<colinfo id="USER_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="USER_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="HP_NO" size="256" summ="default" type="STRING"/>
+					<colinfo id="CHK" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Static Align="Center" Border="Flat" Height="125" Id="Static1" Left="6" Style="snis_m_lable" TabOrder="4" Text="내용" Top="27" VAlign="Middle" Width="80"></Static>
+		<Button ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnSend" ImageID="btn_txt_07" Left="192" OnClick="fcSave" TabOrder="2" Text="전송" Top="392" Width="80"></Button>
+		<Button ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnPopClose" ImageID="btn_txt_07" Left="291" OnClick="fcEnd" TabOrder="3" Text="닫기" Top="392" Width="80"></Button>
+		<Static Font="굴림,10,Bold" Height="22" Id="d" Left="26" Style="snis_m_title" TabOrder="6" Text="쪽지&#32;전송" Top="4" VAlign="Middle" Width="118"></Static>
+		<Image Height="20" Id="imgFormTitle" ImageID="m_titleblet" Left="5" TabOrder="5" Top="6" Width="17"></Image>
+		<TextArea BindDataset="dsSendMsg" Border="Flat" CheckLength="Byte" Column="DESC" Height="125" Id="taDesc" ImeMode="native" Left="93" MaxLength="2000" Style="snis_if_input01" TabOrder="1" Top="27" Width="451"></TextArea>
+		<Grid AutoEnter="TRUE" AutoFit="TRUE" AutoFitEndLine="Hide" BindDataset="dsRecvUser" BKColor="user15" BkColor2="user16" BkSelColor="user17" BoldHead="true" Border="Flat" BorderColor="user22" Bottom="384" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="208" Id="grdRecvUser" InputPanel="FALSE" Left="8" LineColor="user18" MinWidth="100" OnHeadClick="fcGridSort" Right="544" SelColor="user19" Style="snis_grid" TabOrder="7" TabStop="true" Top="176" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="536">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="29"/>
+						<col width="106"/>
+						<col width="112"/>
+						<col width="226"/>
+					</columns>
+					<head>
+						<cell bkcolor="user20" col="0" color="user21" display="text" text="√"/>
+						<cell bkcolor="user20" col="1" color="user21" display="text" font="굴림,9,Bold" text="사용자ID"/>
+						<cell bkcolor="user20" col="2" color="user21" display="text" font="굴림,9,Bold" text="사용자명"/>
+						<cell bkcolor="user20" col="3" color="user21" display="text" font="굴림,9,Bold" text="이동전화번호"/>
+					</head>
+					<body>
+						<cell col="0" colid="CHK" display="checkbox" edit="checkbox"/>
+						<cell align="center" col="1" colid="USER_ID" display="text"/>
+						<cell align="center" col="2" colid="USER_NM" display="text"/>
+						<cell align="left" col="3" colid="HP_NO" display="text" multiline="true"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Static Font="굴림,10,Bold" Height="22" Id="Static0" Left="23" Style="snis_m_title" TabOrder="8" Text="전송대상&#32;목록" Top="155" VAlign="Middle" Width="105"></Static>
+		<Image Height="20" Id="Image0" ImageID="m_titleblet2" Left="10" TabOrder="9" Top="158" Width="8"></Image>
+	</Form>
+	<Script><![CDATA[
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       =  this.getform().id;
+var sBUTTONLIST   = 'TTTTTT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+var sMenuGrpNum     = "0";                         // 메뉴그룹의 갯수보관
+var sMenuListNum    = "0";                          // 메뉴리스트의 갯수보관
+var sMenuUpId       = "";
+var sMenuUpNm       = "";
+
+
+var sSendUser 	  = "";
+var sRecvUser  	  = "";
+var sTitle  	  = "";
+var sLinkUrl 	  = "";
+var sDesc  		  = "";
+var sCompId       = "";
+var sLinkMenuId   = "";
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) { 
+	
+
+	dsSendMsg.ClearData();
+	var nRow = dsSendMsg.AddRow();
+	
+    dsSendMsg.SetColumn(nRow,"SEND_USER",sSendUser);		// 수신자 사번
+    dsSendMsg.SetColumn(nRow,"RECV_USER",sRecvUser);		// 송신자 사번
+    dsSendMsg.SetColumn(nRow,"TITLE",sTitle);				// 제목
+    dsSendMsg.SetColumn(nRow,"LINK_URL",sLinkUrl);  		// 링크
+    dsSendMsg.SetColumn(nRow,"DESC",sDesc);					// 내용 
+    dsSendMsg.SetColumn(nRow,"COMP_ID",sCompId);			// 
+
+    
+	taDesc.SetFocus();
+	
+	
+	fcSearch();
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 UNLoad時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	// Return Key Press時 Next Component focus
+	if ( nChar == 13 ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+
+}
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 
++-------------------------------------------------------------------------------------------------*/
+function fcSearch() {
+
+	var sServiceName = "";
+	var sInDataSet   = "";
+	var sOutDataSet  = "";
+
+	 sServiceName = "common-service:searchAlarmUser";
+	 sInDataSet   = "";
+	 sOutDataSet  = "dsRecvUser=dsRecvUser";
+
+	 //조회조건 : 
+	 fcd_AddParam("USER_IDS", replace(sRecvUser,",","','") );
+
+    
+	 fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", true);
+
+}
+
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 하기전에 필수항목 체크
++-------------------------------------------------------------------------------------------------*/
+function fcSaveCheck(obj) {
+
+	// 필수항목체크
+	oDataSet          = dsSendMsg;
+	sMandatoryColID   = "DESC";
+	sMandatoryColName = "내용";
+	oGrid             = grdSendMsg;
+	if ( fnc_GetMandatoryViolateRow(oDataSet, sMandatoryColID, sMandatoryColName, oGrid) > -1 ) {
+		return false;
+	}
+	
+	
+	return true;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSave(obj) {
+
+    if(fnc_IsNull(dsSendMsg.GetColumn(0,"TITLE"))) {
+        fnc_Message(SNIS_COM_0001, "SERVERMSG", "내용");
+        return;
+    }
+    
+        if(fnc_IsNull(dsSendMsg.GetColumn(0,"DESC"))) {
+        fnc_Message(SNIS_COM_0001, "SERVERMSG", "내용");
+        return;
+    }
+    
+
+   var sReceiveId ="";
+   
+   for(var i = 0; i < dsRecvUser.GetRowCount();i++){
+	
+		if(dsRecvUser.GetColumn(i,"CHK") == "1"){
+		
+			sReceiveId += dsRecvUser.GetColumn(i,"USER_ID")+",";
+  
+		}
+   }
+   
+   if(Length(sReceiveId) >0){
+   
+	   sReceiveId =sReceiveId.SubStr(0,Length(sReceiveId)-1);
+	 
+	   fcd_SendMessage(quote(dsSendMsg.GetColumn(0,"SEND_USER"))	// 송신자 사번 
+					, sReceiveId	// 수신자 사번 
+					, dsSendMsg.GetColumn(0,"TITLE")	    // 제목
+					, sLinkMenuId 	// 수신자 번호
+					, dsSendMsg.GetColumn(0,"DESC")			// 내용
+					, "comSendMsg"
+					);
+	
+	   fnc_Message(L_COM_ALT_0011,"N","쪽지  전송");
+	  
+	   
+	   fcEnd();			
+   }
+   
+}
+
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	// 화면 종료
+	Close();
+}
+
+
+
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+
+
+}
+]]></Script>
+</Window>

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_arrange_esc(주선제외선수등록)">
+    <query id="tbec_arrange_esc_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* tbec_arrange_esc_fc001 */
+                     TAE.SEQ                	-- 일련번호
+                   , TAE.RACER_NO        	    -- 등록번호
+                   , TRM.NM_KOR            	    -- 성명
+                   , TRM.RACER_GRD_CD           --선수등급
+                   , TRM.RACER_PERIO_NO         --선수기수
+                   , DECODE(SUBSTR(GET_DEC(RES_NO),7,1),1,'남',3,'남',2,'여',4,'여') RACER_SEX --성별
+                   , TAE.STR_DT            	    -- 주선제외 시작일자
+                   , TAE.END_DT            	    -- 주선제외 종료일자
+                   , TAE.RSN_CD            	    -- 주선보류분류코드
+                   , TAE.RMK            	    -- 비고
+                   , TAE.UPDT_ID        	    -- 등록자 ID
+                   , NVL(TU.USER_NM, TAE.UPDT_ID) USER_NM	-- 등록자
+                   , TO_CHAR(TAE.UPDT_DTM,'YYYYMMDD') UPDT_DT
+                   ,GET_CD_NM('E20003', TXR.TRNG_EXPT_STAT_CD) AS TRNG_EXPT_STAT_NM
+            FROM     TBEC_ARRANGE_ESC  TAE
+                   , TBEC_RACER_MASTER TRM
+                   , TBEC_RACER_DETAIL TRD
+                   , VWEA_USER         TU
+                   , TBEB_TRNG_EXPT_RACER TXR
+            WHERE  TAE.END_DT     >= NVL(?, TAE.END_DT)
+            AND    TAE.STR_DT     <= NVL(?, TAE.STR_DT)
+            AND    TRM.NM_KOR   LIKE '%' || NVL(?, TRM.NM_KOR) || '%'                   
+            AND    TAE.RACER_NO    = TRM.RACER_NO
+            AND    TAE.RACER_NO    = TRD.RACER_NO(+)
+            AND    TAE.UPDT_ID     = TU .USER_ID(+)
+            AND    TAE.RACER_NO    = TXR.RACER_NO(+)
+            AND    TO_CHAR(TAE.SEQ)= TXR.SANC_ISSUE_NO(+)
+            ORDER BY TAE.INST_DTM DESC
+        ]]>
+    </query>
+    <query id="tbec_arrange_esc_fc003" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TRM.RACER_PERIO_NO
+			       , TRM.TOT_CNT
+			       , TRM.CNL_CNT
+			       , TRM.TOT_CNT - TRM.CNL_CNT REG_CNT
+			       , NVL(SUM(DECODE(SUBSTR(TAE.RSN_CD, 1, 1), '2', TAE.ESC_CNT)), 0) ESC_CNT
+			       , NVL(SUM(DECODE(SUBSTR(TAE.RSN_CD, 1, 1), '0', TAE.ESC_CNT)), 0) ETC_CNT
+			       , NVL(SUM(ESC_CNT)                                           , 0) ESC_TOT_CNT
+			       , TRM.TOT_CNT - TRM.CNL_CNT - NVL(SUM(TAE.ESC_CNT), 0) USE_CNT
+			FROM     (
+			            SELECT
+			                     TRM.RACER_PERIO_NO
+			                   , COUNT(*) TOT_CNT
+			                   , NVL(SUM(CASE WHEN TRD.CNL_DT < ? THEN 1 END), 0) CNL_CNT
+			            FROM     TBEC_RACER_MASTER TRM
+			                   , TBEC_RACER_DETAIL TRD
+			            WHERE  TRM.RACER_NO = TRD.RACER_NO
+			            AND TO_CHAR(TRM.INST_DTM,'YYYYMMDD') <  ? --등급심사 종료일 이전 등록된 선수만 계산. 신인제외. 2013.1.16
+			            GROUP BY TRM.RACER_PERIO_NO
+			         ) TRM
+			       , (
+			            SELECT
+			                     TRM.RACER_PERIO_NO
+			                   , TAE.RSN_CD
+			                   , COUNT(*) ESC_CNT
+			            FROM     TBEC_ARRANGE_ESC  TAE
+			                   , TBEC_RACER_MASTER TRM
+			            WHERE  TAE.RACER_NO  = TRM.RACER_NO
+			            AND    TAE.STR_DT   <= ?
+			            AND    TAE.END_DT   >= ?
+			            GROUP BY TRM.RACER_PERIO_NO
+			                   , TAE.RSN_CD
+			         ) TAE
+			WHERE  TRM.RACER_PERIO_NO = TAE.RACER_PERIO_NO(+)
+			GROUP BY TRM.RACER_PERIO_NO
+			       , TRM.TOT_CNT
+			       , TRM.CNL_CNT
+			ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO)
+        ]]>
+    </query>
+    <query id="tbec_arrange_esc_fc004" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     ROWNUM SEQ
+                   , RACER_NO
+                   , NM_KOR
+                   , RACER_PERIO_NO
+                   , CNL_DT
+                   , CNL_RSN
+            FROM   (
+                        SELECT
+                                 TRM.RACER_NO
+                               , TRM.NM_KOR
+                               , TRM.RACER_PERIO_NO
+                               , TRD.CNL_DT
+                               , TRD.CNL_RSN
+                        FROM     TBEC_RACER_MASTER TRM
+                               , TBEC_RACER_DETAIL TRD
+                        WHERE  TRM.RACER_NO = TRD.RACER_NO
+                        AND    TRD.CNL_DT   < ?
+                        ORDER BY TRM.RACER_NO
+                   )
+        ]]>
+    </query>
+    <query id="tbec_arrange_esc_fc005" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     ROWNUM SEQ
+                   , RACER_NO
+                   , NM_KOR
+                   , RACER_PERIO_NO
+                   , RSN_CD
+                   , RMK
+            FROM   (
+                        SELECT
+                                 TRM.RACER_NO
+                               , TRM.NM_KOR
+                               , TRM.RACER_PERIO_NO
+                               , TAE.RSN_CD
+                               , TAE.RMK
+                        FROM     TBEC_ARRANGE_ESC  TAE
+                               , TBEC_RACER_MASTER TRM
+                               , TBEC_RACER_DETAIL TRD
+                        WHERE  TAE.RACER_NO  = TRM.RACER_NO
+                        AND    TAE.RACER_NO  = TRD.RACER_NO
+                        AND    TAE.STR_DT   <= ?
+                        AND    TAE.END_DT   >= ?
+                        AND    TAE.RSN_CD LIKE '2%'
+                        ORDER BY TAE.RSN_CD
+                               , TRM.RACER_NO
+                   )
+        ]]>
+    </query>
+    <query id="tbec_arrange_esc_fc006" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     ROWNUM SEQ
+                   , RACER_NO
+                   , NM_KOR
+                   , RACER_PERIO_NO
+                   , RSN_CD
+                   , RMK
+            FROM   (
+                        SELECT
+                                 TRM.RACER_NO
+                               , TRM.NM_KOR
+                               , TRM.RACER_PERIO_NO
+                               , TAE.RSN_CD
+                               , TAE.RMK
+                        FROM     TBEC_ARRANGE_ESC  TAE
+                               , TBEC_RACER_MASTER TRM
+                               , TBEC_RACER_DETAIL TRD
+                        WHERE  TAE.RACER_NO  = TRM.RACER_NO
+                        AND    TAE.RACER_NO  = TRD.RACER_NO
+                        AND    TAE.STR_DT   <= ?
+                        AND    TAE.END_DT   >= ?
+                        AND    TAE.RSN_CD = '004'
+                        ORDER BY TAE.RSN_CD
+                               , TRM.RACER_NO
+                   )
+        ]]>
+    </query>
+    <query id="tbec_arrange_esc_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBEC_ARRANGE_ESC TAE
+            USING   DUAL
+            ON        (     TAE.SEQ     =     ?     -- 일련번호
+                    )
+            WHEN MATCHED THEN
+                    UPDATE  SET
+                      RACER_NO        = ?         -- 등록번호
+                      , STR_DT          = ?         -- 주선제외시작일
+                      , END_DT          = ?         -- 주선제외종료일
+                      , RSN_CD          = ?         -- 주선보류분류코드
+                      , RMK             = ?         -- 비고
+                      , UPDT_ID         = ?         -- 수정자ID    
+                      , UPDT_DTM        = SYSDATE   -- 수정일시    
+            WHEN NOT MATCHED THEN
+                    INSERT (
+                      SEQ                 	-- 일련번호    
+                      , RACER_NO            -- 등록번호
+                      , STR_DT              -- 주선제외시작일
+                      , END_DT              -- 주선제외종료일
+                      , RSN_CD              -- 주선보류분류코드
+                      , RMK                 -- 비고
+                      , INST_ID             -- 작성자ID    
+                      , INST_DTM            -- 작성일시   
+                      , UPDT_ID          	-- 수정자ID    
+				      , UPDT_DTM         	-- 수정일시
+					) VALUES (	
+	                    ?           	-- 일련번호
+	                  , ?               -- 등록번호
+	                  , ?     			-- 주선제외시작일
+	                  , ?        		-- 주선제외종료일
+	                  , ?            	-- 주선보류분류코드
+	                  , ?               -- 비고
+				      , ?          		-- 작성자ID    
+				      , SYSDATE         -- 작성일시   
+				      , ?          		-- 수정자ID    
+				      , SYSDATE         -- 수정일시				
+					)
+        ]]>
+    </query> 
+    <query id="tbec_arrange_esc_dc001" desc="삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM TBEC_ARRANGE_ESC
+			WHERE 	SEQ  		= ?			-- 일련번호 
+        ]]>
+    </query>     
+    <query id="tbec_arrange_esc_fc002" desc="주선제외선수정보  시퀀스조회" fetchSize="10">
+        <![CDATA[
+            /* 주선제외선수정보 시퀀스조회 */
+			SELECT 											
+    		NVL(MAX(SEQ)+1,1) SEQ		--시퀀스	 
+			FROM TBEC_ARRANGE_ESC
+        ]]>
+    </query>    
+        
+</queryMap>

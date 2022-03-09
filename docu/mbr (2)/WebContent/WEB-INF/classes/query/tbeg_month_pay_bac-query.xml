@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_month_pay_bac 월별지급기준  관리">
+    <query id="tbeg_month_pay_bac_ff001" desc="월별지급기준 조회" fetchSize="50">
+        <![CDATA[
+    
+            /* 월별지급기준  조회  */
+			SELECT /* tbeg_month_pay_bac_ff001 */
+			    VP.STND_YEAR,   -- 기준년도
+			    VP.PAY_MONTH,  -- 상금지급 월차 
+			    MBR_CD,     -- 경정장 코드 
+			    STR_TMS,    -- 시작 회차 
+			    STR_DAY_ORD,    -- 시작 일차 
+			    STR_RACE_DAY,   -- 시작 경주일자 
+			    END_TMS,    -- 종료 회차 
+			    END_DAY_ORD,    -- 종료 일차 
+			    END_RACE_DAY,   -- 종료 경주일자 
+--			    CASE WHEN TBMP.PAY_MONTH IS NOT NULL AND PMT_DT IS NULL THEN 
+--				    (CASE WHEN TBMP.PAY_MONTH=12 THEN TBMP.STND_YEAR||VP.PAY_MONTH||'20'
+--				        ELSE TBMP.STND_YEAR||LPAD(TBMP.PAY_MONTH+1,2,'0')||'10'
+--				        END
+--				    )
+--				    ELSE PMT_DT 
+--				END AS PMT_DT,     -- 상금 지급일자
+				TBMP.PMT_DT,     -- 상금 지급일자
+			    NVL(MONTH_PRIZ_FINISH_YN,'X') AS MONTH_PRIZ_FINISH_YN,   -- 상금 계산 마감 여부 
+			   	NVL(MONTH_ACT_FINISH_YN, 'X') AS MONTH_ACT_FINISH_YN,   -- 상금 회계 계산 마감 여부 
+			   	NVL(MONTH_ETC_FINISH_YN, 'X') AS MONTH_ETC_FINISH_YN,   -- 기타 소득 마감 여부 
+			    MAIL_SEND_REQ_DT,  -- 메일 전송 요청일 
+			    NVL(MAIL_SEND_FLAG, 'X') AS MAIL_SEND_FLAG,   -- 메일 발송 여부 
+			    MAIL_SEND_DTM, 	-- 메일 전송  일시 
+			    PRIZ_RMK    -- 비고 
+			FROM (
+				    SELECT  COPY_T.STND_YEAR, COPY_T.PAY_MONTH, MBR_CD, STR_TMS, STR_DAY_ORD,STR_RACE_DAY, 
+				            END_TMS, END_DAY_ORD, END_RACE_DAY 
+				    FROM (SELECT * FROM VWEG_MONTH_PAY_BAC WHERE  STND_YEAR=? AND MBR_CD LIKE ?||'%')VPMB,
+					     (SELECT ? AS STND_YEAR, ROWNUM AS PAY_MONTH FROM TBEF_EQUIP WHERE ROWNUM <= 12 AND ? < '2014'
+					      UNION ALL
+					      SELECT STND_YEAR, TMS AS PAY_MONTH FROM TBEB_RACE WHERE STND_YEAR = ? AND STND_YEAR > '2013' GROUP BY STND_YEAR, TMS
+					      ) COPY_T			    
+				    WHERE  COPY_T.STND_YEAR = VPMB.STND_YEAR(+)
+				    AND COPY_T.PAY_MONTH = VPMB.PAY_MONTH(+)
+				 )VP, TBEG_MONTH_PAY_BAC TBMP
+			WHERE VP.STND_YEAR = TBMP.STND_YEAR(+)
+			AND VP.PAY_MONTH = TBMP.PAY_MONTH(+)
+			ORDER BY VP.STND_YEAR, VP.PAY_MONTH, VP.MBR_CD
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_bac_ff010" desc="해당월의  월별지 지급기준 상금, 회계 마감 여부 조회  " fetchSize="10">
+        <![CDATA[ 
+            /* 해당월의  월별지 지급기준 상금, 회계 마감 여부 조회   */
+			SELECT /* tbeg_month_pay_bac_ff010 */
+			    VP.STND_YEAR,   -- 기준년도
+			    VP.PAY_MONTH,  -- 상금지급 월차 
+			    (SELECT CD_NM FROM TBEA_SPEC_CD TSC WHERE TSC.GRP_CD='E00006' AND TSC.CD=MBR_CD ) AS MBR_CD,     -- 경정장 코드 
+			    CASE WHEN STR_TMS IS NULL THEN '해당 경주 없음'
+			    	ELSE 
+				    STR_TMS||'회차 '||STR_DAY_ORD||'일차 ('||TO_CHAR(TO_DATE(STR_RACE_DAY), 'YYYY-MM-DD')||') ~ '
+				    ||END_TMS||'회차 '||END_DAY_ORD||'일차 ('||TO_CHAR(TO_DATE(END_RACE_DAY), 'YYYY-MM-DD') ||')'
+				END  AS MONTH_PRIOR,
+			    NVL(MONTH_PRIZ_FINISH_YN,'X') AS MONTH_PRIZ_FINISH_YN ,-- 상금 계산 마감 여부 
+			    NVL(MONTH_ACT_FINISH_YN, 'X') AS MONTH_ACT_FINISH_YN, -- 회계 계산 마감 여부 
+			    NVL(MONTH_ETC_FINISH_YN, 'X') AS MONTH_ETC_FINISH_YN, -- 기타수당 지급  마감 여부
+			    TBMP.PMT_DT,
+                TO_CHAR(TO_DATE(END_RACE_DAY,'YYYYMMDD') - TO_CHAR(TO_DATE(END_RACE_DAY,'YYYYMMDD'), 'd') + 13,'YYYYMMDD') PMT_DT_EX 
+			FROM (
+				      SELECT  COPY_T.STND_YEAR, COPY_T.PAY_MONTH, MBR_CD, STR_TMS, STR_DAY_ORD,STR_RACE_DAY, 
+				              END_TMS, END_DAY_ORD, END_RACE_DAY 
+				      FROM   (SELECT * FROM VWEG_MONTH_PAY_BAC WHERE  STND_YEAR=? )VPMB,
+				             (SELECT ? AS STND_YEAR, ROWNUM AS PAY_MONTH FROM TBEF_EQUIP WHERE ROWNUM <= 12 AND ? < '2014'
+						      UNION ALL
+						      SELECT STND_YEAR, TMS AS PAY_MONTH FROM TBEB_RACE WHERE STND_YEAR = ? AND STND_YEAR > '2013' GROUP BY STND_YEAR, TMS
+						      )  COPY_T
+				    WHERE  COPY_T.STND_YEAR = VPMB.STND_YEAR(+)
+				    AND COPY_T.PAY_MONTH = VPMB.PAY_MONTH(+)
+				 )VP, TBEG_MONTH_PAY_BAC TBMP
+			WHERE VP.STND_YEAR = TBMP.STND_YEAR(+)
+			AND VP.PAY_MONTH = TBMP.PAY_MONTH(+)
+			AND VP.STND_YEAR = ?
+			AND VP.PAY_MONTH = ?
+			AND VP.MBR_CD = '001'
+        ]]>
+    </query>  
+    <query id="tbeg_month_pay_bac_if001" desc="월별지급기준 등록" fetchSize="10">
+        <![CDATA[
+            /* tbeg_month_pay_bac_if001 : 월별지급기준 등록  */
+			INSERT INTO TBEG_MONTH_PAY_BAC (
+			   STND_YEAR, 	-- 기준년도
+			   PAY_MONTH, 	-- 상금지급월
+			   PMT_DT, 	-- 상금 지급일자 
+			   MONTH_PRIZ_FINISH_YN, 	-- 상금 마감여부 
+			   MONTH_ACT_FINISH_YN, -- 회계계산 마감 여부 
+			   PRIZ_RMK, 	-- 비고 
+			   INST_ID, 	-- 작성자 
+			   INST_DTM 	-- 작성일시 
+			) 
+			VALUES ( 
+				?, 	-- 기준년도 
+				?, 	-- 상금지급월
+				DECODE(TRIM(NVL(?,'')),'',?||DECODE(?,12,?||'31',LPAD(?+1,2,'0')||'10'),?),	-- 상금지급일자: DECODE(TRIM(NVL(PMT_DT,'')),'',STND_YEAR||DECODE(PAY_MONTH,12,PAY_MONTH||'31',LPAD(PAY_MONTH+1,2,'0')||'10'),PMT_DT)
+				?, 	-- 상금 마감 여부 
+				?, -- 회계 계산 마감 여부 
+			    ?, 	-- 비고 
+			    ?,	-- 작성자 
+			    SYSDATE	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_bac_if010" desc="월별상금 마감여부 등록" fetchSize="10">
+        <![CDATA[
+            /* tbeg_month_pay_bac_if010 : 월별상금 마감여부 등록  */
+			INSERT INTO TBEG_MONTH_PAY_BAC (
+			   STND_YEAR, 	-- 기준년도
+			   PAY_MONTH, 	-- 상금지급월
+			   PMT_DT, 	-- 상금 지급일자 
+			   MONTH_PRIZ_FINISH_YN, 	-- 상금 마감여부 
+			   INST_ID, 	-- 작성자 
+			   INST_DTM 	-- 작성일시 
+			) 
+			VALUES ( 
+				?, 	-- 기준년도 
+				?, 	-- 상금지급월
+				?,	-- 상금지급일자
+				?, 	-- 상금  계산 마감 여부 
+			    ?,	-- 작성자 
+			    SYSDATE	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_bac_if011" desc="월별 회계  마감여부 등록" fetchSize="10">
+        <![CDATA[
+            /* 월별 회계 마감여부 등록  */
+			INSERT INTO TBEG_MONTH_PAY_BAC (
+			   STND_YEAR, 	-- 기준년도
+			   PAY_MONTH, 	-- 상금지급월
+			   PMT_DT, 	-- 상금 지급일자 
+			   MONTH_ACT_FINISH_YN, 	-- 상금 마감여부 
+			   INST_ID, 	-- 작성자 
+			   INST_DTM 	-- 작성일시 
+			) 
+			VALUES ( 
+				?, 	-- 기준년도 
+				?, 	-- 기준월 
+				?||DECODE(?,12,?||'31',LPAD(?+1,2,'0')||'10'),	-- 상금지급일자: STND_YEAR||DECODE(PAY_MONTH,12,PAY_MONTH||'31',LPAD(PAY_MONTH+1,2,'0')||'10')
+				?, 	-- 회계 계산 마감 여부 
+			    ?,	-- 작성자 
+			    SYSDATE	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    
+     <query id="tbeg_month_pay_bac_if021" desc="기타 지급내역 마감 여부  등록" fetchSize="10">
+        <![CDATA[
+            /* 월별 회계 마감여부 등록  */
+			INSERT INTO TBEG_MONTH_PAY_BAC (
+			   STND_YEAR, 	-- 기준년도
+			   PAY_MONTH, 	-- 상금지급월
+			   PMT_DT, 	-- 상금 지급일자 
+			   MONTH_ETC_FINISH_YN, 	-- 기타 지급 내역 마감 여부 
+			   INST_ID, 	-- 작성자 
+			   INST_DTM 	-- 작성일시 
+			) 
+			VALUES ( 
+				?, 	-- 기준년도 
+				?, 	-- 기준월 
+				?||DECODE(?,12,?||'31',LPAD(?+1,2,'0')||'10'),	-- 상금지급일자: STND_YEAR||DECODE(PAY_MONTH,12,PAY_MONTH||'31',LPAD(PAY_MONTH+1,2,'0')||'10')
+				?, 	-- 회계 계산 마감 여부 
+			    ?,	-- 작성자 
+			    SYSDATE	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_bac_uf001" desc="월별지급기준 수정" fetchSize="10">
+        <![CDATA[
+            /* 월별지급기준 수정 */
+			UPDATE TBEG_MONTH_PAY_BAC
+			SET    PMT_DT               = ?,	-- 상금지급일자 
+			       MONTH_PRIZ_FINISH_YN = ?,	-- 상금 마감 여부 
+			       MONTH_ACT_FINISH_YN  = ?,    -- 회계 계산 마감 여부 
+			       PRIZ_RMK             = ?,	-- 비고 
+			       UPDT_ID              = ?,	-- 수정자 
+			       UPDT_DTM             = SYSDATE	-- 수정일자 
+			WHERE  STND_YEAR            = ?	-- 기준년도 
+			AND    PAY_MONTH           = ?	-- 상금지급 월 
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_bac_uf010" desc="월별지급기준 상금 마감여부  수정" fetchSize="10">
+        <![CDATA[
+            /* 월별지급기준 수정 */
+			UPDATE TBEG_MONTH_PAY_BAC
+			SET    MONTH_PRIZ_FINISH_YN = ?,	-- 상금 마감 여부
+			       PMT_DT               = ?,    -- 지급일자
+			       UPDT_ID              = ?,	-- 수정자 
+			       UPDT_DTM             = SYSDATE	-- 수정일자 
+			WHERE  STND_YEAR            = ?	-- 기준년도 
+			AND    PAY_MONTH           = ?	-- 상금지급 월 
+        ]]>
+    </query> 
+    
+     <query id="tbeg_month_pay_bac_uf011" desc="월별지급기준 회계  마감여부  수정" fetchSize="10">
+        <![CDATA[
+            /* 월별지급기준 수정 */
+			UPDATE TBEG_MONTH_PAY_BAC
+			SET    MONTH_ACT_FINISH_YN = ?,	-- 상금 마감 여부 
+			       UPDT_ID              = ?,	-- 수정자 
+			       UPDT_DTM             = SYSDATE	-- 수정일자 
+			WHERE  STND_YEAR            = ?	-- 기준년도 
+			AND    PAY_MONTH           = ?	-- 상금지급 월 
+        ]]>
+    </query> 
+    
+    
+     <query id="tbeg_month_pay_bac_uf021" desc="기타 지급 내역  마감여부  수정" fetchSize="10">
+        <![CDATA[
+            /* 월별지급기준 수정 */
+			UPDATE TBEG_MONTH_PAY_BAC
+			SET    MONTH_ETC_FINISH_YN = ?,	-- 상금 마감 여부 
+			       UPDT_ID              = ?,	-- 수정자 
+			       UPDT_DTM             = SYSDATE	-- 수정일자 
+			WHERE  STND_YEAR            = ?	-- 기준년도 
+			AND    PAY_MONTH           = ?	-- 상금지급 월 
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeg_month_pay_bac_uf031" desc="메일 요청 Update" fetchSize="10">
+        <![CDATA[
+            /* 메일 발송 요청 Update */
+			UPDATE TBEG_MONTH_PAY_BAC
+			SET    MAIL_SEND_REQ_DT		= ?, -- 발송 요청 일자 
+				   MAIL_SEND_FLAG		= 'N', 	-- 발송여부 
+				   MAIL_SEND_DTM		= '', 	-- 발송일시 
+			       UPDT_ID          	= ?,	-- 수정자 
+			       UPDT_DTM             = SYSDATE	-- 수정일자 
+			WHERE  STND_YEAR            = ?	-- 기준년도 
+			AND    PAY_MONTH           	= ?	-- 상금지급 월 
+        ]]>
+    </query>
+    
+    
+    <query id="tbeg_month_pay_bac_uf040" desc="계산 세액  Update" fetchSize="10">
+        <![CDATA[
+            /* 메일 발송 요청 Update */
+			UPDATE TBEG_MONTH_PAY_BAC
+			SET    INCE_TAX_RATE		= ?, -- 소득세율
+				   INH_TAX_RATE		= ? 	--주민세율 
+			WHERE  STND_YEAR            = ?	-- 기준년도 
+			AND    PAY_MONTH           	= ?	-- 상금지급 월 
+        ]]>
+    </query>
+    
+
+    <query id="tbeg_month_pay_bac_ff002" desc="최종 지급회차 조회" fetchSize="50">
+        <![CDATA[
+            /* 상금처리가 안된 최종 회차  조회  */
+			SELECT /* tbeg_month_pay_ff002 */
+			       MIN(TRT.TMS) AS TMS
+            FROM   TBEB_RACE_TMS TRT
+                  ,TBEG_MONTH_PAY_BAC TMPB
+            WHERE  TRT.STND_YEAR = TMPB.STND_YEAR(+)
+            AND    TRT.TMS       = TMPB.PAY_MONTH(+)
+            AND    TRT.STND_YEAR = ?
+            AND    TRT.MBR_CD    = ?
+            AND    NVL(TMPB.MONTH_PRIZ_FINISH_YN,'N') != 'Y'
+            AND    TRT.STND_YEAR||TRIM(TO_CHAR(TMS,'00')) > '201425'
+        ]]>
+    </query>     
+   
+    <query id="tbeg_month_pay_bac_ff003" desc="최종 마감완료회차 조회" fetchSize="50">
+        <![CDATA[
+            /* 상금처리가 마감된 최종 회차  조회  */
+			SELECT /* tbeg_month_pay_bac_ff003 */
+			       MIN(TRT.TMS) AS TMS
+            FROM   TBEB_RACE_TMS TRT
+                  ,TBEG_MONTH_PAY_BAC TMPB
+            WHERE  TRT.STND_YEAR = TMPB.STND_YEAR(+)
+            AND    TRT.TMS       = TMPB.PAY_MONTH(+)
+            AND    TRT.STND_YEAR = ?
+            AND    TRT.MBR_CD    = ?
+            AND    NVL(TMPB.MONTH_PRIZ_FINISH_YN,'N') = 'Y'
+            AND    TRT.STND_YEAR||TRIM(TO_CHAR(TMS,'00')) > '201425'
+        ]]>
+    </query>     
+   
+ </queryMap>

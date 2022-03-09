@@ -1,0 +1,500 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : business_return.xml
+  * @메뉴명 : 반품현황
+  * @최초작성일 : 2014/10/30
+  * @author : 윤범진          
+  * @수정내역 :
+ -->
+<mapper namespace="return"> 
+	
+	
+	<select id="getReturnGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.ReturnVO">
+
+    					  
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+    	</if>
+		<![CDATA[
+					SELECT A.*
+					 FROM(
+					    	SELECT SUBSTR(A.ORDERDATE,1,7) YM
+							     , A.ORDERDATE YMD
+							     , A.SALDIV DEAL_GB
+							     , A.UTDIV CUST_GB1
+							     , A.CUSTCODE CUST_ID
+							     , E.CUSTNAME CUST_NM
+							     , E.BUSINESSNO VOU_NO
+							     , A.ECUSTCODE RCUST_ID
+							     , F.CUSTNAME RCUST_NM
+							     , A.EMPCODE SAWON_ID
+							     , A.EEMPCODE R_SAWON_ID
+							     , C.DEPTCODE DEPT_CD
+							
+							     , B.ITEMCODE ITEM_ID
+							     , D.ITEMNAME ITEM_NM
+							     , D.ITEMUNIT STANDARD
+							     , B.SALQTY QTY
+							     , B.GIVQTY DC_QTY
+							     , 0 DC_AMT
+							     , '' DC_EN_YN
+							     , B.SALPRC DANGA
+							     , B.SALAMT AMT
+							     , B.SALVAT VAT
+							     , F.UTDIV RCUST_GB1
+							     , 0 SAWON_IDH
+							     , NVL(SALAMT, 0) + NVL(SALVAT, 0) TOT
+							  FROM ORAGMP.SLORDM a,
+							       ORAGMP.SLORDD b,
+							       (SELECT b.EMPCODE , b.EMPNAME , b.DEPTCODE , c.DEPTNAME 
+							          FROM ORAGMP.CMEMPM B, ORAGMP.CMDEPTM  C
+							         WHERE B.DEPTCODE = C.DEPTCODE
+							        ) c,
+							         ORAGMP.CMITEMM d,
+							         ORAGMP.CMCUSTM e,
+							         ORAGMP.CMCUSTM f
+							   WHERE a.ORDERNO = b.ORDERNO
+							     AND a.ORDERDATE = b.ORDERDATE
+							     AND b.ITEMCODE = d.ITEMCODE
+							     AND a.EEMPCODE = c.EMPCODE
+							     AND a.CUSTCODE = e.CUSTCODE
+							     AND a.ECUSTCODE = f.CUSTCODE
+							     AND a.SALDIV LIKE 'B%'
+							     AND a.ORDERDATE between #{ad_fr_date} AND #{ad_to_date}
+		]]>
+		<if test="as_fr_cust != ''">
+							     AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+		</if>
+		<![CDATA[
+			)A,
+			(SELECT EMPCODE,EMPNAME,DEPTCODE
+			   FROM ORAGMP.CMEMPM
+				WHERE OUTYN = 'N'
+				  AND DEPTCODE IN( 
+                                SELECT DEPTCODE
+                                  FROM ORAGMP.CMDEPTM 
+                                 WHERE USEYN = 'Y' 
+	                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+                               CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+                                  START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+                                                              FROM ORAGMP.CMEMPM A 
+                                                                 , ORAGMP.CMDEPTM B
+                                                             WHERE A.EMPCODE = #{as_emp_cd}
+                                                               AND A.DEPTCODE = B.DEPTCODE                        
+                                                            )
+                               UNION ALL
+                                SELECT DEPTCODE 
+                                  FROM ORAGMP.CMEMPM
+                                 WHERE DEPTCODE = #{as_dept_cd}
+                                   AND #{as_assgnCode} in ('27027','27030','27035') 
+                               )
+           UNION ALL
+           SELECT EMPCODE,EMPNAME,DEPTCODE
+             FROM ORAGMP.CMEMPM
+            WHERE EMPCODE = #{as_emp_cd} 
+              AND #{as_assgnCode} IN ('27040','27050') 
+
+            )B
+            WHERE (A.SAWON_ID = B.EMPCODE OR A.R_SAWON_ID = B.EMPCODE)
+		]]>
+		<if test="sidx != ''">
+			ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="page != null">
+				) T0
+			)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getReturnGridTotalCount" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.ReturnVO">
+		SELECT COUNT(*) TOTAL_CNT
+			 , SUM(NVL(SALAMT, 0)) TOTAL_AMT
+			 , SUM(NVL(SALVAT, 0)) TOTAL_VAT
+			 , SUM(NVL(SALAMT, 0) + NVL(SALVAT, 0)) TOTAL_TOT
+		 FROM(
+
+					    	SELECT SUBSTR(A.ORDERDATE,1,7) YM
+							     , A.ORDERDATE YMD
+							     , A.SALDIV DEAL_GB
+							     , A.UTDIV CUST_GB1
+							     , A.CUSTCODE CUST_ID
+							     , E.CUSTNAME CUST_NM
+							     , E.BUSINESSNO VOU_NO
+							     , A.ECUSTCODE RCUST_ID
+							     , F.CUSTNAME RCUST_NM
+							     , A.EMPCODE SAWON_ID
+							     , A.EEMPCODE R_SAWON_ID
+							     , C.DEPTCODE DEPT_CD
+							
+							     , B.ITEMCODE ITEM_ID
+							     , D.ITEMNAME ITEM_NM
+							     , D.ITEMUNIT STANDARD
+							     , B.SALQTY QTY
+							     , B.GIVQTY DC_QTY
+							     , 0 DC_AMT
+							     , '' DC_EN_YN
+							     , B.SALPRC DANGA
+							     , B.SALAMT
+							     , B.SALVAT
+							     , F.UTDIV RCUST_GB1
+							     , 0 SAWON_IDH
+							     , 0 TOT
+							  FROM ORAGMP.SLORDM A,
+							       ORAGMP.SLORDD B,
+							       (SELECT B.EMPCODE , B.EMPNAME , B.DEPTCODE , C.DEPTNAME 
+							          FROM ORAGMP.CMEMPM B, ORAGMP.CMDEPTM  C
+							         WHERE B.DEPTCODE = C.DEPTCODE
+							        ) C,
+							         ORAGMP.CMITEMM D,
+							         ORAGMP.CMCUSTM E,
+							         ORAGMP.CMCUSTM F
+							   WHERE A.ORDERNO = B.ORDERNO
+							     AND A.ORDERDATE = B.ORDERDATE
+							     AND B.ITEMCODE = D.ITEMCODE
+							     AND A.EEMPCODE = C.EMPCODE
+							     AND A.CUSTCODE = E.CUSTCODE
+							     AND A.ECUSTCODE = F.CUSTCODE
+							     AND a.SALDIV LIKE 'B%'
+							     AND a.ORDERDATE between #{ad_fr_date} AND #{ad_to_date}
+				<if test="as_fr_cust != ''">
+				     AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+			)A ,
+			(  SELECT EMPCODE,EMPNAME,DEPTCODE
+				 FROM ORAGMP.CMEMPM
+				WHERE OUTYN = 'N'
+				  AND DEPTCODE IN( 
+	                            SELECT DEPTCODE
+	                              FROM ORAGMP.CMDEPTM 
+	                             WHERE USEYN = 'Y'
+	                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+	                           CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+	                             START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+	                                                         FROM ORAGMP.CMEMPM A 
+	                                                            , ORAGMP.CMDEPTM B
+	                                                        WHERE A.EMPCODE = #{as_emp_cd}
+	                                                          AND A.DEPTCODE = B.DEPTCODE                        
+	                                                      )
+	                                                      
+	                           UNION ALL
+	                            SELECT DEPTCODE 
+	                              FROM ORAGMP.CMEMPM
+	                             WHERE DEPTCODE = #{as_dept_cd}
+	                               AND #{as_assgnCode} in ('27027','27030','27035') 
+	                         )
+              UNION ALL
+              SELECT EMPCODE,EMPNAME,DEPTCODE
+                FROM ORAGMP.CMEMPM
+               WHERE EMPCODE = #{as_emp_cd} 
+                 AND #{as_assgnCode} IN ('27040','27050') 
+            )B
+            WHERE (A.SAWON_ID = B.EMPCODE OR A.R_SAWON_ID = B.EMPCODE)
+			
+	</select>	
+<!-- 
+	<select id="getReturnGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.ReturnVO">
+	
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+    	</if>
+		<![CDATA[
+						  SELECT a.ym, a.ymd, a.deal_gb, a.cust_gb1, a.cust_id, a.cust_nm, a.vou_no,
+						         a.rcust_id, a.rcust_nm, a.sawon_id, a.sawon_nm, a.dept_cd,
+						         a.sawon_idh, b.sawon_nm sawon_nmh, b.dept_cd dept_cdh, a.item_id,
+						         a.item_nm, a.STANDARD, a.qty, a.dc_qty, a.dc_amt, a.dc_en_yn,
+						         a.danga, a.amt, a.vat, a.rcust_gb1, a.rcust_gb1h, a.tot
+						    FROM (SELECT TO_CHAR (a.ymd, 'YYYYMM') ym, TO_CHAR (a.ymd, 'YYYY-MM-DD') ymd,
+						                 a.deal_gb deal_gb, e.cust_gb1 cust_gb1, a.cust_id cust_id,
+						                 e.cust_nm cust_nm, e.vou_no vou_no, a.rcust_id rcust_id,
+						                 f.cust_nm rcust_nm, a.rsawon_id sawon_id,
+						                 c.sawon_nm sawon_nm, c.dept_cd dept_cd,
+						                 sale.f_get_sale0405_sawonidh (a.deal_no,
+						                                               a.cust_id,
+						                                               a.rcust_id,
+						                                               b.item_id,
+						                                               a.ymd
+						                                              ) sawon_idh,
+						                 b.item_id item_id, d.item_nm item_nm, d.STANDARD STANDARD,
+						                 b.qty qty, b.dc_qty dc_qty, b.dc_amt dc_amt,
+						                 b.dc_en_yn dc_en_yn, b.danga danga, b.amt amt, b.vat vat,
+						                 f.cust_gb1 rcust_gb1,
+						                 sale.f_get_sale0003h_custgb1 (a.rcust_id, a.ymd) rcust_gb1h,
+						                 (NVL (b.amt, 0) + NVL (b.vat, 0)) tot
+						            FROM sale.sale0207 a,
+						                 sale.sale0208 b,
+						                 (SELECT b.sawon_id, b.sawon_nm, b.dept_cd, c.dept_nm
+						                    FROM sale.sale0007 b, sale.sale0008 c
+						                   WHERE b.dept_cd = c.dept_cd) c,
+						                 sale.sale0004 d,
+						                 sale.sale0003 e,
+						                 sale.sale0003 f
+						           WHERE a.deal_no = b.deal_no
+						             AND a.ymd = b.ymd
+						             AND b.item_id = d.item_id
+						             AND a.rsawon_id = c.sawon_id
+						             AND a.cust_id = e.cust_id
+						             AND a.rcust_id = f.cust_id
+						             AND a.deal_gb LIKE '1%'
+						             AND b.ymd BETWEEN #{ad_fr_date,jdbcType=DATE} AND #{ad_to_date,jdbcType=DATE}
+						             ]]>
+								<if test="as_fr_cust != ''">
+								     AND a.cust_id = #{as_fr_cust,jdbcType=VARCHAR}
+								</if>
+								<![CDATA[
+						        ) a,
+                         (  select sawon_id,sawon_nm,dept_cd
+                              from sale0007 
+	                         where dept_cd IN  ( select sale_dept_cd 
+	                                               from hr_co_depart_0 
+	                                            connect by prior dept_cd = up_dept_cd
+	                                              start with dept_cd = (    select dept_cd 
+	                                                                          from hr_co_depart_0 
+	                                                                         where level = 2
+	                                                                       connect by  dept_cd = prior up_dept_cd
+	                                                                         start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}) )                                                                         
+	                                                                    )
+	                                            )
+                               and gubun = 'Y'   
+                               and #{as_assgnCode} in ('27000','27010','27020','27025')
+                             union all
+                             select sawon_id , sawon_nm, dept_cd
+                               from sale0007
+                              where dept_cd = #{as_dept_cd}
+                                and #{as_assgnCode} in ('27027','27030','27035')
+                             union all
+                             select sawon_id , sawon_nm, dept_cd
+                               from sale0007
+                              where sawon_id = #{as_emp_cd}
+                                and #{as_assgnCode} in ('27040','27050')
+                          ) b
+						 WHERE a.sawon_idh = b.sawon_id
+		]]>
+		 
+					<if test="sidx != ''">
+						ORDER BY ${sidx} ${sord}
+					</if>
+		
+				<if test="page != null">
+					) T0
+				)
+				WHERE PAGE = #{page,jdbcType=INTEGER}
+				</if>
+	</select>
+	
+	<select id="getReturnGridTotalCount" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.ReturnVO">
+		SELECT COUNT(*) total_cnt, SUM(NVL(a.amt, 0)) total_amt,
+			   SUM(NVL(a.vat, 0)) total_vat, SUM(NVL(a.tot, 0)) total_tot
+		  FROM (SELECT TO_CHAR (a.ymd, 'YYYYMM') ym, TO_CHAR (a.ymd, 'YYYY-MM-DD') ymd,
+	                 a.deal_gb deal_gb, e.cust_gb1 cust_gb1, a.cust_id cust_id,
+	                 e.cust_nm cust_nm, e.vou_no vou_no, a.rcust_id rcust_id,
+	                 f.cust_nm rcust_nm, a.rsawon_id sawon_id,
+	                 c.sawon_nm sawon_nm, c.dept_cd dept_cd,
+	                 sale.f_get_sale0405_sawonidh (a.deal_no,
+	                                               a.cust_id,
+	                                               a.rcust_id,
+	                                               b.item_id,
+	                                               a.ymd
+	                                              ) sawon_idh,
+	                 b.item_id item_id, d.item_nm item_nm, d.STANDARD STANDARD,
+	                 b.qty qty, b.dc_qty dc_qty, b.dc_amt dc_amt,
+	                 b.dc_en_yn dc_en_yn, b.danga danga, b.amt amt, b.vat vat,
+	                 f.cust_gb1 rcust_gb1,
+	                 sale.f_get_sale0003h_custgb1 (a.rcust_id, a.ymd) rcust_gb1h,
+	                 (NVL (b.amt, 0) + NVL (b.vat, 0)) tot
+	            FROM sale.sale0207 a,
+	                 sale.sale0208 b,
+	                 (SELECT b.sawon_id, b.sawon_nm, b.dept_cd, c.dept_nm
+	                    FROM sale.sale0007 b, sale.sale0008 c
+	                   WHERE b.dept_cd = c.dept_cd) c,
+	                 sale.sale0004 d,
+	                 sale.sale0003 e,
+	                 sale.sale0003 f
+	           WHERE a.deal_no = b.deal_no
+	             AND a.ymd = b.ymd
+	             AND b.item_id = d.item_id
+	             AND a.rsawon_id = c.sawon_id
+	             AND a.cust_id = e.cust_id
+	             AND a.rcust_id = f.cust_id
+	             AND a.deal_gb LIKE '1%'
+	             AND b.ymd BETWEEN #{ad_fr_date,jdbcType=DATE} AND #{ad_to_date,jdbcType=DATE}
+			<if test="as_fr_cust != ''">
+			     AND a.cust_id = #{as_fr_cust,jdbcType=VARCHAR}
+			</if>
+			<![CDATA[
+		        ) a,
+               (  select sawon_id,sawon_nm,dept_cd
+                    from sale0007 
+                where dept_cd IN  ( select sale_dept_cd 
+                                      from hr_co_depart_0 
+                                   connect by prior dept_cd = up_dept_cd
+                                     start with dept_cd = (    select dept_cd 
+                                                                 from hr_co_depart_0 
+                                                                where level = 2
+                                                              connect by  dept_cd = prior up_dept_cd
+                                                                start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}) )                                                                         
+                                                           )
+                                   )
+                     and gubun = 'Y'   
+                     and #{as_assgnCode} in ('27000','27010','27020','27025')
+                   union all
+                   select sawon_id , sawon_nm, dept_cd
+                     from sale0007
+                    where dept_cd = #{as_dept_cd}
+                      and #{as_assgnCode} in ('27027','27030','27035')
+                   union all
+                   select sawon_id , sawon_nm, dept_cd
+                     from sale0007
+                    where sawon_id = #{as_emp_cd}
+                      and #{as_assgnCode} in ('27040','27050')
+                ) b
+         WHERE a.sawon_idh = b.sawon_id
+		]]>
+	</select>
+ -->
+ 
+ 	<select id="beforeSpecificationCheck" parameterType="map" resultType="com.hanaph.saleon.business.vo.ReturnVO">
+ 	
+		SELECT COUNT(*) TOTAL_CNT
+			 , SUM(NVL(AMT, 0)) TOTAL_AMT
+			 , SUM(NVL(BANPUM_QTY, 0)) TOTAL_B_QTY
+		  FROM (
+				SELECT YMD	--작성일자
+				     , CUST_ID	--거래처
+				     , RCUST_ID	--납품처
+				     , ITEM_ID	--제품코드
+				     , PROD_NO	--제조번호
+				     , USE_YMD_TO	--사용기한
+				     , DANGA	--단가 
+				     , BANPUM_QTY	--반품수량
+				     , BARCODE_QTY	--반품수량
+				     , MANUAL_QTY	--수기수량
+				     , AMT	--금액
+				     , BANPUM_REASON	--반품사유코드
+				     , CUST_SAWON_ID	--거래처담당사번
+				     , RCUST_SAWON_ID	--납품처담당사원 - 반품보고사원 
+				     , CREATE_SAWON_ID	--작성자사번
+				     , SEONGIN_STATE	--승인상태 1-대기,2-승인,3-불가
+				     , SEONGIN_NO_REASON	--승인불가사유
+				     , JUMUN_NO	--주문번호
+				     , INPUT_DT	--입력일자
+				     , INPUT_WORKER	--입력사번
+				     , MODIFY_DT	--수정일자
+				     , MODIFY_WORKER	--수정사번
+				     , LAST_ORDER_YMD	 --최종주문일자(해당거래처 남품처 제품에 대한) 
+				     , INPUT_STATE	--입력상태 0-대기 1-확정
+				  FROM SALE.SFA_BANPUM_REASON
+				 WHERE SEONGIN_STATE = '2'
+				<if test="as_fr_cust != ''">
+				     AND CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				   AND TO_CHAR(TO_DATE(YMD,'YYYYMMDD'),'YYYY-MM-DD') BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				 ) A, 
+				   (SELECT EMPCODE,EMPNAME,DEPTCODE
+				      FROM ORAGMP.CMEMPM
+				     WHERE OUTYN = 'N'
+				       AND DEPTCODE IN( SELECT DEPTCODE
+				                          FROM ORAGMP.CMDEPTM
+				                         WHERE USEYN = 'Y'
+				                           AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+				                       CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+				                         START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE
+				                                                     FROM ORAGMP.CMEMPM A ,
+				                                                          ORAGMP.CMDEPTM B
+				                                                    WHERE A.EMPCODE = #{as_emp_cd}
+				                                                      AND A.DEPTCODE = B.DEPTCODE 
+				                                                  )
+				                         UNION ALL
+				                        SELECT DEPTCODE
+				                          FROM ORAGMP.CMEMPM
+				                         WHERE DEPTCODE = #{as_dept_cd}
+				                           AND #{as_assgnCode} in ('27027','27030','27035')
+				                       )
+				     UNION ALL
+				    SELECT EMPCODE,EMPNAME,DEPTCODE
+				      FROM ORAGMP.CMEMPM
+				     WHERE EMPCODE = #{as_emp_cd}
+				       AND #{as_assgnCode} IN ('27040','27050') 
+				   )B
+		 WHERE (A.CUST_SAWON_ID = B.EMPCODE OR A.RCUST_SAWON_ID = B.EMPCODE) 	
+ 	</select>
+
+
+	<select id="returnSpecification" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.ReturnVO">
+
+		SELECT A.*
+		  FROM (
+				SELECT YMD	--작성일자
+				     , CUST_ID	--거래처
+				     , oragmp.fncommonnm('cust',CUST_ID,'') AS CUST_NM
+				     , RCUST_ID	--납품처
+				     , oragmp.fncommonnm('cust',RCUST_ID,'') AS RCUST_NM
+				     , ITEM_ID	--제품코드
+				     , oragmp.fncommonnm('item',ITEM_ID,'') AS ITEM_NM
+				     , (SELECT ITEMUNIT FROM ORAGMP.CMITEMM WHERE ITEM_ID = ITEMCODE) STANDARD
+				     , PROD_NO	--제조번호
+				     , USE_YMD_TO	--사용기한
+				     , DANGA	--단가 
+				     , BANPUM_QTY	--반품수량
+				     , BARCODE_QTY	--반품수량
+				     , MANUAL_QTY	--수기수량
+				     , AMT	--금액
+				     , BANPUM_REASON	--반품사유코드
+				     , oragmp.fncommonnm('comm','MPM21',BANPUM_REASON) BANPUM_REASON_NM --사유 명
+				     , CUST_SAWON_ID	--거래처담당사번
+				     , oragmp.fncommonnm('emp',CUST_SAWON_ID,'') CUST_SAWON_NM 
+				     , RCUST_SAWON_ID	--납품처담당사원 - 반품보고사원 
+				     , oragmp.fncommonnm('emp',RCUST_SAWON_ID,'') RCUST_SAWON_NM 
+				     , CREATE_SAWON_ID	--작성자사번
+				     , SEONGIN_STATE	--승인상태 1-대기,2-승인,3-불가
+				     , SEONGIN_NO_REASON	--승인불가사유
+				     , JUMUN_NO	--주문번호
+				     , INPUT_DT	--입력일자
+				     , INPUT_WORKER	--입력사번
+				     , MODIFY_DT	--수정일자
+				     , MODIFY_WORKER	--수정사번
+				     , LAST_ORDER_YMD	 --최종주문일자(해당거래처 남품처 제품에 대한) 
+				     , INPUT_STATE	--입력상태 0-대기 1-확정
+				  FROM SALE.SFA_BANPUM_REASON
+				 WHERE SEONGIN_STATE = '2'
+				<if test="as_fr_cust != ''">
+				     AND CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				   AND TO_CHAR(TO_DATE(YMD,'YYYYMMDD'),'YYYY-MM-DD') BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				 ) A, 
+				   (SELECT EMPCODE,EMPNAME,DEPTCODE
+				      FROM ORAGMP.CMEMPM
+				     WHERE OUTYN = 'N'
+				       AND DEPTCODE IN( SELECT DEPTCODE
+				                          FROM ORAGMP.CMDEPTM
+				                         WHERE USEYN = 'Y'
+				                           AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+				                       CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+				                         START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE
+				                                                     FROM ORAGMP.CMEMPM A ,
+				                                                          ORAGMP.CMDEPTM B
+				                                                    WHERE A.EMPCODE = #{as_emp_cd}
+				                                                      AND A.DEPTCODE = B.DEPTCODE 
+				                                                  )
+				                         UNION ALL
+				                        SELECT DEPTCODE
+				                          FROM ORAGMP.CMEMPM
+				                         WHERE DEPTCODE = #{as_dept_cd}
+				                           AND #{as_assgnCode} in ('27027','27030','27035')
+				                       )
+				     UNION ALL
+				    SELECT EMPCODE,EMPNAME,DEPTCODE
+				      FROM ORAGMP.CMEMPM
+				     WHERE EMPCODE = #{as_emp_cd}
+				       AND #{as_assgnCode} IN ('27040','27050') 
+				   )B
+		 WHERE (A.CUST_SAWON_ID = B.EMPCODE OR A.RCUST_SAWON_ID = B.EMPCODE) 	
+	</select>
+ 	
+</mapper>
+	

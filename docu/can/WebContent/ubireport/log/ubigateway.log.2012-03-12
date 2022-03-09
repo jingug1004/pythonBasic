@@ -1,0 +1,441 @@
+
+[I][UbiForm][2012-03-12 08:07:46][REQUEST FILE]
+[I][UbiForm][2012-03-12 08:07:46]	- Report : /web/waspage/usrbm/report/rsm/rsm2050_5.jrf
+[I][UbiForm][2012-03-12 08:07:46]	- Common : /web/waspage/usrbm/report/rsm/property/commonitem.xml [Not found]
+--------------------------------------------------------------------------------
+
+
+[I][UbiData][2012-03-12 08:07:46][REQUEST FILE]
+[I][UbiData][2012-03-12 08:07:46]	- Report : rsm2050_5.jrf
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-12 08:07:46][DB CONNECT]
+[I][UbiData][2012-03-12 08:07:46]	- Type : nonlookup
+[I][UbiData][2012-03-12 08:07:46]	- Db id : rbm
+[I][UbiData][2012-03-12 08:07:46]	- Sql id : dsBrncCompareSales1
+[I][UbiData][2012-03-12 08:07:46]	- Datasource : jdbc/RBM
+[I][UbiData][2012-03-12 08:07:46]	- Status : Success
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-12 08:07:46][DATA QUERY START]
+[I][UbiData][2012-03-12 08:07:46]	- sql id : dsBrncCompareSales1
+[I][UbiData][2012-03-12 08:07:46]	- Db charset : KSC5601
+[I][UbiData][2012-03-12 08:07:46]	- Sql
+<
+SELECT 
+      0 AS ORD,
+      MEET_CD, 
+            TDIV_NO, 
+            NO_ORDER, 
+            DECODE(NO_ORDER,'B01','창원','B02','부산',CD_NM) AS BRNCH_NM,   
+            round(B_AMT/? ,0) AS N_DIV_TOTAL,    
+            round(L_AMT/ (SELECT MAX(INF.TMS) FROM VW_SDL_INFO INF
+                                                              WHERE INF.STND_YEAR=?  -1
+                                                                   AND INF.MEET_CD ='001') ,0) AS L_DIV_TOTAL
+    FROM(
+        
+        SELECT MEET_CD,TDIV_NO,NO_ORDER,NET_AMT,B_AMT,L_AMT
+        FROM
+        (
+            SELECT MEET_CD,TDIV_NO,
+                   CASE WHEN TDIV_NO ='06' THEN 'A60'
+                   ELSE 'A'||TDIV_NO 
+                   END AS NO_ORDER
+            ,SUM(NET_AMT)/10000 AS NET_AMT,SUM(B_AMT)/10000 AS B_AMT,SUM(L_AMT)/10000 AS L_AMT
+            FROM
+            (
+             
+             SELECT MEET_CD,
+             
+              TDIV_NO,
+              
+              SUM(NET_AMT) AS NET_AMT,
+              0 AS B_AMT,
+              0 AS L_AMT
+             FROM
+             (
+                 SELECT                                                                                       
+              B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+              CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN '06' 
+                  WHEN SELL_CD IN ('01','03') AND COMM_NO < '11' THEN '01' 
+                   ELSE COMM_NO
+              END AS TDIV_NO,
+              
+              SUM(A.NET_AMT) AS NET_AMT                                            
+                 FROM VW_SDL_INFO B,                                                                                 
+              VW_PC_SATLIT_SUM A                                                                                  
+                 WHERE 1 = 1                                                                                         
+              AND B.MEET_CD = '001'        
+              AND B.STND_YEAR = ?   
+              AND B.TMS  <= ?   
+              AND A.MEET_CD = B.MEET_CD                 
+              AND A.STND_YEAR = B.STND_YEAR                                                                   
+              AND A.TMS = B.TMS                                                                               
+              AND A.DAY_ORD = B.DAY_ORD                                                                       
+                 GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+             )AA 
+             GROUP BY AA.MEET_CD,AA.TDIV_NO
+             UNION 
+             
+             
+             SELECT MEET_CD,
+             
+              TDIV_NO,
+              
+              0 AS NET_AMT,
+              SUM(NET_AMT) AS B_AMT,
+              0 AS L_AMT
+             FROM
+             (
+                 SELECT                                                                                       
+              B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+              CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN '06' 
+                  WHEN SELL_CD IN ('01','03') AND COMM_NO < '11' THEN '01' 
+                   ELSE COMM_NO
+              END AS TDIV_NO,
+              
+              SUM(A.NET_AMT) AS NET_AMT                                            
+                 FROM VW_SDL_INFO B,                                                                                 
+              VW_PC_SATLIT_SUM A                                                                                  
+                 WHERE 1 = 1                                                                                         
+              AND B.MEET_CD = '001'        
+              AND B.STND_YEAR = ?  
+              AND B.TMS  <= ?   
+              AND A.MEET_CD = B.MEET_CD                 
+              AND A.STND_YEAR = B.STND_YEAR                                                                   
+              AND A.TMS = B.TMS                                                                               
+              AND A.DAY_ORD = B.DAY_ORD                                                                       
+                 GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+             )BB
+             GROUP BY BB.MEET_CD,BB.TDIV_NO
+             UNION 
+             
+             
+             SELECT MEET_CD,
+             
+              TDIV_NO,
+              
+              0 AS NET_AMT,
+              0 AS B_AMT,
+              SUM(NET_AMT) AS L_AMT
+             FROM
+             (
+                 SELECT                                                                                       
+              B.MEET_CD AS MEET_CD, B.STND_YEAR STND_YEAR,SELL_CD,COMM_NO,DIV_NO,
+              CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN '06' 
+                  WHEN SELL_CD IN ('01','03') AND COMM_NO < '11' THEN '01' 
+                   ELSE COMM_NO
+              END AS TDIV_NO,
+              
+              SUM(A.NET_AMT) AS NET_AMT                                            
+                 FROM VW_SDL_INFO B,                                                                                 
+              VW_PC_SATLIT_SUM A                                                                                  
+                 WHERE 1 = 1                                                                                         
+              AND B.MEET_CD = '001'        
+              AND B.STND_YEAR = ?  -1  
+                                AND B.TMS <= (SELECT MAX(INF.TMS) FROM VW_SDL_INFO INF
+                                                         WHERE INF.STND_YEAR=?  -1
+                                                              AND INF.MEET_CD ='002')    
+              AND A.MEET_CD = B.MEET_CD
+              AND A.STND_YEAR = B.STND_YEAR                                                                   
+              AND A.TMS = B.TMS                                                                               
+              AND A.DAY_ORD = B.DAY_ORD                                                                       
+                 GROUP BY B.MEET_CD,B.STND_YEAR,A.SELL_CD,A.COMM_NO,A.DIV_NO
+             )CC
+             GROUP BY CC.MEET_CD,CC.TDIV_NO
+            )CCC   
+            GROUP BY CCC.MEET_CD,CCC.TDIV_NO
+        )DDD
+            
+        UNION ALL
+        
+        
+        SELECT MEET_CD,
+            SELL_CD,
+            NO_ORDER,
+            N_AMT,                                      
+            B_AMT,
+            L_AMT
+        FROM(    
+            SELECT                                      
+                MEET_CD,
+                 SELL_CD                                    
+                ,DECODE(SELL_CD,'02','B01','04','B02') AS NO_ORDER 
+                ,N_AMT                                      
+                ,B_AMT                                      
+                ,CASE WHEN B_AMT > N_AMT THEN '△' 
+                      WHEN B_AMT = N_AMT THEN '-'  
+                      WHEN B_AMT < N_AMT THEN ''   
+                 END B_AMT_SIGN                             
+                ,DECODE(B_AMT,0,0,ROUND(ABS(B_AMT-N_AMT)/B_AMT*100,1)) B_AMT_RATE 
+                ,L_AMT                                      
+                ,CASE WHEN L_AMT > N_AMT THEN '△' 
+                      WHEN L_AMT = N_AMT THEN '-'  
+                      WHEN L_AMT < N_AMT THEN ''   
+                 END L_AMT_SIGN                             
+                ,DECODE(L_AMT,0,0,ROUND(ABS(L_AMT-N_AMT)/L_AMT*100,1)) L_AMT_RATE 
+                FROM (                                      
+                 SELECT                                    
+                     MEET_CD
+                  ,SELL_CD                                 
+                  ,SUM(N_AMT)/1000000 N_AMT      
+                  ,SUM(B_AMT)/1000000 B_AMT      
+                  ,SUM(L_AMT)/1000000 L_AMT      
+                 FROM (                                    
+                  SELECT   
+                        MEET_CD,                               
+                   SELL_CD                               
+                   ,SUM(NET_AMT) N_AMT                   
+                   ,0 B_AMT                              
+                   ,0 L_AMT                              
+                  FROM VW_PC_PAYOFFS                    
+                  WHERE 1=1
+                  AND MEET_CD = '001'     
+                  AND STND_YEAR = ?   
+                  AND TMS   <= ?   
+                  AND SELL_CD IN ('02','04')              
+                  GROUP BY MEET_CD,SELL_CD                        
+                  UNION                                   
+                   SELECT    
+                   MEET_CD,                                 
+                   SELL_CD                               
+                   ,0 N_AMT                              
+                   ,SUM(NET_AMT) B_AMT                   
+                   ,0 L_AMT                              
+                  FROM VW_PC_PAYOFFS                    
+                  WHERE 1=1
+                  AND MEET_CD = '001'     
+                  AND STND_YEAR = '2011'  
+                  AND TMS   <= ?   
+                  AND SELL_CD IN ('02','04')              
+                  GROUP BY MEET_CD,SELL_CD                        
+                  UNION                                   
+                   SELECT   
+                   MEET_CD,                                  
+                   SELL_CD                               
+                   ,0 N_AMT                              
+                   ,0 B_AMT                              
+                   ,SUM(NET_AMT) L_AMT                   
+                  FROM VW_PC_PAYOFFS                    
+                  WHERE 1=1                               
+                  AND STND_YEAR = (                       
+                   SELECT DISTINCT STND_YEAR             
+                   FROM VW_SDL_INFO                      
+                   WHERE 1=1
+                   AND STND_YEAR =?  -1  
+                  )
+                  AND MEET_CD = '001'         
+                                             AND TMS <= (SELECT MAX(INF.TMS) FROM VW_SDL_INFO INF
+                                                              WHERE INF.STND_YEAR=?  -1
+                                                                   AND INF.MEET_CD ='002')    
+                  AND SELL_CD IN ('02','04')              
+                  GROUP BY MEET_CD,SELL_CD                        
+                 ) GROUP BY MEET_CD,SELL_CD                        
+                )                                
+        )EEE        
+    )AAAA,
+    (
+    
+             SELECT  CD,
+                     DECODE(CD,'01','본장','06','그린카드',CD_NM) AS CD_NM
+               FROM  TBRK_SPEC_CD A  
+              WHERE  1=1
+              AND  A.GRP_CD = '060' 
+              AND A.CD NOT IN('00','29')
+             ) BB    
+             WHERE 1=1
+             AND TDIV_NO= BB.CD(+)
+             AND TDIV_NO <> '999'
+    GROUP BY MEET_CD,TDIV_NO,NO_ORDER,CD_NM,NET_AMT,B_AMT,L_AMT
+    ORDER BY AAAA.NO_ORDER
+ #String#9#String#2012#String#2012#String#9#String#2012#String#9#String#2012#String#2012#String#2012#String#9#String#9#String#2012#String#2012#
+>
+[I][UbiData][2012-03-12 08:07:48]	- Row size : 22
+[I][UbiData][2012-03-12 08:07:48]	- Data
+<
+0^t001^t01^tA01^t본장^t4817^t4631^t^n0^t001^t11^tA11^t수원^t1761^t1774^t^n0^t001^t12^tA12^t상봉^t2598^t2379^t^n0^t001^t13^tA13^t일산^t1362^t1574^t^n0^t001^t14^tA14^t분당^t2494^t2349^t^n0^t001^t15^tA15^t동대문^t1491^t1096^t^n0^t001^t16^tA16^t장안^t3320^t2872^t^n0^t001^t17^tA17^t산본^t1457^t1386^t^n0^t001^t18^tA18^t부천^t1479^t1448^t^n0^t001^t19^tA19^t관악^t1552^t1432^t^n0^t001^t20^tA20^t길음^t0^t1435^t^n0^t001^t21^tA21^t당산^t2133^t1873^t^n0^t001^t22^tA22^t유성^t1389^t1290^t^n0^t001^t23^tA23^t인천^t928^t970^t^n0^t001^t24^tA24^t시흥^t1254^t1269^t^n0^t001^t25^tA25^t논현^t1306^t1220^t^n0^t001^t26^tA26^t천안^t971^t908^t^n0^t001^t27^tA27^t올림픽^t3790^t4154^t^n0^t001^t28^tA28^t의정부^t947^t790^t^n0^t001^t06^tA60^t그린카드^t224^t278^t^n0^t001^t02^tB01^t창원^t3142^t2944^t^n0^t001^t04^tB02^t부산^t3431^t3082^t^n
+>
+[I][UbiData][2012-03-12 08:07:48][DATA QUERY END]
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-12 08:07:48][DATA QUERY START]
+[I][UbiData][2012-03-12 08:07:48]	- sql id : dsStndYearTms
+[I][UbiData][2012-03-12 08:07:48]	- Db charset : KSC5601
+[I][UbiData][2012-03-12 08:07:48]	- Sql
+<
+SELECT
+   ?  AS  STND_YEAR
+  ,?  AS TMS
+ FROM DUAL
+ #String#2012#String#9#
+>
+[I][UbiData][2012-03-12 08:07:48]	- Row size : 1
+[I][UbiData][2012-03-12 08:07:48]	- Data
+<
+2012^t9^t^n
+>
+[I][UbiData][2012-03-12 08:07:48][DATA QUERY END]
+--------------------------------------------------------------------------------
+
+
+[I][UbiForm][2012-03-12 13:49:02][REQUEST FILE]
+[I][UbiForm][2012-03-12 13:49:02]	- Report : /web/waspage/usrbm/report/rsm/rsm4060.jrf
+[I][UbiForm][2012-03-12 13:49:02]	- Common : /web/waspage/usrbm/report/rsm/property/commonitem.xml [Not found]
+--------------------------------------------------------------------------------
+
+
+[I][UbiData][2012-03-12 13:49:02][REQUEST FILE]
+[I][UbiData][2012-03-12 13:49:02]	- Report : rsm4060.jrf
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-12 13:49:02][DB CONNECT]
+[I][UbiData][2012-03-12 13:49:02]	- Type : nonlookup
+[I][UbiData][2012-03-12 13:49:02]	- Db id : rbm
+[I][UbiData][2012-03-12 13:49:02]	- Sql id : SQL1
+[I][UbiData][2012-03-12 13:49:02]	- Datasource : jdbc/RBM
+[I][UbiData][2012-03-12 13:49:02]	- Status : Success
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-12 13:49:02][DATA QUERY START]
+[I][UbiData][2012-03-12 13:49:02]	- sql id : SQL1
+[I][UbiData][2012-03-12 13:49:02]	- Db charset : KSC5601
+[I][UbiData][2012-03-12 13:49:02]	- Sql
+<
+SELECT *
+ FROM (
+     SELECT  
+           MEET_CD,  
+           STND_YEAR,  
+           DT,   
+          BRNC_CD,  
+          CD_NM,      
+          GROSS_SALES, 
+          CANCELS,  
+          TOT_SALES,  
+          CASHES,  
+          NET_INCOME,  
+          DRAWS,   
+          RETURNS,
+          BALANCE,  
+          VERI,   
+          VERI_DT,  
+          FILE_PATH,  
+          FILE_NM  
+     FROM TBRD_LIS_FILE A 
+     ,TBRK_SPEC_CD B    
+     WHERE 1=1
+      AND BRNC_CD=B.CD
+      AND B.GRP_CD = '018'         
+      AND BRNC_CD NOT IN ('00','01','02','03','04','06','08','98')
+      AND STND_YEAR = ? 
+      AND DT  = ? 
+    ORDER BY BRNC_CD
+ ) A
+ #String#2012#String#0311#
+>
+[I][UbiData][2012-03-12 13:49:02]	- Row size : 17
+[I][UbiData][2012-03-12 13:49:02]	- Data
+<
+001^t2012^t0311^t11^t수원^t1688088200^t0^t1688088200^t1453229810^t234858390^t87597280^t322455670^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t12^t상봉^t1590807060^t225000^t1590582060^t1248139360^t342442700^t162775860^t505218560^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t13^t일산^t993239230^t100000^t993139230^t822791070^t170348160^t78638000^t248986160^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t14^t분당^t1706815050^t218000^t1706597050^t1364492890^t342104160^t91800000^t433904160^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t15^t동대문^t1071670833^t30000^t1071640833^t909256783^t162384050^t57860000^t220244050^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t16^t장안^t1821334030^t133000^t1821201030^t1405004200^t416196830^t253576921^t669773751^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t17^t산본^t772886080^t0^t772886080^t578259850^t194626230^t70370000^t264996230^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t18^t부천^t924828910^t35000^t924793910^t707475520^t217318390^t156459000^t373777390^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t19^t관악^t827175350^t30000^t827145350^t651595530^t175549820^t102309110^t277858930^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t21^t당산^t2089893400^t378900^t2089514500^t1888467580^t201046920^t117097000^t318143920^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t22^t유성^t785383803^t100000^t785283803^t646469803^t138814000^t94012680^t232826680^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t23^t인천^t500340900^t0^t500340900^t380496520^t119844380^t44388000^t164232380^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t24^t시흥^t980000620^t10000^t979990620^t830146760^t149843860^t102346000^t252189860^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t25^t논현^t1133282640^t250000^t1133032640^t1007200560^t125832080^t99200000^t225032080^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t26^t천안^t898928030^t0^t898928030^t774378360^t124549670^t43506320^t168055990^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t27^t올림픽^t3087950540^t578000^t3087372540^t2678787090^t408585450^t304020000^t712605450^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n001^t2012^t0311^t28^t의정부^t985790010^t212500^t985577510^t857693720^t127883790^t67788220^t195672010^t0^t001^t2012-03-11 23:00:00.0^t/web/waspage/usrbm/upload_file/lis_file/2012/20120311/divstatrpt.lis^tdivstatrpt.lis^t^n
+>
+[I][UbiData][2012-03-12 13:49:02][DATA QUERY END]
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-12 13:49:02][DATA QUERY START]
+[I][UbiData][2012-03-12 13:49:02]	- sql id : SQL2
+[I][UbiData][2012-03-12 13:49:02]	- Db charset : KSC5601
+[I][UbiData][2012-03-12 13:49:02]	- Sql
+<
+SELECT *
+ FROM (
+  SELECT 
+    MEET_CD,
+          MEET_DESC,
+          BRNC_CD,
+          SUM(GROSS_SALES) AS GROSS_SALES,
+          SUM(CANCELS) AS CANCELS,  
+          SUM(TOT_SALES) AS TOT_SALES,  
+          SUM(CASHES) AS CASHES,  
+          SUM(NET_INCOME) AS NET_INCOME,  
+          SUM(BALANCE) AS BALANCE  
+  FROM
+  (            
+      SELECT 
+        
+              MEET_CD,  
+        STND_YEAR,  
+        DT,   
+        CASE 
+            WHEN  A.BRNC_CD NOT IN ('00','01','02','03','04','06','08','98') THEN '지점계' 
+            WHEN  A.BRNC_CD IN ('06') THEN '그린카드'
+            WHEN  A.BRNC_CD IN ('01','02','03','04','06','08','98') AND MEET_CD ='003' THEN '미사리'
+            WHEN  A.BRNC_CD IN ('01','02','03','04','06','08','98') AND MEET_CD ='001' THEN '스피돔'
+           ELSE  'X' 
+           END AS  MEET_DESC, 
+           CASE 
+            WHEN  A.BRNC_CD NOT IN ('00','01','02','03','04','06','08','98') THEN '18' 
+            WHEN  A.BRNC_CD IN ('06') THEN '06'
+            WHEN  A.BRNC_CD IN ('01','02','03','04','06','08','98') THEN '00'
+           ELSE  'X'
+           END AS BRNC_CD,
+           CASE 
+            WHEN  A.BRNC_CD NOT IN ('00','01','02','03','04','06','08','98') THEN '1' 
+            WHEN  A.BRNC_CD IN ('06') THEN '2'
+            WHEN  A.BRNC_CD IN ('01','02','03','04','06','08','98') THEN '3'
+           ELSE  'X' 
+           END AS MEET_ORDER,           
+           SUM(GROSS_SALES) AS GROSS_SALES,
+           SUM(CANCELS) AS CANCELS,  
+           SUM(TOT_SALES) AS TOT_SALES,  
+           SUM(CASHES) AS CASHES,  
+           SUM(NET_INCOME) AS NET_INCOME,  
+           SUM(BALANCE) AS BALANCE  
+     FROM TBRD_LIS_FILE A 
+     WHERE 1=1     
+       AND STND_YEAR = ? 
+       AND DT    = ? 
+     GROUP BY MEET_CD,  
+        STND_YEAR,  
+        DT,  
+        A.BRNC_CD
+  )        
+  WHERE BRNC_CD != 'X'
+  GROUP BY MEET_CD,MEET_ORDER,MEET_DESC,
+          BRNC_CD        
+  ORDER BY  MEET_ORDER                                  
+ ) A
+ #String#2012#String#0311#
+>
+[I][UbiData][2012-03-12 13:49:02]	- Row size : 3
+[I][UbiData][2012-03-12 13:49:02]	- Data
+<
+001^t지점계^t18^t21858414686^t2300400^t21856114286^t18203885406^t3652228880^t0^t^n001^t그린카드^t06^t168389440^t0^t168389440^t124320830^t44068610^t44068610^t^n001^t스피돔^t00^t4058876150^t15000^t4058861150^t3371378580^t687482570^t0^t^n
+>
+[I][UbiData][2012-03-12 13:49:02][DATA QUERY END]
+--------------------------------------------------------------------------------
+[I][UbiData][2012-03-12 13:49:02][DATA QUERY START]
+[I][UbiData][2012-03-12 13:49:02]	- sql id : SQL3
+[I][UbiData][2012-03-12 13:49:02]	- Db charset : KSC5601
+[I][UbiData][2012-03-12 13:49:02]	- Sql
+<
+SELECT *
+ FROM (
+     SELECT 
+      '그린카드' AS MYCAT, 
+      COMM_NO, 
+      DIV_NO, 
+      DECODE(DIV_NO,'00','본장','15','논현','올림픽') AS COMM_NAME, 
+      OUT_AMT, 
+      IN_AMT, 
+      MILEAGE_AMT, 
+      BONUS_AMT,
+      (IN_AMT-OUT_AMT-MILEAGE_AMT-BONUS_AMT) AS SIL_IN_AMT 
+  FROM VW_MYCAT_INOUT                                              
+    WHERE 1=1
+   AND RACE_DAY = ?  
+    ORDER BY DIV_NO   
+ ) A
+ #String#20120311#
+>
+[I][UbiData][2012-03-12 13:49:02]	- Row size : 3
+[I][UbiData][2012-03-12 13:49:02]	- Data
+<
+그린카드^t06^t00^t본장^t38486740^t54717740^t741600^t0^t15489400^t^n그린카드^t06^t15^t논현^t5028300^t7402900^t154500^t0^t2220100^t^n그린카드^t06^t17^t올림픽^t35000^t0^t0^t0^t-35000^t^n
+>
+[I][UbiData][2012-03-12 13:49:02][DATA QUERY END]
+--------------------------------------------------------------------------------
+

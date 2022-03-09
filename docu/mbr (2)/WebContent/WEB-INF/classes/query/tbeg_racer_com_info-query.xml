@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_racer_com_info 선수자업자 정보/계좌번호  관리">
+    <query id="tbeg_racer_com_info_ff001" desc="선수 사업자/계좌 정보 조회" fetchSize="50">
+        <![CDATA[
+            /* 선수 사업자/계좌 정보 조회  */
+			SELECT 
+				ROWNUM AS NUM, 	-- 순번
+			    TR.RACER_NO,	-- 선수 등록 번호 
+			    NM_KOR AS RACER_NM, 	-- 선수명 
+			    RACER_PERIO_NO,  	-- 선수 기수 
+			    GET_DEC(RES_NO) RES_NO,	-- 주민등록 번호 
+			    CELPON_NO, 	-- 핸드폰 번호 
+			    HOME_PHONE_NO, 	-- 집전화 번호 
+			    EMAIL_ADDR ,	-- 이메일 주소 
+			    POST_NO, 	-- 우편번호 
+			    ADD1_HOME, 	-- 집 주소 1
+			    ADD2_HOME,	-- 집 주소 2
+			    GET_DEC(COM_REG_NO) COM_REG_NO, -- 사업자 등록 번호 
+			    COM_NM, 	-- 상호 명 
+			    JOB_TPE, 	-- 업태 
+			    JOB_KINDS, 	-- 업종 
+			    BK_CD, 	-- 은행 코드 
+			    GET_DEC(BK_ACCUNT) BK_ACCUNT,	-- 은행 계좌 명 
+			    COM_LOC_ADDR,	-- 사업장 소재지
+			    DECODE(TRCI.MBS_FEE_YN,'Y',1,0) AS MBS_FEE_YN, -- 선수회비공제 여부
+			    DECODE(TRCI.FNC_CHK_YN,'Y',1,0) AS FNC_CHK_YN, -- 재무 확인 여부 
+			    DECODE(TRCI.FNC_CHK_YN,'Y',1,0) AS ORG_FNC_CHK_YN,
+			    BK_CD AS ORG_BK_CD, 	-- 은행 코드 
+			    GET_DEC(BK_ACCUNT) AS ORG_BK_ACCUNT	-- 은행 계좌 명 
+			FROM (
+			    SELECT TRM.RACER_NO, NM_KOR, RACER_PERIO_NO,  EMAIL_ADDR ,
+			        CELPON_NO, HOME_PHONE_NO, GET_DEC(RES_NO) RES_NO, POST_NO, ADD1_HOME, ADD2_HOME
+			    FROM TBEC_RACER_MASTER TRM, TBEC_RACER_DETAIL TRD
+			    WHERE TRM.RACER_NO = TRD.RACER_NO(+)
+                AND ((TRM.RACER_STAT_CD IN('001', '002')) OR (TRM.RACER_STAT_CD = '003' AND SUBSTR(TRD.CNL_DT,1,4) = TO_CHAR(SYSDATE,'YYYY')))
+			    AND TRM.RACER_NO LIKE ?||'%'
+			    AND TRM.NM_KOR LIKE '%'||?||'%'
+			)TR, TBEG_RACER_COM_INFO TRCI
+			WHERE TR.RACER_NO = TRCI.RACER_NO(+)
+			ORDER BY TR.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeg_racer_com_info_if001" desc="선수 사업자/계좌 번호 등록" fetchSize="10">
+        <![CDATA[
+            /* 선수 사업자/계좌 번호 등록  */
+			INSERT INTO TBEG_RACER_COM_INFO (
+			   RACER_NO,	-- 선수 등록번호 
+			   COM_REG_NO, 	-- 사업자 등록번호 
+			   COM_NM, 	-- 상호
+			   JOB_TPE, 	-- 업태 
+			   JOB_KINDS, 	-- 업종 
+			   BK_CD, 	-- 은행 코드 
+			   BK_ACCUNT, 	-- 은행 계좌명
+			   COM_LOC_ADDR, 	-- 사업장 소재지
+			   MBS_FEE_YN,   -- 선수회비공제 여부
+			   FNC_CHK_YN,
+			   INST_ID, 	-- 작성자 
+			   INST_DTM	-- 작성일시 
+			) 
+			VALUES ( 
+				?, 	-- 선수 등록번호 
+				PUT_ENC(?), 	-- 사업자 등록번호
+				?,	-- 상호 
+			    ?, 	-- 업태 
+			    ?, 	-- 업종
+			    ?,	-- 은행 코드 
+			    PUT_ENC(?), 	-- 은행 계좌명 
+			    ?, 	-- 사업장 소재지
+			    DECODE(?, 1, 'Y', 'N'), -- 선수회비공제 여부
+			    DECODE(?, 1, 'Y', 'N'), -- 재무 확인 여부 
+			    ?, 	-- 작성자 
+			    SYSDATE	-- 작성일시 
+			 )
+        ]]>
+    </query> 
+    <query id="tbeg_racer_com_info_uf001" desc="선수 사업자/계좌 번호 수정" fetchSize="10">
+        <![CDATA[
+            /* 선수 사업자/계좌 번호 수정 */
+			UPDATE TBEG_RACER_COM_INFO
+			SET    COM_REG_NO = PUT_ENC(?),	-- 사업자 등록 번호 
+			       COM_NM     = ?,	-- 상호명 
+			       JOB_TPE    = ?,	-- 업태 
+			       JOB_KINDS  = ?,	-- 업종 
+			       BK_CD      = ?,	-- 은행코드 
+			       BK_ACCUNT  = PUT_ENC(?),	-- 은행계좌
+			       COM_LOC_ADDR	= ?, 	-- 사업장 소재
+			       MBS_FEE_YN = DECODE(?, 1, 'Y', 'N'), -- 선수회비공제 여부
+			       FNC_CHK_YN = DECODE(?, 1, 'Y', 'N'), -- 재무 확인 여부 
+			       UPDT_ID    = ?,	-- 수정자 
+			       UPDT_DTM   = SYSDATE	-- 수정일시 
+			WHERE  RACER_NO   = ?	-- 선수 등록번호 
+        ]]>
+    </query> 
+    <query id="tbeg_equip_df001" desc="선수 사업자/계좌 번호 삭제" fetchSize="10">
+        <![CDATA[
+            /* 선수 사업자/계좌 번호 삭제 */
+			DELETE 
+			TBEG_RACER_COM_INFO
+			WHERE  RACER_NO   = ?	-- 선수 등록번호 
+        ]]>
+    </query> 
+</queryMap>

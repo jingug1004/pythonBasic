@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm6020(지불정지 및 해지)">
+    
+    <query id="rsm6020_s01" desc="지불정지 및 해지목록 조회" fetchSize="10">
+      <![CDATA[
+           SELECT   /* rsm6020_s01 */
+           				PUBL_DT          
+					, 	TSN_NO           
+					, 	BRNC_CD          
+					, 	DIV_NO           
+					, 	PLC_NO           
+					, 	RACE_NO          
+					, 	CNCL_CD          
+					, 	TIC_TYPE_CD      
+					, 	TIC_STAS         
+					, 	TIC_CONT         
+					, 	STOPPAY_REQ_DEPT 
+					, 	STOPPAY_REQ_NM   
+					, 	STOPPAY_ID   
+					, (SELECT USER_NM FROM TBRK_USER WHERE USER_ID=SC.STOPPAY_ID) STOPPAY_NM 	--지급정지  사원명
+					, (SELECT HP_NO FROM TBRK_USER WHERE USER_ID=SC.STOPPAY_ID) HP_NO 			--지급정지  핸드폰번호         
+					, 	STOPPAY_DT       
+					, 	RCPT_DT          
+					, 	CNCL_REQ_DEPT    
+					, 	CNCL_REQ_ID
+					, (SELECT USER_NM FROM TBRK_USER WHERE USER_ID=SC.CNCL_REQ_ID) CNCL_REQ_NM 	-- 지급정지 요청자명      
+					, 	CNCL_ID
+					, (SELECT USER_NM FROM TBRK_USER WHERE USER_ID=SC.CNCL_ID) CNCL_NM 			 --지급정지자 명 
+					, (SELECT HP_NO FROM TBRK_USER WHERE USER_ID=SC.CNCL_REQ_ID) CNCL_HP_NO          --지급정지 요청자 핸드폰번호    
+					, 	CNCL_DT          
+					, 	VERI_RSLT_CD     
+					, 	VERI_RSLT_DT     
+					, 	MISS_REPO_NO     
+					, 	MISS_REPO_CD     
+					, 	ACDNT_TY_CD      
+					, 	SALES_AMT        
+					, 	REFUND_TY_CD     
+					, 	REFUND_AMT       
+					, 	CUST_NM          
+					, 	CUST_PHONE_NO    
+					, 	CUST_ADDR        
+					, 	RMK              
+					, 	INST_ID          
+					, 	INST_DT          
+					,	UPDT_ID          
+					, 	UPDT_DT
+					,   ''  RCPT_STAT_CD
+					,   SPEC_DESC
+                    , (SELECT MAX(A.RECV_ID) AS RECV_ID 
+                          FROM  TBRK_ALARM A, TBRK_USER U    
+                          WHERE A.ALARM_CD = '008'
+                          AND   A.ALARM_GBN = '001'
+                          AND   A.RECV_ID = U.USER_ID
+                          AND   U.BRNC_CD =SC.BRNC_CD) BRNC_MNGR_ID
+			 FROM   TBRD_STOPPAY_CNCL_CNTNT SC
+			 WHERE  1 = 1 
+			   AND	PUBL_DT BETWEEN ? AND ?
+			   AND  REPLACE(UPPER(DECODE(?, '', '1', TSN_NO)),'-','')	= REPLACE(UPPER(DECODE(?, '', '1', ?)),'-','')
+			   AND  DECODE(?, '', '1', PLC_NO)  = DECODE(?, '', '1', ?)			
+			   AND  REGEXP_LIKE (DECODE(?, '', '1',TIC_STAS),DECODE(?,'','1',?) )
+	  	  ORDER BY  MISS_REPO_NO DESC, PUBL_DT DESC 
+			
+        ]]>
+   </query>
+   
+   <query id="rsm6020_s02" desc="온라인접수 목록 조회" fetchSize="10">
+      <![CDATA[
+          SELECT  /* rsm6020_s02 */
+                  A.MISS_REPO_NO  
+		        , A.CUST_ID
+		        , A.CUST_NM
+		        , A.CUST_PHONE_NO
+		        , A.RCPT_DT
+		        , A.ACC_BGN_CD
+		        , A.RCPT_STAT_CD
+		  FROM  TBRD_STOPPAY_ONLINE A
+       		   ,TBRD_STOPPAY_CNCL_CNTNT B
+		  WHERE 1=1
+		  	AND A.MISS_REPO_NO=B.MISS_REPO_NO(+)
+		    AND A.RCPT_STAT_CD IN ('002','005')	-- 온라인접수상태가 자료존재인경우만 접수할수있다.-> 접수 , 자료존재일경우		    
+		    AND DECODE(?, '', '1', A.RCPT_DT)  = DECODE(?, '', '1', ?)
+			AND DECODE(?, '', '1', A.CUST_ID)  = DECODE(?, '', '1', ?)
+			AND A.CUST_NM LIKE '%' || NVL(?,A.CUST_NM) || '%'
+		    AND decode(?,'1',B.TIC_STAS,'') IS NULL
+		   ORDER BY A.RCPT_DT DESC	
+		
+        ]]>
+    </query>
+    
+    <query id="rsm6020_s03" desc="발행일자 TNS 카운" fetchSize="10">
+      <![CDATA[
+          SELECT /* rsm6020_s03 */
+                 COUNT(*) CNT FROM TBRD_STOPPAY_CNCL_CNTNT
+          WHERE PUBL_DT = ?
+            AND TSN_NO  = ?
+			
+        ]]>
+    </query>
+    
+    <query id="rsm6020_s04" desc="지불정지등록시 분실신고번호 추출" fetchSize="10">
+      <![CDATA[
+      	  SELECT /* rsm6020_s04 */
+      	         to_char(SQ_TBRD_STOPPAY_MISS_REPO_NO.NEXTVAL) AS MISS_REPO_NO FROM DUAL
+          /*
+       	  SELECT  MAX(MISS_REPO_NO)+1 AS MISS_REPO_NO
+		    FROM  TBRD_STOPPAY_ONLINE
+		   WHERE  1=1 */
+        ]]>
+    </query>
+        
+     <query id="rsm6020_i01" desc="지불정지등록" fetchSize="10">
+      <![CDATA[
+          
+			INSERT /* rsm6020_i01 */
+			       INTO TBRD_STOPPAY_CNCL_CNTNT
+			(
+			     PUBL_DT          
+			    ,TSN_NO           
+			    ,TIC_TYPE_CD      
+			    ,PLC_NO           
+			    ,SALES_AMT         
+			    ,STOPPAY_REQ_DEPT 
+			    ,STOPPAY_REQ_NM   
+			    ,STOPPAY_ID       
+			    ,STOPPAY_DT
+			    ,TIC_STAS         
+			    ,TIC_CONT         
+			    ,VERI_RSLT_CD     
+			    ,VERI_RSLT_DT     
+			    ,BRNC_CD          
+			    ,DIV_NO           
+			    ,MISS_REPO_CD 
+			    ,MISS_REPO_NO  
+			    ,RACE_NO
+			    ,CUST_NM
+			    ,CUST_PHONE_NO
+			    ,SPEC_DESC
+			    ,CNCL_REQ_ID
+			    ,CNCL_REQ_DEPT  
+			    ,INST_ID          
+			    ,INST_DT          
+			) VALUES
+			(
+			     ? 	--PUBL_DT		  	(발행일자)          
+			    ,? 	--TSN_NO			(TSN번호)           
+			    ,? 	--TIC_TYPE_CD      	(티켓타입)  
+			    ,? 	--PLC_NO           	(창구번호)  	
+			    ,? 	--SALES_AMT        	(판매금액)  
+			    ,? 	--STOPPAY_REQ_DEPT 	(지불정지 요청부서)
+			    ,? 	--STOPPAY_REQ_NM   	(지불정지 요청자)
+			    ,? 	--STOPPAY_ID       	(지불정지자)
+			    ,? 	--STOPPAY_DT		(지불정지일자)	
+			    ,? 	--TIC_STAS         	(티켓상태)
+			    ,? 	--TIC_CONT         	(티켓내용)
+			    ,? 	--VERI_RSLT_CD     	(검증조치코드)
+			    ,? 	--VERI_RSLT_DT     	(검증조치일자)
+			    ,? 	--BRNC_CD          	(지점코드)
+			    ,? 	--DIV_NO           	(투표소번호)
+			    ,? 	--MISS_REPO_CD 	  	(분실신고유형)
+			    ,? 	--MISS_REPO_NO     	(분실신고번호)
+			    ,?	--RACE_NO			(경주번호)
+			    ,?  --CUST_NM           (고객명-온라인) 
+			    ,?	--CUST_PHONE_NO     (고객번호-온라인)
+			    ,?  --SPEC_DESC         (특이사항)
+			    ,?  --CNCL_REQ_ID       (해지요청자 사번)
+			    ,?  --CNCL_REQ_DEPT     (해지요청자 부서)  
+			    ,?    --INST_ID          	(등록자)
+			    ,SYSDATE --INST_DT	  	(등록일자)
+			)
+			
+        ]]>
+    </query>
+    
+    <query id="rsm6020_u01" desc="지불정지 해지 처리" fetchSize="10">
+      <![CDATA[
+          
+		    UPDATE  /* rsm6020_u01 */
+		            TBRD_STOPPAY_CNCL_CNTNT
+		       SET  		            
+		             CNCL_ID      = ?
+		            ,CNCL_DT      = ?
+		            ,TIC_STAS     = '004'		            
+		            ,UPDT_ID      = ?
+		            ,UPDT_DT      = SYSDATE
+		            ,CNCL_REQ_ID  = ?
+		            ,CNCL_REQ_DEPT  = ?
+			
+		    WHERE     
+		            MISS_REPO_NO = ?          
+		    AND     TSN_NO  = ?   
+			
+        ]]>
+    </query>
+    
+    <query id="rsm6020_u02" desc="지불정지 해지 취소" fetchSize="10">
+      <![CDATA[
+          
+		    UPDATE  /* rsm6020_u02 */
+		            TBRD_STOPPAY_CNCL_CNTNT
+		       SET  		            
+		             CNCL_ID            = ''
+		            ,CNCL_DT            = ''
+		            ,TIC_STAS           = '001'		            
+		            ,UPDT_ID            = ?
+		            ,UPDT_DT            = SYSDATE
+		    WHERE     
+		            MISS_REPO_NO = ?          
+		    AND     TSN_NO  = ?   
+			
+        ]]>
+    </query>
+    
+     <query id="rsm6020_u03" desc="지불정지 해지정보 수정" fetchSize="10">
+      <![CDATA[
+          
+		    UPDATE  /* rsm6020_u03 */
+		            TBRD_STOPPAY_CNCL_CNTNT
+		       SET  		            
+		           	 TIC_TYPE_CD= ?
+		           	,DIV_NO		= ?
+		           	,PLC_NO		= ?
+		           	,RACE_NO	= ?
+		           	,BRNC_CD	= ?
+		           	,SALES_AMT	= ?
+		           	,TIC_CONT	= ?
+		           	,SPEC_DESC  = ?
+		           	,CNCL_REQ_ID  = ?
+		           	,CNCL_REQ_DEPT  = ?	
+		           	,STOPPAY_ID = ?
+					,STOPPAY_DT = ?	           	 		   
+					,CNCL_ID = ?
+					,CNCL_DT = ?         
+		            ,UPDT_ID	= ?
+		            ,UPDT_DT	= SYSDATE
+		    WHERE     
+		            MISS_REPO_NO = ?          
+		    AND     TSN_NO  = ?   
+			
+        ]]>
+    </query>
+    
+    <query id="rsm6020_d01" desc="지불정지 취소 처리" fetchSize="10">
+      <![CDATA[
+          
+		    DELETE  /* rsm6020_d01 */
+		            TBRD_STOPPAY_CNCL_CNTNT		       
+		    WHERE     
+		            MISS_REPO_NO = ?          
+		    AND     TSN_NO  = ?   
+			
+        ]]>
+    </query>
+    
+   <query id="rsm6020_u04" desc="분실신고서 온라인접수 자료존재처리" fetchSize="10">
+      <![CDATA[
+            UPDATE   /* rsm6020_u04 */
+                     TBRD_STOPPAY_ONLINE
+                SET 
+ 
+                        
+                        RCPT_STAT_CD    = ?         -- 접수상태
+                    ,   PROC_ID         = ?         -- 처리자
+                    ,   PROC_DT         = TO_CHAR(SYSDATE,'YYYYMMDD')   -- 처리일자                 
+                    ,   UPDT_ID         = ?         -- 수정자
+                    ,   UPDT_DT         = SYSDATE   -- 수정일자                     
+             WHERE  MISS_REPO_NO = ?
+                    
+        ]]>
+    </query>
+    
+    <query id="rsm6020_i02" desc="지불정지 가져오기" fetchSize="10">
+      <![CDATA[
+			MERGE INTO USRBM.TBRD_STOPPAY_CNCL_CNTNT A
+		        USING
+		          ( SELECT TSN_NO, PUBL_DT, TIC_TYPE_CD, MISS_REPO_CD, RACE_NO, PLC_NO, TIC_STAS, TIME_TOTE, SALES_AMT, INST_ID, INST_DT, RK,
+		                   (ROWNUM+(SELECT MAX(TO_NUMBER(MISS_REPO_NO)) FROM TBRD_STOPPAY_CNCL_CNTNT)) MISS_REPO_NO
+                  FROM (
+                        SELECT SUBSTR(TSN,1,1) || '-' || SUBSTR(TSN,2,4) || '-' || SUBSTR(TSN,6,4) || '-' || SUBSTR(TSN,10,4) TSN_NO,
+                               TRIM(ORG_SESS_DATE) PUBL_DT,
+                               DECODE(TKT_TYPE, '', '', '00'||TKT_TYPE) TIC_TYPE_CD,
+                               '002' MISS_REPO_CD,
+                               TKT_RACE_NO RACE_NO,
+                               ORG_WINDOW_NO PLC_NO,
+                               DECODE(LOCKED_STATUS, '0', '004', '1', '001', LOCKED_STATUS) TIC_STAS,
+                               TIME_TOTE,
+                               LOCK_AMOUNT SALES_AMT,
+                               ? INST_ID,
+                               SYSDATE INST_DT,
+                               RANK() OVER(PARTITION BY TSN ORDER BY TIME_TOTE DESC) RK
+                          FROM TF_REC_LOCK@ODDSDBLINK
+                         WHERE 1=1
+                           AND TRIM(ORG_SESS_DATE) = ?
+                           AND TSN IS NOT NULL 
+                       ) 
+                 WHERE RK = 1    
+		            ) B
+		        ON (    A.TSN_NO       = B.TSN_NO )
+		        WHEN MATCHED THEN
+		          UPDATE SET 
+		            A.PUBL_DT      = B.PUBL_DT,
+		            A.TIC_TYPE_CD  = B.TIC_TYPE_CD,
+		            A.MISS_REPO_CD = B.MISS_REPO_CD,
+		            A.RACE_NO      = B.RACE_NO,
+		            A.PLC_NO       = B.PLC_NO,
+		            A.TIC_STAS     = B.TIC_STAS,
+		            A.SALES_AMT    = B.SALES_AMT,
+		            A.UPDT_ID      = ?,
+		            A.UPDT_DT      = SYSDATE
+		        WHEN NOT MATCHED THEN 
+		          INSERT ( A.MISS_REPO_NO, A.TSN_NO, A.PUBL_DT, A.TIC_TYPE_CD, A.MISS_REPO_CD, A.RACE_NO, A.PLC_NO, A.TIC_STAS, A.SALES_AMT, A.INST_ID, A.INST_DT )
+		          VALUES ( B.MISS_REPO_NO, B.TSN_NO, B.PUBL_DT, B.TIC_TYPE_CD, B.MISS_REPO_CD, B.RACE_NO, B.PLC_NO, B.TIC_STAS, B.SALES_AMT, B.INST_ID, B.INST_DT )	          
+        ]]>
+    </query>
+    
+</queryMap>

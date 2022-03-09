@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="d07000008">
+    <query id="d07000008_s01" desc="조회" fetchSize="10">
+        <![CDATA[
+           SELECT  /* d07000008_s01 */
+                    A.STND_YEAR
+                   ,A.MBR_CD
+                   ,A.EQUIP_TPE_CD
+                   ,A.EQUIP_NO
+                   ,NVL(U.USE_DT, ?) AS USE_DT
+                   ,NVL(A.USE_TMS, TO_NUMBER(A.USE_TMS)) AS USE_TMS
+                   ,LPAD(TO_CHAR(TRUNC(U.USE_TIME/60)),2,'0')||LPAD(TO_CHAR(MOD(U.USE_TIME,60)),2,'0') AS USE_TIME 
+                   ,U.USE_TIME AS USE_TIME_ORG 
+			FROM (
+		              SELECT   E.STND_YEAR
+		                      ,E.MBR_CD
+		                      ,E.EQUIP_TPE_CD
+		                      ,E.EQUIP_NO
+		                      ,TO_NUMBER(C.CD) AS USE_TMS
+			            FROM   TBEF_EQUIP E  
+			                  ,TBDM_SPEC_CD C
+			            WHERE   1=1
+			               AND C.GRP_CD       = 'E20012'
+			               AND E.STND_YEAR    = SUBSTR(?,1,4)
+			               AND E.MBR_CD       = ?
+			               AND E.EQUIP_TPE_CD = ?
+			               AND E.USE_YN       = 'Y'               
+			        ) A
+			        , TBEF_EQUIP_USAGE U
+			   WHERE 1=1
+			      AND  A.USE_TMS       = U.USE_TMS(+)
+			      AND  A.STND_YEAR     = U.STND_YEAR(+)
+			      AND   A.MBR_CD       = U.MBR_CD(+)
+			      AND   A.EQUIP_TPE_CD = U.EQUIP_TPE_CD(+)
+			      AND   A.EQUIP_NO     = U.EQUIP_NO(+)
+			      AND   A.STND_YEAR    = SUBSTR(?,1,4)          
+			     AND    U.USE_DT(+)    = ?
+			     ORDER BY A.EQUIP_NO, NVL(U.USE_TMS, TO_NUMBER(A.USE_TMS))
+        ]]>
+    </query>
+    
+    
+      <query id="d07000008_s02" desc="모터/보트 가동시간 일별 합계" fetchSize="10">
+        <![CDATA[
+             SELECT  /* d07000008_s02 */
+                     LPAD(TO_CHAR(TRUNC(USE_TIME_TOTAL/60)),2,'0')||LPAD(TO_CHAR(MOD(USE_TIME_TOTAL,60)),2,'0') AS USE_TIME_TOTAL
+                    ,LPAD(TO_CHAR(TRUNC(USE_TIME_AVG/60)),2,'0')||LPAD(TO_CHAR(MOD(USE_TIME_AVG,60)),2,'0') AS USE_TIME_AVG
+             FROM   (
+                      SELECT SUM(USE_TIME) AS USE_TIME_TOTAL 
+                            ,AVG(USE_TIME) AS USE_TIME_AVG
+		               FROM  TBEF_EQUIP A
+		                    ,TBEF_EQUIP_USAGE U
+		               WHERE 1=1
+		                 AND A.STND_YEAR    = U.STND_YEAR
+		                 AND A.MBR_CD       = U.MBR_CD
+		                 AND A.EQUIP_TPE_CD = U.EQUIP_TPE_CD
+		                 AND A.EQUIP_NO     = U.EQUIP_NO
+		                 AND U.EQUIP_TPE_CD = ?          
+		                 AND U.USE_DT       = ?
+		            )
+        ]]>
+    </query>
+    
+      <query id="d07000008_m01" desc="모터/보트 가동시간 자료 입력" fetchSize="10">
+        <![CDATA[
+       MERGE INTO /* d07000008_m01 */
+                  TBEF_EQUIP_USAGE DST
+       USING (
+                     SELECT ? AS STND_YEAR,
+                            NVL(?,'001') AS MBR_CD,
+                            ? AS EQUIP_TPE_CD, 
+                            ? AS EQUIP_NO,
+                            ? AS USE_DT,
+                            ? AS USE_TMS,
+                            TO_NUMBER(SUBSTR(RPAD(?,4,'0'),1,2))* 60 + TO_NUMBER(SUBSTR(RPAD(?,4,'0'),3,2)) AS USE_TIME,
+                            ? AS USER_ID
+                    FROM DUAL
+             )  SRC
+            ON (
+                      DST.STND_YEAR    = SRC.STND_YEAR
+                  AND DST.MBR_CD       = SRC.MBR_CD
+                  AND DST.EQUIP_TPE_CD = SRC.EQUIP_TPE_CD
+                  AND DST.EQUIP_NO     = SRC.EQUIP_NO
+                  AND DST.USE_DT       = SRC.USE_DT
+                  AND DST.USE_TMS      = SRC.USE_TMS
+            )          
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.USE_TIME = SRC.USE_TIME
+                        ,DST.UPDT_ID  = SRC.USER_ID
+                        ,DST.UPDT_DTM = SYSDATE    
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  STND_YEAR
+                , MBR_CD
+                , EQUIP_TPE_CD
+                , EQUIP_NO
+                , USE_DT
+                , USE_TMS
+                , USE_TIME
+                , INST_ID
+                , INST_DTM
+               ) VALUES (
+                  SRC.STND_YEAR
+                , SRC.MBR_CD
+                , SRC.EQUIP_TPE_CD
+                , SRC.EQUIP_NO
+                , SRC.USE_DT
+                , SRC.USE_TMS
+                , SRC.USE_TIME
+                , SRC.USER_ID                
+                , SYSDATE    
+              )
+              
+        ]]>
+    </query> 
+    
+    <query id="d07000008_d01" desc="모터/보트 가동시간 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE  /* d07000008_d01 */
+			FROM   TBEF_EQUIP_USAGE
+			WHERE  STND_YEAR    = ?
+			  AND  MBR_CD       = ?
+			  AND  EQUIP_TPE_CD = ?
+			  AND  EQUIP_NO     = ?
+			  AND  USE_DT       = ?
+			  AND  USE_TMS      = ?
+	    ]]>
+    </query>
+</queryMap>

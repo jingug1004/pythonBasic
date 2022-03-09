@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbtq_simulation(TQC코드관련)">
+    <query id="tbtq_simulation_fa001" desc="시뮬레이션List" fetchSize="10">
+        <![CDATA[
+	SELECT 
+	 B.STND_YEAR
+	,A.CD
+	,A.CD_NM
+	,A.RMK
+	,C.PART_CD
+	,C.PART_NM
+	,D.RATE
+	,(SELECT MAX(SEQ) FROM TBTQ_CTL_RATE)+1 SEQ
+	,ROUND(B.POINT,2) AS POINT  -- 현재 환산점수
+	,B.ORG_POINT                -- 점수
+	,B.CHK 
+	,A.ORD_NO
+	,A.CONTENTS
+	,0 NEW_RATE                 -- 등록된 비중
+	,0 NEW_POINT				-- 등록된 환산점수
+	,0 POINT_DECLINATION        -- 환산점수 편차
+	,0 RATE_DECLINATION         -- 비중편차 
+	,'' COMMENTS
+	FROM TBTQ_SPEC_CD A         
+	,(
+	  SELECT T1.STND_YEAR,T1.TMS, T1.CD,T1.POINT * (T2.RATE/100) AS POINT,POINT AS ORG_POINT ,CHK FROM ( 
+	  		 SELECT STND_YEAR,0.5 TMS,CD,( 100 - CASE WHEN SUM(CNT) * 10 > 50 THEN 50 ELSE SUM(CNT) * 10 END ) AS POINT,0 CHK 
+				FROM TBTQ_CTL 
+				WHERE CD IN('P01','P03','P04','P05','P07','P10')
+				GROUP BY STND_YEAR,CD
+			---------------------------------------------------------------------------------------------- 
+			UNION
+			SELECT STND_YEAR,0.5 TMS,'P02' CD,ROUND(LEAST(POINT,GOAL) / GOAL * 100,2) AS POINT ,1 CHK FROM (
+				SELECT A.STND_YEAR,A.CNT/B.TOTAL POINT
+				FROM
+				(
+		   			SELECT A.STND_YEAR,COUNT(*) CNT
+					FROM USRBM.TBES_SDL_RS A,TBEB_RACE B
+					WHERE A.STND_YEAR = B.STND_YEAR
+					AND A.TMS = B.TMS
+					AND A.DAY_ORD = B.DAY_ORD
+					AND A.RACE_NO = B.RACE_NO
+					AND A.POOL_CD = '004'
+					AND A.PAYOFF < 10
+					AND B.RACE_STTS_CD = '001'
+				    GROUP BY A.STND_YEAR
+				)A,
+				(
+					SELECT A.STND_YEAR,COUNT(*) TOTAL 
+					FROM USRBM.TBES_SDL_RS A,TBEB_RACE B
+					WHERE A.STND_YEAR = B.STND_YEAR
+					AND A.TMS = B.TMS
+					AND A.DAY_ORD = B.DAY_ORD
+					AND A.RACE_NO = B.RACE_NO
+					AND A.POOL_CD = '004'
+					AND B.RACE_STTS_CD = '001'
+				    GROUP BY A.STND_YEAR
+				)B
+				WHERE A.STND_YEAR = B.STND_YEAR
+				)T1,
+				(
+					SELECT (SUM(CNT)/SUM(TOTAL)) * 1.1 AS GOAL FROM(
+					SELECT A.STND_YEAR,A.TMS,A.CNT,B.TOTAL, ROUND((A.CNT/B.TOTAL) * 100 ) POINT
+					FROM
+					(
+			   			SELECT A.STND_YEAR,A.TMS,COUNT(*) CNT
+						FROM USRBM.TBES_SDL_RS A,TBEB_RACE B
+						WHERE A.STND_YEAR = B.STND_YEAR
+						AND A.TMS = B.TMS
+						AND A.DAY_ORD = B.DAY_ORD
+						AND A.RACE_NO = B.RACE_NO
+						AND A.POOL_CD = '004'
+						AND A.PAYOFF < 10
+						AND B.RACE_STTS_CD = '001'
+					    GROUP BY A.STND_YEAR,A.TMS
+					)A,
+					(
+						SELECT A.STND_YEAR,A.TMS,COUNT(*) TOTAL 
+						FROM USRBM.TBES_SDL_RS A,TBEB_RACE B
+						WHERE A.STND_YEAR = B.STND_YEAR
+						AND A.TMS = B.TMS
+						AND A.DAY_ORD = B.DAY_ORD
+						AND A.RACE_NO = B.RACE_NO
+						AND A.POOL_CD = '004'
+						AND B.RACE_STTS_CD = '001'
+					    GROUP BY A.STND_YEAR,A.TMS
+					)B
+					WHERE A.STND_YEAR = B.STND_YEAR
+					AND   A.TMS = B.TMS
+					AND   B.STND_YEAR BETWEEN ? - 3 AND  ? - 1
+					 )
+				)T2 
+			-------------------------------------------------------------------------------
+			UNION
+			     SELECT STND_YEAR,0.5 TMS,CD,100 - NVL((SUM(CNT/TOTALCNT)/COUNT(TMS) * 100),0) AS POINT,0 CHK 
+				 FROM TBTQ_CTL
+				 WHERE CD IN('P06')
+				 GROUP BY STND_YEAR,CD
+			UNION
+				SELECT STND_YEAR,0.5 TMS,CD,( 100 - CASE WHEN SUM(CNT) * 1.2 > 50 THEN 50 ELSE SUM(CNT) * 1.2 END ) AS POINT,0 CHK 
+				FROM TBTQ_CTL 
+				WHERE CD = 'P09'
+				GROUP BY STND_YEAR,CD	 
+			------------------------------------------------------------------------------------- 
+			UNION
+				SELECT A.STND_YEAR,0.5 TMS,B.CD,ROUND(100 -(B.CNT/A.TOTAL) * 100,2) AS POINT,0 CHK FROM
+				 (
+					 SELECT STND_YEAR,COUNT(TMS)AS TOTAL
+					 FROM TBEB_RACE
+					 WHERE RACE_STTS_CD = '001'
+					 GROUP BY STND_YEAR
+				 )A,	
+				 (      					 
+					 SELECT STND_YEAR,CD,SUM(CNT) CNT FROM TBTQ_CTL 
+					 WHERE CD IN('P08','P11','P12')
+					 GROUP BY STND_YEAR,CD
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+			------------------------------------------------------------------------------------- 
+			UNION
+				SELECT STND_YEAR,0.5 TMS,'P13' CD
+				 ,CASE WHEN ROUND((1 - (CNT - 0.45)/0.45) * 100,2) > 100 THEN 100 
+				  ELSE ROUND((1 - (CNT - 0.45)/0.45) * 100,2) END AS POINT
+				 ,1 CHK 
+				 FROM
+				 (
+					 SELECT STND_YEAR,ROUND(SUM(CNT)/ COUNT(*),2) CNT FROM (	
+						 SELECT A.STND_YEAR,A.MOT_NO,MAX(A.INTRO_RUN_TM)- MIN(A.INTRO_RUN_TM) AS CNT 
+						 FROM TBEB_ORGAN A,TBEB_RACE B
+						 WHERE A.STND_YEAR = B.STND_YEAR
+						 AND A.TMS = B.TMS
+						 AND A.DAY_ORD = B.DAY_ORD
+						 AND A.RACE_NO = B.RACE_NO
+						 AND B.RACE_STTS_CD = '001' 
+						 GROUP BY A.STND_YEAR,A.MOT_NO
+					 )	
+					 GROUP BY STND_YEAR
+				  )
+            ------------------------------------------------------------------------------------- 
+            UNION
+            	 SELECT A.STND_YEAR,0.5 TMS,'Q01' CD,( 100 - CASE WHEN NVL(B.CNT,0) * 10 > 50 THEN 50 ELSE NVL(B.CNT,0) * 10 END ) AS POINT, 1 CHK FROM
+				 VWET_SEASON A,
+				 (
+					 SELECT STND_YEAR,COUNT(*) CNT FROM TBEB_RACE
+					 WHERE RACE_STTS_CD IN('002', '003')
+					 GROUP BY STND_YEAR
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 GROUP BY A.STND_YEAR,B.CNT
+			UNION
+			------------------------------------------------------------------------------------- 
+			SELECT A.STND_YEAR,0.5 TMS,'Q02' CD
+				 ,CASE WHEN GOAL/(CNT/TOTAL * 100) * 100 > 100 THEN 100
+			      WHEN CNT IS NULL THEN 100 ELSE GOAL/(CNT/TOTAL * 100) * 100  END AS POINT,1 CHK
+			FROM
+			 (
+				SELECT STND_YEAR,COUNT(TMS)AS TOTAL
+				FROM TBEB_RACE
+				WHERE RACE_STTS_CD = '001'
+				GROUP BY STND_YEAR
+			 )A,
+			 (
+				 SELECT STND_YEAR,'Q02' CD,COUNT(TMS) CNT,1 CHK FROM TBED_RACE_VOIL_ACT 
+				 WHERE ACDNT_TPE_CD = '003'
+				 AND VOIL_CD IN('110','120')
+				 GROUP BY STND_YEAR
+			 )B,
+			 (
+			 -- 목표
+				 SELECT SUM(B.CNT)/SUM(A.TOTAL) * 100 * 0.9 GOAL FROM
+				(
+					 SELECT STND_YEAR,COUNT(STND_YEAR)AS TOTAL
+					 FROM TBEB_RACE
+					 WHERE RACE_STTS_CD = '001'
+					 GROUP BY STND_YEAR
+				)A,
+				(
+					 SELECT STND_YEAR,COUNT(STND_YEAR) CNT FROM TBED_RACE_VOIL_ACT 
+					 WHERE ACDNT_TPE_CD = '003'
+					 AND VOIL_CD IN('110','120')
+					 GROUP BY STND_YEAR
+				)B
+				WHERE  A.STND_YEAR = B.STND_YEAR 
+				AND A.STND_YEAR BETWEEN ? - 3 AND ? - 1 
+			 )C
+			WHERE  A.STND_YEAR = B.STND_YEAR(+)
+			GROUP BY A.STND_YEAR,A.TOTAL,B.CNT,C.GOAL
+			-------------------------------------------------------------------------------------		 
+			UNION
+			 	SELECT A.STND_YEAR,0.5 TMS,'Q03' CD
+			 	,CASE WHEN 100-((COUNT(B.TMS) * 20)/ A.TOTAL * 100) < 0 THEN 0 ELSE
+			 	ROUND(100-((COUNT(B.TMS) * 20)/ A.TOTAL * 100),2) END AS POINT,1 CHK 
+				 FROM   
+				   (
+					 SELECT STND_YEAR,COUNT(TMS)AS TOTAL
+					 FROM TBEB_RACE
+					 WHERE RACE_STTS_CD = '001'
+					 GROUP BY STND_YEAR
+				   )A,
+				  (
+					 SELECT * FROM TBED_RACE_VOIL_ACT 
+					 WHERE  ACDNT_TPE_CD = '003'
+					 AND    VOIL_CD IN('995','996','997')
+				  )B
+				 WHERE  A.STND_YEAR = B.STND_YEAR(+)
+				 GROUP BY A.STND_YEAR,A.TOTAL
+		   -------------------------------------------------------------------------------------
+			UNION
+	             SELECT A.STND_YEAR,0.5 TMS,'Q04' CD,ROUND( 100 - (COUNT(B.TMS)/A.TOTAL) * 100 ,2) AS POINT,1 CHK 
+				 FROM   
+				   (
+					 SELECT STND_YEAR,COUNT(TMS)AS TOTAL 
+					 FROM TBEB_RACE
+					 WHERE RACE_STTS_CD = '001'
+					 GROUP BY STND_YEAR
+				   )A,
+				  (
+					  SELECT * FROM TBED_RACE_VOIL_ACT
+					  WHERE ACDNT_TPE_CD IN('001','002','004','007','008','010')
+				  )B
+				 WHERE  A.STND_YEAR = B.STND_YEAR(+)
+				 GROUP BY A.STND_YEAR,A.TOTAL 	
+			-------------------------------------------------------------------------------------
+			UNION
+ 				 SELECT A.STND_YEAR,0.5 TMS,'Q05' CD,ROUND((1.5 - (SUM(A.STAR_TM)/COUNT(A.STAR_TM))) * 100 * 0.67,2) AS POINT,1 CHK 
+				 FROM TBEB_ORGAN A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND A.DAY_ORD = B.DAY_ORD
+				 AND A.RACE_NO = B.RACE_NO
+				 AND B.RACE_STTS_CD = '001'
+				 GROUP BY A.STND_YEAR
+			-------------------------------------------------------------------------------------
+			UNION
+				 SELECT A.STND_YEAR,0.5 TMS,'Q06' CD,ROUND((7.5 - SUM(A.INTRO_RUN_TM)/COUNT(A.INTRO_RUN_TM))*100,2) AS POINT,1 CHK  
+				 FROM TBEB_ORGAN A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND A.DAY_ORD = B.DAY_ORD
+				 AND A.RACE_NO = B.RACE_NO
+				 AND B.RACE_STTS_CD = '001'
+				 GROUP BY A.STND_YEAR
+			-------------------------------------------------------------------------------------
+			UNION
+			SELECT A.STND_YEAR,0.5 TMS,'Q07' CD,ROUND(100 - (A.CNT/B.GOAL),2) POINT, 1 CHK
+				FROM
+				(
+					  SELECT STND_YEAR,ROUND(SUM(CNT)/ COUNT(*),3) CNT ,1 CHK FROM (	
+						 SELECT A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO,SUM(A.TIME_DIFF)/2000 AS CNT  
+						 FROM TBEB_ORGAN A,TBEB_RACE B
+						 WHERE A.STND_YEAR = B.STND_YEAR
+						 AND A.TMS = B.TMS
+						 AND A.DAY_ORD = B.DAY_ORD
+						 AND A.RACE_NO = B.RACE_NO
+						 AND B.RACE_STTS_CD = '001'
+						 AND A.RANK IN( 2,3)
+						 GROUP BY A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO
+					 )
+					  GROUP BY STND_YEAR
+				 )A,
+			    -- 목표
+				(
+					 SELECT  SUM(CNT)/COUNT(*) * 0.9 GOAL FROM(
+						 SELECT A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO,SUM(A.TIME_DIFF)/2000 AS CNT
+						 FROM TBEB_ORGAN A,TBEB_RACE B
+						 WHERE A.STND_YEAR = B.STND_YEAR
+						 AND A.TMS = B.TMS
+						 AND A.DAY_ORD = B.DAY_ORD
+						 AND A.RACE_NO = B.RACE_NO
+						 AND B.RACE_STTS_CD = '001' 
+						 AND A.RANK IN( 2,3)
+						 AND A.STND_YEAR BETWEEN ? - 3 AND ? - 1
+						 GROUP BY A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO
+					 )
+				 )B	
+			 -------------------------------------------------------------------------------------
+			 UNION
+				 SELECT A.STND_YEAR, 0.5 TMS,'Q08' CD,ROUND( 100 - (COUNT(B.TMS)/A.TOTAL) * 100 ,2) AS POINT,1 CHK 
+				 FROM   
+				   (
+						SELECT STND_YEAR, COUNT(*) TOTAL FROM TBEB_ORGAN
+						WHERE ABSE_CD = '001'
+						GROUP BY STND_YEAR
+				   )A,
+				  (
+						SELECT * FROM TBED_RACE_VOIL_ACT 
+						WHERE VOIL_CD IN('125','140','150','210','220','999')
+				  )B
+				 WHERE  A.STND_YEAR = B.STND_YEAR(+)
+				 GROUP BY A.STND_YEAR,A.TOTAL
+				 			)T1,
+			 TBTQ_CTL_RATE T2
+			 WHERE T1.CD = T2.CD
+			 AND T2.SEQ = ?
+			) B 
+			,TBTQ_PART_CD C
+			,(SELECT  STND_YEAR,CD,RATE,SEQ FROM TBTQ_CTL_RATE 
+			  WHERE SEQ = ? ) D
+			WHERE A.CD = B.CD(+)	
+			AND   A.PART_CD = C.PART_CD
+			AND   A.CD = D.CD
+			AND   A.USE_YN = 'Y'
+			AND   B.STND_YEAR = ?
+			ORDER BY ORD_NO,CD,STND_YEAR
+        ]]>
+    </query> 
+    <query id="tbtq_simulation_fa002" desc="비중SEQ" fetchSize="10">
+        <![CDATA[
+			SELECT SEQ AS CD,COMMENTS FROM TBTQ_CTL_RATE
+			GROUP BY SEQ,COMMENTS 
+			ORDER BY SEQ DESC		
+        ]]>
+    </query> 
+    <query id="tbtq_simulation_ia001" desc="비중저장" fetchSize="10">
+        <![CDATA[
+			 MERGE INTO TBTQ_CTL_RATE TCR
+    		 		   USING   DUAL
+					   ON	   (    TCR.STND_YEAR	= ?
+					   		   	AND TCR.CD 			= ?
+								AND TCR.SEQ 		= ?
+								)
+					   WHEN MATCHED THEN
+					    UPDATE SET
+						  RATE   	  		  = ?
+						, GBN                 ='S'
+						, COMMENTS			  = ?
+						, UPDT_ID             = ?
+						, UPDT_DTM            = SYSDATE
+					   WHEN NOT MATCHED THEN
+						INSERT (
+							   	  STND_YEAR
+								, CD
+								, SEQ
+								, RATE	
+								, GBN
+								, COMMENTS	   
+							    , INST_ID
+							    , INST_DTM
+								)VALUES (
+											 ?
+											,?
+											,?
+											,?
+											,'S' 
+											,?
+											,?
+											,SYSDATE								
+										)
+        ]]>
+    </query> 
+</queryMap>

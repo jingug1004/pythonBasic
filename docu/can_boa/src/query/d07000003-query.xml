@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="선수훈련결과등록"> 
+    <query id="tbdo_racer_trng_rslt_fo001" desc="선수훈련결과 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* tbdo_racer_trng_rslt_fo001 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , TTAR.MENTO_YN
+                   , TTAR.MENTO_GRP_NO
+                   , TRTR.PER_TURN
+                   , TRTR.FORM_TURN
+                   , TRTR.FORM_TURN_3
+                   , TRTR.FORM_TURN_1
+                   , TRTR.ST
+                   , TRTR.IMIT_RACE
+                   , TRTR.BOAT_TIME
+                   , TRTR.BOAT_TIME_GRD
+                   , TRTR.MOTOR_MNT
+                   , TRTR.BODY_TRNG
+                   , TRTR.VIDEO
+                   , TRTR.PRIZ_PENAL
+                   , TRTR.CMPL_YN
+                   , TRTR.DETL_EDU_CNTN
+                   , TRTR.MOTOR_MNT_PELLER
+                   , TRTA.COL01
+                   , TRTA.COL02
+                   , TRTA.COL03
+                   , TRTA.COL04
+                   , TRTA.COL05
+                   , TRTA.COL06
+                   , TRTA.COL07
+                   , TTA.TRNG_ASK_DD_NUM AS TRNG_DAY_CNT
+            FROM    MRASYS.TBEB_TRNG_ASK TTA 
+                 LEFT JOIN MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                      ON      TTA.TRNG_ASK_SEQ = TTAR.TRNG_ASK_SEQ
+                 LEFT JOIN MRASYS.TBEC_RACER_MASTER    TRM
+                      ON      TTAR.RACER_NO     = TRM .RACER_NO
+                 LEFT OUTER JOIN (
+                        SELECT *
+                        FROM   TBDO_RACER_TRNG_RSLT TRTR
+                        WHERE  TRTR.TRNG_ASK_SEQ = ?
+                        ) TRTR
+                      ON      TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ
+                         AND  TTAR.RACER_NO     = TRTR.RACER_NO
+                  LEFT OUTER JOIN (
+	                        SELECT 
+	                                 DT
+	                               , RACER_NO
+	                               , DECODE(VIOL_CNTNT, '003', COUNT(*)) COL01 --신호위반
+	                               , DECODE(VIOL_CNTNT, '002', COUNT(*)) COL02 --낙수
+	                               , DECODE(VIOL_CNTNT, '001', COUNT(*)) COL03 --전복
+	                               , DECODE(VIOL_CNTNT, '004', COUNT(*)) COL04 --항주곤란
+	                               , DECODE(VIOL_CNTNT, '110', COUNT(*)) COL05 --F
+	                               , DECODE(VIOL_CNTNT, '120', COUNT(*)) COL06 --L
+	                               , DECODE(VIOL_CNTNT, '', COUNT(*)) COL07 --기타
+	                        FROM   TBDO_RACER_TRNG_ACDNT
+	                        GROUP BY DT, RACER_NO
+	                               , VIOL_CNTNT
+	                     ) TRTA
+	                   ON      TTAR.RACER_NO     = TRTA.RACER_NO 
+                           AND TRTA.DT BETWEEN TTA.TRNG_ASK_STR_DT AND TTA.TRNG_ASK_END_DT
+            WHERE  TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.MENTO_GRP_NO, NVL(TTAR.MENTO_YN,'0') DESC, TTAR.RACER_NO
+	    ]]>
+    </query> 
+    
+    <query id="tbdo_racer_trng_rslt_fo002" desc="선수훈련결과(스타트측정) 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* tbdo_racer_trng_rslt_fo002 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , NVL(TRTS.ESTI_DT, ?) ESTI_DT
+                   , TRIM(TO_CHAR(TRTS.RSLT1,'9,990.00')) AS RSLT1
+                   , TRIM(TO_CHAR(TRTS.RSLT2,'9,990.00')) AS RSLT2
+                   , TRIM(TO_CHAR(TRTS.RSLT3,'9,990.00')) AS RSLT3
+                   , TRIM(TO_CHAR(TRTS.RSLT4,'9,990.00')) AS RSLT4
+                   , TRIM(TO_CHAR(TRTS.RSLT5,'9,990.00')) AS RSLT5
+                   , TRIM(TO_CHAR(TRTS.RSLT6,'9,990.00')) AS RSLT6
+                   , TRTS.RSLT
+                   , TRTS.ESTIER
+                   , FC_GET_USERNAME(TRTS.ESTIER) AS ESTIER_NM
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , TBDO_RACER_TRNG_START       TRTS
+            WHERE  1=1
+            AND    TTAR.RACER_NO     = TRM .RACER_NO
+            AND    TTAR.TRNG_ASK_SEQ = TRTS.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO     = TRTS.RACER_NO    (+)
+            AND    TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.RACER_NO
+	    ]]>
+    </query> 
+    
+    <query id="tbdo_racer_trng_rslt_fo003" desc="선수훈련결과(정비기술) 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* d07000003:tbdo_racer_trng_rslt_fo003 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , NVL(TRTT.ESTI_DT, ?) ESTI_DT
+                   , TRTT.ITEM1
+                   , TRTT.ITEM2
+                   , TRTT.ITEM3
+                   , TRTT.ITEM4
+                   , TRTT.ITEM5
+                   , TRTT.LEAD_TIME	--소요시간
+                   , TRTT.DISQUAL
+                   , TRTT.RSLT
+                   , TRTT.ESTIER
+                   , FC_GET_USERNAME(TRTT.ESTIER) AS ESTIER_NM
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , TBDO_RACER_TRNG_MNGTECH     TRTT
+            WHERE  1=1
+            AND    TTAR.RACER_NO     = TRM .RACER_NO
+            AND    TTAR.TRNG_ASK_SEQ = TRTT.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO     = TRTT.RACER_NO    (+)
+            AND    TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.RACER_NO
+	    ]]>
+    </query> 
+
+    <query id="tbdo_racer_trng_rslt_fo004" desc="선수훈련결과(모터보트 조종실기) 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* tbdo_racer_trng_rslt_fo004 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM.NM_KOR
+                   , NVL(TRTM.ESTI_DT, ?) ESTI_DT
+                   , TRTM.ITEM1
+                   , TRTM.ITEM2
+                   , TRTM.ITEM3
+                   , TRTM.ITEM4
+                   , TRTM.ITEM5
+                   , TRTM.ITEM6
+                   , TRTM.ITEM7
+                   , TRTM.DISQUAL
+                   , TRTM.RSLT
+                   , TRTM.ESTIER
+                   , FC_GET_USERNAME(TRTM.ESTIER) AS ESTIER_NM
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , TBDO_RACER_TRNG_MANIEX      TRTM
+            WHERE  1=1
+            AND    TTAR.RACER_NO     = TRM .RACER_NO
+            AND    TTAR.TRNG_ASK_SEQ = TRTM.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO     = TRTM.RACER_NO    (+)
+            AND    TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.RACER_NO
+	    ]]>
+    </query> 
+
+    <query id="tbdo_racer_trng_rslt_fo005" desc="선수훈련결과 조회" fetchSize="10">
+		<![CDATA[
+SELECT   /* tbdo_racer_trng_rslt_fo005 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , TRTR.TRNG_DT TRNG_DT
+                   , TRTR.PER_TURN
+                   , TRTR.FORM_TURN
+                   , TRTR.ST
+                   , TRTR.IMIT_RACE
+                   , TRTR.BOAT_TIME
+                   , TRTR.MOTOR_MNT
+                   , TRTR.BODY_TRNG
+                   , TRTR.VIDEO
+                   , TRTR.PRIZ_PENAL
+                   , TRTR.CMPL_YN
+                   , TRTR.DETL_EDU_CNTN
+                   , TRTA.COL01
+                   , TRTA.COL02
+                   , TRTA.COL03
+                   , TRTA.COL04
+                   , TRTA.COL05
+                   , TRTA.COL06
+                   , TRTA.COL07
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR LEFT JOIN
+                         MRASYS.TBEC_RACER_MASTER    TRM
+                         ON (           TTAR.RACER_NO     = TRM .RACER_NO)
+                        LEFT OUTER JOIN 
+                                TBDO_RACER_TRNG_RSLT TRTR
+                        ON  (           TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ
+                                AND    TTAR.RACER_NO     = TRTR.RACER_NO)
+                         LEFT OUTER JOIN                         
+                                (
+                                SELECT 
+                                         RACER_NO
+                                       , DT
+                                       , DECODE(VIOL_CNTNT, '003', COUNT(*)) COL01 --신호위반
+                                       , DECODE(VIOL_CNTNT, '002', COUNT(*)) COL02 --낙수
+                                       , DECODE(VIOL_CNTNT, '001', COUNT(*)) COL03 --전복
+                                       , DECODE(VIOL_CNTNT, '004', COUNT(*)) COL04 --항주곤란
+                                       , DECODE(VIOL_CNTNT, '110', COUNT(*)) COL05 --F
+                                       , DECODE(VIOL_CNTNT, '120', COUNT(*)) COL06 --L
+                                       , DECODE(VIOL_CNTNT, '', COUNT(*)) COL07 --기타
+                                FROM   TBDO_RACER_TRNG_ACDNT
+                                GROUP BY RACER_NO, DT, VIOL_CNTNT
+                             ) TRTA
+                        ON      (      TTAR.RACER_NO     = TRTA.RACER_NO
+                                   AND TRTR.TRNG_DT      = TRTA.DT   )
+        WHERE    TTAR.TRNG_ASK_SEQ =  ? 
+            AND    TTAR.RACER_NO =  ?
+            ORDER BY TRTR.TRNG_DT
+	    ]]>
+    </query> 
+    
+    <query id="tbdo_racer_trng_rslt_io001" desc="선수훈련결과등록 입력" fetchSize="10">
+        <![CDATA[
+            INSERT /* tbdo_racer_trng_rslt_io001 */
+                   INTO TBDO_RACER_TRNG_RSLT (
+                     TRNG_ASK_SEQ
+                   , TRNG_DT
+                   , RACER_NO
+                   , PER_TURN
+                   , FORM_TURN
+                   , FORM_TURN_3
+                   , FORM_TURN_1
+                   , ST
+                   , IMIT_RACE
+                   , BOAT_TIME
+                   , BOAT_TIME_GRD
+                   , MOTOR_MNT
+                   , BODY_TRNG
+                   , VIDEO
+                   , PRIZ_PENAL
+                   , CMPL_YN
+                   , DETL_EDU_CNTN   
+                   , MOTOR_MNT_PELLER 
+                   , INST_ID      
+                   , INST_DTM  
+            )VALUES
+            (
+                     ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , ?
+                   , SYSDATE
+            )
+		]]>
+    </query>
+    
+         
+    <query id="tbdo_racer_trng_rslt_uo001" desc="선수훈련결과등록 수정" fetchSize="10">
+        <![CDATA[
+            UPDATE TBDO_RACER_TRNG_RSLT SET
+                     PER_TURN       = ?
+                   , FORM_TURN      = ?
+                   , FORM_TURN_3    = ?
+                   , FORM_TURN_1    = ?
+                   , ST             = ?
+                   , IMIT_RACE      = ?
+                   , BOAT_TIME      = ?
+                   , BOAT_TIME_GRD  = ?
+                   , MOTOR_MNT      = ?
+                   , BODY_TRNG      = ?
+                   , VIDEO          = ?
+                   , PRIZ_PENAL     = ?
+                   , CMPL_YN        = ?
+                   , DETL_EDU_CNTN  = ?
+                   , MOTOR_MNT_PELLER = ?
+                   , UPDT_ID        = ?
+                   , UPDT_DTM       = SYSDATE
+            WHERE  TRNG_ASK_SEQ     = ?
+            AND    RACER_NO         = ?
+		]]>
+    </query>
+          
+    <query id="tbdo_racer_trng_rslt_do001" desc="선수훈련결과등록 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   TBDO_RACER_TRNG_RSLT 
+            WHERE  TRNG_ASK_SEQ     = ?
+            AND    RACER_NO         = ?
+			
+		]]>
+    </query>     
+    <query id="tbeb_trng_ask_racer_rslt_uo001" desc="선수훈련결과등록 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE MRASYS.TBEB_TRNG_ASK_RACER_RSLT SET
+			       TRNG_STAT_CD     = ?
+            WHERE  TRNG_ASK_SEQ     = ?
+            AND    RACER_NO         = ?
+			
+		]]>
+    </query>     
+    
+    
+    <query id="d07000003_u11" desc="스타트 평가 결과 입력/수정" fetchSize="10">
+        <![CDATA[
+			MERGE INTO /* d07000003_u11 */
+			           TBDO_RACER_TRNG_START DEST 
+				USING (
+					SELECT  ? AS TRNG_ASK_SEQ
+					       ,? AS RACER_NO
+					       ,? AS ESTI_DT
+					       ,? AS RSLT1
+					       ,? AS RSLT2
+					       ,? AS RSLT3
+					       ,? AS RSLT4
+					       ,? AS RSLT5
+					       ,? AS RSLT6
+					       ,? AS RSLT
+					       ,? AS ESTIER
+					       ,? AS USER_ID
+					FROM   DUAL
+				) SRC
+				ON (
+					    DEST.TRNG_ASK_SEQ 	= SRC.TRNG_ASK_SEQ
+					AND DEST.RACER_NO 		= SRC.RACER_NO
+				)
+				WHEN MATCHED THEN
+					UPDATE SET
+						 DEST.ESTI_DT 	= SRC.ESTI_DT
+						,DEST.RSLT1 	= SRC.RSLT1
+						,DEST.RSLT2  	= SRC.RSLT2
+						,DEST.RSLT3  	= SRC.RSLT3
+						,DEST.RSLT4  	= SRC.RSLT4
+						,DEST.RSLT5  	= SRC.RSLT5
+						,DEST.RSLT6		= SRC.RSLT6
+						,DEST.RSLT 		= SRC.RSLT
+						,DEST.ESTIER 	= SRC.ESTIER
+						,DEST.UPDT_ID 	= SRC.USER_ID
+						,DEST.UPDT_DTM 	= SYSDATE
+				WHEN NOT MATCHED THEN
+					INSERT (
+					 	 TRNG_ASK_SEQ 
+						,RACER_NO 
+						,ESTI_DT 
+						,RSLT1 
+						,RSLT2 
+						,RSLT3 
+						,RSLT4 
+						,RSLT5 
+						,RSLT6 
+						,RSLT
+						,ESTIER 
+						,INST_ID 
+						,INST_DTM )
+					 VALUES (
+					 	 SRC.TRNG_ASK_SEQ 
+						,SRC.RACER_NO 
+						,SRC.ESTI_DT 
+						,SRC.RSLT1 
+						,SRC.RSLT2 
+						,SRC.RSLT3 
+						,SRC.RSLT4 
+						,SRC.RSLT5 
+						,SRC.RSLT6 
+						,SRC.RSLT
+						,SRC.ESTIER 
+					 	,SRC.USER_ID
+					 	,SYSDATE
+					 )
+        ]]>
+    </query>       
+    
+    
+    <query id="d07000003_u12" desc="정비기술  평가 결과 입력/수정" fetchSize="10">
+        <![CDATA[
+			MERGE INTO /* d07000003_u12 */
+			           TBDO_RACER_TRNG_MNGTECH DEST 
+				USING (
+					SELECT  ? AS TRNG_ASK_SEQ
+					       ,? AS RACER_NO
+					       ,? AS ESTI_DT
+					       ,? AS ITEM1
+					       ,? AS ITEM2
+					       ,? AS ITEM3
+					       ,? AS ITEM4
+					       ,? AS ITEM5
+					       ,? AS LEAD_TIME
+					       ,? AS DISQUAL
+					       ,? AS RSLT
+					       ,? AS ESTIER
+					       ,? AS USER_ID
+					FROM   DUAL
+				) SRC
+				ON (
+					    DEST.TRNG_ASK_SEQ 	= SRC.TRNG_ASK_SEQ
+					AND DEST.RACER_NO 		= SRC.RACER_NO
+				)
+				WHEN MATCHED THEN
+					UPDATE SET
+						 DEST.ESTI_DT 	= SRC.ESTI_DT
+						,DEST.ITEM1 	= SRC.ITEM1
+						,DEST.ITEM2  	= SRC.ITEM2
+						,DEST.ITEM3  	= SRC.ITEM3
+						,DEST.ITEM4  	= SRC.ITEM4
+						,DEST.ITEM5  	= SRC.ITEM5
+						,DEST.LEAD_TIME = SRC.LEAD_TIME
+						,DEST.DISQUAL	= SRC.DISQUAL
+						,DEST.RSLT 		= SRC.RSLT
+						,DEST.ESTIER 	= SRC.ESTIER
+						,DEST.UPDT_ID 	= SRC.USER_ID
+						,DEST.UPDT_DTM 	= SYSDATE
+				WHEN NOT MATCHED THEN
+					INSERT (
+					 	 TRNG_ASK_SEQ 
+						,RACER_NO 
+						,ESTI_DT 
+						,ITEM1 
+						,ITEM2 
+						,ITEM3 
+						,ITEM4 
+						,ITEM5 
+						,LEAD_TIME
+						,DISQUAL 
+						,RSLT
+						,ESTIER 
+						,INST_ID 
+						,INST_DTM )
+					 VALUES (
+					 	 SRC.TRNG_ASK_SEQ 
+						,SRC.RACER_NO 
+						,SRC.ESTI_DT 
+						,SRC.ITEM1 
+						,SRC.ITEM2 
+						,SRC.ITEM3 
+						,SRC.ITEM4 
+						,SRC.ITEM5 
+						,SRC.LEAD_TIME
+						,SRC.DISQUAL 
+						,SRC.RSLT
+						,SRC.ESTIER 
+					 	,SRC.USER_ID
+					 	,SYSDATE
+					 )
+        ]]>
+    </query>       
+    
+    
+    <query id="d07000003_u13" desc="모터보트 평가 결과 입력/수정" fetchSize="10">
+        <![CDATA[
+			MERGE INTO /* d07000003_u13 */
+			           TBDO_RACER_TRNG_MANIEX DEST 
+				USING (
+					SELECT  ? AS TRNG_ASK_SEQ
+					       ,? AS RACER_NO
+					       ,? AS ESTI_DT
+					       ,? AS ITEM1
+					       ,? AS ITEM2
+					       ,? AS ITEM3
+					       ,? AS ITEM4
+					       ,? AS ITEM5
+					       ,? AS ITEM6
+					       ,? AS ITEM7
+					       ,? AS DISQUAL
+					       ,? AS RSLT
+					       ,? AS ESTIER
+					       ,? AS USER_ID
+					FROM   DUAL
+				) SRC
+				ON (
+					    DEST.TRNG_ASK_SEQ 	= SRC.TRNG_ASK_SEQ
+					AND DEST.RACER_NO 		= SRC.RACER_NO
+				)
+				WHEN MATCHED THEN
+					UPDATE SET
+						 DEST.ESTI_DT 	= SRC.ESTI_DT
+						,DEST.ITEM1 	= SRC.ITEM1
+						,DEST.ITEM2  	= SRC.ITEM2
+						,DEST.ITEM3  	= SRC.ITEM3
+						,DEST.ITEM4  	= SRC.ITEM4
+						,DEST.ITEM5  	= SRC.ITEM5
+						,DEST.ITEM6  	= SRC.ITEM6
+						,DEST.ITEM7  	= SRC.ITEM7
+						,DEST.DISQUAL	= SRC.DISQUAL
+						,DEST.RSLT 		= SRC.RSLT
+						,DEST.ESTIER 	= SRC.ESTIER
+						,DEST.UPDT_ID 	= SRC.USER_ID
+						,DEST.UPDT_DTM 	= SYSDATE
+				WHEN NOT MATCHED THEN
+					INSERT (
+					 	 TRNG_ASK_SEQ 
+						,RACER_NO 
+						,ESTI_DT 
+						,ITEM1 
+						,ITEM2 
+						,ITEM3 
+						,ITEM4 
+						,ITEM5 
+						,ITEM6 
+						,ITEM7 
+						,DISQUAL 
+						,RSLT
+						,ESTIER 
+						,INST_ID 
+						,INST_DTM )
+					 VALUES (
+					 	 SRC.TRNG_ASK_SEQ 
+						,SRC.RACER_NO 
+						,SRC.ESTI_DT 
+						,SRC.ITEM1 
+						,SRC.ITEM2 
+						,SRC.ITEM3 
+						,SRC.ITEM4 
+						,SRC.ITEM5 
+						,SRC.ITEM6 
+						,SRC.ITEM7 
+						,SRC.DISQUAL 
+						,SRC.RSLT
+						,SRC.ESTIER 
+					 	,SRC.USER_ID
+					 	,SYSDATE
+					 )
+        ]]>
+    </query>       
+    
+</queryMap>

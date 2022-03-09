@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : mgrMenu.xml
+  * @메뉴명 : 메뉴관리
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="mgrMenu"> 
+	
+	<select id="getMenuList" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+		SELECT MENU_PARENTS
+		,MENU_CHILD
+		,MENU_NM
+		,DESCR
+		,ORDERING
+		,USE_YN
+		,URL
+		,CREATE_NO
+		,DELETE_YN		
+		FROM GW_CO_MENU MENU
+        WHERE MENU.DELETE_YN = 'N'
+        AND MENU.USE_YN = 'Y'
+		START WITH MENU.MENU_PARENTS = '-1'
+		CONNECT BY PRIOR MENU.MENU_CHILD = MENU.MENU_PARENTS
+		ORDER SIBLINGS BY ORDERING, MENU_CHILD, MENU_PARENTS ASC
+	</select>
+	
+	<select id="getMenuDetail" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+		SELECT MENU_PARENTS
+		,MENU_CHILD
+		,MENU_NM
+		,DESCR
+		,ORDERING
+		,USE_YN
+		,URL
+		,CREATE_NO
+		,DELETE_YN		
+		FROM GW_CO_MENU
+		WHERE DELETE_YN != 'Y'
+		AND MENU_PARENTS = #{menu_parents}
+		AND MENU_CHILD = #{menu_child}
+	</select>
+	
+	<select id="getMenuSubList" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+		SELECT MENU_PARENTS
+		,MENU_CHILD
+		,MENU_NM
+		,DESCR
+		,ORDERING
+		,USE_YN
+		,URL
+		,CREATE_NO
+		,DELETE_YN		
+		FROM GW_CO_MENU
+		WHERE DELETE_YN = 'N' 
+		AND MENU_PARENTS = #{menu_child}
+		ORDER BY  ORDERING, MENU_CHILD, MENU_PARENTS ASC
+	</select>
+	
+	<insert id="insertMenu" parameterType="com.hanaph.gw.co.menu.vo.MenuVO">
+		INSERT INTO GW_CO_MENU
+            (MENU_PARENTS, MENU_CHILD, MENU_NM, DESCR, ORDERING, USE_YN, URL, CREATE_NO, CREATE_DT, DELETE_YN)
+		VALUES (#{menu_parents}, #{menu_child}, #{menu_nm}, #{descr}, #{ordering}, #{use_yn}, #{url}, #{create_no}, SYSDATE, 'N')
+	</insert>
+	
+	<update id="updateMenu" parameterType="com.hanaph.gw.co.menu.vo.MenuVO">
+		UPDATE GW_CO_MENU
+		   SET MENU_CHILD = #{menu_child},
+		       MENU_NM = #{menu_nm},
+		       DESCR = #{descr},
+		       ORDERING = #{ordering},
+		       USE_YN = #{use_yn},
+		       URL =  #{url},
+		       MODIFY_NO = #{create_no},
+		       MODIFY_DT = SYSDATE,
+		       DELETE_YN = #{delete_yn}
+		 WHERE MENU_CHILD = #{menu_child}
+	</update>
+		
+	<update id="updateMenuUseYn" parameterType="com.hanaph.gw.co.menu.vo.MenuVO">
+		UPDATE GW_CO_MENU
+			   SET USE_YN = #{use_yn}
+		   WHERE menu_parents = #{menu_child}
+	</update>
+	<update id="deleteMenu" parameterType="com.hanaph.gw.co.menu.vo.MenuVO">
+		UPDATE GW_CO_MENU
+		   SET DELETE_YN = #{delete_yn},
+		       MODIFY_DT = SYSDATE
+		   WHERE MENU_PARENTS = #{menu_parents}
+		     AND MENU_CHILD = #{menu_child}
+	</update>
+	
+	<update id="deleteAllMenu" parameterType="com.hanaph.gw.co.menu.vo.MenuVO">
+		UPDATE GW_CO_MENU
+		   SET DELETE_YN = #{delete_yn},
+		       MODIFY_DT = SYSDATE
+		   WHERE MENU_PARENTS = #{menu_child}
+	</update>
+	
+	<select id="menuCheck" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+		SELECT MENU_CHILD, DELETE_YN
+		  FROM GW_CO_MENU
+		   WHERE MENU_CHILD = #{menu_child}
+	</select>
+	
+	<select id="getGnbMenuList" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+		SELECT   MENU_T1.MENU_PARENTS, MENU_T1.MENU_CHILD, MENU_T1.MENU_NM,
+		         MENU_T1.DESCR, MENU_T1.ORDERING, MENU_T1.USE_YN, MENU_T2.URL,
+		         MENU_T1.CREATE_NO, MENU_T1.DELETE_YN
+		    FROM GW_CO_MENU MENU_T1,
+		         (SELECT ROW_NUMBER () OVER (PARTITION BY MENU_PARENTS ORDER BY ORDERING,
+		                  MENU_CHILD, MENU_PARENTS) RNUM,
+		                 MENU.MENU_PARENTS, MENU.URL
+		            FROM GW_CO_MENU MENU,
+		                 GW_CO_AUTH AUTH,
+		                 GW_CO_MENU_MAPPING MUMAP,
+		                 GW_CO_AUTH_MAPPING AUMAP
+		           WHERE MENU.MENU_CHILD = MUMAP.MENU_CD
+		             AND MUMAP.AUTH_SEQ = AUMAP.AUTH_SEQ
+		             AND AUTH.AUTH_SEQ = AUMAP.AUTH_SEQ
+		             AND AUMAP.EMP_NO = #{emp_no}
+		             AND AUTH.DELETE_YN = 'N'
+		             AND LENGTH (MUMAP.MENU_CD) = '4') MENU_T2
+		   WHERE MENU_T1.MENU_CHILD = MENU_T2.MENU_PARENTS
+		     AND MENU_T1.DELETE_YN != 'Y'
+		     AND MENU_T1.USE_YN = 'Y'
+		     AND MENU_T2.RNUM = 1
+		ORDER BY ORDERING, MENU_CHILD ASC, MENU_PARENTS
+	</select>
+	
+	<select id="getLnbMenuList" parameterType="map" resultType="com.hanaph.gw.co.menu.vo.MenuVO">
+		-- 회원별 권한에 매핑된 LNB 메뉴가져온다 / getLnbMenuList / @ mgrMenu.xml / 시행 문서 조회
+		SELECT *
+		FROM (
+				SELECT MENU.MENU_PARENTS
+				,MENU.MENU_CHILD
+				,MENU.MENU_NM
+				,MENU.DESCR
+				,MENU.ORDERING
+				,MENU.USE_YN
+				,MENU.URL
+				,MENU.CREATE_NO
+				,MENU.DELETE_YN
+				,(
+						SELECT MENU_NM
+		                FROM GW_CO_MENU MENU_T1
+		                WHERE MENU_T1.MENU_CHILD = MENU.MENU_PARENTS
+		        ) AS PARENTS_MENU_NM
+		        ,ORAGMP.F_GW_MENU_CHILD(MENU.MENU_CHILD ,#{emp_no}) AS ADD_MENU_NM
+		        FROM GW_CO_MENU MENU,
+		             GW_CO_AUTH AUTH,
+		             GW_CO_MENU_MAPPING MUMAP,
+		             GW_CO_AUTH_MAPPING AUMAP
+		        WHERE MENU.MENU_CHILD = MUMAP.MENU_CD
+		        AND MUMAP.AUTH_SEQ = AUMAP.AUTH_SEQ
+		        AND AUTH.AUTH_SEQ = AUMAP.AUTH_SEQ
+		        AND AUMAP.EMP_NO = #{emp_no}
+		        AND AUTH.DELETE_YN = 'N'
+		        AND MENU.DELETE_YN != 'Y'
+		        AND MENU.USE_YN = 'Y'
+		        AND SUBSTR (MENU.MENU_PARENTS, 1, 2) = #{menu_parents}
+		)
+		START WITH MENU_PARENTS = #{menu_parents}
+		CONNECT BY PRIOR MENU_CHILD = MENU_PARENTS
+		ORDER SIBLINGS BY ORDERING, MENU_CHILD ASC
+	</select>
+</mapper>
+	
+	
+	

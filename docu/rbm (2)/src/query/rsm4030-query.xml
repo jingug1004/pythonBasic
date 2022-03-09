@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4030(지점별 실적)">
+	<query id="rsm4030_s01" desc="경륜 조회" fetchSize="10">
+        <![CDATA[
+        SELECT AA.*,
+	    		(MEET_NM||' '||TMS||'회차 '||DAY_ORD||'일차' ) AS RACE_INFO,					-- 경주 정보
+	    		(MEET_NM_ETC||' '||TMS_ETC||'회차 '||DAY_ORD_ETC||'일차' ) AS RACE_INFO_ETC 	-- 교차 경주 정보
+		 		FROM (    
+	           SELECT                             
+				     V.RACE_DAY,	-- 경주일                    
+				     TO_CHAR(TO_DATE(V.RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') RACEDAY ,	-- 경주일 (문자열 변환)
+				     W.MEET_CD,	-- 경주 구분 코드                     
+				    CASE                                 
+				        WHEN W.MEET_CD='001' THEN '광명' 
+				        WHEN W.MEET_CD='002' THEN '창원' 
+				        WHEN W.MEET_CD='004' THEN '부산' 
+				    END MEET_NM,	-- 지점 명                                     
+				     W.TMS ,		-- 회차                        
+				     W.DAY_ORD,		-- 일차                     
+				     T.MEET_CD MEET_CD_ETC,				-- 교차 경주 코드         
+				    CASE                                 
+				        WHEN T.MEET_CD='001' THEN '광명' 
+				        WHEN T.MEET_CD='002' THEN '창원' 
+				        WHEN T.MEET_CD='004' THEN '부산' 
+				    END MEET_NM_ETC,                    -- 교차 경주 이름
+				     T.TMS TMS_ETC,                 	-- 교차 회차
+				     T.DAY_ORD DAY_ORD_ETC          	-- 교차 일차
+				 FROM                               
+				     (                              
+				      SELECT                        
+				          RACE_DAY                  
+				      FROM                          
+				          VW_SDL_INFO		-- 경주일 정보               
+				      WHERE                         
+				          STND_YEAR = ?     -- 0:STND_YEAR 기준년도
+				          AND MEET_CD<>'003'        
+				      GROUP BY RACE_DAY             
+				     ) V                            
+				     ,VW_SDL_INFO W                 
+				     ,VW_SDL_INFO T                 
+				 WHERE                              
+				     1=1                            
+				     AND W.RACE_DAY(+)=V.RACE_DAY   
+				     AND W.MEET_CD(+)= ?      		-- 1:MEET_CD 경륜구분 코드
+				     AND T.RACE_DAY(+)=V.RACE_DAY   -- 2:MEET_CD 경륜구분 코드
+				     AND T.MEET_CD(+)<> ?
+			)AA
+				 ORDER BY                           
+				     AA.RACE_DAY DESC                
+        ]]>
+    </query>
+    
+    <query id="rsm4030_s02" desc="경정 조회" fetchSize="10">
+        <![CDATA[
+        SELECT AA.*,
+	    		(MEET_NM||' '||TMS||'회차 '||DAY_ORD||'일차' ) AS RACE_INFO					-- 경주 정보
+		 	FROM (
+        
+	            SELECT                       
+				     RACE_DAY,														-- 경주일                                
+				     TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') RACEDAY ,   -- 경주일 (문자열 변환)        
+				     RACE_YOIL,     -- 경주 요일
+				     MEET_CD,       -- 경륜(경정) 구분 코드
+				    CASE                                 
+				        WHEN MEET_CD='001' THEN '광명' 
+				        WHEN MEET_CD='002' THEN '창원' 
+				        WHEN MEET_CD='003' THEN '미사리'             
+				        WHEN MEET_CD='004' THEN '부산' 
+				    END MEET_NM,	-- 경정장 이름                                         
+				     TMS ,          -- 회차
+				     DAY_ORD        -- 일차    
+				 FROM                         
+				     VW_SDL_INFO        -- 경주일 정보      
+				 WHERE                        
+				     1=1                      
+				     AND MEET_CD= ?		-- 0:MEET_CD 경륜구분 코드     
+				     AND STND_YEAR= ?	-- 1:STND_YEAR 기준년도
+			)AA    
+			 ORDER BY                     
+			     AA.RACE_DAY DESC                            
+        ]]>
+    </query>
+    
+
+</queryMap>

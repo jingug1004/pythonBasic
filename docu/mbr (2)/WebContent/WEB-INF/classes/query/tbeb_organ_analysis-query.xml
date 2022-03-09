@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_organ_analysis(편성결과 분석)">
+    <query id="tbeb_organ_analysis_fb001" desc="경주운영현황조회" fetchSize="10">
+        <![CDATA[
+			SELECT   COUNT(DAY_ORD) DAY_CNT   -- 경주일수
+			       , MAX(STR_DT) STR_DT
+			       , MAX(END_DT) END_DT
+			       , SUM(RACE_CNT) || '경주 / (' 
+			         || NVL2(MAX(DECODE(DAY_ORD, 1, RACE_CNT)), MAX(DECODE(DAY_ORD, 1, RACE_CNT)) || '경주', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 2, RACE_CNT)), ', ' || MAX(DECODE(DAY_ORD, 2, RACE_CNT)) || '경주', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 3, RACE_CNT)), ', ' || MAX(DECODE(DAY_ORD, 3, RACE_CNT)) || '경주', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 4, RACE_CNT)), ', ' || MAX(DECODE(DAY_ORD, 4, RACE_CNT)) || '경주', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 5, RACE_CNT)), ', ' || MAX(DECODE(DAY_ORD, 5, RACE_CNT)) || '경주', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 6, RACE_CNT)), ', ' || MAX(DECODE(DAY_ORD, 6, RACE_CNT)) || '경주', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 7, RACE_CNT)), ', ' || MAX(DECODE(DAY_ORD, 7, RACE_CNT)) || '경주', '') || ')'  TOT_RACE
+			       , NVL2(MAX(DECODE(DAY_ORD, 1, RACER_CNT)), '1일차(' || MAX(DECODE(DAY_ORD, 1, RACER_CNT)) || '명)', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 2, RACER_CNT)), ', 2일차(' || MAX(DECODE(DAY_ORD, 2, RACER_CNT)) || '명)', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 3, RACER_CNT)), ', 3일차(' || MAX(DECODE(DAY_ORD, 3, RACER_CNT)) || '명)', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 4, RACER_CNT)), ', 4일차(' || MAX(DECODE(DAY_ORD, 4, RACER_CNT)) || '명)', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 5, RACER_CNT)), ', 5일차(' || MAX(DECODE(DAY_ORD, 5, RACER_CNT)) || '명)', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 6, RACER_CNT)), ', 6일차(' || MAX(DECODE(DAY_ORD, 6, RACER_CNT)) || '명)', '')
+			         || NVL2(MAX(DECODE(DAY_ORD, 7, RACER_CNT)), ', 7일차(' || MAX(DECODE(DAY_ORD, 7, RACER_CNT)) || '명)', '') TOT_RACER
+			       , MAX(DECODE(DAY_ORD, 1, RACE_CNT)) RACE_CNT_1
+			       , MAX(DECODE(DAY_ORD, 2, RACE_CNT)) RACE_CNT_2
+			       , MAX(DECODE(DAY_ORD, 3, RACE_CNT)) RACE_CNT_3
+			       , MAX(DECODE(DAY_ORD, 4, RACE_CNT)) RACE_CNT_4
+			       , MAX(DECODE(DAY_ORD, 5, RACE_CNT)) RACE_CNT_5
+			       , MAX(DECODE(DAY_ORD, 6, RACE_CNT)) RACE_CNT_6
+			       , MAX(DECODE(DAY_ORD, 7, RACE_CNT)) RACE_CNT_7
+			FROM     (
+						SELECT   TOR.DAY_ORD
+						       , MAX(TRT.STR_DT) STR_DT
+						       , MAX(TRT.END_DT) END_DT
+						       , COUNT(DISTINCT TOR.RACE_NO) RACE_CNT
+						       , COUNT(DISTINCT TOR.RACER_NO) RACER_CNT
+						FROM     TBEB_ORGAN      TOR
+						       , TBEB_RACE_TMS   TRT
+                        WHERE    TRT.STND_YEAR = TOR.STND_YEAR
+                        AND      TRT.MBR_CD    = TOR.MBR_CD
+                        AND      TRT.TMS       = TOR.TMS
+						AND      TRT.STND_YEAR = ?
+						AND      TRT.MBR_CD    = ?
+						AND      TRT.TMS       = ?
+						and      TOR.RACER_NO IS NOT NULL
+						GROUP BY DAY_ORD
+					 )
+        ]]>
+    </query> 
+    <query id="tbeb_organ_analysis_fb002" desc="위반행위내역 조회" fetchSize="10">
+        <![CDATA[
+			SELECT   '1' GBN
+			       , VOIL.VOIL_CD                                                                                                
+			       , TSC.CD_NM VOIL_NM                                                                           
+			       , MAX(VOIL.CURR_TMS_1) CURR_TMS_1
+			       , MAX(VOIL.CURR_TMS_2) CURR_TMS_2
+			       , MAX(VOIL.CURR_TMS_3) CURR_TMS_3
+			       , MAX(VOIL.CURR_TMS_4) CURR_TMS_4
+			       , MAX(VOIL.CURR_TMS_5) CURR_TMS_5
+			       , MAX(VOIL.CURR_TMS_6) CURR_TMS_6
+			       , MAX(VOIL.CURR_TMS_7) CURR_TMS_7
+			       , MAX(VOIL.CURR_TMS) CURR_TMS
+			       , MAX(VOIL.PREV_TMS)  PREV_TMS                                                                            
+			       --, ROUND(  DECODE(MAX(VOIL.PREV_TMS),0,0, -(100 - ((MAX(VOIL.CURR_TMS)/MAX(VOIL.PREV_TMS)) * 100))),2) RISE_RATE 
+			FROM     TBEA_SPEC_CD TSC
+			       , (                                                                                                                
+						SELECT   VOIL_CD
+						       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 1, 1, 0), 0)) CURR_TMS_1                                                           
+						       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 2, 1, 0), 0)) CURR_TMS_2                                                           
+						       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 3, 1, 0), 0)) CURR_TMS_3                                                          
+						       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 4, 1, 0), 0)) CURR_TMS_4                                                          
+						       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 5, 1, 0), 0)) CURR_TMS_5                                                          
+						       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 6, 1, 0), 0)) CURR_TMS_6                                                          
+						       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 7, 1, 0), 0)) CURR_TMS_7                                                          
+						       , SUM(DECODE(TMS, ?, 1, 0))                        CURR_TMS                                                          
+						       , SUM(DECODE(TMS, TO_NUMBER(?) -1, 1,0))           PREV_TMS                                                             
+						FROM     TBED_RACE_VOIL_ACT                                                                                   
+						WHERE    STND_YEAR = ?                                                                                       
+						AND      MBR_CD    = ?                                                                               
+						AND      TMS       BETWEEN  TO_NUMBER(?) -1 AND ?                                                                                   
+						GROUP BY VOIL_CD                                                                                            
+					 ) VOIL
+			WHERE    TSC.GRP_CD = 'E00035'
+			AND      TSC.CD     =  VOIL.VOIL_CD
+			GROUP BY VOIL.VOIL_CD, TSC.CD_NM                                                                                            
+			UNION ALL
+			SELECT   '1' GBN
+			       , 'SUM' VOIL_CD                                                                                                
+			       , '위반행위계'  VOIL_NM                                                                           
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 1, 1, 0), 0)) CURR_TMS_1                                                           
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 2, 1, 0), 0)) CURR_TMS_2                                                           
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 3, 1, 0), 0)) CURR_TMS_3                                                          
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 4, 1, 0), 0)) CURR_TMS_4                                                         
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 5, 1, 0), 0)) CURR_TMS_5                                                          
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 6, 1, 0), 0)) CURR_TMS_6                                                          
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 7, 1, 0), 0)) CURR_TMS_7                                                          
+			       , SUM(DECODE(TMS, ?, 1, 0))                        CURR_TMS                                                          
+			       , SUM(DECODE(TMS, TO_NUMBER(?) -1, 1,0))           PREV_TMS                                                                            
+			FROM     TBED_RACE_VOIL_ACT                                                                                 
+			WHERE    STND_YEAR = ?                                                                                       
+			AND      MBR_CD    = ?                                                                               
+			AND      TMS       BETWEEN  TO_NUMBER(?) -1 AND ?                                                                                   
+			UNION ALL
+			SELECT   '2' GBN
+			       , 'SUM' VOIL_CD                                                                                                
+			       , '사고행위계'  VOIL_NM                                                                           
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 1, 1, 0), 0)) CURR_TMS_1                                                           
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 2, 1, 0), 0)) CURR_TMS_2                                                           
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 3, 1, 0), 0)) CURR_TMS_3                                                          
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 4, 1, 0), 0)) CURR_TMS_4                                                          
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 5, 1, 0), 0)) CURR_TMS_5                                                          
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 6, 1, 0), 0)) CURR_TMS_6                                                          
+			       , SUM(DECODE(TMS, ?, DECODE(DAY_ORD, 7, 1, 0), 0)) CURR_TMS_7                                                          
+			       , SUM(DECODE(TMS, ?, 1, 0))                        CURR_TMS                                                          
+			       , SUM(DECODE(TMS, TO_NUMBER(?) -1, 1,0))           PREV_TMS                                                                            
+			FROM     TBED_RACE_ACDNT_STTS                                                                                 
+			WHERE    STND_YEAR = ?                                                                                       
+			AND      MBR_CD    = ?                                                                               
+			AND      TMS       BETWEEN  TO_NUMBER(?) -1 AND ?                                                                                   
+			ORDER BY GBN, VOIL_CD
+        ]]>
+    </query> 
+    <query id="tbeb_organ_analysis_fb003" desc="위반행위 상세 조회" fetchSize="10">
+        <![CDATA[
+			SELECT   VOIL_CD
+			       , VOIL_LVL
+			       , VOIL_DESC
+			FROM     (       
+						SELECT   VOIL_CD
+						       , 1  VOIL_LVL
+						       , '○ ' || (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00035' AND CD = VOIL_CD) ||' : '|| COUNT(VOIL_CD) || '건'  VOIL_DESC
+						FROM     TBED_RACE_VOIL_ACT                     
+						WHERE    STND_YEAR = ?                    
+						AND      MBR_CD    = ?                   
+						AND      TMS       = ?                      
+						AND      VOIL_CD   NOT IN ('210','220','211','221')     
+						GROUP BY VOIL_CD                         
+						UNION ALL     
+						SELECT   VOIL_CD                                                                    
+						       , 2  VOIL_LVL
+						       , '    - ' || DAY_ORD || '일차 ' || RACE_NO ||'경주 ' || RACE_REG_NO || '호정 ' || '(' || (SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = TRVA.RACER_NO) || ')' VOIL_DESC    
+						FROM     TBED_RACE_VOIL_ACT TRVA                                                                            
+						WHERE    STND_YEAR = ?                                                                                
+						AND      MBR_CD    = ?                                                                           
+						AND      TMS       = ?                                                                            
+						AND      VOIL_CD   NOT IN ('210','220','211','221')                                                                
+					 )
+			ORDER BY VOIL_CD
+			       , VOIL_LVL
+			       , VOIL_DESC 
+		]]>
+    </query> 
+    <query id="tbeb_organ_analysis_fb004" desc="배당율 조회" fetchSize="10">
+        <![CDATA[
+			SELECT   MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_1_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_2_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_3_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_4_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_5_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_6_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_7_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_1_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_2_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_3_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_4_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_5_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_6_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_7_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_1_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_2_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_3_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_4_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_5_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_6_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_7_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_1_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_2_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_3_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_4_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_5_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_6_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_7_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_1_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_2_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_3_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_4_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_5_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_6_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_7_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_1_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_2_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_3_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_4_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_5_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_6_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_7_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_1_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_2_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_3_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_4_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_5_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_6_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_7_E
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_1_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_2_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_3_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_4_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_5_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_6_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_7_Q
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_1_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_2_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_3_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_4_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_5_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_6_T
+			       , MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_7_T
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_1_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_2_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_3_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_4_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_5_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_6_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_7_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_1_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_2_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_3_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_4_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_5_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_6_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_7_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_1_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_2_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_3_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_4_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_5_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_6_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR1.RACE_NO) || 'R(' || TSR1.PAYOFF || '배) ')))) MIN_7_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_1_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_2_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_3_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_4_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_5_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_6_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_7_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_1_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_2_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_3_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_4_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_5_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_6_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_7_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_1_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_2_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_3_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_4_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_5_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_6_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', TO_NUMBER(TSR2.RACE_NO) || 'R(' || TSR2.PAYOFF || '배) ')))) MAX_7_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_1_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_2_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_3_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_4_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_5_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_6_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', POOL.AVG_PAYOFF || '배')))) AVG_7_E_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_1_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_2_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_3_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_4_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_5_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_6_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', POOL.AVG_PAYOFF || '배')))) AVG_7_Q_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_1_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_2_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_3_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_4_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_5_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_6_T_ON
+			       , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', POOL.AVG_PAYOFF || '배')))) AVG_7_T_ON
+			FROM     (
+						SELECT   T1.STND_YEAR
+						       , T1.MEET_CD
+						       , T1.TMS
+						       , T1.DAY_ORD
+						       , T1.POOL_CD
+						       , T2.ST_MTHD_CD
+						       , MIN(T1.PAYOFF) MIN_PAYOFF
+						       , MAX(T1.PAYOFF) MAX_PAYOFF
+						       , ROUND(AVG(T1.PAYOFF), 1) AVG_PAYOFF
+						FROM     USRBM.TBES_SDL_RS T1, TBEB_RACE T2
+						WHERE    T1.POOL_CD IN('004', '005', '006')
+						AND      T1.STND_YEAR = ?
+						AND      T1.MEET_CD   = ?
+						AND      T1.TMS       = ?
+						AND      T1.STND_YEAR = T2.STND_YEAR
+						AND      T1.TMS       = T2.TMS
+						AND      T1.DAY_ORD   = T2.DAY_ORD
+						AND      T2.MBR_CD    = ?
+						AND      T1.RACE_NO   = T2.RACE_NO
+						GROUP BY T1.STND_YEAR
+						       , T1.MEET_CD
+						       , T1.TMS
+						       , T1.DAY_ORD
+						       , T1.POOL_CD
+						       , T2.ST_MTHD_CD
+					 )  POOL
+			       , USRBM.TBES_SDL_RS TSR1  -- 최소배당율
+			       , USRBM.TBES_SDL_RS TSR2  -- 최대배당율
+			WHERE    POOL.STND_YEAR  = TSR1.STND_YEAR
+			AND      POOL.MEET_CD    = TSR1.MEET_CD
+			AND      POOL.TMS        = TSR1.TMS
+			AND      POOL.DAY_ORD    = TSR1.DAY_ORD
+			AND      POOL.POOL_CD    = TSR1.POOL_CD
+			AND      POOL.STND_YEAR  = TSR2.STND_YEAR
+			AND      POOL.MEET_CD    = TSR2.MEET_CD
+			AND      POOL.TMS        = TSR2.TMS
+			AND      POOL.DAY_ORD    = TSR2.DAY_ORD
+			AND      POOL.POOL_CD    = TSR2.POOL_CD
+			AND      POOL.MIN_PAYOFF = TSR1.PAYOFF
+			AND      POOL.MAX_PAYOFF = TSR2.PAYOFF
+		]]>
+    </query> 
+    <query id="tbeb_organ_analysis_fb005" desc="편성결과분석 조회" fetchSize="10">
+        <![CDATA[
+			SELECT   NVL(ORGAN_WAY, '') ORGAN_WAY
+			       , NVL(RESULT_ANAL, '') RESULT_ANAL
+			       , NVL(GENERAL_ANAL, '') GENERAL_ANAL
+			       , NVL(HIT_DAY1_E, 0) HIT_DAY1_E
+			       , NVL(HIT_DAY1_Q, 0) HIT_DAY1_Q
+			       , NVL(HIT_DAY1_T, 0) HIT_DAY1_T
+			       , NVL(HIT_DAY2_E, 0) HIT_DAY2_E
+			       , NVL(HIT_DAY2_Q, 0) HIT_DAY2_Q
+			       , NVL(HIT_DAY2_T, 0) HIT_DAY2_T
+			       , NVL(HIT_DAY3_E, 0) HIT_DAY3_E
+			       , NVL(HIT_DAY3_Q, 0) HIT_DAY3_Q
+			       , NVL(HIT_DAY3_T, 0) HIT_DAY3_T
+			       , NVL(HIT_DAY4_E, 0) HIT_DAY4_E
+			       , NVL(HIT_DAY4_Q, 0) HIT_DAY4_Q
+			       , NVL(HIT_DAY4_T, 0) HIT_DAY4_T
+			       , NVL(HIT_DAY5_E, 0) HIT_DAY5_E
+			       , NVL(HIT_DAY5_Q, 0) HIT_DAY5_Q
+			       , NVL(HIT_DAY5_T, 0) HIT_DAY5_T
+			       , NVL(HIT_DAY6_E, 0) HIT_DAY6_E
+			       , NVL(HIT_DAY6_Q, 0) HIT_DAY6_Q
+			       , NVL(HIT_DAY6_T, 0) HIT_DAY6_T
+			       , NVL(HIT_DAY7_E, 0) HIT_DAY7_E
+			       , NVL(HIT_DAY7_Q, 0) HIT_DAY7_Q
+			       , NVL(HIT_DAY7_T, 0) HIT_DAY7_T
+			       , NVL(ANAL_INST_NM, '') ANAL_INST_NM
+			FROM     TBEB_RACE_TMS TRT
+			       , TBEB_ORGAN_ANAL TOA
+			WHERE    TRT.STND_YEAR = TOA.STND_YEAR(+)
+			AND      TRT.MBR_CD    = TOA.MBR_CD(+)
+			AND      TRT.TMS       = TOA.TMS(+)
+			AND      TRT.STND_YEAR = ?
+			AND      TRT.MBR_CD    = ?
+			AND      TRT.TMS       = ?
+		]]>
+    </query> 
+    <query id="tbeb_organ_analysis_fb006" desc="편성결과분석 조회" fetchSize="10">
+        <![CDATA[
+			SELECT   DAY_ORD
+			       , RACE_NO
+			       , ANTC_DESC
+			       , RSLT_DESC
+			FROM     TBEB_RACE
+			WHERE    STND_YEAR = ?
+			AND      MBR_CD    = ?
+			AND      TMS       = ?
+			AND      (ANTC_DESC IS NOT NULL OR RSLT_DESC IS NOT NULL)
+		]]>
+    </query> 
+    <query id="tbeb_organ_analysis_fb007" desc="경주별 배당율 조회" fetchSize="10">
+        <![CDATA[
+                SELECT   POOL.RACE_NO
+			        , MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_1_E_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_2_E_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_3_E_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_4_E_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_5_E_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_6_E_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_7_E_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_1_Q_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_2_Q_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_3_Q_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_4_Q_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_5_Q_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_6_Q_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_7_Q_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_1_T_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_2_T_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_3_T_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_4_T_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_5_T_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_6_T_ON
+					, MAX(DECODE(ST_MTHD_CD, '001', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_7_T_ON    
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_1_E
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_2_E
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_3_E
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_4_E
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_5_E
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_6_E
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '004', POOL.PAYOFF)))) PAYOFF_7_E
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_1_Q
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_2_Q
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_3_Q
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_4_Q
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_5_Q
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_6_Q
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '005', POOL.PAYOFF)))) PAYOFF_7_Q
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 1, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_1_T
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 2, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_2_T
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 3, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_3_T
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 4, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_4_T
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 5, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_5_T
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 6, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_6_T
+					, MAX(DECODE(ST_MTHD_CD, '002', DECODE(POOL.DAY_ORD, 7, DECODE(POOL.POOL_CD, '006', POOL.PAYOFF)))) PAYOFF_7_T
+			FROM     (       
+						SELECT   T1.STND_YEAR
+						       , T1.MEET_CD
+						       , T1.TMS
+						       , T1.DAY_ORD
+							   , T1.RACE_NO
+						       , T1.POOL_CD
+						       , T1.PAYOFF
+						       , T2.ST_MTHD_CD
+						FROM     USRBM.TBES_SDL_RS T1, TBEB_RACE T2                     
+						WHERE    T1.POOL_CD IN('004', '005', '006')
+						AND      T1.STND_YEAR = ?                    
+						AND      T1.MEET_CD   = ?                  
+						AND      T1.TMS       = ?                      
+						AND      T1.STND_YEAR = T2.STND_YEAR
+						AND      T1.TMS       = T2.TMS
+						AND      T1.DAY_ORD   = T2.DAY_ORD
+						AND      T2.MBR_CD    = ?
+						AND      T1.RACE_NO   = T2.RACE_NO
+					 )  POOL
+			GROUP BY POOL.RACE_NO
+			ORDER BY POOL.RACE_NO
+		]]>
+    </query>    
+
+    <query id="tbeb_organ_analysis_ub001" desc="편성결과분석 저장" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBEB_ORGAN_ANAL TOAM
+			USING (
+			        SELECT
+						      ? STND_YEAR         -- 기준년도
+						    , ? MBR_CD            -- 경정장코드
+						    , ? TMS               -- 회차
+						    , ? ORGAN_WAY         -- 편성방향
+			   			    , ? RESULT_ANAL       -- 결과분석
+						    , ? GENERAL_ANAL      -- 종합분석
+						    , ? HIT_DAY1_E        -- 1일차 쌍승식 적중경주수
+						    , ? HIT_DAY1_Q        -- 1일차 복승식 적중경주수
+						    , ? HIT_DAY1_T        -- 1일차 삼복승식 적중경주수
+						    , ? HIT_DAY2_E        -- 2일차 쌍승식 적중경주수
+						    , ? HIT_DAY2_Q        -- 2일차 복승식 적중경주수
+						    , ? HIT_DAY2_T        -- 2일차 삼복승식 적중경주수
+						    , ? HIT_DAY3_E        -- 3일차 쌍승식 적중경주수
+						    , ? HIT_DAY3_Q        -- 3일차 복승식 적중경주수
+						    , ? HIT_DAY3_T        -- 3일차 삼복승식 적중경주수
+						    , ? HIT_DAY4_E        -- 4일차 쌍승식 적중경주수
+						    , ? HIT_DAY4_Q        -- 4일차 복승식 적중경주수
+						    , ? HIT_DAY4_T        -- 4일차 삼복승식 적중경주수
+						    , ? HIT_DAY5_E        -- 5일차 쌍승식 적중경주수
+						    , ? HIT_DAY5_Q        -- 5일차 복승식 적중경주수
+						    , ? HIT_DAY5_T        -- 5일차 삼복승식 적중경주수
+						    , ? HIT_DAY6_E        -- 6일차 쌍승식 적중경주수
+						    , ? HIT_DAY6_Q        -- 6일차 복승식 적중경주수
+						    , ? HIT_DAY6_T        -- 6일차 삼복승식 적중경주수
+						    , ? HIT_DAY7_E        -- 7일차 쌍승식 적중경주수
+						    , ? HIT_DAY7_Q        -- 7일차 복승식 적중경주수
+						    , ? HIT_DAY7_T        -- 7일차 삼복승식 적중경주수
+						    , ? ANAL_INST_NM      -- 분석담당자
+			                , ? INST_ID           -- 작성자ID
+			                , SYSDATE INST_DTM    -- 작성일시
+			                , ? UPDT_ID           -- 수정자ID
+			                , SYSDATE UPDT_DTM    -- 수정일시
+			        FROM    DUAL
+			      ) TOAS
+			ON (    TOAM.STND_YEAR = TOAS.STND_YEAR
+			    AND TOAM.MBR_CD    = TOAS.MBR_CD
+			    AND TOAM.TMS       = TOAS.TMS
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TOAM.ORGAN_WAY     = TOAS.ORGAN_WAY
+			                      , TOAM.RESULT_ANAL   = TOAS.RESULT_ANAL
+			                      , TOAM.GENERAL_ANAL  = TOAS.GENERAL_ANAL
+			                      , TOAM.HIT_DAY1_E    = TOAS.HIT_DAY1_E
+			                      , TOAM.HIT_DAY1_Q    = TOAS.HIT_DAY1_Q
+			                      , TOAM.HIT_DAY1_T    = TOAS.HIT_DAY1_T
+			                      , TOAM.HIT_DAY2_E    = TOAS.HIT_DAY2_E
+			                      , TOAM.HIT_DAY2_Q    = TOAS.HIT_DAY2_Q
+			                      , TOAM.HIT_DAY2_T    = TOAS.HIT_DAY2_T
+			                      , TOAM.HIT_DAY3_E    = TOAS.HIT_DAY3_E
+			                      , TOAM.HIT_DAY3_Q    = TOAS.HIT_DAY3_Q
+			                      , TOAM.HIT_DAY3_T    = TOAS.HIT_DAY3_T
+			                      , TOAM.HIT_DAY4_E    = TOAS.HIT_DAY4_E
+			                      , TOAM.HIT_DAY4_Q    = TOAS.HIT_DAY4_Q
+			                      , TOAM.HIT_DAY4_T    = TOAS.HIT_DAY4_T
+			                      , TOAM.HIT_DAY5_E    = TOAS.HIT_DAY5_E
+			                      , TOAM.HIT_DAY5_Q    = TOAS.HIT_DAY5_Q
+			                      , TOAM.HIT_DAY5_T    = TOAS.HIT_DAY5_T
+			                      , TOAM.HIT_DAY6_E    = TOAS.HIT_DAY6_E
+			                      , TOAM.HIT_DAY6_Q    = TOAS.HIT_DAY6_Q
+			                      , TOAM.HIT_DAY6_T    = TOAS.HIT_DAY6_T
+			                      , TOAM.HIT_DAY7_E    = TOAS.HIT_DAY7_E
+			                      , TOAM.HIT_DAY7_Q    = TOAS.HIT_DAY7_Q
+			                      , TOAM.HIT_DAY7_T    = TOAS.HIT_DAY7_T
+			                      , TOAM.ANAL_INST_NM  = TOAS.ANAL_INST_NM
+			                      , TOAM.UPDT_ID       = TOAS.UPDT_ID
+			                      , TOAM.UPDT_DTM      = TOAS.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TOAM.STND_YEAR
+			                      , TOAM.MBR_CD
+			                      , TOAM.TMS
+			                      , TOAM.ORGAN_WAY         -- 편성방향
+			                      , TOAM.RESULT_ANAL       -- 결과분석
+			                      , TOAM.GENERAL_ANAL      -- 종합분석
+			                      , TOAM.HIT_DAY1_E        -- 1일차 쌍승식 적중경주수
+			                      , TOAM.HIT_DAY1_Q        -- 1일차 복승식 적중경주수
+			                      , TOAM.HIT_DAY1_T        -- 1일차 삼복승식 적중경주수
+			                      , TOAM.HIT_DAY2_E        -- 2일차 쌍승식 적중경주수
+			                      , TOAM.HIT_DAY2_Q        -- 2일차 복승식 적중경주수
+			                      , TOAM.HIT_DAY2_T        -- 2일차 삼복승식 적중경주수
+			                      , TOAM.HIT_DAY3_E        -- 3일차 쌍승식 적중경주수
+			                      , TOAM.HIT_DAY3_Q        -- 3일차 복승식 적중경주수
+			                      , TOAM.HIT_DAY3_T        -- 3일차 삼복승식 적중경주수
+			                      , TOAM.HIT_DAY4_E        -- 4일차 쌍승식 적중경주수
+			                      , TOAM.HIT_DAY4_Q        -- 4일차 복승식 적중경주수
+			                      , TOAM.HIT_DAY4_T        -- 4일차 삼복승식 적중경주수
+			                      , TOAM.HIT_DAY5_E        -- 5일차 쌍승식 적중경주수
+			                      , TOAM.HIT_DAY5_Q        -- 5일차 복승식 적중경주수
+			                      , TOAM.HIT_DAY5_T        -- 5일차 삼복승식 적중경주수
+			                      , TOAM.HIT_DAY6_E        -- 6일차 쌍승식 적중경주수
+			                      , TOAM.HIT_DAY6_Q        -- 6일차 복승식 적중경주수
+			                      , TOAM.HIT_DAY6_T        -- 6일차 삼복승식 적중경주수
+			                      , TOAM.HIT_DAY7_E        -- 7일차 쌍승식 적중경주수
+			                      , TOAM.HIT_DAY7_Q        -- 7일차 복승식 적중경주수
+			                      , TOAM.HIT_DAY7_T        -- 7일차 삼복승식 적중경주수
+			                      , TOAM.ANAL_INST_NM      -- 분석담당자
+			                      , TOAM.INST_ID
+			                      , TOAM.INST_DTM
+			                  ) VALUES (
+			                        TOAS.STND_YEAR
+			                      , TOAS.MBR_CD
+			                      , TOAS.TMS
+			                      , TOAS.ORGAN_WAY         -- 편성방향
+			                      , TOAS.RESULT_ANAL       -- 결과분석
+			                      , TOAS.GENERAL_ANAL      -- 종합분석
+			                      , TOAS.HIT_DAY1_E        -- 1일차 쌍승식 적중경주수
+			                      , TOAS.HIT_DAY1_Q        -- 1일차 복승식 적중경주수
+			                      , TOAS.HIT_DAY1_T        -- 1일차 삼복승식 적중경주수
+			                      , TOAS.HIT_DAY2_E        -- 2일차 쌍승식 적중경주수
+			                      , TOAS.HIT_DAY2_Q        -- 2일차 복승식 적중경주수
+			                      , TOAS.HIT_DAY2_T        -- 2일차 삼복승식 적중경주수
+			                      , TOAS.HIT_DAY3_E        -- 3일차 쌍승식 적중경주수
+			                      , TOAS.HIT_DAY3_Q        -- 3일차 복승식 적중경주수
+			                      , TOAS.HIT_DAY3_T        -- 3일차 삼복승식 적중경주수
+			                      , TOAS.HIT_DAY4_E        -- 4일차 쌍승식 적중경주수
+			                      , TOAS.HIT_DAY4_Q        -- 4일차 복승식 적중경주수
+			                      , TOAS.HIT_DAY4_T        -- 4일차 삼복승식 적중경주수
+			                      , TOAS.HIT_DAY5_E        -- 5일차 쌍승식 적중경주수
+			                      , TOAS.HIT_DAY5_Q        -- 5일차 복승식 적중경주수
+			                      , TOAS.HIT_DAY5_T        -- 5일차 삼복승식 적중경주수
+			                      , TOAS.HIT_DAY6_E        -- 6일차 쌍승식 적중경주수
+			                      , TOAS.HIT_DAY6_Q        -- 6일차 복승식 적중경주수
+			                      , TOAS.HIT_DAY6_T        -- 6일차 삼복승식 적중경주수
+			                      , TOAS.HIT_DAY7_E        -- 7일차 쌍승식 적중경주수
+			                      , TOAS.HIT_DAY7_Q        -- 7일차 복승식 적중경주수
+			                      , TOAS.HIT_DAY7_T        -- 7일차 삼복승식 적중경주수
+			                      , TOAS.ANAL_INST_NM      -- 분석담당자
+			                      , TOAS.INST_ID
+			                      , TOAS.INST_DTM
+			                  )
+        ]]>
+    </query> 
+</queryMap>

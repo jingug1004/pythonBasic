@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4060(출고승인)">
+ 
+     
+    <query id="rbo4060_s02" desc="지점입고(신청) 조회" fetchSize="10">
+      <![CDATA[
+      
+			SELECT		/* rbo4060_s02 */
+			          A.PARTS_CD                    AS PARTS_CD     -- 부품코드
+			         ,A.BRNC_CD                     AS BRNC_CD      -- 지점
+			         ,FC_CODE_NM('018', A.BRNC_CD)  AS BRNC_NM      -- 지점명             
+			         ,A.REQ_DT                      AS REQ_DT       -- 신청일자
+			         ,A.REQ_NO                      AS REQ_NO       -- 신청자
+			         ,NVL(A.REQ_CNT, 0)             AS REQ_CNT      -- 신청수량
+			         ,A.APRV_STAS                   AS APRV_STAS    -- 승인상태
+			         ,FC_CODE_NM('099', A.APRV_STAS)  AS APRV_STAS_NM      -- 지점명
+			         ,NVL(A.APRV_CNT, 0)            AS APRV_CNT     -- 승인수량
+			         ,A.APRV_OFIR_NO                AS APRV_OFIR_NO -- 승인자
+			         ,A.SEQ
+			         
+			         ,A.BRNC_IN_DT                                   -- 지점입고일자
+			         ,A.BRNC_IN_ID                                -- 지점입고자
+			         ,(SELECT USER_NM FROM TBRK_USER WHERE USER_ID = A.BRNC_IN_ID)  AS BRNC_IN_NM   -- 지점입고자명
+			         
+			         ,NVL(A.APRV_CNT, 0)            AS BRNC_IN_CNT  -- 지점입고수량
+			         ,A.BRNC_IN_YN                                  -- 지점입고 여부
+			         
+			         
+			         ,C.PARTS_LCD                   AS PARTS_LCD    -- 발매기코드
+			         ,FC_CODE_NM('097', C.PARTS_LCD)    AS PARTS_LCD_NM -- 발매기명
+			         ,C.PARTS_MCD                   AS PARTS_MCD    -- 부품그룹코드
+			         ,FC_CODE_NM('098', C.PARTS_MCD)    AS PARTS_MCD_NM -- 부품그룹명
+			         ,C.PARTS_NM                    AS PARTS_NM     -- 부품명
+			         ,C.MADE_GBN                    AS MADE_GBN     -- 원산지 구분
+			         ,C.USE_YN                      AS USE_YN       -- 사용여부
+			         ,''							AS CHK
+			         ,A.APRV_DT
+			 FROM   TBRB_PARTS_REQ_APPR A
+			       ,TBRB_PARTS_MODEL C
+			WHERE   A.PARTS_CD = C.PARTS_CD
+			  AND  A.APRV_STAS = '003'
+			  AND  A.BRNC_IN_YN  = 'N'
+			  AND  C.USE_YN = 'Y'               -- 부품사용여부  
+			  AND  A.REQ_DT BETWEEN NVL(?, '19000101') AND NVL(?, '99991231')   -- 신청일자
+			  AND  C.PARTS_LCD LIKE '%' || NVL(?, C.PARTS_LCD) || '%'            -- 발매기
+			  ORDER BY A.REQ_DT,A.BRNC_CD,C.PARTS_LCD  ,C.PARTS_MCD
+
+      ]]>
+    </query>
+    
+    <query id="rbo4060_s03" desc="지점입고(완료) 조회" fetchSize="10">
+      <![CDATA[
+		    SELECT     /* rbo4060_s03 */
+                      A.PARTS_CD                    AS PARTS_CD     -- 부품코드
+                     ,A.BRNC_CD                     AS BRNC_CD      -- 지점
+                     ,FC_CODE_NM('018', A.BRNC_CD)  AS BRNC_NM      -- 지점명             
+                     ,A.REQ_DT                      AS REQ_DT       -- 신청일자
+                     ,A.REQ_NO                      AS REQ_NO       -- 신청자
+                     ,NVL(A.REQ_CNT, 0)             AS REQ_CNT      -- 신청수량
+                     ,A.APRV_STAS                   AS APRV_STAS    -- 승인상태
+                     ,FC_CODE_NM('099', A.APRV_STAS)  AS APRV_STAS_NM      -- 지점명
+                     ,NVL(A.APRV_CNT, 0)            AS APRV_CNT     -- 승인수량
+                     ,A.APRV_OFIR_NO                AS APRV_OFIR_NO -- 승인자
+                     ,A.SEQ
+                     ,A.BRNC_IN_DT                                   -- 지점입고일자
+                     ,A.BRNC_IN_ID                                  -- 지점입고자
+                     ,NVL((SELECT USER_NM FROM TBRK_USER WHERE USER_ID = A.BRNC_IN_ID), BRNC_IN_ID)  AS BRNC_IN_NM   -- 지점입고자명
+                     ,NVL(A.APRV_CNT, 0)            AS BRNC_IN_CNT  -- 지점입고수량
+                     ,A.BRNC_IN_YN                                  -- 지점입고 여부
+                     ,C.PARTS_LCD                   AS PARTS_LCD    -- 발매기코드
+                     ,FC_CODE_NM('097', C.PARTS_LCD)    AS PARTS_LCD_NM -- 발매기명
+                     ,C.PARTS_MCD                   AS PARTS_MCD    -- 부품그룹코드
+                     ,FC_CODE_NM('098', C.PARTS_MCD)    AS PARTS_MCD_NM -- 부품그룹명
+                     ,C.PARTS_NM                    AS PARTS_NM     -- 부품명
+                     ,C.MADE_GBN                    AS MADE_GBN     -- 원산지 구분
+                     ,C.USE_YN                      AS USE_YN       -- 사용여부
+                     ,''                            AS CHK
+             FROM   TBRB_PARTS_REQ_APPR A
+                   ,TBRB_PARTS_MODEL C
+            WHERE  A.PARTS_CD = C.PARTS_CD
+              AND  A.APRV_STAS = '003'
+              AND  A.BRNC_IN_YN  = 'Y'
+              AND  C.USE_YN = 'Y'               -- 부품사용여부
+             -- AND  A.BRNC_CD = ? 
+              AND  A.BRNC_CD LIKE '%' || NVL(?, A.BRNC_CD) || '%'            --지점
+              AND  A.BRNC_IN_DT BETWEEN NVL(?, '19000101') AND NVL(?, '99991231')   -- 신청일자
+            
+              ORDER BY A.REQ_DT, A.BRNC_CD,C.PARTS_LCD  ,C.PARTS_MCD            
+
+      ]]>
+    </query>
+    
+    
+     <query id="rbo4060_s04" desc="지점입고 담당자  조회" fetchSize="10">
+      <![CDATA[
+              
+                SELECT  /* rbo4060_s04 */
+                         A.ALARM_CD
+                        ,C.USER_ID
+                        
+                        ,MAX(C.USER_NM) USER_NM
+                        ,MAX(C.HP_NO)  HP_NO
+                        
+                        ,(CASE WHEN SUM(DECODE(A.ALARM_GBN,'001',1,'003',1,0)) > 0 THEN 'Y' ELSE 'N' END)  MSG_SEND_YN
+                        ,(CASE WHEN SUM(DECODE(A.ALARM_GBN,'002',1,'003',1,0)) > 0 THEN 'Y' ELSE 'N' END)  SMS_SEND_YN
+                        
+                        ,MAX(C.TEAM_CD) TEAM_CD
+                        ,MAX(C.TEAM_NM) TEAM_NM
+                        
+                        ,MAX(C.BRNC_CD) BRNC_CD
+                        
+                        ,'' AS CHK
+                  FROM  TBRK_ALARM      A,
+                        TBRK_USER       C
+                 WHERE  A.RECV_ID   = C.USER_ID
+                   AND  A.ALARM_CD  = ?
+                 GROUP BY  A.ALARM_CD,C.USER_ID
+      ]]>
+    </query>
+    
+    
+    <query id="rbo4060_i03" desc="지점 현재고 등록" fetchSize="10">
+      <![CDATA[
+      
+			MERGE /* rbo4060_i03 */
+			      INTO  TBRB_PARTS_STOCK  A		/* rbo4060_i03 */
+			USING   (   SELECT
+			                    ?   AS PARTS_CD     -- 부품코드
+			                  , ?   AS BRNC_CD      -- 지점코드
+			                  , ?   AS BRNC_IN_CNT     -- 승인수량
+			                  , ?   AS INST_ID      -- 작성자ID
+			            FROM    DUAL
+			        ) B
+			ON  (
+			            A.PARTS_CD = B.PARTS_CD
+			        AND A.BRNC_CD = B.BRNC_CD
+			    )
+			WHEN MATCHED THEN
+			        UPDATE
+			        SET   STK_CNT = STK_CNT + NVL(B.BRNC_IN_CNT, 0)			                         
+			            , UPDT_ID = B.INST_ID   -- 작성자ID
+			            , UPDT_DT = SYSDATE     -- 작성일자
+			        WHERE PARTS_CD = B.PARTS_CD
+			        AND   BRNC_CD = B.BRNC_CD
+			        
+			WHEN NOT MATCHED THEN
+			        INSERT
+			        (
+			              PARTS_CD       -- 부품코드
+			            , BRNC_CD        -- 지점코드
+			            , STK_CNT        -- 현재고수량
+			            , INST_ID        -- 작성자ID
+			            , INST_DT        -- 작성일자
+			        )
+			        VALUES
+			        (
+			              B.PARTS_CD
+			            , B.BRNC_CD
+			            , NVL(B.BRNC_IN_CNT, 0)
+			            , B.INST_ID
+			            , SYSDATE
+			        )
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4060_u01" desc="현재고 수정" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  /* rbo4060_u01 */
+			        TBRB_PARTS_STOCK    /* rbo4060_u01 */
+			SET
+			      STK_CNT = STK_CNT - NVL(?, 0)			       
+			    , UPDT_ID = ?
+			    , UPDT_DT = SYSDATE
+			WHERE PARTS_CD = ?
+			AND   BRNC_CD = '00'
+      
+      ]]>
+    </query>
+    
+   
+    <query id="rbo4060_u03" desc="현재고 수정(지점입고 취소 시)" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE /* rbo4060_u03 */
+			       TBRB_PARTS_STOCK    /* RBO4060_u03 */
+			SET   STK_CNT = STK_CNT + NVL(?, 0)                                                                          
+			    , UPDT_ID = ?           -- 작성자ID
+			    , UPDT_DT = SYSDATE     -- 작성일자
+			WHERE   PARTS_CD = ?
+			AND     BRNC_CD = '00'
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4060_u04" desc="지점 현재고 수정(지점입고 취소 시)" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE /* rbo4060_u04 */
+			      TBRB_PARTS_STOCK    /* RBO4060_u04 */
+			SET   STK_CNT = STK_CNT - NVL(?, 0) 	-- 지점 현재고                                                                       
+			    , UPDT_ID = ?           -- 작성자ID
+			    , UPDT_DT = SYSDATE     -- 작성일자
+			WHERE   PARTS_CD = ?
+			AND     BRNC_CD = ?
+      
+      ]]>
+    </query>
+
+
+    <query id="rbo4060_u05" desc="출고승인  지점입고정보 수정(입고)" fetchSize="10">
+      <![CDATA[
+      
+            UPDATE /* rbo4060_u05 */
+                   TBRB_PARTS_REQ_APPR    /* rbo4060_u05 */
+            SET   
+                  BRNC_IN_ID = ?     
+                , BRNC_IN_DT = ?       
+                , BRNC_IN_YN = 'Y'                                                                          
+                , UPDT_ID = ?           -- 작성자ID
+                , UPDT_DT = SYSDATE     -- 작성일자
+            WHERE   PARTS_CD = ?
+                AND     BRNC_CD = ?
+                AND     SEQ = ?
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4060_u06" desc="출고승인  지점입고정보 수정(입고취소)" fetchSize="10">
+      <![CDATA[
+      
+            UPDATE /* rbo4060_u06 */
+                  TBRB_PARTS_REQ_APPR    /* rbo4060_u05 */
+            SET   
+                  BRNC_IN_ID =  ''     
+                , BRNC_IN_DT =  ''       
+                , BRNC_IN_YN =  'N'                                                                          
+                , UPDT_ID = ?           -- 작성자ID
+                , UPDT_DT = SYSDATE     -- 작성일자
+            WHERE   PARTS_CD = ?
+                AND     BRNC_CD = ?
+                AND     SEQ = ?
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4060_s05" desc="현재고 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo4060_s05 */
+                   STK_CNT
+              FROM TBRB_PARTS_STOCK
+             WHERE 1=1
+               AND PARTS_CD = ?
+               AND BRNC_CD  = ?
+      ]]>
+    </query>
+</queryMap>

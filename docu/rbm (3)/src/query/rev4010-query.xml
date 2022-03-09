@@ -1,0 +1,1317 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV4010(최종종합평가)">
+	<query id="rev4010_s01" desc="평가마스터 조회" fetchSize="10">
+		<![CDATA[
+ 		   SELECT  /* rev4010_s01 */   
+			       ESTM_YEAR         --평가년도
+			      ,ESTM_NUM          --평가회차
+			      ,LAST_ESTM_END_YN  --최종평점및등급산출여부
+			      ,LAST_ESTM_END_DT  --최종평가완료일자
+			      ,PRM_STR_DT
+			      ,PRM_END_DT
+			      ,RSLT_CFM_YN   --평가결과확정여부
+                  ,RSLT_CFM_DT   --평가결과확정일자
+                  ,OPEN_YN       --개시여부
+			 FROM  TBRF_EV_MASTER    
+			WHERE  1=1
+			  AND  INST_DT = (SELECT MAX(INST_DT) 
+			                  FROM   TBRF_EV_MASTER
+	                   		 )
+			  /* AND  ESTM_YEAR = (SELECT MAX(ESTM_YEAR) FROM TBRF_EV_MASTER) */ 
+			  /* AND  ESTM_NUM  ='1' --(SELECT MAX(ESTM_NUM) FROM TBRF_EV_MASTER WHERE ESTM_YEAR = (SELECT MAX(ESTM_YEAR) FROM TBRF_EV_MASTER)) */ 
+        ]]>
+	</query>
+	
+	<query id="rev4010_s02" desc="휴대폰 번호 조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* rev4010_s02 */
+                   '1' AS CHK
+		          ,EMP_NO 
+		          ,EMP_NM 
+		          ,REPLACE(HP_NO,'-') AS HP_NO
+		      FROM TBRF_EV_EMP 
+		     WHERE 1 = 1 
+		       AND ESTM_YEAR = ?
+		       AND ESTM_NUM  = ? 
+		       AND PERM_TEMP_GBN = '002'
+		       AND ESTM_ESC_GBN = 'Y' 
+		       AND HP_NO IS NOT NULL
+		  GROUP BY EMP_NO, HP_NO, EMP_NM
+        ]]>
+    </query>
+    
+    <query id="rev4010_s03" desc="휴대폰 번호 조회(초기화할 때, 사용)" fetchSize="10">
+        <![CDATA[
+            SELECT T3.EMP_NO, T2.CELPON_NO AS HP_NO
+			  FROM USHUM.VW_EMP_D12@VENUSLINK T1,
+			       USHUM.VW_EMP_ETC_D12@VENUSLINK T2,
+			       (SELECT EMP_NO, HP_NO
+			          FROM TBRF_EV_EMP 
+			         WHERE 1=1
+			           AND ESTM_YEAR    = ?
+			           AND ESTM_NUM     = ?
+			           AND ESTM_ESC_GBN = 'Y'
+			           AND PERM_TEMP_GBN = '002'
+			      GROUP BY EMP_NO, HP_NO) T3
+			    WHERE 1=1
+			     AND T1.EMP_NO     = T2.EMP_NO
+			     AND T1.EMP_NO     = T3.EMP_NO
+			     AND T2.CELPON_NO != T3.HP_NO
+			GROUP BY T3.EMP_NO, T2.CELPON_NO
+        ]]>
+    </query>
+    
+    <query id="rev4010_s04" desc="비너스 휴대폰 번호 조회" fetchSize="10">
+        <![CDATA[
+              SELECT A.EMP_NO, B.CELPON_NO AS HP_NO
+			    FROM USHUM.VW_EMP_D12 A   
+			         USHUM.VW_EMP_ETC_D12 B   
+			   WHERE 1=1
+			     AND A.EMP_NO     = C.EMP_NO   
+			     AND A.EMP_NO     = ?
+			     AND B.CELPON_NO  = ?
+			     AND A.HOLOFF_CLS = '0'      
+			     AND A.WK_JJOB   != '10003'   --인턴제외
+			GROUP BY A.EMP_NO, B.CELPON_NO
+        ]]>
+    </query>
+    
+	<query id="rev4010_u01" desc="최종평점 및 등급산출 및 재산출" fetchSize="10">
+        <![CDATA[
+           UPDATE  TBRF_EV_MASTER  /* rev4010_u01*/
+              SET  LAST_ESTM_END_YN = 'Y'
+                  ,LAST_ESTM_END_DT = TO_CHAR(SYSDATE, 'yyyymmdd')
+                  ,UPDT_ID          = ?
+                  ,UPDT_DT          = SYSDATE
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+        ]]>
+    </query>
+    
+    <query id="rev4010_u02" desc="평가결과확정 및 취소" fetchSize="10">
+        <![CDATA[
+           UPDATE  TBRF_EV_MASTER  /* rev4010_u02*/
+              SET  RSLT_CFM_YN = ?
+                  ,RSLT_CFM_DT = TO_CHAR(SYSDATE, 'yyyymmdd')
+                  ,UPDT_ID     = ?
+                  ,UPDT_DT     = SYSDATE
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+        ]]>
+    </query>
+    
+    <query id="rev4010_u03" desc="결과개시 및 취소" fetchSize="10">
+        <![CDATA[
+           UPDATE  TBRF_EV_MASTER  /* rev4010_u03*/
+              SET  OPEN_YN = ?
+                  ,UPDT_ID = ?
+                  ,UPDT_DT = SYSDATE
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+        ]]>
+    </query>
+    
+    <query id="rev4010_u04" desc="휴대폰 번호 수정" fetchSize="10">
+        <![CDATA[
+           UPDATE  TBRF_EV_EMP  /* rev4010_u04 */
+              SET  HP_NO   = ?,
+                   UPDT_ID = ?,
+                   UPDT_DT = SYSDATE
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+              AND  EMP_NO    = ?
+        ]]>
+    </query>
+    <query id="rev4010_d01" desc="최종점수 및 최종듭급 삭제" fetchSize="10">
+        <![CDATA[
+           DELETE /* rev4010_d01 */
+             FROM TBRF_EV_TOTAL_RSLT 
+            WHERE 1=1
+              AND ESTM_YEAR = ?
+              AND ESTM_NUM  = ?
+        ]]>
+    </query>
+    
+    <query id="rev4010_i01" desc="최종점수 및 최종등급 산출" fetchSize="10">
+        <![CDATA[
+        	INSERT /* rev4010_i01 */
+        	  INTO TBRF_EV_TOTAL_RSLT (
+        		 ESTM_YEAR
+				,ESTM_NUM
+				,EMP_NO
+				,EMP_NM
+				,DEPT_CD
+				,DEPT_NM
+				,WK_JOB_CD
+				,WK_JOB_NM
+				,CNTR_ITM_CD
+				,CNTR_ITM_NM
+				,PRM_SCR
+				,MNR_SCR
+				,SRV_SCR
+				,MULT_SCR
+				,TOT_SCR
+				,TOT_GRD
+				,INST_ID
+				,INST_DT
+        	) 
+            SELECT  
+                    TB.ESTM_YEAR    
+                   ,TB.ESTM_NUM 
+                   ,TB.EMP_NO 
+                   ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO AND WRK_GBN = '001' ) AS EMP_NM 
+                   ,TB.DEPT_CD    
+                   ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND DEPT_CD = TB.DEPT_CD) AS DEPT_NM    
+                  -- ,(SELECT WK_JOB_CD FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO AND WRK_GBN = '001') AS WK_JOB_CD    
+                  -- ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND WK_JOB_CD = (SELECT WK_JOB_CD FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO AND WRK_GBN = '001')) AS WK_JOB_NM 
+                   ,(SELECT MAX(WK_JOB_CD) FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO ) AS WK_JOB_CD    
+                   ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND WK_JOB_CD = (SELECT MAX(WK_JOB_CD) FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO)) AS WK_JOB_NM 
+                   ,TB.CNTR_ITM_CD 
+                   ,(SELECT CNTR_JOB_NM FROM TBRF_EV_JOB_ITEM WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND CNTR_ITM_CD = TB.CNTR_ITM_CD AND ESTM_ITEM_CD = '0') AS CNTR_ITM_NM 
+                   ,TB.PRM_SCR  
+                   ,TB.MNR_SCR  
+                   ,TB.SRV_SCR  
+                   ,TB.MULT_SCR 
+                   ,TB.TOT_SCR    
+                   --,CASE WHEN ROUND(TB.CNT_GRP * TB.S_RATE, 0) >= TB.RNK THEN 'S'  
+                   --      WHEN ROUND(TB.CNT_GRP * TB.S_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.A_RATE, 0) >= TB.RNK THEN 'A' 
+                   --      WHEN ROUND(TB.CNT_GRP * TB.A_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.B_RATE, 0) >= TB.RNK THEN 'B' 
+                   --      WHEN ROUND(TB.CNT_GRP * TB.B_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.C_RATE, 0) >= TB.RNK THEN 'C' 
+                   --      WHEN ROUND(TB.CNT_GRP * TB.C_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.D_RATE, 0) >= TB.RNK THEN 'D'                          
+                   -- END AS TOT_GRD
+                   ,CASE WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.S_RATE THEN 'S'  
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.A_RATE THEN 'A' 
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.B_RATE THEN 'B' 
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.C_RATE THEN 'C' 
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.D_RATE THEN 'D'                          
+                    END AS TOT_GRD
+                   ,?
+                   ,SYSDATE
+            FROM (    
+     
+                        SELECT TT.ESTM_YEAR    
+                              ,TT.ESTM_NUM    
+                              ,TT.DEPT_CD  
+                              ,TT.EMP_NO    
+                              ,TT.CNTR_ITM_CD 
+                              ,TT1.S_RATE 
+                              ,TT1.A_RATE 
+                              ,TT1.B_RATE 
+                              ,TT1.C_RATE 
+                              ,TT1.D_RATE 
+                              ,TT.PRM_SCR  
+                              ,TT.MNR_SCR  
+                              ,TT.SRV_SCR  
+                              ,TT.MULT_SCR 
+                              ,TT.TOT_SCR 
+                              ,RANK() OVER(PARTITION BY TT.CNTR_ITM_CD ORDER BY TT.TOT_SCR DESC) RNK    
+                              ,COUNT(*) OVER (PARTITION BY TT.CNTR_ITM_CD) AS CNT_GRP  
+                               
+                        FROM (  
+                                SELECT T0.ESTM_YEAR  
+                                      ,T0.ESTM_NUM  
+                                      ,T0.DEPT_CD  
+                                      ,T0.EMP_NO  
+                                      ,T5.CNTR_ITM_CD  
+                                      ,NVL(T1.PRM_SCR, 0) AS PRM_SCR  
+                                      ,NVL(T2.MNR_SCR, 0) AS MNR_SCR  
+                                      ,NVL(T3.SRV_SCR, 0) AS SRV_SCR  
+                                      ,NVL(T4.MULT_SCR, 0) AS MULT_SCR    
+                                      ,NVL(NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0), 0) AS TOT_SCR  
+                                  FROM 
+                                      (SELECT A.*
+                                             ,(SELECT MAX(ESTM_WK_JOB) -- 평가시 종사원, 투표소장으로 2개의 보직인 경우 투표소장으로 최종등급 산정(2013년) 
+                                                FROM  TBRF_EV_EMP B 
+                                                WHERE A.ESTM_YEAR = B.ESTM_YEAR 
+                                                AND   A.ESTM_NUM  = B.ESTM_NUM 
+                                                AND   A.EMP_NO    = B.EMP_NO) ESTM_WK_JOB_APT  
+                                       FROM  TBRF_EV_EMP A) T0  
+                                      ,TBRF_EV_JOB_ITEM T5   
+                                      ,TBRF_EV_JOB_ITM_DTL T6   
+                                      ,(SELECT   A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO  
+                                                ,NVL(A.FST_ESTM_SCR, 0) AS FST_ESTM_SCR  
+                                                ,NVL(A.SND_ESTM_SCR, 0) AS SND_ESTM_SCR  
+                                             -- ,NVL(A.FST_RELEA_RSLT, 0) AS FST_RELEA_RSLT 
+                                             -- ,(NVL(A.FST_ESTM_SCR, 0) + NVL(A.SND_ESTM_SCR, 0) + NVL(A.FST_RELEA_RSLT, 0)) AS PRM_SCR   
+                                                ,(NVL(A.FST_ESTM_SCR, 0) + NVL(A.SND_ESTM_SCR, 0)) AS PRM_SCR   
+                                          FROM  TBRF_EV_WK_PRM A   
+                                               ,TBRF_EV_EMP B   
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO    = B.EMP_NO   
+                                           AND A.ESTM_YEAR = ? 
+                                           AND A.ESTM_NUM  = ?   
+                                      ) T1           
+                                     ,(SELECT    A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO   
+                                                ,(NVL(A.ESTM_SCR, 0) + NVL(C.FST_RELEA_RSLT, 0)) AS MNR_SCR   
+                                          FROM  TBRF_EV_WK_MNR A   
+                                               ,TBRF_EV_EMP B 
+                                               ,TBRF_EV_WK_PRM C     
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO    = B.EMP_NO   
+                                           AND A.ESTM_YEAR = C.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = C.ESTM_NUM   
+                                           AND A.ESTM_DEPT = C.ESTM_DEPT   
+                                           AND A.EMP_NO    = C.EMP_NO   
+                                           AND A.ESTM_YEAR = ?
+                                           AND A.ESTM_NUM  = ? 
+                                       ) T2    
+                                      ,(SELECT   A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO   
+                                                ,NVL(A.ESTM_SCR, 0) AS SRV_ORG_SCR   
+                                                ,NVL(A.KCSI_ESTM_SCR, 0) AS KCSI_SCR   
+                                                ,NVL(A.ESTM_SCR, 0)+NVL(KCSI_ESTM_SCR, 0) AS SRV_SCR
+                                          FROM  TBRF_EV_WK_SRV A   
+                                               ,TBRF_EV_EMP    B   
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO    = B.EMP_NO   
+                                           AND A.ESTM_YEAR = ?  
+                                           AND A.ESTM_NUM  = ?   
+                                       ) T3     
+                                      ,(SELECT ESTM_YEAR,
+   										       ESTM_NUM, 
+   										       ESTM_DEPT,
+   										       EMP_NO,  
+									           MAX(ESTM_SCR) MAX_SCR, 
+									           MIN(ESTM_SCR) MIN_SCR, 
+									           ROUND( (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) ) 
+									           / DECODE(COUNT(ESTM_EMP),2,NULL, COUNT(ESTM_EMP)-2),2) MULT_SCR 
+									      FROM (
+											      	SELECT *
+													FROM TBRF_EV_WK_MULT
+													WHERE 1=1      --정상
+													AND ESTM_RESULT_CD = '001'
+													AND (EXPT_YN IS NULL OR EXPT_YN = 'N')
+													UNION ALL
+													SELECT  *       --평균점, 최하점
+													FROM TBRF_EV_WK_MULT
+													WHERE 1=1
+													AND ESTM_RESULT_CD IN ('002','003')
+											    )
+									     WHERE 1=1
+									       AND ESTM_YEAR = ?
+									       AND ESTM_NUM  = ?									       
+									  GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO
+                                       ) T4  
+                                   WHERE 1 = 1  
+                                     AND T0.ESTM_YEAR = T1.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T2.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T3.ESTM_YEAR(+)      
+                                     AND T0.ESTM_YEAR = T4.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T5.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T6.ESTM_YEAR(+)  
+                                     AND T0.ESTM_NUM = T1.ESTM_NUM(+)  
+                                     AND T0.ESTM_NUM = T2.ESTM_NUM(+)      
+                                     AND T0.ESTM_NUM = T3.ESTM_NUM(+)      
+                                     AND T0.ESTM_NUM = T4.ESTM_NUM(+)   
+                                     AND T0.ESTM_NUM = T5.ESTM_NUM(+)  
+                                     AND T0.ESTM_NUM = T6.ESTM_NUM(+)  
+                                     AND T0.ESTM_DEPT = T1.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T2.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T3.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T4.ESTM_DEPT(+)  
+                                     AND T0.EMP_NO = T1.EMP_NO(+)  
+                                     AND T0.EMP_NO = T2.EMP_NO(+)  
+                                     AND T0.EMP_NO = T3.EMP_NO(+)  
+                                     AND T0.EMP_NO = T4.EMP_NO(+)  
+                                     AND T5.ESTM_ITEM_CD = T6.ESTM_ITEM_CD    
+                                     AND T5.CNTR_ITM_CD = T6.CNTR_ITM_CD    
+                                     AND T5.ESTM_ITEM_CD = '0'  
+                                     AND T6.CNTR_ITM_DTL = T0.ESTM_WK_JOB_APT --T0.ESTM_WK_JOB  
+                                     AND T0.PERM_TEMP_GBN = '002'  
+                                     AND T0.ESTM_ESC_GBN = 'Y'  
+                                     AND T0.EMP_NO NOT IN (SELECT EMP_NO  
+                                                             FROM TBRF_EV_EMP  
+                                                            WHERE 1 = 1  
+                                                              AND ESTM_YEAR = ? 
+                                                              AND ESTM_NUM  = ?  
+                                                              AND PERM_TEMP_GBN = '002'  
+                                                              AND ESTM_ESC_GBN = 'Y'  
+                                                            GROUP BY EMP_NO  
+                                                               HAVING COUNT(*) = 2)  
+                                                         
+                              UNION ALL  
+                                
+                                SELECT  T.ESTM_YEAR  
+                                     ,T.ESTM_NUM  
+                                     ,T.DEPT_CD  
+                                     ,T.EMP_NO  
+                                     ,T.CNTR_ITM_CD  
+                                     ,SUM(T.PRM_SCR) AS PRM_SCR  
+                                     ,SUM(T.MNR_SCR) AS MNR_SCR  
+                                     ,SUM(T.SRV_SCR) AS SRV_SCR  
+                                     ,SUM(T.MULT_SCR) AS MULT_SCR  
+                                     ,SUM(T.TOT_SCR) AS TOT_SCR  
+                                FROM (  
+                                         
+                                       SELECT T0.ESTM_YEAR  
+                                              ,T0.ESTM_NUM  
+                                              ,T0.DEPT_CD  
+                                              ,T0.ESTM_DEPT  
+                                              ,T0.EMP_NO  
+                                              ,T0.EMP_NM  
+                                              ,T0.WK_JOB_CD  
+                                              ,T6.CNTR_ITM_CD  
+                                              ,T6.CNTR_JOB_NM    
+                                              ,T0.CO_WRK_GBN   
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T1.PRM_SCR, 0)  * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T1.PRM_SCR, 0)  * T5.MRA_RATE * 0.01  
+                                               END AS PRM_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T2.MNR_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T2.MNR_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS MNR_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T3.SRV_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T3.SRV_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS SRV_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T4.MULT_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T4.MULT_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS MULT_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN (NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0)) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN (NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0)) * T5.MRA_RATE * 0.01  
+                                               END AS TOT_SCR  
+                                          FROM 
+                                              (SELECT A.*
+                                                     ,(SELECT MAX(ESTM_WK_JOB) -- 평가시 종사원, 투표소장으로 2개의 보직인 경우 투표소장으로 최종등급 산정(2013년)
+                                                       FROM   TBRF_EV_EMP B 
+                                                       WHERE  A.ESTM_YEAR = B.ESTM_YEAR 
+                                                       AND    A.ESTM_NUM  = B.ESTM_NUM 
+                                                       AND    A.EMP_NO    = B.EMP_NO) ESTM_WK_JOB_APT  
+                                                FROM TBRF_EV_EMP A) T0  
+                                              ,TBRF_EV_MASTER T5   
+                                              ,TBRF_EV_JOB_ITEM T6   
+                                              ,TBRF_EV_JOB_ITM_DTL T7   
+                                              ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO  
+                                                        ,NVL(A.FST_ESTM_SCR, 0) AS FST_ESTM_SCR  
+                                                        ,NVL(A.SND_ESTM_SCR, 0) AS SND_ESTM_SCR  
+                                                     -- ,NVL(A.FST_RELEA_RSLT, 0) AS FST_RELEA_RSLT  
+                                                     -- ,(NVL(A.FST_ESTM_SCR, 0) + NVL(A.SND_ESTM_SCR, 0) + NVL(A.FST_RELEA_RSLT, 0)) AS PRM_SCR   
+                                                        ,(NVL(A.FST_ESTM_SCR, 0) + NVL(A.SND_ESTM_SCR, 0)) AS PRM_SCR   
+                                                  FROM  TBRF_EV_WK_PRM A   
+                                                       ,TBRF_EV_EMP B   
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM  = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO    = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                              ) T1           
+                                             ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO    
+                                                        ,(NVL(A.ESTM_SCR, 0) + NVL(C.FST_RELEA_RSLT, 0)) AS MNR_SCR   
+                                                  FROM  TBRF_EV_WK_MNR A   
+                                                       ,TBRF_EV_EMP B 
+                                                       ,TBRF_EV_WK_PRM C  
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM  = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO    = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = C.ESTM_YEAR   
+                                                   AND A.ESTM_NUM  = C.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = C.ESTM_DEPT   
+                                                   AND A.EMP_NO    = C.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                               ) T2    
+                                              ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO   
+		                                                ,NVL(A.ESTM_SCR, 0) AS SRV_ORG_SCR   
+		                                                ,NVL(A.KCSI_ESTM_SCR, 0) AS KCSI_SCR   
+		                                                ,NVL(A.ESTM_SCR, 0)+NVL(KCSI_ESTM_SCR, 0) AS SRV_SCR
+                                                  FROM  TBRF_EV_WK_SRV A   
+                                                       ,TBRF_EV_EMP B   
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                               ) T3     
+                                              ,(SELECT ESTM_YEAR,
+        										       ESTM_NUM, 
+        										       ESTM_DEPT,
+        										       EMP_NO,  
+											           MAX(ESTM_SCR) MAX_SCR, 
+											           MIN(ESTM_SCR) MIN_SCR, 
+											           ROUND( (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) ) 
+											           / DECODE(COUNT(ESTM_EMP),2,NULL, COUNT(ESTM_EMP)-2),2) MULT_SCR 
+											      FROM  (
+													        SELECT *
+															FROM TBRF_EV_WK_MULT
+															WHERE 1=1      --정상
+															AND ESTM_RESULT_CD = '001'
+															AND (EXPT_YN IS NULL OR EXPT_YN = 'N')
+															UNION ALL
+															SELECT  *       --평균점, 최하점
+															FROM TBRF_EV_WK_MULT
+															WHERE 1=1
+															AND ESTM_RESULT_CD IN ('002','003')
+														)
+											     WHERE 1=1
+											       AND ESTM_YEAR = ?
+											       AND ESTM_NUM  = ?
+											  GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO  	
+                                               ) T4  
+                                           WHERE 1 = 1  
+                                             AND T0.ESTM_YEAR = T1.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T2.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T3.ESTM_YEAR(+)      
+                                             AND T0.ESTM_YEAR = T4.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T5.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T6.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T7.ESTM_YEAR(+)  
+                                             AND T0.ESTM_NUM = T1.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T2.ESTM_NUM(+)      
+                                             AND T0.ESTM_NUM = T3.ESTM_NUM(+)      
+                                             AND T0.ESTM_NUM = T4.ESTM_NUM(+)    
+                                             AND T0.ESTM_NUM = T5.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T6.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T7.ESTM_NUM(+)  
+                                             AND T0.ESTM_DEPT = T1.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T2.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T3.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T4.ESTM_DEPT(+)  
+                                             AND T0.EMP_NO = T1.EMP_NO(+)  
+                                             AND T0.EMP_NO = T2.EMP_NO(+)  
+                                             AND T0.EMP_NO = T3.EMP_NO(+)  
+                                             AND T0.EMP_NO = T4.EMP_NO(+)  
+                                             AND T6.ESTM_ITEM_CD = T7.ESTM_ITEM_CD    
+                                             AND T6.CNTR_ITM_CD = T7.CNTR_ITM_CD    
+                                             AND T6.ESTM_ITEM_CD = '0'  
+                                             AND T7.CNTR_ITM_DTL = T0.ESTM_WK_JOB_APT --T0.ESTM_WK_JOB  
+                                             AND T0.PERM_TEMP_GBN = '002'  
+                                             AND T0.ESTM_ESC_GBN = 'Y'  
+                                             AND T0.EMP_NO IN (SELECT EMP_NO  
+                                                                     FROM TBRF_EV_EMP  
+                                                                    WHERE 1 = 1  
+                                                                      AND ESTM_YEAR = ? 
+                                                                      AND ESTM_NUM  = ?  
+                                                                      AND PERM_TEMP_GBN = '002'  
+                                                                      AND ESTM_ESC_GBN = 'Y'  
+                                                                    GROUP BY EMP_NO  
+                                                                       HAVING COUNT(*) = 2)  
+                                           ORDER BY T0.EMP_NO, T0.CO_WRK_GBN     
+                                      ) T   
+                                  GROUP BY T.ESTM_YEAR  
+                                             ,T.ESTM_NUM  
+                                             ,T.DEPT_CD  
+                                             ,T.EMP_NO  
+                                             ,T.CNTR_ITM_CD  
+                                             
+                     ) TT  
+                   ,( SELECT  ESTM_YEAR 
+                             ,ESTM_NUM 
+                             ,S_RATE * 0.01 AS S_RATE 
+                             ,(S_RATE + A_RATE) * 0.01 AS A_RATE 
+                             ,(S_RATE + A_RATE + B_RATE) * 0.01 AS B_RATE 
+                             ,(S_RATE + A_RATE + B_RATE + C_RATE) * 0.01 AS C_RATE 
+                             ,(S_RATE + A_RATE + B_RATE + C_RATE + D_RATE) * 0.01 AS D_RATE 
+                        FROM  TBRF_EV_ITEM_GRD 
+                       WHERE  1=1 
+                         AND  ESTM_YEAR    = ? 
+                         AND  ESTM_NUM     = ? 
+                         AND  ESTM_ITEM_CD = '0'  
+                    ) TT1 
+             WHERE 1 = 1 
+               AND TT.ESTM_YEAR = TT1.ESTM_YEAR 
+               AND TT.ESTM_NUM = TT1.ESTM_NUM 
+              ) TB         
+        ]]>
+    </query>
+
+
+    <query id="rev4010_i02" desc="2012년 최종점수 및 최종듭급 산출" fetchSize="10">
+        <![CDATA[
+        	INSERT /* rev4010_i02(2012년부터) */
+        	  INTO TBRF_EV_TOTAL_RSLT (
+        		 ESTM_YEAR
+				,ESTM_NUM
+				,EMP_NO
+				,EMP_NM
+				,DEPT_CD
+				,DEPT_NM
+				,WK_JOB_CD
+				,WK_JOB_NM
+				,CNTR_ITM_CD
+				,CNTR_ITM_NM
+				,PRM_SCR
+				,MNR_SCR
+				,SRV_SCR
+				,MULT_SCR
+				,TOT_SCR
+				,TOT_GRD
+				,INST_ID
+				,INST_DT
+        	) 
+            SELECT  
+                    TB.ESTM_YEAR    
+                   ,TB.ESTM_NUM 
+                   ,TB.EMP_NO 
+                   ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO AND WRK_GBN = '001' ) AS EMP_NM 
+                   ,TB.DEPT_CD    
+                   ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND DEPT_CD = TB.DEPT_CD) AS DEPT_NM    
+                   ,(SELECT WK_JOB_CD FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO AND WRK_GBN = '001') AS WK_JOB_CD    
+                   ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND WK_JOB_CD = (SELECT WK_JOB_CD FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO AND WRK_GBN = '001')) AS WK_JOB_NM 
+                   ,TB.CNTR_ITM_CD 
+                   ,NULL AS CNTR_ITM_NM 
+                   ,TB.PRM_SCR  
+                   ,TB.MNR_SCR  
+                   ,TB.SRV_SCR  
+                   ,TB.MULT_SCR 
+                   ,TB.TOT_SCR    
+                   ,CASE WHEN ROUND(TB.CNT_GRP * TB.S_RATE, 0) >= TB.RNK THEN 'S'  
+                         WHEN ROUND(TB.CNT_GRP * TB.S_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.A_RATE, 0) >= TB.RNK THEN 'A' 
+                         WHEN ROUND(TB.CNT_GRP * TB.A_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.B_RATE, 0) >= TB.RNK THEN 'B' 
+                         WHEN ROUND(TB.CNT_GRP * TB.B_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.C_RATE, 0) >= TB.RNK THEN 'C' 
+                         WHEN ROUND(TB.CNT_GRP * TB.C_RATE, 0) < TB.RNK AND ROUND(TB.CNT_GRP * TB.D_RATE, 0) >= TB.RNK THEN 'D'                          
+                    END AS TOT_GRD 
+                   ,?
+                   ,SYSDATE
+            FROM (    
+     
+                        SELECT TT.ESTM_YEAR    
+                              ,TT.ESTM_NUM    
+                              ,TT.DEPT_CD  
+                              ,TT.EMP_NO    
+                              ,TT.CNTR_ITM_CD 
+                              ,TT1.S_RATE 
+                              ,TT1.A_RATE 
+                              ,TT1.B_RATE 
+                              ,TT1.C_RATE 
+                              ,TT1.D_RATE 
+                              ,TT.PRM_SCR  
+                              ,TT.MNR_SCR  
+                              ,TT.SRV_SCR  
+                              ,TT.MULT_SCR 
+                              ,TT.TOT_SCR 
+                              ,RANK() OVER(PARTITION BY TT.CNTR_ITM_CD ORDER BY TT.TOT_SCR DESC) RNK    
+                              ,COUNT(*) OVER (PARTITION BY TT.CNTR_ITM_CD) AS CNT_GRP  
+                               
+                        FROM (  
+                                SELECT T0.ESTM_YEAR  
+                                      ,T0.ESTM_NUM  
+                                      ,T0.DEPT_CD  
+                                      ,T0.EMP_NO  
+                                      ,T5.TOT_ESTM_GRP AS CNTR_ITM_CD  
+                                      ,NVL(T1.PRM_SCR, 0) AS PRM_SCR  
+                                      ,NVL(T2.MNR_SCR, 0) AS MNR_SCR  
+                                      ,NVL(T3.SRV_SCR, 0) AS SRV_SCR  
+                                      ,NVL(T4.MULT_SCR, 0) AS MULT_SCR    
+                                      ,NVL(NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0), 0) AS TOT_SCR  
+                                  FROM TBRF_EV_EMP T0  
+                                      ,(SELECT   A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO  
+                                                ,NVL(A.FST_ESTM_SCR, 0) AS FST_ESTM_SCR  
+                                                ,NVL(A.SND_ESTM_SCR, 0) AS SND_ESTM_SCR  
+                                                ,NVL(A.FST_RELEA_RSLT, 0) AS FST_RELEA_RSLT  
+                                                ,(NVL(A.FST_ESTM_SCR, 0) + NVL(A.SND_ESTM_SCR, 0) + NVL(A.FST_RELEA_RSLT, 0)) AS PRM_SCR   
+                                          FROM  TBRF_EV_WK_PRM A   
+                                               ,TBRF_EV_EMP B   
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO = B.EMP_NO   
+                                           AND A.ESTM_YEAR = ? 
+                                           AND A.ESTM_NUM  = ?   
+                                      ) T1           
+                                     ,(SELECT    A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO   
+                                                ,NVL(A.ESTM_SCR, 0) AS MNR_SCR   
+                                          FROM  TBRF_EV_WK_MNR A   
+                                               ,TBRF_EV_EMP B   
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO = B.EMP_NO   
+                                           AND A.ESTM_YEAR = ?
+                                           AND A.ESTM_NUM  = ? 
+                                       ) T2    
+                                      ,(SELECT   A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO   
+                                                ,NVL(A.ESTM_SCR, 0) AS SRV_SCR   
+                                          FROM  TBRF_EV_WK_SRV A   
+                                               ,TBRF_EV_EMP B   
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO = B.EMP_NO   
+                                           AND A.ESTM_YEAR = ?  
+                                           AND A.ESTM_NUM  = ?   
+                                       ) T3     
+                                      ,(SELECT ESTM_YEAR,
+   										       ESTM_NUM, 
+   										       ESTM_DEPT,
+   										       EMP_NO,  
+									           MAX(ESTM_SCR) MAX_SCR, 
+									           MIN(ESTM_SCR) MIN_SCR, 
+									           DECODE(COUNT(*), 2,AVG(ESTM_SCR) , ROUND( (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) ) 
+									           / DECODE(COUNT(ESTM_EMP),2,NULL, COUNT(ESTM_EMP)-2),2)) MULT_SCR 
+									      FROM (
+											      	SELECT *
+													FROM TBRF_EV_WK_MULT
+													WHERE 1=1      --정상
+													AND ESTM_RESULT_CD = '001'
+													AND (EXPT_YN IS NULL OR EXPT_YN = 'N')
+													UNION ALL
+													SELECT  *       --평균점, 최하점
+													FROM TBRF_EV_WK_MULT
+													WHERE 1=1
+													AND ESTM_RESULT_CD IN ('002','003')
+											    )
+									     WHERE 1=1
+									       AND ESTM_YEAR = ?
+									       AND ESTM_NUM  = ?									       
+									  GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO
+                                       ) T4
+                                       , TBRF_EV_DEPT T5  
+                                   WHERE 1 = 1  
+                                     AND T0.ESTM_YEAR = T1.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T2.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T3.ESTM_YEAR(+)      
+                                     AND T0.ESTM_YEAR = T4.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T5.ESTM_YEAR(+)  
+                                     AND T0.ESTM_NUM = T1.ESTM_NUM(+)  
+                                     AND T0.ESTM_NUM = T2.ESTM_NUM(+)      
+                                     AND T0.ESTM_NUM = T3.ESTM_NUM(+)      
+                                     AND T0.ESTM_NUM = T4.ESTM_NUM(+)   
+                                     AND T0.ESTM_NUM = T5.ESTM_NUM(+)   
+                                     AND T0.ESTM_DEPT = T1.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T2.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T3.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T4.ESTM_DEPT(+)  
+                                     AND T0.DEPT_CD   = T5.DEPT_CD  
+                                     AND T0.EMP_NO = T1.EMP_NO(+)  
+                                     AND T0.EMP_NO = T2.EMP_NO(+)  
+                                     AND T0.EMP_NO = T3.EMP_NO(+)  
+                                     AND T0.EMP_NO = T4.EMP_NO(+)
+                                     AND T0.PERM_TEMP_GBN = '002'  
+                                     AND T0.ESTM_ESC_GBN = 'Y'  
+                                     AND T0.EMP_NO NOT IN (SELECT EMP_NO  
+                                                             FROM TBRF_EV_EMP  
+                                                            WHERE 1 = 1  
+                                                              AND ESTM_YEAR = ? 
+                                                              AND ESTM_NUM  = ?  
+                                                              AND PERM_TEMP_GBN = '002'  
+                                                              AND ESTM_ESC_GBN = 'Y'  
+                                                            GROUP BY EMP_NO  
+                                                               HAVING COUNT(*) = 2)  
+                                                         
+                              UNION ALL  
+                                
+                                SELECT  T.ESTM_YEAR  
+                                     ,T.ESTM_NUM  
+                                     ,T.DEPT_CD  
+                                     ,T.EMP_NO  
+                                     ,T.CNTR_ITM_CD  
+                                     ,SUM(T.PRM_SCR) AS PRM_SCR  
+                                     ,SUM(T.MNR_SCR) AS MNR_SCR  
+                                     ,SUM(T.SRV_SCR) AS SRV_SCR  
+                                     ,SUM(T.MULT_SCR) AS MULT_SCR  
+                                     ,SUM(T.TOT_SCR) AS TOT_SCR  
+                                FROM (  
+                                         
+                                       SELECT T0.ESTM_YEAR  
+                                              ,T0.ESTM_NUM  
+                                              ,T0.DEPT_CD  
+                                              ,T0.ESTM_DEPT  
+                                              ,T0.EMP_NO  
+                                              ,T0.EMP_NM  
+                                              ,T0.WK_JOB_CD  
+                                              ,T6.TOT_ESTM_GRP AS CNTR_ITM_CD  
+                                              ,T0.CO_WRK_GBN   
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T1.PRM_SCR, 0)  * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T1.PRM_SCR, 0)  * T5.MRA_RATE * 0.01  
+                                               END AS PRM_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T2.MNR_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T2.MNR_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS MNR_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T3.SRV_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T3.SRV_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS SRV_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T4.MULT_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T4.MULT_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS MULT_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN (NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0)) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN (NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0)) * T5.MRA_RATE * 0.01  
+                                               END AS TOT_SCR  
+                                          FROM TBRF_EV_EMP T0  
+                                              ,TBRF_EV_MASTER T5   
+                                              ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO  
+                                                        ,NVL(A.FST_ESTM_SCR, 0) AS FST_ESTM_SCR  
+                                                        ,NVL(A.SND_ESTM_SCR, 0) AS SND_ESTM_SCR  
+                                                        ,NVL(A.FST_RELEA_RSLT, 0) AS FST_RELEA_RSLT  
+                                                        ,(NVL(A.FST_ESTM_SCR, 0) + NVL(A.SND_ESTM_SCR, 0) + NVL(A.FST_RELEA_RSLT, 0)) AS PRM_SCR   
+                                                  FROM  TBRF_EV_WK_PRM A   
+                                                       ,TBRF_EV_EMP B   
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                              ) T1           
+                                             ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO   
+                                                        ,NVL(A.ESTM_SCR, 0) AS MNR_SCR   
+                                                  FROM  TBRF_EV_WK_MNR A   
+                                                       ,TBRF_EV_EMP B   
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                               ) T2    
+                                              ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO   
+                                                        ,NVL(A.ESTM_SCR, 0) AS SRV_SCR   
+                                                  FROM  TBRF_EV_WK_SRV A   
+                                                       ,TBRF_EV_EMP B   
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                               ) T3     
+                                              ,(SELECT ESTM_YEAR,
+        										       ESTM_NUM, 
+        										       ESTM_DEPT,
+        										       EMP_NO,  
+											           MAX(ESTM_SCR) MAX_SCR, 
+											           MIN(ESTM_SCR) MIN_SCR, 
+											           ROUND( (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) ) 
+											           / DECODE(COUNT(ESTM_EMP),2,NULL, COUNT(ESTM_EMP)-2),2) MULT_SCR 
+											      FROM  (
+													        SELECT *
+															FROM TBRF_EV_WK_MULT
+															WHERE 1=1      --정상
+															AND ESTM_RESULT_CD = '001'
+															AND (EXPT_YN IS NULL OR EXPT_YN = 'N')
+															UNION ALL
+															SELECT  *       --평균점, 최하점
+															FROM TBRF_EV_WK_MULT
+															WHERE 1=1
+															AND ESTM_RESULT_CD IN ('002','003')
+														)
+											     WHERE 1=1
+											       AND ESTM_YEAR = ?
+											       AND ESTM_NUM  = ?
+											  GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO  	
+                                               ) T4  
+                                               , TBRF_EV_DEPT T6
+                                           WHERE 1 = 1  
+                                             AND T0.ESTM_YEAR = T1.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T2.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T3.ESTM_YEAR(+)      
+                                             AND T0.ESTM_YEAR = T4.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T5.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T6.ESTM_YEAR(+)  
+                                             AND T0.ESTM_NUM = T1.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T2.ESTM_NUM(+)      
+                                             AND T0.ESTM_NUM = T3.ESTM_NUM(+)      
+                                             AND T0.ESTM_NUM = T4.ESTM_NUM(+)    
+                                             AND T0.ESTM_NUM = T5.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T6.ESTM_NUM(+)  
+                                             AND T0.ESTM_DEPT = T1.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T2.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T3.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T4.ESTM_DEPT(+)  
+                                             AND T0.DEPT_CD   = T6.DEPT_CD  
+                                             AND T0.EMP_NO = T1.EMP_NO(+)  
+                                             AND T0.EMP_NO = T2.EMP_NO(+)  
+                                             AND T0.EMP_NO = T3.EMP_NO(+)  
+                                             AND T0.EMP_NO = T4.EMP_NO(+)  
+                                             AND T0.PERM_TEMP_GBN = '002'  
+                                             AND T0.ESTM_ESC_GBN = 'Y'  
+                                             AND T0.EMP_NO IN (SELECT EMP_NO  
+                                                                     FROM TBRF_EV_EMP  
+                                                                    WHERE 1 = 1  
+                                                                      AND ESTM_YEAR = ? 
+                                                                      AND ESTM_NUM  = ?  
+                                                                      AND PERM_TEMP_GBN = '002'  
+                                                                      AND ESTM_ESC_GBN = 'Y'  
+                                                                    GROUP BY EMP_NO  
+                                                                       HAVING COUNT(*) = 2)  
+                                           ORDER BY T0.EMP_NO, T0.CO_WRK_GBN     
+                                      ) T   
+                                  GROUP BY T.ESTM_YEAR  
+                                             ,T.ESTM_NUM  
+                                             ,T.DEPT_CD  
+                                             ,T.EMP_NO  
+                                             ,T.CNTR_ITM_CD  
+                                             
+                     ) TT  
+                   ,( SELECT  ESTM_YEAR 
+                             ,ESTM_NUM 
+                             ,S_RATE * 0.01 AS S_RATE 
+                             ,(S_RATE + A_RATE) * 0.01 AS A_RATE 
+                             ,(S_RATE + A_RATE + B_RATE) * 0.01 AS B_RATE 
+                             ,(S_RATE + A_RATE + B_RATE + C_RATE) * 0.01 AS C_RATE 
+                             ,(S_RATE + A_RATE + B_RATE + C_RATE + D_RATE) * 0.01 AS D_RATE 
+                        FROM  TBRF_EV_ITEM_GRD 
+                       WHERE  1=1 
+                         AND  ESTM_YEAR    = ? 
+                         AND  ESTM_NUM     = ? 
+                         AND  ESTM_ITEM_CD = '0'  
+                    ) TT1 
+             WHERE 1 = 1 
+               AND TT.ESTM_YEAR = TT1.ESTM_YEAR 
+               AND TT.ESTM_NUM = TT1.ESTM_NUM 
+              ) TB         
+        ]]>
+    </query>  
+    
+    <query id="rev4010_i03" desc="최종점수 및 최종등급 산출(2016년 상향평가도입)" fetchSize="10">
+        <![CDATA[
+        	INSERT /* rev4010_i03 */
+        	  INTO TBRF_EV_TOTAL_RSLT (
+        		 ESTM_YEAR
+				,ESTM_NUM
+				,EMP_NO
+				,EMP_NM
+				,DEPT_CD
+				,DEPT_NM
+				,WK_JOB_CD
+				,WK_JOB_NM
+				,CNTR_ITM_CD
+				,CNTR_ITM_NM
+				,PRM_SCR
+				,MNR_SCR
+				,SRV_SCR
+				,MULT_SCR
+				,TOT_SCR
+				,TOT_GRD
+				,INST_ID
+				,INST_DT
+        	) 
+            SELECT  
+                    TB.ESTM_YEAR    
+                   ,TB.ESTM_NUM 
+                   ,TB.EMP_NO 
+                   ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO AND WRK_GBN = '001' ) AS EMP_NM 
+                   ,TB.DEPT_CD    
+                   ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND DEPT_CD = TB.DEPT_CD) AS DEPT_NM    
+                   ,(SELECT MAX(WK_JOB_CD) FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO ) AS WK_JOB_CD    
+                   ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND WK_JOB_CD = (SELECT MAX(WK_JOB_CD) FROM TBRF_EV_EMP WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND EMP_NO = TB.EMP_NO)) AS WK_JOB_NM 
+                   ,TB.CNTR_ITM_CD 
+                   ,(SELECT CNTR_JOB_NM FROM TBRF_EV_JOB_ITEM WHERE ESTM_YEAR = TB.ESTM_YEAR AND ESTM_NUM = TB.ESTM_NUM AND CNTR_ITM_CD = TB.CNTR_ITM_CD AND ESTM_ITEM_CD = '0') AS CNTR_ITM_NM 
+                   ,TB.PRM_SCR  
+                   ,TB.MNR_SCR  
+                   ,TB.SRV_SCR  
+                   ,TB.MULT_SCR 
+                   ,TB.TOT_SCR    
+                   ,CASE WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.S_RATE THEN 'S'  
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.A_RATE THEN 'A' 
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.B_RATE THEN 'B' 
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.C_RATE THEN 'C' 
+                         WHEN ROUND(TB.RNK/TB.CNT_GRP,3) <= TB.D_RATE THEN 'D'                          
+                    END AS TOT_GRD
+                   ,?
+                   ,SYSDATE
+            FROM (    
+     
+                        SELECT TT.ESTM_YEAR    
+                              ,TT.ESTM_NUM    
+                              ,TT.DEPT_CD  
+                              ,TT.EMP_NO    
+                              ,TT.CNTR_ITM_CD 
+                              ,TT1.S_RATE 
+                              ,TT1.A_RATE 
+                              ,TT1.B_RATE 
+                              ,TT1.C_RATE 
+                              ,TT1.D_RATE 
+                              ,TT.PRM_SCR  
+                              ,TT.MNR_SCR  
+                              ,TT.SRV_SCR  
+                              ,TT.MULT_SCR 
+                              ,TT.TOT_SCR 
+                              ,RANK() OVER(PARTITION BY TT.CNTR_ITM_CD ORDER BY TT.TOT_SCR DESC) RNK    
+                              ,COUNT(*) OVER (PARTITION BY TT.CNTR_ITM_CD) AS CNT_GRP  
+                               
+                        FROM (  --하나의 부서에 근무
+                                SELECT T0.ESTM_YEAR  
+                                      ,T0.ESTM_NUM  
+                                      ,T0.DEPT_CD  
+                                      ,T0.EMP_NO  
+                                      ,T5.CNTR_ITM_CD  
+                                      ,NVL(T1.PRM_SCR, 0) AS PRM_SCR  
+                                      ,NVL(T2.MNR_SCR, 0) AS MNR_SCR  
+                                      ,NVL(T3.SRV_SCR, 0) AS SRV_SCR  
+                                      ,NVL(T4.MULT_SCR, 0) AS MULT_SCR    
+                                      ,NVL(NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0), 0) AS TOT_SCR  
+                                  FROM 
+                                      (SELECT A.*
+                                             ,(SELECT MAX(ESTM_WK_JOB) -- 평가시 종사원, 투표소장으로 2개의 보직인 경우 투표소장으로 최종등급 산정(2013년) 
+                                                FROM  TBRF_EV_EMP B 
+                                                WHERE A.ESTM_YEAR = B.ESTM_YEAR 
+                                                AND   A.ESTM_NUM  = B.ESTM_NUM 
+                                                AND   A.EMP_NO    = B.EMP_NO) ESTM_WK_JOB_APT  
+                                       FROM  TBRF_EV_EMP A) T0  
+                                      ,TBRF_EV_JOB_ITEM T5   
+                                      ,TBRF_EV_JOB_ITM_DTL T6   
+                                      ,(SELECT   A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO  
+                                                ,ROUND(AVG(NVL(A.FST_ESTM_SCR, 0)),2) AS FST_ESTM_SCR
+											    ,ROUND(AVG(NVL(A.SND_ESTM_SCR, 0)),2) AS SND_ESTM_SCR
+                                                ,ROUND(AVG(NVL(A.FST_ESTM_SCR, 0)),2) + ROUND(AVG(NVL(A.SND_ESTM_SCR, 0)),2) AS PRM_SCR   
+                                          FROM  TBRF_EV_WK_PRM A   
+                                               ,TBRF_EV_EMP B   
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO    = B.EMP_NO   
+                                           AND A.ESTM_YEAR = ? 
+                                           AND A.ESTM_NUM  = ?
+                                           GROUP BY A.ESTM_YEAR, A.ESTM_NUM, A.ESTM_DEPT, A.EMP_NO   
+                                      ) T1           
+                                     ,(SELECT    A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO   
+                                                ,(AVG(NVL(A.ESTM_SCR, 0)) + AVG(NVL(C.FST_RELEA_RSLT, 0))) AS MNR_SCR   
+                                          FROM  TBRF_EV_WK_MNR A   
+                                               ,TBRF_EV_EMP B 
+                                               ,TBRF_EV_WK_PRM C     
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO    = B.EMP_NO   
+                                           AND A.ESTM_YEAR = C.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = C.ESTM_NUM   
+                                           AND A.ESTM_DEPT = C.ESTM_DEPT   
+                                           AND A.EMP_NO    = C.EMP_NO   
+                                           AND A.ESTM_YEAR = ?
+                                           AND A.ESTM_NUM  = ? 
+                                         GROUP BY A.ESTM_YEAR, A.ESTM_NUM, A.ESTM_DEPT, A.EMP_NO  
+                                       ) T2    
+                                      ,(SELECT   A.ESTM_YEAR   
+                                                ,A.ESTM_NUM   
+                                                ,A.ESTM_DEPT   
+                                                ,A.EMP_NO   
+                                                ,NVL(A.ESTM_SCR, 0) AS SRV_ORG_SCR   
+                                                ,NVL(A.KCSI_ESTM_SCR, 0) AS KCSI_SCR   
+                                                ,NVL(A.ESTM_SCR, 0)+NVL(KCSI_ESTM_SCR, 0) AS SRV_SCR
+                                          FROM  TBRF_EV_WK_SRV A   
+                                               ,TBRF_EV_EMP    B   
+                                         WHERE 1 = 1   
+                                           AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                           AND A.ESTM_NUM  = B.ESTM_NUM   
+                                           AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                           AND A.EMP_NO    = B.EMP_NO   
+                                           AND A.ESTM_YEAR = ?  
+                                           AND A.ESTM_NUM  = ?   
+                                       ) T3     
+                                      ,(SELECT ESTM_YEAR,
+   										       ESTM_NUM, 
+   										       ESTM_DEPT,
+   										       EMP_NO,  
+									           MAX(ESTM_SCR) MAX_SCR, 
+									           MIN(ESTM_SCR) MIN_SCR, 
+									           ROUND( (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) ) 
+									           / DECODE(COUNT(ESTM_EMP),2,NULL, COUNT(ESTM_EMP)-2),2) MULT_SCR 
+									      FROM (
+											      	SELECT *
+													FROM TBRF_EV_WK_MULT
+													WHERE 1=1      --정상
+													AND ESTM_RESULT_CD = '001'
+													AND (EXPT_YN IS NULL OR EXPT_YN = 'N')
+													UNION ALL
+													SELECT  *       --평균점, 최하점
+													FROM TBRF_EV_WK_MULT
+													WHERE 1=1
+													AND ESTM_RESULT_CD IN ('002','003')
+											    )
+									     WHERE 1=1
+									       AND ESTM_YEAR = ?
+									       AND ESTM_NUM  = ?									       
+									  GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO
+                                       ) T4  
+                                   WHERE 1 = 1  
+                                     AND T0.ESTM_YEAR = T1.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T2.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T3.ESTM_YEAR(+)      
+                                     AND T0.ESTM_YEAR = T4.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T5.ESTM_YEAR(+)  
+                                     AND T0.ESTM_YEAR = T6.ESTM_YEAR(+)  
+                                     AND T0.ESTM_NUM = T1.ESTM_NUM(+)  
+                                     AND T0.ESTM_NUM = T2.ESTM_NUM(+)      
+                                     AND T0.ESTM_NUM = T3.ESTM_NUM(+)      
+                                     AND T0.ESTM_NUM = T4.ESTM_NUM(+)   
+                                     AND T0.ESTM_NUM = T5.ESTM_NUM(+)  
+                                     AND T0.ESTM_NUM = T6.ESTM_NUM(+)  
+                                     AND T0.ESTM_DEPT = T1.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T2.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T3.ESTM_DEPT(+)  
+                                     AND T0.ESTM_DEPT = T4.ESTM_DEPT(+)  
+                                     AND T0.EMP_NO = T1.EMP_NO(+)  
+                                     AND T0.EMP_NO = T2.EMP_NO(+)  
+                                     AND T0.EMP_NO = T3.EMP_NO(+)  
+                                     AND T0.EMP_NO = T4.EMP_NO(+)  
+                                     AND T5.ESTM_ITEM_CD = T6.ESTM_ITEM_CD    
+                                     AND T5.CNTR_ITM_CD = T6.CNTR_ITM_CD    
+                                     AND T5.ESTM_ITEM_CD = '0'  
+                                     AND T6.CNTR_ITM_DTL = T0.ESTM_WK_JOB_APT --T0.ESTM_WK_JOB  
+                                     AND T0.PERM_TEMP_GBN = '002'  
+                                     AND T0.ESTM_ESC_GBN = 'Y'  
+                                     AND T0.EMP_NO NOT IN (SELECT EMP_NO  
+                                                             FROM TBRF_EV_EMP  
+                                                            WHERE 1 = 1  
+                                                              AND ESTM_YEAR = ? 
+                                                              AND ESTM_NUM  = ?  
+                                                              AND PERM_TEMP_GBN = '002'  
+                                                              AND ESTM_ESC_GBN = 'Y'  
+                                                            GROUP BY EMP_NO  
+                                                               HAVING COUNT(*) = 2)  
+                                                         
+                              UNION ALL  
+                                --두개 이상의 부서에 근무
+                                SELECT  T.ESTM_YEAR  
+                                     ,T.ESTM_NUM  
+                                     ,T.DEPT_CD  
+                                     ,T.EMP_NO  
+                                     ,T.CNTR_ITM_CD  
+                                     ,SUM(T.PRM_SCR) AS PRM_SCR  
+                                     ,SUM(T.MNR_SCR) AS MNR_SCR  
+                                     ,SUM(T.SRV_SCR) AS SRV_SCR  
+                                     ,SUM(T.MULT_SCR) AS MULT_SCR  
+                                     ,SUM(T.TOT_SCR) AS TOT_SCR  
+                                FROM (  
+                                         
+                                       SELECT T0.ESTM_YEAR  
+                                              ,T0.ESTM_NUM  
+                                              ,T0.DEPT_CD  
+                                              ,T0.ESTM_DEPT  
+                                              ,T0.EMP_NO  
+                                              ,T0.EMP_NM  
+                                              ,T0.WK_JOB_CD  
+                                              ,T6.CNTR_ITM_CD  
+                                              ,T6.CNTR_JOB_NM    
+                                              ,T0.CO_WRK_GBN   
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T1.PRM_SCR, 0)  * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T1.PRM_SCR, 0)  * T5.MRA_RATE * 0.01  
+                                               END AS PRM_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T2.MNR_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T2.MNR_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS MNR_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T3.SRV_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T3.SRV_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS SRV_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN NVL(T4.MULT_SCR, 0) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN NVL(T4.MULT_SCR, 0) * T5.MRA_RATE * 0.01  
+                                               END AS MULT_SCR  
+                                              ,CASE WHEN T0.CO_WRK_GBN = '001' THEN (NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0)) * T5.CRA_RATE * 0.01  
+                                                    WHEN T0.CO_WRK_GBN = '002' THEN (NVL(T1.PRM_SCR, 0) + NVL(T2.MNR_SCR, 0) + NVL(T3.SRV_SCR, 0) + NVL(T4.MULT_SCR, 0)) * T5.MRA_RATE * 0.01  
+                                               END AS TOT_SCR  
+                                          FROM 
+                                              (SELECT A.*
+                                                     ,(SELECT MAX(ESTM_WK_JOB) -- 평가시 종사원, 투표소장으로 2개의 보직인 경우 투표소장으로 최종등급 산정(2013년)
+                                                       FROM   TBRF_EV_EMP B 
+                                                       WHERE  A.ESTM_YEAR = B.ESTM_YEAR 
+                                                       AND    A.ESTM_NUM  = B.ESTM_NUM 
+                                                       AND    A.EMP_NO    = B.EMP_NO) ESTM_WK_JOB_APT  
+                                                FROM TBRF_EV_EMP A) T0  
+                                              ,TBRF_EV_MASTER T5   
+                                              ,TBRF_EV_JOB_ITEM T6   
+                                              ,TBRF_EV_JOB_ITM_DTL T7   
+                                              ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO  
+                                                        ,ROUND(AVG(NVL(A.FST_ESTM_SCR, 0)),2) AS FST_ESTM_SCR
+													    ,ROUND(AVG(NVL(A.SND_ESTM_SCR, 0)),2) AS SND_ESTM_SCR
+											            ,ROUND(AVG(NVL(A.FST_ESTM_SCR, 0)),2) + ROUND(AVG(NVL(A.SND_ESTM_SCR, 0)),2) AS PRM_SCR
+                                                  FROM  TBRF_EV_WK_PRM A   
+                                                       ,TBRF_EV_EMP B   
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM  = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO    = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?  
+                                                   GROUP BY A.ESTM_YEAR, A.ESTM_NUM, A.ESTM_DEPT, A.EMP_NO 
+                                              ) T1           
+                                             ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO    
+                                                        ,(AVG(NVL(A.ESTM_SCR, 0)) + AVG(NVL(C.FST_RELEA_RSLT, 0))) AS MNR_SCR
+                                                  FROM  TBRF_EV_WK_MNR A   
+                                                       ,TBRF_EV_EMP B 
+                                                       ,TBRF_EV_WK_PRM C  
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM  = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO    = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = C.ESTM_YEAR   
+                                                   AND A.ESTM_NUM  = C.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = C.ESTM_DEPT   
+                                                   AND A.EMP_NO    = C.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                                 GROUP BY A.ESTM_YEAR, A.ESTM_NUM, A.ESTM_DEPT, A.EMP_NO  
+                                               ) T2    
+                                              ,(SELECT   A.ESTM_YEAR   
+                                                        ,A.ESTM_NUM   
+                                                        ,A.ESTM_DEPT   
+                                                        ,A.EMP_NO   
+		                                                ,NVL(A.ESTM_SCR, 0) AS SRV_ORG_SCR   
+		                                                ,NVL(A.KCSI_ESTM_SCR, 0) AS KCSI_SCR   
+		                                                ,NVL(A.ESTM_SCR, 0)+NVL(KCSI_ESTM_SCR, 0) AS SRV_SCR
+                                                  FROM  TBRF_EV_WK_SRV A   
+                                                       ,TBRF_EV_EMP B   
+                                                 WHERE 1 = 1   
+                                                   AND A.ESTM_YEAR = B.ESTM_YEAR   
+                                                   AND A.ESTM_NUM = B.ESTM_NUM   
+                                                   AND A.ESTM_DEPT = B.ESTM_DEPT   
+                                                   AND A.EMP_NO = B.EMP_NO   
+                                                   AND A.ESTM_YEAR = ? 
+                                                   AND A.ESTM_NUM  = ?   
+                                               ) T3     
+                                              ,(SELECT ESTM_YEAR,
+        										       ESTM_NUM, 
+        										       ESTM_DEPT,
+        										       EMP_NO,  
+											           MAX(ESTM_SCR) MAX_SCR, 
+											           MIN(ESTM_SCR) MIN_SCR, 
+											           ROUND( (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) ) 
+											           / DECODE(COUNT(ESTM_EMP),2,NULL, COUNT(ESTM_EMP)-2),2) MULT_SCR 
+											      FROM  (
+													        SELECT *
+															FROM TBRF_EV_WK_MULT
+															WHERE 1=1      --정상
+															AND ESTM_RESULT_CD = '001'
+															AND (EXPT_YN IS NULL OR EXPT_YN = 'N')
+															UNION ALL
+															SELECT  *       --평균점, 최하점
+															FROM TBRF_EV_WK_MULT
+															WHERE 1=1
+															AND ESTM_RESULT_CD IN ('002','003')
+														)
+											     WHERE 1=1
+											       AND ESTM_YEAR = ?
+											       AND ESTM_NUM  = ?
+											  GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO  	
+                                               ) T4  
+                                           WHERE 1 = 1  
+                                             AND T0.ESTM_YEAR = T1.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T2.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T3.ESTM_YEAR(+)      
+                                             AND T0.ESTM_YEAR = T4.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T5.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T6.ESTM_YEAR(+)  
+                                             AND T0.ESTM_YEAR = T7.ESTM_YEAR(+)  
+                                             AND T0.ESTM_NUM = T1.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T2.ESTM_NUM(+)      
+                                             AND T0.ESTM_NUM = T3.ESTM_NUM(+)      
+                                             AND T0.ESTM_NUM = T4.ESTM_NUM(+)    
+                                             AND T0.ESTM_NUM = T5.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T6.ESTM_NUM(+)  
+                                             AND T0.ESTM_NUM = T7.ESTM_NUM(+)  
+                                             AND T0.ESTM_DEPT = T1.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T2.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T3.ESTM_DEPT(+)  
+                                             AND T0.ESTM_DEPT = T4.ESTM_DEPT(+)  
+                                             AND T0.EMP_NO = T1.EMP_NO(+)  
+                                             AND T0.EMP_NO = T2.EMP_NO(+)  
+                                             AND T0.EMP_NO = T3.EMP_NO(+)  
+                                             AND T0.EMP_NO = T4.EMP_NO(+)  
+                                             AND T6.ESTM_ITEM_CD = T7.ESTM_ITEM_CD    
+                                             AND T6.CNTR_ITM_CD = T7.CNTR_ITM_CD    
+                                             AND T6.ESTM_ITEM_CD = '0'  
+                                             AND T7.CNTR_ITM_DTL = T0.ESTM_WK_JOB_APT --T0.ESTM_WK_JOB  
+                                             AND T0.PERM_TEMP_GBN = '002'  
+                                             AND T0.ESTM_ESC_GBN = 'Y'  
+                                             AND T0.EMP_NO IN (SELECT EMP_NO  
+                                                                     FROM TBRF_EV_EMP  
+                                                                    WHERE 1 = 1  
+                                                                      AND ESTM_YEAR = ? 
+                                                                      AND ESTM_NUM  = ?  
+                                                                      AND PERM_TEMP_GBN = '002'  
+                                                                      AND ESTM_ESC_GBN = 'Y'  
+                                                                    GROUP BY EMP_NO  
+                                                                       HAVING COUNT(*) = 2)  
+                                           ORDER BY T0.EMP_NO, T0.CO_WRK_GBN     
+                                      ) T   
+                                  GROUP BY T.ESTM_YEAR  
+                                             ,T.ESTM_NUM  
+                                             ,T.DEPT_CD  
+                                             ,T.EMP_NO  
+                                             ,T.CNTR_ITM_CD  
+                                             
+                     ) TT  
+                   ,( SELECT  ESTM_YEAR 
+                             ,ESTM_NUM 
+                             ,S_RATE * 0.01 AS S_RATE 
+                             ,(S_RATE + A_RATE) * 0.01 AS A_RATE 
+                             ,(S_RATE + A_RATE + B_RATE) * 0.01 AS B_RATE 
+                             ,(S_RATE + A_RATE + B_RATE + C_RATE) * 0.01 AS C_RATE 
+                             ,(S_RATE + A_RATE + B_RATE + C_RATE + D_RATE) * 0.01 AS D_RATE 
+                        FROM  TBRF_EV_ITEM_GRD 
+                       WHERE  1=1 
+                         AND  ESTM_YEAR    = ? 
+                         AND  ESTM_NUM     = ? 
+                         AND  ESTM_ITEM_CD = '0'  
+                    ) TT1 
+             WHERE 1 = 1 
+               AND TT.ESTM_YEAR = TT1.ESTM_YEAR 
+               AND TT.ESTM_NUM = TT1.ESTM_NUM 
+              ) TB         
+        ]]>
+    </query>  
+</queryMap>

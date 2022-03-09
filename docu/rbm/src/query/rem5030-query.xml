@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem5030(지점별 지정좌석실 상품분류  조회 )">
+  
+    <query id="rem5030_s01" desc="지정좌석실 입고 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5030_s01 */
+ 			        '' AS CHK
+ 			       ,COMM_NO
+ 			       ,STOR_DT
+ 			       ,SEQ_NO
+ 			       ,GOOD_TYPE_CD
+ 			       ,GOOD_NM
+ 			       ,PRICE
+ 			       ,STOR_CNT
+ 			       ,STOR_USER_ID
+ 			       ,RMK
+ 			       ,INST_ID
+ 			       ,INST_DT
+ 			       ,UPDT_ID
+ 			       ,UPDT_DT
+ 			       ,STOR_CNT - BALANC_CNT AS RM_CNT
+ 			       ,PRICE * STOR_CNT AS STOR_AMT
+ 			       ,YEAR_ITEM_SEQ_NO
+			FROM  TBRC_FS_STOR 
+		    WHERE COMM_NO LIKE ?||'%'
+		    AND   STOR_DT BETWEEN ? AND ?        
+			ORDER BY COMM_NO, STOR_DT, GOOD_TYPE_CD, SEQ_NO            
+        ]]>
+    </query> 
+    
+    
+    <query id="rem5030_s02" desc="지정좌석실 출고 자료 존재여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5030_s02 */
+ 			      NVL(SUM(UNSTOR_CNT + DISUSE_CNT),0) AS CNT
+			FROM  TBRC_FS_UNSTOR 
+		    WHERE COMM_NO = ?
+		    AND   STOR_DT = ?
+		    AND   SEQ_NO  = ?     
+        ]]>
+    </query> 
+    
+    <query id="rem5030_s03" desc="지정좌석실 단가계약상품 출고 자료 존재여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5030_s03 */
+ 			       SUM(UNSTOR_CNT) - SUM(STOR_CNT)    AS CNT
+			FROM (
+		            SELECT SUM(STOR_CNT) AS STOR_CNT, 0 AS UNSTOR_CNT
+		            FROM TBRC_FS_STOR
+		            WHERE COMM_NO          = ?
+		            AND   YEAR_ITEM_SEQ_NO = ?
+		            AND   STOR_DT         != ?
+		            UNION ALL
+		            SELECT 
+		                   0, NVL(SUM(UNSTOR_CNT + DISUSE_CNT),0) AS UNSTOR_CNT            
+		            FROM  TBRC_FS_YEAR_ITEM_OUT 
+		            WHERE COMM_NO          = ?
+		            AND   YEAR_ITEM_SEQ_NO = ?
+     			 )    		    
+        ]]>
+    </query> 
+    
+    
+    
+    <query id="rem5030_m01" desc="지정좌석실 입고 저장" fetchSize="10">
+      <![CDATA[
+            MERGE /* rem5030_m01 */
+ 			      INTO TBRC_FS_STOR DST
+ 			USING (
+ 			       SELECT  ? AS COMM_NO
+ 			              ,? AS STOR_DT
+ 			              ,? AS SEQ_NO
+ 			              ,? AS GOOD_NM
+ 			              ,? AS GOOD_TYPE_CD
+ 			              ,? AS PRICE
+ 			              ,? AS STOR_CNT
+ 			              ,? AS STOR_USER_ID
+ 			              ,? AS YEAR_ITEM_SEQ_NO
+ 			              ,? AS RMK
+ 			              ,? AS BALANC_CNT
+ 			              ,? AS USER_ID
+ 			       FROM    DUAL       
+ 			        ) SRC    
+ 			ON     (
+ 			           DST.COMM_NO = SRC.COMM_NO
+ 			       AND DST.STOR_DT = SRC.STOR_DT
+ 			       AND DST.SEQ_NO  = SRC.SEQ_NO
+ 			       )
+ 			WHEN MATCHED THEN
+ 			      UPDATE SET
+ 			                 DST.GOOD_NM          = SRC.GOOD_NM
+ 			                ,DST.GOOD_TYPE_CD     = SRC.GOOD_TYPE_CD
+ 			                ,DST.PRICE            = SRC.PRICE
+ 			                ,DST.STOR_CNT         = SRC.STOR_CNT
+ 			                ,DST.STOR_USER_ID     = SRC.STOR_USER_ID
+ 			                ,DST.YEAR_ITEM_SEQ_NO = SRC.YEAR_ITEM_SEQ_NO
+ 			                ,DST.RMK              = SRC.RMK
+ 			                ,DST.BALANC_CNT       = SRC.STOR_CNT
+ 			                ,DST.UPDT_ID          = SRC.USER_ID
+ 			                ,DST.UPDT_DT          = SYSDATE
+ 			WHEN NOT MATCHED THEN
+ 			       INSERT (
+ 			                 COMM_NO
+ 			                ,STOR_DT
+ 			                ,SEQ_NO
+ 			                ,GOOD_NM
+ 			                ,GOOD_TYPE_CD
+ 			                ,PRICE
+ 			                ,STOR_CNT
+ 			                ,STOR_USER_ID
+ 			                ,YEAR_ITEM_SEQ_NO
+ 			                ,RMK
+ 			                ,BALANC_CNT
+ 			                ,INST_ID
+ 			                ,INST_DT
+ 			               ) VALUES (
+ 			               	 SRC.COMM_NO
+ 			               	,SRC.STOR_DT
+ 			               	,(SELECT NVL(MAX(SEQ_NO),0) + 1 
+ 			               	  FROM TBRC_FS_STOR 
+ 			               	  WHERE COMM_NO = ? --SRC.COMM_NO 
+ 			               	  AND   STOR_DT = ? --SRC.STOR_DT
+ 			               	  )
+ 			               	,SRC.GOOD_NM
+ 			               	,SRC.GOOD_TYPE_CD
+ 			               	,SRC.PRICE
+ 			               	,SRC.STOR_CNT
+ 			               	,SRC.STOR_USER_ID
+ 			               	,SRC.YEAR_ITEM_SEQ_NO
+ 			               	,SRC.RMK
+ 			               	,SRC.STOR_CNT
+ 			               	,SRC.USER_ID
+ 			               	,SYSDATE
+ 			               )
+ 			                                       		       
+        ]]>
+    </query> 
+    
+    <query id="rem5030_d01" desc="지정좌석실 입고내역  삭제" fetchSize="10">
+      <![CDATA[
+            DELETE /* rem5030_d01 */
+ 			FROM   TBRC_FS_STOR
+		    WHERE  COMM_NO = ?
+		    AND    STOR_DT = ?		                
+		    AND    SEQ_NO  = ?
+        ]]>
+    </query> 
+    
+</queryMap>

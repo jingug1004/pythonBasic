@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_group_org_mngr(조편성)">
+
+    <query id="tbdb_group_org_fb001" desc="년도 조회" fetchSize="10">
+        <![CDATA[
+			SELECT TRIM(RMK) AS RACE_YY
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC		
+		]]>
+    </query>
+    
+    <query id="tbdb_group_org_fb002" desc="세부시행일정" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			       RACE_YY
+			      ,ROUND
+			      ,MAT_METH
+			      ,RACE_METH
+			      ,RACE_CNT
+			      ,RACE_DT
+			      ,AM_PM_GBN
+			      ,RACER_CNT
+			      ,SELT_ROUND
+			      ,SUBSTR(RACE_DT,0,4)||'-'||SUBSTR(RACE_DT,5,2)||'-'||(SUBSTR(RACE_DT,7,2)||'  '||(SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10041' AND AM_PM_GBN = CD))AS N_AM_PM_GBN
+			      ,'0' CHK
+			FROM  TBDB_DETL_RACE_SCHE 
+			WHERE RACE_YY = ?
+            AND ROUND     = ?
+		     ]]>
+    </query>
+    <query id="tbdb_group_org_fb003" desc="조편성 조회_일자별" fetchSize="10">
+        <![CDATA[
+			 SELECT 
+			'' NUM ,'' RACE_NO,'' BACK_NO ,0 AS TOT_POINT,'0' AS DCSN_GBN																	 
+			,T0.RACE_YY				-- 년도								 
+			,T0.ROUND				-- 회차   						 		 
+			,T0.CAND_NO				-- 후보생 번호							 			
+			,T0.NM_KOR				-- 후보생 이름  	
+			,T0.LIFE_BASE			-- 출신지					 
+			,T0.RACER_PERIO_NO    	-- 기수 	
+			,T0.AGE							 
+			,T0.MAT_CD 
+			,T0.RACE_GRD_CD													 
+			,TO_CHAR(T0.GEAR_RATE,'0.00')  AS GEAR_RATE											 			-- 기어배수 							 
+			,T0.TOT_AVG  -- 총평균 						 
+			,T0.GRD				-- 등급									 
+			,T0.STRATEGY			-- 전법									 
+			,T0.LEG_TPE           -- 각질 									 
+			,T0.WIN_RATE		-- 승률 									 
+			,T0.HIGH_RANK_RATE    -- 연대율    						 		
+			,T0.RANK1_CNT		-- 1착									 
+			,T0.RANK2_CNT			-- 2착 									
+			,T0.RANK3_CNT			-- 3착 	
+			,T0.RANK4_CNT			-- 4착 
+			,T0.RANK5_CNT			-- 5착 
+			,T0.RANK6_CNT			-- 6착 
+			,T0.RANK7_CNT			-- 7착 								
+			,T0.RANK_OUT -- 착외 
+			,T0.ELIM1_CNT	   	    -- 실격				 
+			,T0.ELIM2_CNT			-- 경고			 
+			,T0.ELIM3_CNT			-- 주의			 
+			,T0.TOT_RANK        	-- 총순위				 
+			,T0.ESTM_SCR			-- 평가점 	 		
+			,T0.BF_ROUND			-- 전회차	
+			,T1.BF_RACE 
+			,T1.RANK		
+			   FROM
+			   (
+			   SELECT 	
+			A.RACE_YY				-- 년도								 
+			,A.ROUND				-- 회차   						 		 
+			,A.CAND_NO				-- 후보생 번호							 			
+			,B.NM_KOR				-- 후보생 이름  	
+			,B.TRNG_PLC LIFE_BASE	-- (훈련지)출신지					 
+			,B.RACER_PERIO_NO    	-- 기수 	
+			,101+TO_CHAR(SYSDATE,'YY')-SUBSTR(FC_DEC(B.RES_NO),0,2) AS AGE							 
+			,A.MAT_CD 													 
+			,D.RACE_GRD_CD	 											 
+			,C.GEAR_RATE			-- 기어배수 							 
+			,NVL(C.YY_AVG_RACE_SCR,0) AS TOT_AVG  -- 총평균 						 
+			,C.GRD				-- 등급									 
+			,C.STRATEGY			-- 전법									 
+			,C.LEG_TPE           -- 각질 									 
+			,ROUND(C.WIN_RATE,3) AS WIN_RATE			-- 승률 									 
+			,ROUND(C.HIGH_RANK_RATE,3) AS HIGH_RANK_RATE    -- 연대율   					 		
+			,C.RANK1_CNT		-- 1착									 
+			,C.RANK2_CNT			-- 2착 									
+			,C.RANK3_CNT			-- 3착 	
+			,C.RANK4_CNT			-- 4착 
+			,C.RANK5_CNT			-- 5착 
+			,C.RANK6_CNT			-- 6착 
+			,C.RANK7_CNT			-- 7착 								
+			,(C.RANK4_CNT + C.RANK5_CNT + C.RANK6_CNT + C.RANK7_CNT)AS RANK_OUT -- 착외 
+			,C.ELIM1_CNT	   	    -- 실격				 
+			,C.ELIM2_CNT			-- 경고			 
+			,C.ELIM3_CNT			-- 주의			 
+			,C.TOT_RANK			-- 총순위				 
+			,C.ESTM_SCR			-- 평가점 	 		
+			,C.BF_ROUND			-- 전회차				 					
+			 FROM										 
+			     TBDB_CAND_ASSIGN A						 
+			    ,TBDB_CAND_IDENT B 						
+			    ,TBDB_REC_TOT C							 
+			    ,TBDB_ENFOR_RACE_GRD D					 		   						 
+			 WHERE					  
+			    A.CAND_NO = B.CAND_NO 			
+			    AND A.CAND_NO = C.CAND_NO		
+			    AND A.MAT_CD = D.MAT_CD 		 
+			    AND A.RACE_YY = ? 					
+			    AND A.ROUND   =  ? 					 
+			    AND A.DCSN_GBN = '0' 				
+			    AND A.GBN = '1'						 
+			)T0	   
+			,( SELECT 								 
+			 			  RACE_YY 						
+			 			 ,ROUND 						
+			 			 ,CAND_NO 						
+			 			 ,RANK							
+			 			 ,CASE WHEN (SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10042' AND T2.RACE_GRD_CD = CD)='특선결승' THEN '특결' 
+						  ELSE
+						      CASE WHEN (SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10042' AND T2.RACE_GRD_CD = CD)='우수결승' THEN '우결' 
+						      ELSE  SUBSTR((SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10042' AND T2.RACE_GRD_CD = CD),0,2)
+							  END	END||T2.RACE_NO ||'-'||T2.RANK AS BF_RACE
+
+			  FROM 								
+			  TBDB_RACE_REC_DETL T2	
+			  WHERE RACE_YY = ? 
+			  AND ROUND =  (SELECT BF_ROUND FROM TBDB_REC_TOT WHERE T2.CAND_NO = CAND_NO)		 			 
+			 )T1
+			 WHERE T0.CAND_NO = T1.CAND_NO(+)	
+			 ORDER BY T0.MAT_CD,T0.RACE_GRD_CD,T0.GRD,T0.TOT_AVG
+			 ]]>
+    </query>
+     <query id="tbdb_group_org_fb0031" desc="조편성 조회_일자별(수정토너)" fetchSize="10">
+        <![CDATA[
+			 SELECT 
+			'' NUM ,'' RACE_NO,'' BACK_NO ,0 AS TOT_POINT,'0' AS DCSN_GBN																	 
+			,T0.RACE_YY				-- 년도								 
+			,T0.ROUND				-- 회차   						 		 
+			,T0.CAND_NO				-- 후보생 번호							 			
+			,T0.NM_KOR				-- 후보생 이름  	
+			,T0.LIFE_BASE			-- 출신지					 
+			,T0.RACER_PERIO_NO    	-- 기수 	
+			,T0.AGE							 
+			,T0.MAT_CD 
+			,T0.RACE_GRD_CD													 
+			,TO_CHAR(T0.GEAR_RATE,'0.00')  AS GEAR_RATE											 			-- 기어배수 							 
+			,T0.TOT_AVG  -- 총평균 						 
+			,T0.GRD				-- 등급									 
+			,T0.STRATEGY			-- 전법									 
+			,T0.LEG_TPE           -- 각질 									 
+			,T0.WIN_RATE		-- 승률 									 
+			,T0.HIGH_RANK_RATE    -- 연대율    						 		
+			,T0.RANK1_CNT		-- 1착									 
+			,T0.RANK2_CNT			-- 2착 									
+			,T0.RANK3_CNT			-- 3착 	
+			,T0.RANK4_CNT			-- 4착 
+			,T0.RANK5_CNT			-- 5착 
+			,T0.RANK6_CNT			-- 6착 
+			,T0.RANK7_CNT			-- 7착 								
+			,T0.RANK_OUT -- 착외 
+			,T0.ELIM1_CNT	   	    -- 실격				 
+			,T0.ELIM2_CNT			-- 경고			 
+			,T0.ELIM3_CNT			-- 주의			 
+			,T0.TOT_RANK        	-- 총순위				 
+			,T0.ESTM_SCR			-- 평가점 	 		
+			,T0.BF_ROUND			-- 전회차	
+			,T1.BF_RACE 
+			,T1.RANK		
+			   FROM
+			   (
+			   SELECT 	
+			A.RACE_YY				-- 년도								 
+			,A.ROUND				-- 회차   						 		 
+			,A.CAND_NO				-- 후보생 번호							 			
+			,B.NM_KOR				-- 후보생 이름  	
+			,B.TRNG_PLC LIFE_BASE	-- (훈련지)출신지					 
+			,B.RACER_PERIO_NO    	-- 기수 	
+			,101+TO_CHAR(SYSDATE,'YY')-SUBSTR(FC_DEC(B.RES_NO),0,2) AS AGE							 
+			,A.MAT_CD 													 
+			,'' RACE_GRD_CD	 											 
+			,C.GEAR_RATE			-- 기어배수 							 
+			,NVL(C.YY_AVG_RACE_SCR,0) AS TOT_AVG  -- 총평균 						 
+			,C.GRD				-- 등급									 
+			,C.STRATEGY			-- 전법									 
+			,C.LEG_TPE           -- 각질 									 
+			,ROUND(C.WIN_RATE,3) AS WIN_RATE			-- 승률 									 
+			,ROUND(C.HIGH_RANK_RATE,3) AS HIGH_RANK_RATE    -- 연대율   					 		
+			,C.RANK1_CNT		-- 1착									 
+			,C.RANK2_CNT			-- 2착 									
+			,C.RANK3_CNT			-- 3착 	
+			,C.RANK4_CNT			-- 4착 
+			,C.RANK5_CNT			-- 5착 
+			,C.RANK6_CNT			-- 6착 
+			,C.RANK7_CNT			-- 7착 								
+			,(C.RANK4_CNT + C.RANK5_CNT + C.RANK6_CNT + C.RANK7_CNT)AS RANK_OUT -- 착외 
+			,C.ELIM1_CNT	   	    -- 실격				 
+			,C.ELIM2_CNT			-- 경고			 
+			,C.ELIM3_CNT			-- 주의			 
+			,C.TOT_RANK			-- 총순위				 
+			,C.ESTM_SCR			-- 평가점 	 		
+			,C.BF_ROUND			-- 전회차				 					
+			 FROM										 
+			     TBDB_CAND_ASSIGN A						 
+			    ,TBDB_CAND_IDENT B 						
+			    ,TBDB_REC_TOT C							 					 		   						 
+			 WHERE					  
+			    A.CAND_NO = B.CAND_NO 			
+			    AND A.CAND_NO = C.CAND_NO				 
+			    AND A.RACE_YY = ? 					
+			    AND A.ROUND   =  ? 					 
+			    AND A.DCSN_GBN = '0' 				
+			    AND A.GBN = '1'						 
+			)T0	   
+			,( SELECT 								 
+			 			  RACE_YY 						
+			 			 ,ROUND 						
+			 			 ,CAND_NO 						
+			 			 ,RANK							
+			 			 ,CASE WHEN (SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10042' AND T2.RACE_GRD_CD = CD)='특선결승' THEN '특결' 
+						  ELSE
+						      CASE WHEN (SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10042' AND T2.RACE_GRD_CD = CD)='우수결승' THEN '우결' 
+						      ELSE  SUBSTR((SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10042' AND T2.RACE_GRD_CD = CD),0,2)
+							  END	END||T2.RACE_NO ||'-'||T2.RANK AS BF_RACE
+			  FROM 								
+			  TBDB_RACE_REC_DETL T2	
+			  WHERE RACE_YY = ? 
+			  AND ROUND =  (SELECT BF_ROUND FROM TBDB_REC_TOT WHERE T2.CAND_NO = CAND_NO)		 			 
+			 )T1
+			 WHERE T0.CAND_NO = T1.CAND_NO(+)	
+			 ORDER BY T0.MAT_CD,T1.RANK
+			 ]]>
+    </query>
+    <query id="tbdb_group_org_fb004" desc="편성된 조편성 조회" fetchSize="10">
+        <![CDATA[
+		        SELECT '' NUM   ,0 AS TOT_POINT
+				    ,T0.RACE_NO	 	,T0.BACK_NO		
+			   		,T0.RACE_YY		,T0.ROUND		,T0.CAND_NO	,T0.NM_KOR	,T0.AGE	,T0.RACER_PERIO_NO
+			   		,T0.MAT_CD		,T0.RACE_GRD_CD ,T0.LIFE_BASE
+			   		,TO_CHAR(T0.GEAR_RATE,'0.00') AS GEAR_RATE	
+			   		,T0.TOT_AVG,T0.AVG_P,T0.GRD,T0.STRATEGY
+			   		,T0.LEG_TPE		,T0.WIN_RATE	,T0.HIGH_RANK_RATE
+			   		,T0.RANK1_CNT		,T0.RANK2_CNT	,T0.RANK3_CNT	,T0.RANK4_CNT
+			   		,T0.RANK5_CNT		,T0.RANK6_CNT	,T0.RANK7_CNT  ,T0.RANK_OUT
+			   		,T0.ELIM1_CNT		,T0.ELIM2_CNT	,T0.ELIM3_CNT	,T0.TOT_RANK	,T0.ESTM_SCR
+			   		,T0.DCSN_GBN
+					,T0.BF_ROUND
+					,T0.BF_RACE
+					,T0.PROP_SCR
+				FROM(   			
+				SELECT 
+				    A.RACE_YY				-- 년도
+				   ,A.ROUND					-- 회차   
+				   ,A.RACE_NO	
+				   ,A.BACK_NO
+				   ,A.CAND_NO				-- 후보생 번호				
+				   ,B.NM_KOR				-- 후보생 이름
+				   ,B.TRNG_PLC LIFE_BASE	-- (훈련지)출신지
+				   ,101+TO_CHAR(SYSDATE,'YY')-SUBSTR(FC_DEC(B.RES_NO),0,2) AS AGE	
+				   ,B.RACER_PERIO_NO    -- 기수
+				   ,A.MAT_CD
+				   ,A.RACE_GRD_CD
+				   ,A.DCSN_GBN
+				   ,A.GEAR_RATE			-- 기어배수
+				   ,NVL(A.TOT_AVG,0)AS TOT_AVG   -- 총평균
+				   ,A.GRD				-- 등급
+				   ,A.STRATEGY			-- 전법
+				   ,A.LEG_TPE           -- 각질 
+				   ,ROUND(A.WIN_RATE,3)	AS WIN_RATE		-- 승률
+				   ,ROUND(A.HIGH_RANK_RATE,3) AS HIGH_RANK_RATE   -- 연대율
+				   ,A.RANK1_CNT			-- 1착
+				   ,A.RANK2_CNT			-- 2착
+				   ,A.RANK3_CNT			-- 3착
+				   ,A.RANK4_CNT			-- 4착 
+				   ,A.RANK5_CNT			-- 5착 
+				   ,A.RANK6_CNT			-- 6착 
+				   ,A.RANK7_CNT			-- 7착 	
+				   ,(A.RANK4_CNT + A.RANK5_CNT + A.RANK6_CNT + A.RANK7_CNT)AS RANK_OUT -- 착외
+				   ,A.ELIM1_CNT	   	    -- 실격
+				   ,A.ELIM2_CNT			-- 경고
+				   ,A.ELIM3_CNT			-- 주의
+				   ,A.TOT_RANK			-- 총순위
+				   ,A.ESTM_SCR			-- 평가점
+				   ,A.BF_ROUND			-- 전회차	
+				   ,A.BF_RACE 
+				   ,C.TOT_AVG AS AVG_P  -- 출력물에 나올 평균
+				   ,D.PROP_SCR
+				       FROM
+				    TBDB_GROUP_ORG A
+				   ,TBDB_CAND_IDENT B
+				   ,TBDB_CAND_ASSIGN C	
+				   ,TBDB_RACER_GRD_SCR D   
+					WHERE
+				   A.CAND_NO = B.CAND_NO
+				   AND A.RACE_YY = C.RACE_YY
+				   AND A.ROUND = C.ROUND
+				   AND A.CAND_NO = C.CAND_NO
+				   AND A.RACE_YY = D.RACE_YY
+				   AND A.ROUND = D.ROUND
+				   AND A.GRD = D.GRD
+				   AND A.RACE_YY = ?
+				   AND A.ROUND = ?
+				   AND A.DCSN_GBN = 0
+				   )T0
+				   ORDER BY RACE_NO,BACK_NO
+			 ]]>
+    </query>
+    <query id="tbdb_group_org_fb005" desc="시행등급상세조회1" fetchSize="10">
+        <![CDATA[
+    			   SELECT B.MAT_CD
+    			   		,C.RACE_GRD_CD
+    			   		,C.RACE_CNT
+    			   		,B.GRD
+				   FROM TBDB_DETL_RACE_SCHE A
+				   		,TBDB_DETL_MAT B
+				   		,TBDB_ENFOR_RACE_GRD C
+				   WHERE 
+				  		 A.RACE_YY = B.RACE_YY
+				  		 AND A.ROUND = B.ROUND
+				  		 AND B.MAT_CD = C.MAT_CD
+				  		 AND A.RACE_YY = ?
+				  		 AND A.ROUND = ?
+				   ORDER BY MAT_CD DESC, RACE_GRD_CD DESC
+				 ]]>
+    </query>
+     <query id="tbdb_group_org_fb006" desc="시행등급상세조회2" fetchSize="10">
+        <![CDATA[
+							SELECT  B.MAT_CD
+						   ,C.ADV_RACE_GRD_CD AS RACE_GRD_CD
+						   ,C.STR_RANK
+						   ,C.END_RANK
+						   ,C.RACE_NO
+						   ,C.EQU_RANK
+						   ,C.EQU_RANK_NO
+						   ,D.RACE_CNT
+    			   		,B.GRD
+				   FROM TBDB_DETL_RACE_SCHE A
+				   		,TBDB_DETL_MAT B
+				   		,TBDB_GRD_ASSIGN C
+						,TBDB_ENFOR_RACE_GRD D
+				   WHERE 
+				  		 A.RACE_YY = B.RACE_YY
+				  		 AND A.ROUND = B.ROUND
+				  		 AND B.MAT_CD = C.MAT_CD
+						 AND D.MAT_CD = C.MAT_CD
+						 AND D.RACE_GRD_CD = C.ADV_RACE_GRD_CD
+				  		 AND A.RACE_YY = ?
+				  		 AND A.ROUND = ?	
+				    ORDER BY MAT_CD DESC, RACE_GRD_CD DESC 
+					 ]]>
+    </query>
+  	<query id="tbdb_group_org_fb007" desc="경기별 정보(PRINT용)" fetchSize="10">
+		<![CDATA[
+					SELECT T1.RACE_YY 
+					   ,T1.ROUND
+					   ,T1.RACE_NO
+					   ,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10042' AND CD = T1.RACE_GRD_CD) RACE_GRD_CD
+					   ,T2.STR_TIME
+					   ,T2.CCIT_CNT  
+					   ,T2.RACELEN
+					   ,(SELECT NM_KOR FROM TBDB_CAND_IDENT A WHERE A.CAND_NO = T3.CAND_NO) CAND_NM
+					    FROM 
+					 (
+						 SELECT  RACE_YY
+						 		,ROUND
+						 		,RACE_NO
+							    ,RACE_GRD_CD 	
+						 FROM 	TBDB_GROUP_ORG 
+						 GROUP BY RACE_YY,ROUND,RACE_NO,RACE_GRD_CD 	
+					 )T1
+					,(
+					  	SELECT A.RACE_YY,A.ROUND,B.RACE_NO,B.STR_TIME,CCIT_CNT,RACELEN
+						FROM TBDB_DETL_RACE_SCHE A,TBDB_STRT_TIME_DIST B
+						WHERE A.RACE_YY = B.RACE_YY
+						AND   A.AM_PM_GBN = B.AM_PM_GBN 
+						AND   SUBSTR(A.RACE_DT,5,2) = B.RACE_MM
+						)T2
+					,TBDB_INDUCE_DCSN T3	
+					WHERE T1.RACE_YY  = T2.RACE_YY
+					AND   T1.RACE_NO  = T2.RACE_NO
+					AND   T1.ROUND 	  = T2.ROUND
+					AND   T1.RACE_YY  = T3.RACE_YY(+)
+					AND   T1.RACE_NO  = T3.RACE_NO(+)
+					AND   T1.ROUND 	  = T3.ROUND(+)
+					And   T2.RACE_YY  = ?
+					AND   T2.ROUND    = ?
+					ORDER BY T1.RACE_NO
+		 ]]>
+    </query>
+    <query id="tbdb_group_org_fb008" desc="전회차 성적조회" fetchSize="10">
+		<![CDATA[
+    				SELECT A.CAND_NO,B.RANK,B.ROUND,BF_RACE	 FROM
+				   	(	  
+				   		SELECT CAND_NO,CAND_NM FROM TBDB_REC_TOT
+						WHERE RACE_YY = ?
+				        ORDER BY CAND_NO		
+					)A,	  			   
+					(    SELECT 
+							 RACE_YY
+							 ,ROUND
+							 ,CAND_NO
+							 ,RANK
+							 ,SUBSTR((SELECT CD_NM FROM TBDA_SPEC_CD WHERE GRP_CD = 'D10042' AND T2.RACE_GRD_CD = CD),0,2)||T2.RACE_NO ||'-'||T2.RANK AS BF_RACE	
+						FROM
+							 TBDB_RACE_REC_DETL T2
+					    WHERE RACE_YY = ?
+				        AND ROUND = (SELECT BF_ROUND FROM TBDB_REC_TOT  
+				        WHERE CAND_NO = T2.CAND_NO ) 	
+						ORDER BY CAND_NO	
+					)B
+					WHERE A.CAND_NO = B.CAND_NO(+)
+					ORDER BY CAND_NO	
+			 ]]>
+    </query>
+    <query id="tbdb_group_org_fb009" desc="고유점수조회" fetchSize="10">
+    	<![CDATA[
+	    	SELECT 
+	    		GRD
+	    		,PROP_SCR 
+	    	FROM TBDB_RACER_GRD_SCR
+			WHERE RACE_YY = ?
+			AND ROUND = ?
+    	 ]]>
+    </query>
+    <query id="tbdb_group_org_cfm" desc="확정플래그 조회" fetchSize="10">
+    <![CDATA[
+			SELECT DISTINCT CFM_FG
+			  FROM TBDB_RACE_REC_MST 
+			 WHERE RACE_YY = ? 
+			 AND ROUND   = ?
+			 
+    ]]>
+    </query>  
+	<query id="tbdb_group_org_ib001" desc="편성된 조편성 등록" fetchSize="10">
+		<![CDATA[
+    			 MERGE INTO TBDB_GROUP_ORG TGO
+			            USING   DUAL
+			            ON        (     TGO.RACE_YY 		= ?     	-- 기준년도
+			            			AND TGO.ROUND				= ?		-- 회차  
+			            			AND TGO.CAND_NO    			= ?   	-- 후보생 NO 				
+			                      )
+					WHEN MATCHED THEN
+					             UPDATE  SET
+						  		 MAT_CD  	 = 	?
+					   			,RACE_GRD_CD = 	?
+					   			,RACE_NO	 = 	?
+					   			,BACK_NO 	 = 	?
+					   			,GEAR_RATE 	 = 	?
+					   			,TOT_AVG     = 	?
+								,GRD    	 = 	?
+								,DCSN_GBN    =  ?
+								,TOT_RANK	 =  ?
+								,STRATEGY	 =  ?
+								,LEG_TPE	 =  ?
+								,WIN_RATE    =  ?
+								,HIGH_RANK_RATE	= ?
+								,RANK1_CNT	 =  ?
+								,RANK2_CNT	 =  ?
+								,RANK3_CNT	 =  ?
+								,RANK4_CNT	 =  ?
+								,RANK5_CNT	 =  ?
+								,RANK6_CNT	 =  ?
+								,RANK7_CNT	 =  ?
+								,ELIM1_CNT	 =  ?
+								,ELIM2_CNT	 =  ?
+								,ELIM3_CNT	 =  ?
+								,ESTM_SCR	 =  ?
+								,BF_ROUND    =  ?
+								,BF_RACE    =  ?
+								,UPDT_ID	 =	?
+					  			,UPDT_DTM    = 	SYSDATE
+					WHEN NOT MATCHED THEN
+					             INSERT (			
+								    RACE_YY
+								   ,ROUND
+								   ,CAND_NO 
+								   ,MAT_CD  	 
+					   			   ,RACE_GRD_CD 
+					   			   ,RACE_NO	 
+					   			   ,BACK_NO 	 
+					   			   ,GEAR_RATE 	 
+					   			   ,TOT_AVG     
+								   ,GRD 
+								   ,DCSN_GBN 
+								   ,TOT_RANK 
+								   ,STRATEGY	 
+								   ,LEG_TPE	
+								   ,WIN_RATE   
+								   ,HIGH_RANK_RATE	
+								   ,RANK1_CNT	 
+								   ,RANK2_CNT	 
+								   ,RANK3_CNT	 
+								   ,RANK4_CNT	 
+								   ,RANK5_CNT	 
+								   ,RANK6_CNT	 
+								   ,RANK7_CNT	 
+								   ,ELIM1_CNT	 
+								   ,ELIM2_CNT	 
+								   ,ELIM3_CNT	 
+								   ,ESTM_SCR	 
+								   ,BF_ROUND    
+								   ,BF_RACE  
+								   ,INST_ID	 
+					  			   ,INST_DTM   
+								)VALUES(
+								    ?,?,?,?,?
+								   ,?,?,?,?,?
+								   ,?,?,?,?,?
+								   ,?,?,?,?,?
+								   ,?,?,?,?,?
+								   ,?,?,?,?,?,SYSDATE
+								   )
+		]]>
+    </query>
+    <query id="tbdb_group_org_db001" desc="편성된 조편성 삭제" fetchSize="10">
+        <![CDATA[
+	        DELETE FROM 
+	        			TBDB_GROUP_ORG
+	        WHERE 	RACE_YY 	= ?
+			AND ROUND 	= ?
+        ]]>
+    </query>
+    <query id="tbdb_group_org_db002" desc="선택한 선수 삭제" fetchSize="10">
+        <![CDATA[
+	        DELETE FROM 
+	        			TBDB_GROUP_ORG
+	        WHERE 	RACE_YY 	= ?
+			AND		ROUND 	= ?
+			AND		CAND_NO    = ?
+        ]]>
+    </query>
+</queryMap> 

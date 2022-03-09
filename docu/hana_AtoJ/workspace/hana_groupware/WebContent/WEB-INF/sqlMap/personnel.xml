@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : personnel.xml
+  * @메뉴명 : 인사현황
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="personnel"> 
+	
+	<!-- 인사현황 -->
+	<select id="getPersonnelCountList" parameterType="hashmap" resultType="com.hanaph.gw.hr.personnel.vo.PersonnelVO">
+		SELECT   *
+            FROM (
+                    SELECT DEPT_NM, COUNT (*) PERSONNEL_CNT, ORDERING
+                    FROM (                    
+                        SELECT '서울사무소' DEPT_NM ,1 ORDERING
+                        FROM ORAGMP.CMEMPM EMP
+                        ,ORAGMP.ELECTRONICSIGN MEM
+                        WHERE EMP.EMPCODE = MEM.EMPCODE(+)
+                        AND EMP.DEPTCODE IN (                        
+                                SELECT DEPTCODE
+                                FROM ORAGMP.CMDEPTM
+                                START WITH PREDEPTCODE = '0001' AND USEYN = 'Y'
+                                CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+                                AND USEYN = 'Y'                                
+                        )
+                        AND RETIREDT IS NULL                        
+                        UNION ALL                        
+                        SELECT '영업부' DEPT_NM ,2 ORDERING
+                        FROM ORAGMP.CMEMPM EMP
+                        ,ORAGMP.ELECTRONICSIGN MEM
+                        WHERE EMP.EMPCODE = MEM.EMPCODE(+)
+                        AND EMP.DEPTCODE IN (                                                
+                                SELECT DEPTCODE
+                                FROM ORAGMP.CMDEPTM                                    
+                                START WITH PREDEPTCODE = '0023' AND USEYN = 'Y'
+                                CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+                                AND USEYN = 'Y'                                                                
+                        )
+                        AND RETIREDT IS NULL                        
+                        UNION ALL
+                        SELECT '생산본부' DEPT_NM, 3 ORDERING
+                        FROM ORAGMP.CMEMPM EMP
+                        ,ORAGMP.ELECTRONICSIGN MEM
+                        WHERE EMP.EMPCODE = MEM.EMPCODE(+)
+                        AND EMP.DEPTCODE IN (
+                                SELECT DEPTCODE
+                                FROM ORAGMP.CMDEPTM    
+                                  START WITH PREDEPTCODE = '0412' AND USEYN = 'Y'
+                                   CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+                                AND USEYN = 'Y'
+                        )
+                        AND RETIREDT IS NULL
+                        UNION ALL
+                        SELECT '연구본부' DEPT_NM, 4 ORDERING
+                        FROM ORAGMP.CMEMPM EMP
+                        ,ORAGMP.ELECTRONICSIGN MEM
+                        WHERE EMP.EMPCODE = MEM.EMPCODE(+)
+                        AND EMP.DEPTCODE IN (                        
+                                SELECT DEPTCODE
+                                FROM ORAGMP.CMDEPTM    
+                                START WITH PREDEPTCODE = '0437' AND USEYN = 'Y'
+                                CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+                                AND USEYN = 'Y'                                
+                        )
+                        AND RETIREDT IS NULL
+                        UNION ALL
+                        SELECT '총인원' DEPT_NM ,5 ORDERING
+                        FROM ORAGMP.CMEMPM EMP
+                        ,ORAGMP.ELECTRONICSIGN MEM
+                        WHERE EMP.EMPCODE = MEM.EMPCODE(+)
+                        AND EMP.DEPTCODE IN (
+                                SELECT DEPTCODE
+                                FROM ORAGMP.CMDEPTM    
+                                START WITH PREDEPTCODE = '0000' AND USEYN = 'Y'
+                                 CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+                                AND USEYN = 'Y'
+                        )
+                        AND RETIREDT IS NULL
+                )
+                  GROUP BY DEPT_NM, ORDERING
+              )
+        ORDER BY ORDERING
+	 </select>
+	 <!-- 발령현황 -->
+	<select id="getAppointmentCountList" parameterType="hashmap" resultType="com.hanaph.gw.hr.personnel.vo.PersonnelVO">
+		SELECT '입사(신입)' ENCMPY_CD
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT = TO_CHAR (SYSDATE, 'YYYY-MM-DD')
+		        AND A.ENTERDIV IN ( 'E7505' )
+		        AND A.RETIREDT IS NULL
+		) TODAY_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE, 'YYYY-MM') || '%'
+		        AND A.ENTERDIV IN ( 'E7505' )  
+		        AND A.RETIREDT IS NULL    
+		) MONTH_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM  A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%'
+		        AND A.ENTERDIV IN ( 'E7505' ) 
+		        AND A.RETIREDT IS NULL
+		) YEAR_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE - 365, 'YYYY')|| '%'
+		        AND A.ENTERDIV IN ( 'E7505' )
+		        AND A.RETIREDT IS NULL
+		) LAST_YEAR_CNT
+		FROM DUAL
+		UNION
+		SELECT '입사(경력)' ENCMPY_CD
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		        AND A.ENTERDIV IN ( 'E7501' ,'E7502' ,'E7503' )
+		        AND A.RETIREDT IS NULL
+		) TODAY_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE, 'YYYYMM') || '%'
+		        AND A.ENTERDIV IN ( 'E7501' ,'E7502' ,'E7503' )
+		        AND A.RETIREDT IS NULL
+		) MONTH_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%'
+		        AND A.ENTERDIV IN ( 'E7501' ,'E7502' ,'E7503' )
+		        AND A.RETIREDT IS NULL
+		) YEAR_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE  TO_CHAR (SYSDATE - 365, 'YYYY') || '%' 
+		        AND A.ENTERDIV IN ( 'E7501' ,'E7502' ,'E7503' )
+		        AND A.RETIREDT IS NULL
+		) LAST_YEAR_CNT
+		FROM DUAL
+		UNION
+		SELECT '입사(기타)' ENCMPY_CD
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		        AND A.ENTERDIV IN ( 'E7504' ,'E7506' )
+		        AND A.RETIREDT IS NULL
+		) TODAY_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE, 'YYYYMM') || '%'
+		        AND A.ENTERDIV IN ( 'E7504' ,'E7506' )
+		        AND A.RETIREDT IS NULL
+		) MONTH_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%'
+		        AND A.ENTERDIV IN ( 'E7504' ,'E7506' )
+		        AND A.RETIREDT IS NULL
+		) YEAR_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.ENTERDT LIKE TO_CHAR (SYSDATE - 365, 'YYYY') || '%'
+		        AND A.ENTERDIV IN ( 'E7504' ,'E7506' )
+		        AND A.RETIREDT IS NULL
+		) LAST_YEAR_CNT
+		FROM DUAL
+		UNION
+		SELECT '퇴사' ENCMPY_CD
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.RETIREDT = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		) TODAY_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.RETIREDT LIKE TO_CHAR (SYSDATE, 'YYYYMM') || '%'
+		) MONTH_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.RETIREDT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%'
+		) YEAR_CNT
+		,(
+		        SELECT COUNT (*)
+		        FROM ORAGMP.CMEMPM A
+		        WHERE A.RETIREDT LIKE TO_CHAR (SYSDATE - 365, 'YYYY') || '%'
+		) LAST_YEAR_CNT
+		FROM DUAL
+	
+	</select>	
+</mapper>

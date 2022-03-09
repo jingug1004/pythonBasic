@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS1050(사업진행 총괄현황 )">
+        
+    <query id="rbs1050_s01" desc="집행계획 조회" fetchSize="10">
+        <![CDATA[
+			
+    SELECT   /* rbs1050_s01 */
+                     A.ACC_BGN_CD,   -- 회계구분코드  
+                     A.EXEC_AMT,     -- 전년도 누적금액
+                     (NVL(B.CONFIRM_AMT,0)+NVL(C.TRANS_AMT,0)) SUB_SUM,      -- 소계 
+                     NVL(C.TRANS_AMT,0) TRANS_AMT,     -- 이월액
+                     B.CONFIRM_AMT,    -- 승인액
+                     A.EXEC_AMT + (NVL(B.CONFIRM_AMT,0)+NVL(C.TRANS_AMT,0)) AS REMAIN_AMT   --잔액 OR 총집행금
+                     
+            FROM     (
+                      SELECT   A.ACC_BGN_CD,                              
+                               NVL(SUM(B.EXEC_AMT), 0) AS EXEC_AMT  -- 전년도 누적금액 = 전년도 집행금액
+                      FROM     TBRE_BUSI_PLAN A, 
+                               (
+                                SELECT   B.PREP_AMT_CD, 
+                                         B.EXEC_AMT/*,
+                                         SUBSTR(B.EXEC_DT, 0, 4),
+                                         B.EXEC_DT*/
+                                         
+                                FROM     TBRE_BUSI_EXEC B
+                                
+                                WHERE    SUBSTR(B.EXEC_DT, 0, 4) < TO_CHAR(SYSDATE, 'YYYY')  -- 전년도까지 누적                           
+                               )B
+                      WHERE    A.PREP_AMT_CD = B.PREP_AMT_CD(+)  
+                      GROUP BY A.ACC_BGN_CD
+                     ) A, 
+                     (
+                      -- 당해년도 사용계획
+                      SELECT   A.ACC_BGN_CD,
+                               
+                              -- NVL(SUM(A.TRANS_AMT)   , 0) + NVL(SUM(A.CONFIRM_AMT), 0) AS SUB_SUM,  -- 소계 : 이월액 + 승인금액
+                               NVL(SUM(A.CONFIRM_AMT) , 0) AS CONFIRM_AMT   -- 승인금액
+                              
+                      FROM     TBRE_BUSI_PLAN A
+                      WHERE    A.BUSI_YEAR = TO_CHAR(SYSDATE, 'YYYY')  -- 현재년도
+                      GROUP BY A.ACC_BGN_CD
+                     ) B
+                     ,
+                      (
+                          -- 당해년도 사용계획
+                          SELECT   A.ACC_BGN_CD,
+                                   NVL(SUM(A.TRANS_AMT)   , 0) AS TRANS_AMT    -- 이월액
+                          FROM     TBRE_BUSI_PLAN A
+                          WHERE    A.BUSI_YEAR = TO_CHAR(SYSDATE, 'YYYY') - 1   -- 전년도
+                          GROUP BY A.ACC_BGN_CD
+                     ) C
+            WHERE    A.ACC_BGN_CD = B.ACC_BGN_CD
+                AND  A.ACC_BGN_CD = C.ACC_BGN_CD(+)
+            ORDER BY A.ACC_BGN_CD       
+            
+     
+			
+        ]]>
+    </query>       
+    
+    
+    <query id="rbs1050_s02" desc="집행내역 조회" fetchSize="10">
+        <![CDATA[
+                   
+	       SELECT   /* rbs1050_s02 */
+                     A.ACC_BGN_CD,   -- 회계구분코드
+            
+                     A.EXEC_AMT,     -- 전년도 누적금액
+                     B.TRANS_AMT,    -- 이월액
+                     
+                     C.QUAR_SUM,     -- 소계 : 분기 합
+                                         
+                     C.EXEC_QUAR_1,  -- 1분기 집행금액
+                     C.EXEC_QUAR_2,  -- 2분기 집행금액
+                     C.EXEC_QUAR_3,  -- 3분기 집행금액
+                     C.EXEC_QUAR_4,  -- 4분기 집행금액
+                     
+                     A.EXEC_AMT - B.TRANS_AMT - C.QUAR_SUM AS REMAIN_SUM
+            
+            FROM     (
+                      SELECT   A.ACC_BGN_CD,   
+                                A.BUSI_YEAR,                
+                               NVL(MAX( (SELECT AMU_AMT  FROM TBRE_SAV_CNTNT G 
+                                   WHERE  G.BUSI_YEAR = (A.BUSI_YEAR -1) 
+                                    AND G.ACC_CD = A.ACC_BGN_CD ) ), 0) AS EXEC_AMT  -- 전년도 누적금액 = 전년도 집행금액
+                      FROM     TBRE_BUSI_PLAN A, 
+                               (
+                                SELECT   B.PREP_AMT_CD, 
+                                         B.EXEC_AMT
+                                         
+                                FROM     TBRE_BUSI_EXEC B
+                                
+                                WHERE    SUBSTR(B.EXEC_DT, 0, 4) < TO_CHAR(SYSDATE, 'YYYY')  -- 전년도까지  누적 집행금액
+                                
+                               )B
+                      WHERE    A.PREP_AMT_CD = B.PREP_AMT_CD(+)  
+                        AND A.BUSI_YEAR = TO_CHAR(SYSDATE, 'YYYY')
+                      GROUP BY A.BUSI_YEAR,A.ACC_BGN_CD
+                     ) A, 
+                     (
+                      -- 당해년도 사용계획
+                            SELECT
+                                A.ACC_BGN_CD
+                                ,NVL(SUM(EXEC_AMT),0) TRANS_AMT
+                            FROM TBRE_BUSI_PLAN A
+                                ,TBRE_BUSI_EXEC E
+                            WHERE A.PREP_AMT_CD = E.PREP_AMT_CD                           
+                                AND SUBSTR(E.EXEC_DT,0,4) =  TO_CHAR(SYSDATE, 'YYYY')
+                                AND SUBSTR(A.BUSI_YEAR,0,4) <  TO_CHAR(SYSDATE, 'YYYY')                                                         
+                            GROUP BY A.ACC_BGN_CD                                   
+                     ) B,
+                     (
+                      SELECT   A.ACC_BGN_CD,                   
+                               A.BUSI_YEAR,
+                               NVL(SUM(B.EXEC_QUAR_1), 0) + NVL(SUM(B.EXEC_QUAR_2), 0) + NVL(SUM(B.EXEC_QUAR_3), 0) + NVL(SUM(B.EXEC_QUAR_4), 0) AS QUAR_SUM, -- 소계 : 분기 합
+                               NVL(SUM(B.EXEC_QUAR_1), 0) AS EXEC_QUAR_1,  -- 당년도 1분기 집행금액
+                               NVL(SUM(B.EXEC_QUAR_2), 0) AS EXEC_QUAR_2,  -- 당년도 2분기 집행금액
+                               NVL(SUM(B.EXEC_QUAR_3), 0) AS EXEC_QUAR_3,  -- 당년도 3분기 집행금액
+                               NVL(SUM(B.EXEC_QUAR_4), 0) AS EXEC_QUAR_4   -- 당년도 4분기 집행금액
+                               
+                      FROM     TBRE_BUSI_PLAN A, 
+                               (
+                                SELECT   B.PREP_AMT_CD, 
+                                         
+                                         DECODE(SUBSTR(B.EXEC_DT, 5, 2), '01', B.EXEC_AMT, '02', B.EXEC_AMT, '03', B.EXEC_AMT) AS EXEC_QUAR_1,    
+                                         DECODE(SUBSTR(B.EXEC_DT, 5, 2), '04', B.EXEC_AMT, '05', B.EXEC_AMT, '06', B.EXEC_AMT) AS EXEC_QUAR_2,  
+                                         DECODE(SUBSTR(B.EXEC_DT, 5, 2), '07', B.EXEC_AMT, '08', B.EXEC_AMT, '09', B.EXEC_AMT) AS EXEC_QUAR_3,  
+                                         DECODE(SUBSTR(B.EXEC_DT, 5, 2), '10', B.EXEC_AMT, '11', B.EXEC_AMT, '12', B.EXEC_AMT) AS EXEC_QUAR_4                             
+                                         
+                                FROM     TBRE_BUSI_EXEC B
+                                
+                                WHERE    SUBSTR(B.EXEC_DT, 0, 4) = TO_CHAR(SYSDATE, 'YYYY') -- 당년도 집행금액
+                                
+                               )B
+                      WHERE    A.PREP_AMT_CD = B.PREP_AMT_CD(+)  
+                      GROUP BY A.BUSI_YEAR,A.ACC_BGN_CD
+                     ) C
+                                         
+            WHERE    A.ACC_BGN_CD = B.ACC_BGN_CD  
+            AND      A.ACC_BGN_CD = C.ACC_BGN_CD
+            AND      A.BUSI_YEAR = C.BUSI_YEAR
+            ORDER BY A.ACC_BGN_CD       
+
+        ]]>
+    </query>       
+    
+        
+    <query id="rbs1050_s03" desc="계획대비 집행 조회" fetchSize="10">
+        <![CDATA[
+                   
+			SELECT   /* rbs1050_s03 */
+			         A.ACC_BGN_CD,    -- 회계구분코드
+			
+			         A.QUAR_SUM,      -- 계획 분기 합
+			         A.QUAR_1,        -- 1분기 계획
+			         A.QUAR_2,        -- 2분기 계획
+			         A.QUAR_3,        -- 3분기 계획
+			         A.QUAR_4,        -- 4분기 계획
+			         
+			         --B.EXEC_QUAR_SUM, -- 집행분기 합         
+			         --B.EXEC_QUAR_1,   -- 1분기 집행금액
+			         --B.EXEC_QUAR_2,   -- 2분기 집행금액
+			         --B.EXEC_QUAR_3,   -- 3분기 집행금액
+			         --B.EXEC_QUAR_4,   -- 4분기 집행금액
+			         
+			       
+			         CASE A.QUAR_SUM 
+			         WHEN 0 THEN 0
+			                ELSE ROUND((B.EXEC_QUAR_SUM / A.QUAR_SUM) * 100, 2) -- 집행/계획 * 100
+			         END AS SUM_PERCENT,
+			         
+			         CASE A.QUAR_1 
+			         WHEN 0 THEN 0
+			                ELSE ROUND((B.EXEC_QUAR_1 / A.QUAR_1) * 100, 2) -- 집행/계획 * 100
+			         END AS QUAR1_PERCENT,
+			         
+			         CASE A.QUAR_2 
+			         WHEN 0 THEN 0
+			                ELSE ROUND((B.EXEC_QUAR_2 / A.QUAR_2) * 100, 2) -- 집행/계획 * 100
+			         END AS QUAR2_PERCENT,
+			         
+			         CASE A.QUAR_3 
+			         WHEN 0 THEN 0
+			                ELSE ROUND((B.EXEC_QUAR_3 / A.QUAR_3) * 100, 2) -- 집행/계획 * 100
+			         END AS QUAR3_PERCENT,
+			         
+			         CASE A.QUAR_4 
+			         WHEN 0 THEN 0
+			                ELSE ROUND((B.EXEC_QUAR_4 / A.QUAR_4) * 100, 2) -- 집행/계획 * 100
+			         END AS QUAR4_PERCENT
+			         
+			
+			FROM     (
+			          -- 당해년도 분기 계획
+			          SELECT   A.ACC_BGN_CD,                  
+			                 
+			                   NVL(SUM(A.QUAR_1), 0) + NVL(SUM(A.QUAR_2), 0) + NVL(SUM(A.QUAR_3), 0) + NVL(SUM(A.QUAR_4), 0) AS QUAR_SUM,  -- 계획 분기 합
+			                   
+			                   NVL(SUM(A.QUAR_1), 0) AS QUAR_1,   -- 1분기 계획
+			                   NVL(SUM(A.QUAR_2), 0) AS QUAR_2,   -- 2분기 계획
+			                   NVL(SUM(A.QUAR_3), 0) AS QUAR_3,   -- 3분기 계획
+			                   NVL(SUM(A.QUAR_4), 0) AS QUAR_4    -- 4분기 계획
+			                                                                            
+			          FROM     TBRE_BUSI_PLAN A
+			          WHERE    A.BUSI_YEAR = TO_CHAR(SYSDATE, 'YYYY')  -- 당해년도
+			          GROUP BY A.ACC_BGN_CD
+			         ) A,
+			         (
+			          -- 당해년도 분기 실행
+			          SELECT   A.ACC_BGN_CD,                   
+			                   
+			                   NVL(SUM(B.EXEC_QUAR_1), 0) + NVL(SUM(B.EXEC_QUAR_2), 0) + NVL(SUM(B.EXEC_QUAR_3), 0) + NVL(SUM(B.EXEC_QUAR_4), 0) AS EXEC_QUAR_SUM, -- 분기 합
+			                   NVL(SUM(B.EXEC_QUAR_1), 0) AS EXEC_QUAR_1,  -- 1분기 집행금액
+			                   NVL(SUM(B.EXEC_QUAR_2), 0) AS EXEC_QUAR_2,  -- 2분기 집행금액
+			                   NVL(SUM(B.EXEC_QUAR_3), 0) AS EXEC_QUAR_3,  -- 3분기 집행금액
+			                   NVL(SUM(B.EXEC_QUAR_4), 0) AS EXEC_QUAR_4   -- 4분기 집행금액
+			                   
+			          FROM     TBRE_BUSI_PLAN A, 
+			                   (
+			                    SELECT   B.PREP_AMT_CD, 
+			                             
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2), '01', B.EXEC_AMT, '02', B.EXEC_AMT, '03', B.EXEC_AMT) AS EXEC_QUAR_1,    
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2), '04', B.EXEC_AMT, '05', B.EXEC_AMT, '06', B.EXEC_AMT) AS EXEC_QUAR_2,  
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2), '07', B.EXEC_AMT, '08', B.EXEC_AMT, '09', B.EXEC_AMT) AS EXEC_QUAR_3,  
+			                             DECODE(SUBSTR(B.EXEC_DT, 5, 2), '10', B.EXEC_AMT, '11', B.EXEC_AMT, '12', B.EXEC_AMT) AS EXEC_QUAR_4                             
+			                             
+			                    FROM     TBRE_BUSI_EXEC B
+			                    
+			                    WHERE    SUBSTR(B.EXEC_DT, 0, 4) = TO_CHAR(SYSDATE, 'YYYY') -- 당년도 집행금액
+			                    --WHERE    SUBSTR(B.EXEC_DT, 0, 4) = '2010'
+			                   )B
+			          WHERE    A.PREP_AMT_CD = B.PREP_AMT_CD(+)  
+			          GROUP BY A.ACC_BGN_CD
+			         ) B         
+			         
+			WHERE    A.ACC_BGN_CD = B.ACC_BGN_CD   
+			ORDER BY A.ACC_BGN_CD       
+
+        ]]>
+    </query>    
+    
+        
+</queryMap>

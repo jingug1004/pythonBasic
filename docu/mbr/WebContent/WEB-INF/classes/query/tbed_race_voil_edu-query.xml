@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbed_race_voil_edu(심판담당자)">
+     <query id="tbed_race_voil_edu_s01" desc="입소선수 조회" fetchSize="10">
+        <![CDATA[
+			WITH RACE_TMS AS ( /* tbed_race_voil_edu_s01 입소선수 조회 */
+				SELECT STND_YEAR||TMS YEAR_TMS, MBR_CD FROM (
+					SELECT STND_YEAR, TMS, MBR_CD, STR_DT
+					FROM TBEB_RACE_TMS
+					WHERE 1=1
+					AND ARRANGE_CMPL_YN   ='Y'
+					ORDER BY STR_DT DESC
+				) WHERE 1=1
+				AND STND_YEAR||TMS <= ?||?
+				AND MBR_CD = ?
+				AND ROWNUM <= 10 --최근 10회차
+			)
+			
+			SELECT
+				T1.STND_YEAR, T1.MBR_CD, T1.TMS, '0' DAY_ORD, T1.RACER_NO,
+				FC_GET_RACERNAME(T1.RACER_NO) RACER_NM,
+				(SELECT RACER_GRD_CD FROM TBEC_RACER_MASTER WHERE RACER_NO = T1.RACER_NO) RACER_GRD_CD,
+				NVL(T2.JUNBOK,0) JUNBOK,
+				NVL(T2.NAKSU,0) NAKSU,
+				NVL(T2.JAEWE,0) JAEWE,
+				NVL(T2.RISK_JISU,0) RISK_JISU,
+				NVL(T3.RUN_CNT,0) RUN_CNT,
+				NVL(T4.EDU_CNT,0) EDU_CNT,
+				DECODE(T5.RACER_NO,NULL,'0','1') EDU_YN
+			FROM
+			(
+				SELECT TA.STND_YEAR
+				, TA.MBR_CD
+				, TA.TMS
+				, TA.RACER_NO
+				, TA.BOAT_NO
+				, TA.MOT_NO
+				FROM TBEB_ARRANGE TA, TBEB_RACE_TMS TRT
+				WHERE 1=1
+				AND TRT.ARRANGE_CMPL_YN   ='Y'
+				AND TRT.STND_YEAR   = TA.STND_YEAR
+				AND TRT.TMS         = TA.TMS
+			) T1, --출전선수목록
+			(
+				SELECT
+					RACER_NO,
+					SUM(DECODE(ACDNT_TPE_CD, '001', 1, 0)) JUNBOK,
+					SUM(DECODE(ACDNT_TPE_CD, '002', 1, 0)) NAKSU,
+					SUM(DECODE(ACDNT_TPE_CD, '003', 1, 0)) JAEWE,
+					SUM((SELECT RMK FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00154' AND CD = S1.ACDNT_RISK_CD)) RISK_JISU
+				FROM TBED_RACE_VOIL_ACT S1, RACE_TMS S2
+				WHERE 1=1
+				AND S1.ACDNT_TPE_CD IN ('001','002','003') --사고종류(E00062) 전복, 낙수, 출주제외
+				AND S1.STND_YEAR||S1.TMS = S2.YEAR_TMS
+				AND S1.MBR_CD = S2.MBR_CD
+				GROUP BY RACER_NO
+			) T2, --사고종류(전복, 낙수, 출주제외)
+			(
+				SELECT RACER_NO, SUM(RACE_ALLOC_CNT) RUN_CNT
+				FROM  TBEB_RACER_RACE_ALLOC S1, RACE_TMS S2
+				WHERE 1=1
+				AND S1.STND_YEAR||S1.TMS = S2.YEAR_TMS
+				AND S1.MBR_CD = S2.MBR_CD
+				GROUP BY RACER_NO
+			) T3, --출주횟수
+			(
+				SELECT RACER_NO, COUNT(RACER_NO) EDU_CNT
+				FROM  TBED_RACE_VOIL_EDU S1, RACE_TMS S2
+				WHERE 1=1
+				AND S1.STND_YEAR||S1.TMS = S2.YEAR_TMS
+				AND S1.MBR_CD = S2.MBR_CD
+				GROUP BY RACER_NO
+			) T4,  --교육횟수
+			(
+				SELECT RACER_NO
+				FROM  TBED_RACE_VOIL_EDU S1
+				WHERE 1=1
+				AND STND_YEAR = ?
+				AND MBR_CD = ?
+				AND TMS = ?
+				AND DAY_ORD = '0'
+				GROUP BY RACER_NO
+			) T5  --교육대상자 여부
+			WHERE 1=1
+			AND T1.STND_YEAR = ?
+			AND T1.MBR_CD = ?
+			AND T1.TMS = ?
+			AND T1.RACER_NO = T2.RACER_NO(+)
+			AND T1.RACER_NO = T3.RACER_NO(+)
+			AND T1.RACER_NO = T4.RACER_NO(+)
+			AND T1.RACER_NO = T5.RACER_NO(+)
+			ORDER BY RISK_JISU DESC, JUNBOK DESC, NAKSU DESC, JAEWE DESC 
+        ]]>
+    </query> 
+    
+    <query id="tbed_race_voil_edu_s02" desc="경주별 선수 조회" fetchSize="10">
+        <![CDATA[
+        WITH RACE_TMS AS (  /* tbed_race_voil_edu_s02 경주별 선수 조회 */
+			SELECT STND_YEAR||TMS YEAR_TMS, MBR_CD FROM (
+				SELECT STND_YEAR, TMS, MBR_CD, STR_DT
+				FROM TBEB_RACE_TMS
+				WHERE 1=1
+				AND ARRANGE_CMPL_YN   ='Y'
+				ORDER BY STR_DT DESC
+			) WHERE 1=1
+			AND STND_YEAR||TMS <= ?||?
+			AND MBR_CD = ?
+			AND ROWNUM <= 30 --최근 30회차
+		)
+		
+		SELECT
+			T1.STND_YEAR, T1.MBR_CD, T1.TMS,T1.DAY_ORD, T1.RACE_NO, 
+			T1.RACER_NO, FC_GET_RACERNAME(T1.RACER_NO) RACER_NM,  
+			T1.RACE_REG_NO, T1.RANK,
+			NVL(T2.GAHAE,0) GAHAE,
+			NVL(T2.PIHAE,0) PIHAE,
+			NVL(T3.EDU_CNT,0) EDU_CNT,
+			NVL(T5.THIS_CNT,0) THIS_CNT,
+			VIOL_DESC,
+			RISK_JISU,
+			DECODE(T4.RACER_NO,NULL,'0','1') EDU_YN
+		FROM
+		TBEB_ORGAN T1, --경주결과
+		(
+			SELECT
+				RACER_NO,
+				SUM(DECODE(ACDNT_CAUSE_CD, '001', 1, 0)) GAHAE,
+				SUM(DECODE(ACDNT_CAUSE_CD, '002', 1, 0)) PIHAE,
+				REPLACE(SUBSTR(XMLAGG(XMLELEMENT(A,'('||RACE_DAY||')'||VOIL_DESC||'#@$%^') ORDER BY RACE_DAY, SEQ).EXTRACT('//text()'), 0), '#@$%^', CHR(10)) VIOL_DESC,
+				SUM((SELECT RMK FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00154' AND CD = S1.ACDNT_RISK_CD)) RISK_JISU
+			FROM TBED_RACE_VOIL_ACT S1, RACE_TMS S2
+			WHERE 1=1
+			AND S1.ACDNT_TPE_CD IN ('001','002','003') --사고종류(E00062) 전복, 낙수, 출주제외
+			AND S1.STND_YEAR||S1.TMS = S2.YEAR_TMS
+			AND S1.MBR_CD = S2.MBR_CD
+			GROUP BY RACER_NO
+		) T2, --가해/피해건수
+		(
+			SELECT RACER_NO, COUNT(RACER_NO) EDU_CNT
+			FROM  TBED_RACE_VOIL_EDU S1, RACE_TMS S2
+			WHERE 1=1
+			AND S1.STND_YEAR||S1.TMS = S2.YEAR_TMS
+			AND S1.MBR_CD = S2.MBR_CD
+			GROUP BY RACER_NO
+		) T3,  --교육횟수
+		(
+			SELECT RACER_NO
+			FROM  TBED_RACE_VOIL_EDU S1
+			WHERE 1=1
+			AND STND_YEAR = ?
+			AND MBR_CD = ?
+			AND TMS = ?
+			AND DAY_ORD = ?
+			GROUP BY RACER_NO
+		) T4,  --교육대상자 여부
+		(
+			SELECT RACER_NO, COUNT(RACER_NO) THIS_CNT
+			FROM  TBED_RACE_VOIL_ACT S1
+			WHERE 1=1
+			AND STND_YEAR =  ?
+			AND MBR_CD =  ?
+			AND TMS =  ?
+			AND DAY_ORD =  ?
+			AND RACE_NO =  ?
+			AND ACDNT_TPE_CD IN ('001','002','003')
+			GROUP BY RACER_NO
+		) T5  --금회위반횟수
+		WHERE 1=1
+		AND T1.STND_YEAR = ?
+		AND T1.MBR_CD = ?
+		AND T1.TMS = ?
+		AND T1.DAY_ORD = ?
+		AND T1.RACE_NO = ?
+		AND T1.RACER_NO = T2.RACER_NO(+)
+		AND T1.RACER_NO = T3.RACER_NO(+)
+		AND T1.RACER_NO = T4.RACER_NO(+)
+		AND T1.RACER_NO = T5.RACER_NO(+)
+		ORDER BY 4
+     ]]>
+    </query>
+    
+    <query id="tbed_race_voil_edu_s03" desc="선수별 위반내역 조회" fetchSize="10">
+    <![CDATA[
+	    SELECT	/* tbed_race_voil_edu_s03 선수별 위반내역 조회 */
+			STND_YEAR, MBR_CD, TMS, DAY_ORD,
+		    RACE_NO, RACE_REG_NO, RACER_NO,
+			FC_GET_RACERNAME(RACER_NO) RACER_NM,
+			SEQ, RACE_DAY,
+			VOIL_JO, VOIL_HANG, VOIL_HO, VOIL_CD,
+			ACDNT_LOC_CD, ACDNT_TPE_CD, VOIL_DESC, RMK,
+			ACDNT_RISK_CD, ACDNT_CAUSE_CD
+		FROM  TBED_RACE_VOIL_ACT
+		WHERE 1=1
+		AND STND_YEAR	=  ?
+		AND MBR_CD		=  ?
+		AND TMS			=  ?
+		AND DAY_ORD		=  ?
+		AND RACE_NO		=  ?
+		AND RACER_NO	=  ?
+		AND ACDNT_TPE_CD IN ('001','002','003') --사고종류(E00062) 전복, 낙수, 출주제외
+		ORDER BY SEQ
+     ]]>
+    </query>
+    
+    <query id="tbed_race_voil_edu_s04" desc="교육내역 조회" fetchSize="10">
+    <![CDATA[
+	    SELECT /* tbed_race_voil_edu_s04 교육내역 조회 */
+	        '0' CHK,
+			T1.STND_YEAR, T1.MBR_CD, T1.TMS, T1.DAY_ORD, T1.RACER_NO,
+			FC_GET_RACERNAME(T1.RACER_NO) RACER_NM,
+			T1.EDU_CONT, T1.EDU_DT,
+			T2.RACE_INFO, T2.VIOL_JO, T2.VIOL_NM, T2.VIOL_DESC
+		FROM TBED_RACE_VOIL_EDU T1,
+		(
+			SELECT
+				STND_YEAR,
+				MBR_CD,
+				TMS,
+				DAY_ORD,
+				RACER_NO,
+				REPLACE(SUBSTR(XMLAGG(XMLELEMENT(A,TMS||'회차 '||RACE_NO||'경주 #@$%^') ORDER BY RACE_DAY DESC, SEQ).EXTRACT('//text()'), 0), '#@$%^', CHR(13)) RACE_INFO,
+				REPLACE(SUBSTR(XMLAGG(XMLELEMENT(A,VOIL_JO||'조 #@$%^') ORDER BY RACE_DAY DESC, SEQ).EXTRACT('//text()'), 0), '#@$%^', CHR(13)) VIOL_JO,
+				REPLACE(SUBSTR(XMLAGG(XMLELEMENT(A,GET_CD_NM('E00035', VOIL_CD)||'#@$%^') ORDER BY RACE_DAY DESC, SEQ).EXTRACT('//text()'), 0), '#@$%^', CHR(13)) VIOL_NM,
+				REPLACE(SUBSTR(XMLAGG(XMLELEMENT(A,VOIL_DESC||'#@$%^') ORDER BY RACE_DAY DESC, SEQ).EXTRACT('//text()'), 0), '#@$%^', CHR(13)) VIOL_DESC
+			FROM TBED_RACE_VOIL_ACT
+			WHERE 1=1
+			AND ACDNT_TPE_CD IN ('001','002','003') --사고종류(E00062) 전복, 낙수, 출주제외
+			GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACER_NO
+		) T2
+		WHERE 1=1
+		AND T1.STND_YEAR = T2.STND_YEAR(+)
+		AND T1.MBR_CD = T2.MBR_CD(+)
+		AND T1.TMS = T2.TMS(+)
+		AND T1.DAY_ORD = T2.DAY_ORD(+)
+		AND T1.RACER_NO = T2.RACER_NO(+)
+		AND T1.STND_YEAR = ?
+		AND T1.MBR_CD = ?
+		AND T1.TMS BETWEEN ? AND ?
+		AND T1.DAY_ORD = DECODE(?, 9, T1.DAY_ORD, ?) 
+		ORDER BY T1.MBR_CD, T1.TMS DESC, T1.DAY_ORD ASC, T1.RACER_NO
+     ]]>
+    </query>
+    
+     <query id="tbed_race_voil_edu_i01" desc="교육대상자 등록" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBED_RACE_VOIL_EDU ( /* tbed_race_voil_edu_i01 교육대상자 등록 */
+			      STND_YEAR
+			    , MBR_CD
+			    , TMS
+			    , DAY_ORD
+			    , RACER_NO
+			    , INST_ID
+			    , INST_DTM
+			) VALUES (
+			      ?                                                             -- STND_YEAR
+			    , ?                                                             -- MBR_CD
+			    , ?                                                             -- TMS
+			    , ?                                                             -- DAY_ORD
+			    , ?                                                             -- RACER_NO
+			    , ?                                                             -- INST_ID
+			    , SYSDATE                                                       -- INST_DTM
+			)
+	    ]]>
+    </query>    
+
+     <query id="tbed_race_voil_edu_d01" desc="교육대상자 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE FROM TBED_RACE_VOIL_EDU /* tbed_race_voil_edu_d01 교육대상자 삭제 */
+			WHERE STND_YEAR = ?
+			AND MBR_CD = ?
+			AND TMS = ?
+			AND DAY_ORD = ?
+			AND RACER_NO = ?
+	    ]]>
+    </query>    
+    
+    <query id="tbed_race_voil_edu_u01" desc="교육대상자 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBED_REFERERE_USER SET /* tbed_race_voil_edu_u01 교육대상자 수정 */
+			      MNG                    =   ?
+			    , MNG_FILE_NAME          =   ?
+			    , MNG_FILE_URL           =   ?
+			    , MNG_FILE_SIZE          =   ?
+			    , REFE_HEAD              =   ?
+			    , REFE_HEAD_FILE_NAME    =   ?
+			    , REFE_HEAD_FILE_URL     =   ?
+			    , REFE_HEAD_FILE_SIZE    =   ?
+			    , INSP_CMAN              =   ?
+			    , INSP_CMAN_FILE_NAME    =   ?
+			    , INSP_CMAN_FILE_URL     =   ?
+			    , INSP_CMAN_FILE_SIZE    =   ?
+			    , UPDT_ID                =   ?
+			    , UPDT_DTM               =   SYSDATE
+			WHERE REFERERE_SEQ = ?
+	    ]]>
+    </query>  
+    
+    <query id="tbed_race_voil_edu_u02" desc="교육내용 등록" fetchSize="10">
+        <![CDATA[
+			UPDATE TBED_RACE_VOIL_EDU SET /* tbed_race_voil_edu_u02 교육내용 등록 */
+			      EDU_CONT        =   ?
+			    , EDU_DT          =   ?
+			    , UPDT_ID         =   ?
+			    , UPDT_DTM        =   SYSDATE
+			WHERE 1=1
+			AND STND_YEAR	=  ?
+			AND MBR_CD		=  ?
+			AND TMS			=  ?
+			AND DAY_ORD		=  ?
+			AND RACER_NO	=  ?
+	    ]]>
+    </query>  
+    
+    <query id="tbed_race_voil_act_u01" desc="경주위반행위 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBED_RACE_VOIL_ACT SET /* tbed_race_voil_act_u01 경주위반행위 수정 */
+			      ACDNT_RISK_CD           =   ?
+			    , ACDNT_CAUSE_CD          =   ?
+			    , UPDT_ID                =   ?
+			    , UPDT_DTM               =   SYSDATE
+			WHERE 1=1
+			AND STND_YEAR	=  ?
+			AND MBR_CD		=  ?
+			AND TMS			=  ?
+			AND DAY_ORD		=  ?
+			AND RACE_NO		=  ?
+			AND RACE_REG_NO	=  ?
+			AND RACER_NO	=  ?
+			AND SEQ			=  ?
+	    ]]>
+    </query>
+    
+</queryMap>

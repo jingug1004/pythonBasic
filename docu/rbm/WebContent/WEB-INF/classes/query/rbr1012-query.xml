@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR1012(연혁관리)">
+	<query id="rbr1012_s01" desc="연혁관리 조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rbr1012_s01 */
+				 '0' AS CHK 
+				,BRNC_CD			--지점코드
+				,YM					--년월
+				,SEQ				--순번
+				,CNTNT				--내용
+				,ATT_FILE_KEY		--첨부파일키
+				
+				,RMK				--비고
+				,INST_ID			--작성자
+				,INST_DT			--작성일시
+				,UPDT_ID			--수정자
+				,UPDT_DT			--수정일시
+
+			  FROM 	TBRA_HIST_MANA  --연혁관리
+			 WHERE	1=1
+			   AND  BRNC_CD = ?			
+		  ORDER BY	YM DESC, SEQ
+        ]]>
+	</query>
+	
+	<query id="rbr1012_m01" desc="연혁관리  입력,수정" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBRA_HIST_MANA A  /* rbr1012_m01 */  --연혁관리
+			USING   
+			  		(SELECT
+						 ? AS BRNC_CD			--지점코드
+						,? AS YM				--년월
+						,? AS SEQ				--순번
+						,? AS CNTNT				--내용
+						,? AS ATT_FILE_KEY		--첨부파일키
+						
+						,? AS RMK				--비고
+						,? AS INST_ID			--작성자						
+						,? AS UPDT_ID			--수정자	
+					FROM	DUAL ) B  
+				
+			ON (	
+				    A.BRNC_CD = B.BRNC_CD
+				AND A.YM      = B.YM		
+				AND	A.SEQ     = B.SEQ		
+			)			
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+							
+					 A.CNTNT        = B.CNTNT	        --내용
+					,A.ATT_FILE_KEY = B.ATT_FILE_KEY    --첨부파일키
+					,A.RMK          = B.RMK		        --비고
+					,A.UPDT_ID      = B.UPDT_ID	        --수정자
+					,UPDT_DT        = SYSDATE           --수정일시
+			    
+			WHEN NOT MATCHED THEN 
+				
+				INSERT (
+			
+					 A.BRNC_CD         --지점코드
+					,A.YM              --년월
+					,A.SEQ             --순번
+					,A.CNTNT           --내용
+					,A.ATT_FILE_KEY    --첨부파일키
+	
+					,A.RMK             --비고
+					,A.INST_ID         --작성자
+					,A.INST_DT         --작성일시
+					
+				) VALUES (
+					 B.BRNC_CD        --지점코드
+					,B.YM             --년월
+					,(SELECT  NVL(MAX(SEQ),0) + 1
+			            FROM  TBRA_HIST_MANA
+					   WHERE  BRNC_CD = ?
+					     AND  YM      = ?
+				     )                --순번
+					,B.CNTNT          --내용
+					,B.ATT_FILE_KEY   --첨부파일키
+					
+					,B.RMK            --비고	
+					,B.INST_ID        --작성자
+					,SYSDATE          --작성일시
+				)
+				
+        ]]>				
+    </query>
+    
+    <query id="rbr1012_d01" desc="입장관리_연혁관리 삭제" fetchSize="10">
+        <![CDATA[
+
+			DELETE TBRA_HIST_MANA   /* rbr1012_d01 */--연혁관리
+			 WHERE 1=1
+			   AND BRNC_CD = ?		--지점코드
+			   AND YM      = ?		--년월
+			   AND SEQ     = ?		--순번
+        ]]>
+    </query>
+    
+	<query id="rbr1012_s02" desc="첨부파일 KEY 조회" fetchSize="10">
+      <![CDATA[
+ 			SELECT /* rbr1010_s02 */
+				SQ_TBRK_FILE_MANA.NEXTVAL ATT_FILE_KEY
+			  FROM DUAL						
+        ]]>
+    </query>
+</queryMap>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4040(밸런스조회)">
+	<query id="rsm4040_s01" desc="밸런스조회" fetchSize="10">
+        <![CDATA[
+	          SELECT /* rsm4040_s01 */
+	          		RACE_DAY,	-- 경주일                                                    
+			        MEET_CD,    -- 경륜 경정 구분 코드                                         
+			        CASE
+			             WHEN MEET_NM IS NULL AND MEET_NM_ETC IS NULL THEN '평일환급'
+			             ELSE 
+			             DECODE(MEET_NM,null,'',(MEET_NM||' '||TMS||'회차 '||DAY_ORD||'일차' )) 
+			        END AS MEET_NM_DESC, -- 경륜 정보
+			        TMS,                 -- 경륜 회차                                     
+			        DAY_ORD,     		 -- 경륜 일차
+			        MEET_CD_ETC,			--경정 코드
+			        CASE
+			             WHEN MEET_NM IS NULL AND MEET_NM_ETC IS NULL THEN '평일환급'
+			             ELSE 
+			             DECODE(MEET_NM_ETC,null,'',(MEET_NM_ETC||' '||TMS_ETC||'회차 '||DAY_ORD_ETC||'일차' )) 
+			        END AS MEET_NM_ETC_DESC, 	-- 경정 정보
+			        TMS_ETC,					-- 경정 회차
+			        DAY_ORD_ETC					-- 경정 일차
+			FROM
+			(        
+			     SELECT                                                             
+			         T.RACE_DAY,                                                    
+			         TO_CHAR(TO_DATE(T.RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') RACEDAY , 
+			         V.MEET_CD,                                                     
+			         CASE                                                           
+			             WHEN V.MEET_CD='001' THEN '광명'                           
+			             WHEN V.MEET_CD='002' THEN '창원'                           
+			             WHEN V.MEET_CD='004' THEN '부산'                           
+			         END MEET_NM,                                                            
+			         V.TMS ,                                                        
+			         V.DAY_ORD,                                                     
+			         W.MEET_CD MEET_CD_ETC,                                         
+			         CASE                                                           
+			             WHEN W.MEET_CD='003' THEN '경정'                           
+			         END MEET_NM_ETC,                                                            
+			         W.TMS TMS_ETC,                                                 
+			         W.DAY_ORD DAY_ORD_ETC                                          
+			     FROM                                                               
+			         VW_SDL_INFO V,                                                 
+			         VW_SDL_INFO W,                                
+			         (                                                              
+			            SELECT                                                      
+			                 RACE_DAY                                               
+			            FROM                                                        
+			                 TBJI_PC_BALANCE                                        
+			            WHERE                                                       
+			                 RACE_DAY LIKE ?||'%' -- 0:STND_YEAR 기준년도                         
+			            GROUP BY RACE_DAY                                           
+			         )T                                                             
+			     WHERE                                                              
+			         V.MEET_CD(+)='001'                                             
+			         AND V.STND_YEAR(+)	= ? -- 1:STND_YEAR	기준년도 '2011'
+			         AND W.MEET_CD(+)='003'                                         
+			         AND W.STND_YEAR(+)	= ?	-- 2:STND_YEAR	기준년도 '2011'
+			         AND T.RACE_DAY=V.RACE_DAY(+)                                   
+			         AND T.RACE_DAY=W.RACE_DAY(+)  
+			)T                                      
+			 ORDER BY T.RACE_DAY DESC                                                                                                                  
+        ]]>
+    </query>
+    
+
+</queryMap>

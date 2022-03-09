@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbtq_ctl_tmsqtrcnt(TQC년도분기별조회)">
+  <query id="tbtq_ctl_tmsqtrcnt_fa001" desc="년도분기별 건수조회" fetchSize="10">
+   <![CDATA[
+     SELECT 
+		 NVL(B.STND_YEAR,?) STND_YEAR
+		,NVL(B.SEASON,1) SEASON
+		,A.CD
+		,A.CD_NM
+		,A.RMK
+		,C.PART_CD
+		,C.PART_NM
+		,NVL(B.CNT,0) CNT 
+		,B.CHK 
+        ,A.ORD_NO   
+        ,A.CONTENTS
+		FROM TBTQ_SPEC_CD A
+		,(	
+ 			SELECT STND_YEAR,SEASON, CD,CNT,CHK FROM (
+				SELECT A.STND_YEAR,B.SEASON,A.CD,SUM(A.CNT) AS CNT, 0 CHK 
+				FROM TBTQ_CTL A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)  
+				GROUP BY A.STND_YEAR,B.SEASON,A.CD
+				------------------------------------------------------------------------------
+				UNION
+			 	SELECT A.STND_YEAR,B.SEASON,'P02' CD ,COUNT(*) CNT,1 CHK 
+				FROM USRBM.TBES_SDL_RS A,VWET_SEASON B,TBEB_RACE C
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)
+				AND   A.STND_YEAR = C.STND_YEAR
+				AND   A.TMS = C.TMS
+				AND   A.DAY_ORD = C.DAY_ORD
+				AND   A.RACE_NO = C.RACE_NO
+				AND   A.POOL_CD = '004'
+				AND   A.PAYOFF < 10
+				AND   C.RACE_STTS_CD = '001' 
+				GROUP BY A.STND_YEAR,B.SEASON
+				-------------------------------------------------------------------------------
+				UNION
+				SELECT STND_YEAR,SEASON,'P13' CD,ROUND(SUM(CNT)/ COUNT(*),2) CNT ,1 CHK FROM (	
+				   SELECT A.STND_YEAR,B.SEASON,A.MOT_NO,MAX(A.INTRO_RUN_TM) - MIN(A.INTRO_RUN_TM) AS CNT 
+				   FROM  TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				   WHERE A.STND_YEAR = B.STND_YEAR(+)
+				   AND   A.TMS = B.TMS(+)  
+				   AND   A.STND_YEAR = C.STND_YEAR
+				   AND   A.TMS = C.TMS
+				   AND   A.DAY_ORD = C.DAY_ORD
+				   AND   A.RACE_NO = C.RACE_NO
+				   AND   C.RACE_STTS_CD = '001' 
+				   GROUP BY A.STND_YEAR,B.SEASON,A.MOT_NO
+				  	)	
+				GROUP BY STND_YEAR,SEASON
+				--------------------------------------------------------------------------------
+				UNION
+					SELECT A.STND_YEAR,B.SEASON,'Q01' CD,COUNT(A.TMS) CNT,1 CHK 
+					FROM TBEB_RACE A,VWET_SEASON B
+					WHERE A.STND_YEAR = B.STND_YEAR(+)
+					AND   A.TMS = B.TMS(+)
+					AND   A.RACE_STTS_CD IN('002', '003')
+					GROUP BY A.STND_YEAR,B.SEASON
+				--------------------------------------------------------------------------------
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q02' CD,COUNT(A.TMS) CNT,1 CHK 
+				FROM TBED_RACE_VOIL_ACT A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)
+				AND   A.ACDNT_TPE_CD = '003'
+				AND   A.VOIL_CD IN('110','120')
+				GROUP BY A.STND_YEAR,B.SEASON
+				--------------------------------------------------------------------------------
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q03' CD,COUNT(A.TMS) CNT ,1 CHK 
+				FROM TBED_RACE_VOIL_ACT A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)
+				AND   A.ACDNT_TPE_CD = '003'
+				AND   A.VOIL_CD IN('995','996','997')
+				GROUP BY A.STND_YEAR,B.SEASON
+				--------------------------------------------------------------------------------
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q04' CD,COUNT(A.TMS) CNT,1 CHK 
+				FROM TBED_RACE_VOIL_ACT A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+) 
+				AND   A.ACDNT_TPE_CD IN('001','002','004','007','008','010')
+				GROUP BY A.STND_YEAR,B.SEASON
+				--------------------------------------------------------------------------------
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q05' CD,ROUND(SUM(A.STAR_TM)/COUNT(A.STAR_TM),2) AS CNT,1 CHK 
+				FROM TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)  
+				AND   A.STND_YEAR = C.STND_YEAR
+				AND   A.TMS = C.TMS
+				AND   A.DAY_ORD = C.DAY_ORD
+				AND   A.RACE_NO = C.RACE_NO
+				AND   C.RACE_STTS_CD = '001' 
+				GROUP BY A.STND_YEAR,B.SEASON
+				--------------------------------------------------------------------------------
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q06' CD,ROUND(SUM(A.INTRO_RUN_TM)/COUNT(A.INTRO_RUN_TM),2) AS CNT,1 CHK 
+				FROM TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)  
+				AND   A.STND_YEAR = C.STND_YEAR
+				AND   A.TMS = C.TMS
+				AND   A.DAY_ORD = C.DAY_ORD
+				AND   A.RACE_NO = C.RACE_NO
+				AND   C.RACE_STTS_CD = '001' 
+				GROUP BY A.STND_YEAR,B.SEASON
+				--------------------------------------------------------------------------------
+				UNION
+				SELECT STND_YEAR,SEASON,'Q07' CD,ROUND(SUM(CNT)/ COUNT(*),3) CNT ,1 CHK FROM (	
+				   SELECT A.STND_YEAR,B.SEASON,A.TMS,A.DAY_ORD,A.RACE_NO,SUM(A.TIME_DIFF)/2000 AS CNT 
+				   FROM  TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				   WHERE A.STND_YEAR = B.STND_YEAR(+)
+				   AND   A.TMS = B.TMS(+)  
+				   AND   A.STND_YEAR = C.STND_YEAR
+				   AND   A.TMS = C.TMS
+				   AND   A.DAY_ORD = C.DAY_ORD
+				   AND   A.RACE_NO = C.RACE_NO
+				   AND   C.RACE_STTS_CD = '001' 
+				   AND   A.RANK IN( 2,3)
+				   GROUP BY A.STND_YEAR,B.SEASON,A.TMS,A.DAY_ORD,A.RACE_NO
+				  	)	
+				GROUP BY STND_YEAR,SEASON
+				--------------------------------------------------------------------------------
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q08' CD,COUNT(A.TMS) CNT,1 CHK 
+				FROM TBED_RACE_VOIL_ACT A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+) 
+				AND   A.VOIL_CD IN('125','140','150','210','220','999')
+				GROUP BY A.STND_YEAR,B.SEASON
+			) WHERE STND_YEAR = ?
+		) B 
+		,TBTQ_PART_CD C
+		WHERE A.CD = B.CD(+)	
+		AND   A.PART_CD = C.PART_CD
+		AND   A.USE_YN = 'Y'
+  -----------------------------------------------------과거 2년
+		UNION
+		SELECT 
+		 NVL(B.STND_YEAR,?) STND_YEAR
+		,B.SEASON
+		,A.CD
+		,A.CD_NM
+		,A.RMK
+		,C.PART_CD
+		,C.PART_NM
+		,NVL(B.CNT,0) CNT 
+		,B.CHK  
+		,A.ORD_NO  
+		,A.CONTENTS
+		FROM TBTQ_SPEC_CD A
+		,(	 
+			  SELECT STND_YEAR, SEASON, CD, CNT, CHK FROM(
+				 SELECT STND_YEAR,0 SEASON,CD,SUM(CNT) CNT, 0 CHK FROM TBTQ_CTL
+				 GROUP BY STND_YEAR,CD
+				 -----------------------------------------------------
+			     UNION
+				 SELECT A.STND_YEAR,0 SEASON, 'P02' CD ,COUNT(*) CNT,1 CHK 
+				 FROM USRBM.TBES_SDL_RS A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND A.DAY_ORD = B.DAY_ORD
+				 AND A.RACE_NO = B.RACE_NO
+				 AND A.POOL_CD = '004'
+				 AND A.PAYOFF < 10
+				 AND B.RACE_STTS_CD = '001'
+				 GROUP BY A.STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT STND_YEAR,0 SEASON,'P13',ROUND(SUM(CNT)/ COUNT(*),2) CNT ,1 CHK FROM (	
+					 SELECT A.STND_YEAR,A.MOT_NO,MAX(A.INTRO_RUN_TM) - MIN(A.INTRO_RUN_TM) AS CNT 
+					 FROM TBEB_ORGAN A,TBEB_RACE B
+					 WHERE A.STND_YEAR = B.STND_YEAR
+					 AND A.TMS = B.TMS
+					 AND A.DAY_ORD = B.DAY_ORD
+					 AND A.RACE_NO = B.RACE_NO
+					 AND B.RACE_STTS_CD = '001'
+					 GROUP BY A.STND_YEAR,A.MOT_NO
+				 )
+				 GROUP BY STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT STND_YEAR,0 SEASON,'Q01' CD,COUNT(TMS) CNT,1 CHK FROM TBEB_RACE
+				 WHERE RACE_STTS_CD IN('002', '003')
+                 GROUP BY STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT STND_YEAR,0 SEASON,'Q02' CD,COUNT(TMS) CNT,1 CHK FROM TBED_RACE_VOIL_ACT 
+				 WHERE ACDNT_TPE_CD = '003'
+				 AND VOIL_CD IN('110','120')
+				 GROUP BY STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT STND_YEAR,0 SEASON,'Q03' CD,COUNT(TMS) CNT ,1 CHK FROM TBED_RACE_VOIL_ACT
+				 WHERE ACDNT_TPE_CD = '003'
+				 AND VOIL_CD IN('995','996','997')
+				 GROUP BY STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT STND_YEAR,0 SEASON,'Q04' CD,COUNT(TMS) CNT,1 CHK FROM TBED_RACE_VOIL_ACT
+				 WHERE ACDNT_TPE_CD IN('001','002','004','007','008','010')
+				 GROUP BY STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT A.STND_YEAR,0 SEASON,'Q05' CD,ROUND(SUM(A.STAR_TM)/COUNT(A.STAR_TM),2) AS CNT,1 CHK 
+				 FROM TBEB_ORGAN A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND A.DAY_ORD = B.DAY_ORD
+				 AND A.RACE_NO = B.RACE_NO
+				 AND B.RACE_STTS_CD = '001'
+				 GROUP BY A.STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT A.STND_YEAR,0 SEASON,'Q06' CD,ROUND(SUM(A.INTRO_RUN_TM)/COUNT(A.INTRO_RUN_TM),2) AS CNT,1 CHK  
+				 FROM TBEB_ORGAN A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND A.DAY_ORD = B.DAY_ORD
+				 AND A.RACE_NO = B.RACE_NO
+				 AND B.RACE_STTS_CD = '001'
+				 GROUP BY A.STND_YEAR
+				 -----------------------------------------------------
+				 UNION
+				 SELECT STND_YEAR,0 SEASON,'Q07',ROUND(SUM(CNT)/ COUNT(*),3) CNT ,1 CHK FROM (	
+					 SELECT A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO,SUM(A.TIME_DIFF)/2000 AS CNT 
+					 FROM TBEB_ORGAN A,TBEB_RACE B
+					 WHERE A.STND_YEAR = B.STND_YEAR
+					 AND A.TMS = B.TMS
+					 AND A.DAY_ORD = B.DAY_ORD
+					 AND A.RACE_NO = B.RACE_NO
+					 AND B.RACE_STTS_CD = '001'
+					 AND   A.RANK IN( 2,3)
+					 GROUP BY A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO
+				 )
+				 GROUP BY STND_YEAR
+				 -----------------------------------------------------경주규칙위반율(Q08)
+				 UNION	 
+				 SELECT STND_YEAR,0 SEASON,'Q08' CD,COUNT(TMS) CNT,1 CHK FROM TBED_RACE_VOIL_ACT
+				 WHERE VOIL_CD IN('125','140','150','210','220','999')
+				 GROUP BY STND_YEAR
+			   )WHERE STND_YEAR BETWEEN ? - 2 AND ?
+		) B 
+		,TBTQ_PART_CD C
+		WHERE A.CD = B.CD	
+		AND   A.PART_CD = C.PART_CD
+		AND   A.USE_YN = 'Y'
+		ORDER BY ORD_NO,CD ,STND_YEAR,SEASON 
+       ]]>
+   </query> 
+   <query id="tbtq_ctl_tmsqtrcnt_fa002" desc="년도분기별 건수그래프" fetchSize="10">
+    <![CDATA[
+    SELECT 
+		 NVL(B.STND_YEAR,?) STND_YEAR
+		,NVL(B.SEASON,1) SEASON
+		,A.CD
+		,A.CD_NM
+		,A.RMK
+		,C.PART_CD
+		,NVL(B.CNT,0) CNT 
+		,B.CHK  
+		FROM TBTQ_SPEC_CD A
+		,(	
+ 			SELECT STND_YEAR,SEASON, CD,CNT,CHK FROM (
+				SELECT A.STND_YEAR,B.SEASON,A.CD,SUM(A.CNT) AS CNT, 0 CHK 
+				FROM TBTQ_CTL A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)  
+				GROUP BY A.STND_YEAR,B.SEASON,A.CD
+				------------------------------------------------------------------------------P02
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'P02' CD ,COUNT(*) CNT,1 CHK 
+				FROM USRBM.TBES_SDL_RS A,VWET_SEASON B,TBEB_RACE C
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)
+				AND   A.STND_YEAR = C.STND_YEAR
+				AND   A.TMS = C.TMS
+				AND   A.DAY_ORD = C.DAY_ORD
+				AND   A.RACE_NO = C.RACE_NO
+				AND   A.POOL_CD = '004'
+				AND   A.PAYOFF < 10
+				AND   C.RACE_STTS_CD = '001' 
+				GROUP BY A.STND_YEAR,B.SEASON
+				------------------------------------------------------------------------------D13
+				UNION
+				 SELECT STND_YEAR,SEASON,'P13' CD,ROUND(SUM(CNT)/ COUNT(*),2) CNT ,1 CHK FROM (	
+				   SELECT A.STND_YEAR,B.SEASON,A.MOT_NO,MAX(A.INTRO_RUN_TM) - MIN(A.INTRO_RUN_TM) AS CNT 
+				   FROM  TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				   WHERE A.STND_YEAR = B.STND_YEAR(+)
+				   AND   A.TMS = B.TMS(+)  
+				   AND   A.STND_YEAR = C.STND_YEAR
+				   AND   A.TMS = C.TMS
+				   AND   A.DAY_ORD = C.DAY_ORD
+				   AND   A.RACE_NO = C.RACE_NO
+				   AND   C.RACE_STTS_CD = '001' 
+				   GROUP BY A.STND_YEAR,B.SEASON,A.MOT_NO
+				  	)	
+				GROUP BY STND_YEAR,SEASON
+				------------------------------------------------------------------------------Q02
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q02' CD,COUNT(A.TMS) CNT,1 CHK 
+				FROM TBED_RACE_VOIL_ACT A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)
+				AND   A.ACDNT_TPE_CD = '003'
+				AND   A.VOIL_CD IN('110','120')
+				GROUP BY A.STND_YEAR,B.SEASON
+				------------------------------------------------------------------------------Q03
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q03' CD,COUNT(A.TMS) CNT ,1 CHK 
+				FROM TBED_RACE_VOIL_ACT A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)
+				AND   A.ACDNT_TPE_CD = '003'
+				AND   A.VOIL_CD IN('995','996','997')
+				GROUP BY A.STND_YEAR,B.SEASON
+				------------------------------------------------------------------------------Q04
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q04' CD,COUNT(A.TMS) CNT,1 CHK 
+				FROM TBED_RACE_VOIL_ACT A,VWET_SEASON B
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+) 
+				AND   A.ACDNT_TPE_CD IN('001','002','004','008','010')
+				GROUP BY A.STND_YEAR,B.SEASON
+				------------------------------------------------------------------------------C05
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q05' CD,ROUND(SUM(A.STAR_TM)/COUNT(A.STAR_TM),2) AS CNT,1 CHK 
+				FROM TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)  
+				AND   A.STND_YEAR = C.STND_YEAR
+				AND   A.TMS = C.TMS
+				AND   A.DAY_ORD = C.DAY_ORD
+				AND   A.RACE_NO = C.RACE_NO
+				AND   C.RACE_STTS_CD = '001' 
+				GROUP BY A.STND_YEAR,B.SEASON
+				------------------------------------------------------------------------------C06
+				UNION
+				SELECT A.STND_YEAR,B.SEASON,'Q06' CD,ROUND(SUM(A.INTRO_RUN_TM)/COUNT(A.INTRO_RUN_TM),2) AS CNT,1 CHK 
+				FROM TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				WHERE A.STND_YEAR = B.STND_YEAR(+)
+				AND   A.TMS = B.TMS(+)  
+				AND   A.STND_YEAR = C.STND_YEAR
+				AND   A.TMS = C.TMS
+				AND   A.DAY_ORD = C.DAY_ORD
+				AND   A.RACE_NO = C.RACE_NO
+				AND   C.RACE_STTS_CD = '001' 
+				GROUP BY A.STND_YEAR,B.SEASON
+				------------------------------------------------------------------------------C07
+				UNION
+				SELECT STND_YEAR,SEASON,'Q07' CD,ROUND(SUM(CNT)/ COUNT(*),3) CNT ,1 CHK FROM (	
+				   SELECT A.STND_YEAR,B.SEASON,A.TMS,A.DAY_ORD,A.RACE_NO,SUM(A.TIME_DIFF)/2000 AS CNT 
+				   FROM  TBEB_ORGAN A,VWET_SEASON B,TBEB_RACE C
+				   WHERE A.STND_YEAR = B.STND_YEAR(+)
+				   AND   A.TMS = B.TMS(+)  
+				   AND   A.STND_YEAR = C.STND_YEAR
+				   AND   A.TMS = C.TMS
+				   AND   A.DAY_ORD = C.DAY_ORD
+				   AND   A.RACE_NO = C.RACE_NO
+				   AND   C.RACE_STTS_CD = '001' 
+				   AND   A.RANK IN( 2,3)
+				   GROUP BY A.STND_YEAR,B.SEASON,A.TMS,A.DAY_ORD,A.RACE_NO
+				  	)	
+				GROUP BY STND_YEAR,SEASON
+				------------------------------------------------------------------------------END
+			) WHERE STND_YEAR BETWEEN ? - 2 AND ?
+		) B 
+		,TBTQ_PART_CD C
+		WHERE A.CD = B.CD(+)	
+		AND   A.PART_CD = C.PART_CD
+		AND   A.USE_YN = 'Y' 
+       ]]>
+   </query>
+</queryMap>

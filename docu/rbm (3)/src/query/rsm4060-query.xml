@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4060(지점입금액)">
+    <query id="rsm4060_s02" desc="일자별파일정보" fetchSize="10">
+        <![CDATA[
+			 SELECT /* rsm4060_s02 */
+			        AA.STND_YEAR, -- 기준년도
+			        AA.RACE_DAY,	-- 경주일
+			        AA.RACE_DAY_DESC,	-- 경주일 표현			        
+			        AA.MEET_GUBUN,	-- 경륜 경정 구분 코드
+			        AA.MEET_DESC,	-- 경륜 경정 구분 명
+			        AA.MEET_CD,		-- LIS 경주 구분 코드
+			        AA.DT,			-- 날짜
+			        AA.FILE_LOCAL_PATH,	-- 로컬 파일            	
+			        AA.FILE_PATH, -- 서버 파일 경로		        
+			        AA.FILE_NM, 	-- 파일 이름
+			        AA.FILE_CD,     -- 파일 존재 구분 코드		        
+			        BB.CD_NM        -- 파일 존재 구분
+			FROM
+			(      
+			       SELECT 
+				        A.STND_YEAR, -- 기준년도
+				        A.RACE_DAY,	-- 경주일
+				        A.RACE_DAY_DESC,	-- 경주일 표현			        
+				        A.MEET_GUBUN,	-- 경륜 경정 구분 코드
+				        A.MEET_DESC,	-- 경륜 경정 구분 명
+				        B.MEET_CD,		-- LIS 경주 구분 코드
+				        B.DT,			-- 날짜
+				        '' AS FILE_LOCAL_PATH,	-- 로컬 파일            
+				        B.FILE_PATH, -- 서버 파일 경로		        
+				        B.FILE_NM, 	-- 파일 이름
+				        DECODE(B.FILE_NM,'','002','001') AS FILE_CD		        		        
+				 FROM
+				(    
+				        SELECT  
+							        STND_YEAR, -- 기준년도
+							        RACE_DAY,	-- 경주일
+							        MAX(RACE_DAY_DESC) RACE_DAY_DESC,	-- 경주일 표현			        
+							        MEET_GUBUN,	-- 경륜 경정 구분 코드
+							        MEET_DESC	-- 경륜 경정 구분 명
+							        
+							FROM
+							(        
+							SELECT  STND_YEAR,
+							        RACE_DAY,
+							        TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') AS RACE_DAY_DESC,
+							        MEET_CD,
+							        DECODE(MEET_CD,'003','003','001') AS MEET_GUBUN,
+							        DECODE(MEET_CD,'003','경정','경륜') AS MEET_DESC,
+							        TMS, 
+							        DAY_ORD
+							  FROM  VW_SDL_INFO        			-- 경주일 정보
+							 WHERE  1=1
+							   AND  STND_YEAR   = ?           --조건  0:STND_YEAR 기준년도
+							  UNION ALL
+                             SELECT STND_YEAR,
+                                    STND_YEAR || DT AS RACE_DAY,
+                                    TO_CHAR(TO_DATE( STND_YEAR || DT,'YYYYMMDD'),'YYYY-MM-DD') AS RACE_DAY_DESC,
+                                    '999' MEET_CD,
+                                    '999' AS MEET_GUBUN,
+                                    '평일' AS MEET_DESC,
+                                    0 TMS, 
+                                    0 DAY_ORD
+                              FROM  TBRD_LIS_FILE                   -- 경주일 정보
+                             WHERE  1=1
+                               AND  MEET_CD='999'
+                               AND  STND_YEAR   = ?            --조건  0:STND_YEAR 기준년도
+                               GROUP BY STND_YEAR,DT
+							)
+							GROUP BY STND_YEAR,
+							        RACE_DAY,
+							        MEET_GUBUN,
+							        MEET_DESC  
+						   ORDER BY RACE_DAY DESC      
+				)A,
+				(
+				SELECT MEET_CD,
+				       STND_YEAR,
+				       DT,
+				       (STND_YEAR||DT) AS RACE_DAY,
+				       FILE_PATH, FILE_NM
+				  FROM TBRD_LIS_FILE 
+				 WHERE 1=1
+				   AND STND_YEAR   = ?           --조건  0:STND_YEAR 기준년도
+				   GROUP BY MEET_CD,STND_YEAR,DT, FILE_PATH, FILE_NM
+				)B
+				WHERE 1=1
+				AND A.RACE_DAY=B.RACE_DAY(+)
+				AND A.RACE_DAY >='20110309'
+				ORDER BY RACE_DAY DESC
+		)AA,TBRK_SPEC_CD BB  --상세코드		
+		WHERE 	1=1
+		AND  BB.GRP_CD = '074' 
+		AND  AA.FILE_CD = BB.CD
+		ORDER BY RACE_DAY DESC
+        ]]>
+
+    </query>   
+    
+    
+</queryMap>

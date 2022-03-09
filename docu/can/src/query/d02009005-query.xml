@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_plc_list_mngr(지역별접수현황)">
+
+    <query id="tbdb_plc_list_fb001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			SELECT CD_NM AS RACER_PERIO_NO
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC	
+		]]>
+    </query>
+    <query id="tbdb_plc_list_fb010" desc="응시원서접수현황 조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+	 			'총 ' || TOT || '명' AS TOT
+	  			,J1 || ' (' || P1 || '%)' AS J1
+	  			,J2 || ' (' || P2 || '%)' AS J2
+			FROM(	  
+				SELECT
+					COUNT(*) AS TOT
+					,SUM(CASE WHEN JOIN_PATH='001' THEN 1 ELSE 0 END) J1
+					,ROUND((SUM(CASE WHEN JOIN_PATH='001' THEN 1 ELSE 0 END)/COUNT(*))*100, 0) AS P1
+					,SUM(CASE WHEN JOIN_PATH='002' THEN 1 ELSE 0 END) J2
+					,ROUND((SUM(CASE WHEN JOIN_PATH='002' THEN 1 ELSE 0 END)/COUNT(*))*100, 0) AS P2
+				FROM TBDB_SELT_REPT
+				WHERE DEL_YN='N' AND 
+				RACER_PERIO_NO=?
+				)	
+		]]>
+    </query> 
+    <query id="tbdb_plc_list_fb011" desc="선수/비선수 출신 분석 조회" fetchSize="10">
+    <![CDATA[
+		SELECT
+	  		'총 ' || TOT || '명' AS TOT
+	  		,J1 || ' (' || P1 || '%)' AS J1
+	  		,J2 || ' (' || P2 || '%)' AS J2
+		FROM(	  
+			SELECT
+				COUNT(*) AS TOT
+				,SUM(CASE WHEN RACER_TPE='001' THEN 1 ELSE 0 END) J1
+				,ROUND((SUM(CASE WHEN RACER_TPE='001' THEN 1 ELSE 0 END)/COUNT(*))*100, 0) AS P1
+				,SUM(CASE WHEN RACER_TPE NOT IN('001') THEN 1 ELSE 0 END) J2
+				,ROUND((SUM(CASE WHEN RACER_TPE NOT IN('001') THEN 1 ELSE 0 END)/COUNT(*))*100, 0) AS P2
+			FROM TBDB_SELT_REPT
+			WHERE DEL_YN='N' AND 
+			RACER_PERIO_NO=?
+			)
+    ]]>
+    </query> 
+    <query id="tbdb_plc_list_fb012" desc="연령별 분석 조회" fetchSize="10">
+    <![CDATA[
+		SELECT
+			'총 ' || TOT || '명' AS TOT
+	  		,A1 || ' (' || P1 || '%)' AS A1
+	  		,A2 || ' (' || P2 || '%)' AS A2
+	  		,A3 || ' (' || P3 || '%)' AS A3
+	  		,A4 || ' (' || P4 || '%)' AS A4
+	  		,A5 || ' (' || P5 || '%)' AS A5
+	  		,AVG || '세' AS AVG  	  	  
+		FROM(	
+			SELECT 
+				COUNT(AGE) AS TOT 
+	   			,SUM(CASE WHEN AGE - MAN <= 21 THEN 1 ELSE 0 END) AS A1
+	   			,ROUND((SUM(CASE WHEN AGE - MAN <= 21 THEN 1 ELSE 0 END)/COUNT(AGE))*100, 0) AS P1
+	   			,SUM(CASE WHEN AGE - MAN >=22 AND AGE - MAN <= 24 THEN 1 ELSE 0 END) AS A2
+	   			,ROUND((SUM(CASE WHEN AGE - MAN >=22 AND AGE - MAN <= 24 THEN 1 ELSE 0 END)/COUNT(AGE))*100, 0) AS P2
+	   			,SUM(CASE WHEN AGE - MAN >=25 AND AGE - MAN <= 27 THEN 1 ELSE 0 END) AS A3
+	   			,ROUND((SUM(CASE WHEN AGE - MAN >=25 AND AGE - MAN <= 27 THEN 1 ELSE 0 END)/COUNT(AGE))*100, 0) AS P3
+	   			,SUM(CASE WHEN AGE - MAN >=28 AND AGE - MAN <= 30 THEN 1 ELSE 0 END) AS A4 
+	   			,ROUND((SUM(CASE WHEN AGE - MAN >=28 AND AGE - MAN <= 30 THEN 1 ELSE 0 END)/COUNT(AGE))*100, 0) AS P4
+	   			,SUM(CASE WHEN AGE - MAN >= 31 THEN 1 ELSE 0 END) AS A5
+	   			,ROUND((SUM(CASE WHEN AGE - MAN >= 31 THEN 1 ELSE 0 END)/COUNT(AGE))*100, 0) AS P5
+	   			,ROUND(SUM(AGE - MAN)/COUNT(AGE),1) AS AVG
+			FROM(	
+				SELECT FC_DEC(RES_NO) RES_NO,(SELECT RMK-1 FROM TBDA_SPEC_CD
+				WHERE GRP_CD = 'A10001'
+				AND CD_NM = ?) - SUBSTR(BIRTH_DT,1,4) AS AGE, (CASE WHEN TO_CHAR(SYSDATE, 'MMDD') > TO_CHAR(TO_DATE(SUBSTR(BIRTH_DT,5,4),'MMDD'),'MMDD') THEN 0 ELSE 1 END) AS MAN FROM TBDB_SELT_REPT
+				WHERE DEL_YN='N' AND RACER_PERIO_NO=?
+				)
+			)
+    ]]>
+    </query>
+    <query id="tbdb_plc_list_fb013" desc="학력별 분석 조회" fetchSize="10">
+    <![CDATA[
+		SELECT 
+		    COUNT(*) AS TOT
+		    ,SUM(CASE WHEN LAST_SCHL = '001' AND SCHL_CARR_STAT = '001' THEN 1 ELSE 0 END) AS E3
+		    ,SUM(CASE WHEN LAST_SCHL = '001' AND SCHL_CARR_STAT = '004' THEN 1 ELSE 0 END) AS E2
+		    ,SUM(CASE WHEN LAST_SCHL = '001' AND SCHL_CARR_STAT IN ('003', '002') THEN 1 ELSE 0 END) AS E1
+		    ,SUM(CASE WHEN LAST_SCHL = '002' AND SCHL_CARR_STAT = '001' THEN 1 ELSE 0 END) AS M3
+	   		,SUM(CASE WHEN LAST_SCHL = '002' AND SCHL_CARR_STAT = '004' THEN 1 ELSE 0 END) AS M2
+	   		,SUM(CASE WHEN LAST_SCHL = '002' AND SCHL_CARR_STAT IN ('003', '002') THEN 1 ELSE 0 END) AS M1
+	   		,SUM(CASE WHEN LAST_SCHL = '003' AND SCHL_CARR_STAT = '001' THEN 1 ELSE 0 END) AS H3
+	   		,SUM(CASE WHEN LAST_SCHL = '003' AND SCHL_CARR_STAT = '004' THEN 1 ELSE 0 END) AS H2
+	   		,SUM(CASE WHEN LAST_SCHL = '003' AND SCHL_CARR_STAT IN ('003', '002') THEN 1 ELSE 0 END) AS H1
+	   		,SUM(CASE WHEN LAST_SCHL = '004' AND SCHL_CARR_STAT = '001' THEN 1 ELSE 0 END) AS C3
+	   		,SUM(CASE WHEN LAST_SCHL = '004' AND SCHL_CARR_STAT = '004' THEN 1 ELSE 0 END) AS C2
+	   		,SUM(CASE WHEN LAST_SCHL = '004' AND SCHL_CARR_STAT IN ('003', '002') THEN 1 ELSE 0 END) AS C1	
+	   		,SUM(CASE WHEN LAST_SCHL = '005' AND SCHL_CARR_STAT = '001' THEN 1 ELSE 0 END) AS U3
+	   		,SUM(CASE WHEN LAST_SCHL = '005' AND SCHL_CARR_STAT = '004' THEN 1 ELSE 0 END) AS U2
+	   		,SUM(CASE WHEN LAST_SCHL = '005' AND SCHL_CARR_STAT IN ('003', '002') THEN 1 ELSE 0 END) AS U1	
+	   		,SUM(CASE WHEN LAST_SCHL = '006' AND SCHL_CARR_STAT = '001' THEN 1 ELSE 0 END) AS G3
+	   		,SUM(CASE WHEN LAST_SCHL = '006' AND SCHL_CARR_STAT = '004' THEN 1 ELSE 0 END) AS G2      	   
+	   		,SUM(CASE WHEN LAST_SCHL = '006' AND SCHL_CARR_STAT IN ('003', '002') THEN 1 ELSE 0 END) AS G1	
+		FROM TBDB_SELT_REPT
+		WHERE DEL_YN='N' AND RACER_PERIO_NO=?
+    ]]>
+    </query>     
+    <query id="tbdb_plc_list_fb014" desc="지역별 분석 조회" fetchSize="10">
+    <![CDATA[    
+    	SELECT 
+		   COUNT(ADDR) AS TOT
+		   ,SUM(CASE WHEN ADDR = '서울' THEN 1 ELSE 0 END) AS A1
+		   ,SUM(CASE WHEN ADDR = '부산' THEN 1 ELSE 0 END) AS A2		
+		   ,SUM(CASE WHEN ADDR = '대구' THEN 1 ELSE 0 END) AS A3	
+		   ,SUM(CASE WHEN ADDR = '대전' THEN 1 ELSE 0 END) AS A4	
+		   ,SUM(CASE WHEN ADDR = '광주' THEN 1 ELSE 0 END) AS A5	
+		   ,SUM(CASE WHEN ADDR = '인천' THEN 1 ELSE 0 END) AS A6	
+		   ,SUM(CASE WHEN ADDR = '경기' THEN 1 ELSE 0 END) AS A7
+	   	   ,SUM(CASE WHEN ADDR = '강원' THEN 1 ELSE 0 END) AS A8	
+		   ,SUM(CASE WHEN ADDR = '충북' THEN 1 ELSE 0 END) AS A9	
+		   ,SUM(CASE WHEN ADDR = '충남' THEN 1 ELSE 0 END) AS A10
+		   ,SUM(CASE WHEN ADDR = '전북' THEN 1 ELSE 0 END) AS A11
+		   ,SUM(CASE WHEN ADDR = '전남' THEN 1 ELSE 0 END) AS A12		
+		   ,SUM(CASE WHEN ADDR = '경북' THEN 1 ELSE 0 END) AS A13	
+		   ,SUM(CASE WHEN ADDR = '경남' THEN 1 ELSE 0 END) AS A14	
+		   ,SUM(CASE WHEN ADDR = '제주' THEN 1 ELSE 0 END) AS A15	
+		FROM (
+			SELECT SUBSTR(ADDR,0,2) AS ADDR
+			FROM TBDB_SELT_REPT
+			WHERE DEL_YN='N' AND RACER_PERIO_NO=?
+			)	   	
+    ]]>
+    </query>        
+    <query id="tbdb_plc_list_fb002" desc="선발접수자 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+					ADDR,RACER_TPE
+			FROM
+				    TBDB_SELT_REPT
+			WHERE	
+					RACER_PERIO_NO = ?
+			]]>
+    </query> 
+    <query id="tbdb_plc_list_fb003" desc="선발접수자 조회2" fetchSize="10">
+        <![CDATA[    
+			SELECT PLC, TO_CHAR(PER_NUM/(SELECT COUNT(*) FROM TBDB_SELT_REPT )*100,'990.00') AS RATE, PER_NUM,(RACER ||'/'||NO_RACER) AS GBN FROM (	
+			     SELECT SUBSTR(ADDR,0,2)AS PLC
+						,COUNT(SUBSTR(ADDR,0,2)) AS PER_NUM
+						,SUM(CASE WHEN RACER_TPE ='001' THEN 1 ELSE 0 END) AS RACER
+						,SUM(CASE WHEN (RACER_TPE <>'001' OR RACER_TPE IS NULL ) THEN 1 ELSE 0 END) AS NO_RACER 
+						FROM TBDB_SELT_REPT
+				WHERE RACER_PERIO_NO = ?
+				GROUP BY  SUBSTR(ADDR,0,2)          
+			)
+		]]>
+    </query> 
+    <query id="tbdb_plc_list_fb004" desc="선수 비율  조회" fetchSize="10">
+        <![CDATA[ 
+   	 		SELECT	TO_CHAR(RACER/(RACER+NO_RACER )*100,'990.00') AS RACER_RATE	, TO_CHAR(NO_RACER/(RACER+NO_RACER )*100,'990.00') AS NO_RACER_RATE	
+   	 		FROM(
+				SELECT SUM(CASE WHEN RACER_TPE ='001' THEN 1 ELSE 0 END) AS RACER
+					,SUM(CASE WHEN (RACER_TPE <>'001' OR RACER_TPE IS NULL ) THEN 1 ELSE 0 END) AS NO_RACER 
+				FROM TBDB_SELT_REPT 
+				WHERE RACER_PERIO_NO = ?
+				) 
+    ]]>
+    </query> 		
+</queryMap>

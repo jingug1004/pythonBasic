@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="종합집계">
+    <query id="tbdb_rec_tot_fb001" desc="조회" fetchSize="10">
+        <![CDATA[
+	         
+		]]>
+    </query>
+    
+    <query id="tbdb_rec_tot_ib001" desc="년도별 집계자료" fetchSize="10">
+     <![CDATA[
+	          BEGIN	
+	           
+	           DELETE 
+	           FROM TBDB_REC_TOT
+	           WHERE RACE_YY = ? ;
+	           
+	           
+			    INSERT INTO TBDB_REC_TOT (RACE_YY,CAND_NO,CAND_NM,BF_ROUND,UPDT_DTM)  
+			    SELECT ?, CAND_NO,  NM_KOR, NULL, SYSDATE 
+			    FROM TBDB_CAND_IDENT 
+			    WHERE CAND_NO LIKE  ? || '%' 
+			    AND GRDU_GBN  IN('001','002','003', NULL)
+				AND DEL_YN = 'N';
+	           
+		      END;	
+		]]>
+     </query>
+    
+    <query id="tbdb_rec_tot_ub001" desc="출주횟수 집계자료" fetchSize="10">
+    <![CDATA[
+	         
+	         UPDATE TBDB_REC_TOT A
+				SET  A.RACE_CNT = (
+				                SELECT NVL(COUNT(ROUND),0) ROUND
+				                FROM TBDB_RACE_POINT  
+				                WHERE RACE_YY  = ?
+				                AND   ROUND   >= ?
+				                AND   ROUND   <= ?
+				                AND  RACE_YY = A.RACE_YY
+				                AND  CAND_NO = A.CAND_NO) 
+				WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+					            			       FROM TBDB_RACE_POINT  
+					            			      WHERE RACE_YY  = ?
+					                                AND ROUND   >= ?
+					                                AND ROUND   <= ?
+							 )  
+		]]>
+   
+    </query>
+    
+     <query id="tbdb_rec_tot_ub002" desc="착순/낙차 집계자료" fetchSize="10">
+    <![CDATA[
+	         
+	         UPDATE  TBDB_REC_TOT A
+				SET  ( A.CAND_NO
+				      ,A.PRE1_CNT
+				      ,A.BRK1_CNT
+				      ,A.PAS1_CNT
+				      ,A.MRK1_CNT
+				      ,A.PRE2_CNT
+				      ,A.BRK2_CNT
+				      ,A.PAS2_CNT
+				      ,A.MRK2_CNT
+				      ,A.PRE3_CNT
+				      ,A.BRK3_CNT
+				      ,A.PAS3_CNT
+				      ,A.MRK3_CNT
+				      ,A.RANK1_CNT
+				      ,A.RANK2_CNT
+				      ,A.RANK3_CNT
+				      ,A.RANK4_CNT
+				      ,A.RANK5_CNT
+				      ,A.RANK6_CNT
+				      ,A.RANK7_CNT
+				      ,A.DOWN_GOLIN_CNT
+				      ,A.DOWN_CNT
+				      ,A.WRONG_CNT
+				      ,A.WRONG_GOLIN_CNT
+				      ) = (
+			               SELECT   CAND_NO                                CAND_NO
+			                        ,SUM(DECODE(RANK||STRATEGY,'1001',1,0)) PRE1_CNT  		--선행1착
+			                        ,SUM(DECODE(RANK||STRATEGY,'1002',1,0)) BRK1_CNT 		--추입1착
+			                        ,SUM(DECODE(RANK||STRATEGY,'1003',1,0)) PAS1_CNT 		--젖히기1착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'1004',1,0)) MRK1_CNT 		--마크1착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2001',1,0)) PRE2_CNT 		--선행2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2002',1,0)) BRK2_CNT 		--추입2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2003',1,0)) PAS2_CNT 		--젖히기2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2004',1,0)) MRK2_CNT 		--마크2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3001',1,0)) PRE3_CNT		-- 선행3착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3002',1,0)) BRK3_CNT 		--추입3착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3003',1,0)) PAS3_CNT 		--젖히기3착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3004',1,0)) MRK3_CNT 		--마크3착회수
+			                        ,SUM(DECODE(RANK,1,1,0))  RANK1_CNT  					--1착회수
+			                        ,SUM(DECODE(RANK,2,1,0))  RANK2_CNT  					--2착회수
+			                        ,SUM(DECODE(RANK,3,1,0))  RANK3_CNT 					--3착회수
+			                        ,SUM(DECODE(RANK,4,1,0))  RANK4_CNT  					--4착회수
+			                        ,SUM(DECODE(RANK,5,1,0))  RANK5_CNT  					--5착회수
+			                        ,SUM(DECODE(RANK,6,1,0))  RANK6_CNT  					--6착회수
+			                        ,SUM(DECODE(RANK,7,1,0))  RANK7_CNT  					--7착회수
+			                        ,SUM(CASE WHEN ABS_GBN =    '001'    THEN 1 ELSE 0 END) DOWN_GOLIN_CNT 	--낙차골인회수
+			                        ,SUM(CASE WHEN ABS_GBN >    '001'    THEN 1 ELSE 0 END) DOWN_CNT  		--낙차포기회수
+			                        ,SUM(CASE WHEN ABS_GBN =    '001'    THEN 1 ELSE 0 END) WRONG_CNT 		--고장포기회수
+			                        ,SUM(CASE WHEN ABS_GBN >    '001'    THEN 1 ELSE 0 END) WRONG_GOLIN_CNT --고장골인회수
+			                FROM TBDB_RACE_REC_DETL 
+			                WHERE RACE_YY = ?
+			                  AND ROUND  >= ?
+			                  AND ROUND  <= ?
+			                  AND RACE_YY   = A.RACE_YY
+			                  AND CAND_NO   = A.CAND_NO
+			                GROUP BY CAND_NO 
+                             )
+      WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+				            			       FROM TBDB_RACE_REC_DETL   
+				            			      WHERE RACE_YY  = ?
+				                                AND ROUND   >= ?
+				                                AND ROUND   <= ?)
+	         
+		]]>
+   
+    </query>
+    <query id="tbdb_rec_tot_ub003" desc="승률/연대율 집계자료" fetchSize="10">
+    <![CDATA[
+	         
+	         UPDATE TBDB_REC_TOT A
+                SET  (A.WIN_RATE,HIGH_RANK_RATE) = (
+                               SELECT ROUND(SUM(DECODE(RANK,1,1,0)) / A.RACE_CNT,3)
+                                     ,ROUND(SUM(DECODE(RANK,1,1,2,1,0)) / A.RACE_CNT,3)
+                                FROM TBDB_RACE_REC_DETL 
+                                WHERE RACE_YY  = ?
+                                AND   ROUND   >= ?
+                                AND   ROUND   <= ?
+                                AND  RACE_YY = A.RACE_YY
+                                AND  CAND_NO = A.CAND_NO
+                                AND  A.RACE_CNT > 0) 
+                WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+	                                               FROM TBDB_RACE_REC_DETL
+	                                              WHERE RACE_YY  = ?
+	                                                AND ROUND   >= ?
+					                                AND ROUND   <= ?)
+		]]>
+   
+    </query>
+    
+    <query id="tbdb_rec_tot_ub004" desc="득점/총순위계산" fetchSize="10">
+    <![CDATA[
+	       
+	       BEGIN 
+	          
+	          UPDATE TBDB_REC_TOT A
+				SET  A.YY_AVG_RACE_SCR = (
+				              SELECT  ROUND(SUM(POINT_MARKS)/SUM(DAY_CNT),3) 
+								FROM  TBDB_RACE_POINT 
+								WHERE RACE_YY  = ? 
+								AND     ROUND >= ?
+								AND     ROUND <= ?
+								AND     DAY_CNT >= 1
+				                AND  RACE_YY = A.RACE_YY
+				                AND  CAND_NO = A.CAND_NO) 
+				WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+					            			        FROM TBDB_RACE_POINT  
+					            			        WHERE RACE_YY  = ?
+					                                AND ROUND   >= ?
+					                                AND ROUND   <= ? );
+			  
+			  UPDATE TBDB_REC_TOT A
+				SET  (A.TOT_RANK,A.GRD_TOT_RANK)  = (
+                              SELECT  REC_TOT.TOT_RANK
+                                     ,REC_TOT.GRD_TOT_RANK 
+                                 FROM 
+                                     ( SELECT  RACE_YY
+                                              ,CAND_NO
+                                              ,DENSE_RANK() OVER (ORDER BY NVL(YY_AVG_RACE_SCR,0) DESC) 				  TOT_RANK                 
+                                              ,DENSE_RANK() OVER (PARTITION BY GRD ORDER BY NVL(YY_AVG_RACE_SCR,0) DESC) GRD_TOT_RANK
+                                         FROM TBDB_REC_TOT
+        								WHERE  RACE_YY  = ?) REC_TOT
+                               WHERE REC_TOT.RACE_YY = A.RACE_YY
+                                 AND REC_TOT.CAND_NO = A.CAND_NO
+                      )
+               WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+					            			       FROM TBDB_REC_TOT
+					            			      WHERE RACE_YY  =  ?);	                                
+		   END;				                                
+		]]>
+   
+    </query>
+    <query id="tbdb_rec_tot_ub005" desc="위반행위" fetchSize="10">
+    <![CDATA[
+        
+         UPDATE TBDB_REC_TOT C
+				SET  (C.ELIM1_CNT,C.ELIM2_CNT,C.ELIM3_CNT) = (
+				                SELECT  SUM(DECODE(B.VIOL_CD,'011',1,0))
+								       ,SUM(DECODE(B.VIOL_CD,'021',1,0))
+								       ,SUM(DECODE(B.VIOL_CD,'031',1,0)) 
+								FROM TBDB_RACE_REC_MST A, TBDB_VIOL_ACT B
+								WHERE A.RACE_YY  = B.RACE_YY
+								  AND A.ROUND    = B.ROUND
+								  AND A.RACE_NO  = B.RACE_NO
+								  AND A.RACE_STAT= '001'
+								  AND B.RACE_YY  = C.RACE_YY
+								  AND B.CAND_NO  = C.CAND_NO
+								  AND A.RACE_YY  = ?
+								  AND A.ROUND   >= ? 
+								  AND A.ROUND   <= ? ) 
+				WHERE (C.RACE_YY||C.CAND_NO) IN  (SELECT  DISTINCT(B.RACE_YY||B.CAND_NO)
+					            			       FROM TBDB_RACE_REC_MST A, TBDB_VIOL_ACT B
+													WHERE A.RACE_YY  = B.RACE_YY
+													  AND A.ROUND    = B.ROUND
+													  AND A.RACE_NO  = B.RACE_NO
+													  AND A.RACE_STAT= '001'
+													  AND A.RACE_YY  = ?
+													  AND A.ROUND   >= ?
+													  AND A.ROUND   <= ?
+							                       )
+    ]]>
+   
+    </query>
+
+    <query id="tbdb_rec_tot_ub006" desc="선두유도횟수" fetchSize="10">
+    <![CDATA[
+    
+             UPDATE TBDB_REC_TOT A
+				            SET  A.LEAD_INDUCE_CNT = (  
+            				                            SELECT COUNT(CAND_NO) FROM(
+														SELECT DISTINCT ROUND,CAND_NO
+											            FROM TBDB_INDUCE_DCSN 
+														 ) 
+														  WHERE RACE_YY  =  ?
+														  AND   ROUND >=  ?
+														  AND   ROUND <=  ?
+											              AND   RACE_YY = A.RACE_YY
+											              AND   CAND_NO = A.CAND_NO  ) 
+				           WHERE (A.RACE_YY,A.CAND_NO) IN  ( SELECT RACE_YY,CAND_NO
+            					            			       FROM TBDB_INDUCE_DCSN 
+            					            			      WHERE RACE_YY  = ?
+            					                                AND ROUND   >= ?
+            					                                AND ROUND   <= ?
+            					                             )  
+     ]]>
+    </query>   
+    
+    <query id="tbdb_rec_tot_ub007" desc="기어배수" fetchSize="10">
+    <![CDATA[
+             	 UPDATE TBDB_REC_TOT REC_TOT
+				SET  REC_TOT.GEAR_RATE = (  
+				                  SELECT A.GEAR_RATE
+								  FROM TBDB_GROUP_ORG A,
+								        (  SELECT MAX(ROUND) ROUND
+								                 ,RACE_YY    RACE_YY
+								                 ,CAND_NO    CAND_NO
+								           FROM TBDB_GROUP_ORG
+								          WHERE RACE_YY = ?
+								            AND ROUND   >=?
+								            AND ROUND   <=?
+								            GROUP BY  RACE_YY,CAND_NO ) B
+								   WHERE A.RACE_YY = B.RACE_YY
+								     AND A.ROUND   = B.ROUND 
+								     AND A.CAND_NO = B.CAND_NO
+						             AND A.RACE_YY = REC_TOT.RACE_YY
+						             AND A.CAND_NO = REC_TOT.CAND_NO) 
+				WHERE (REC_TOT.RACE_YY,REC_TOT.CAND_NO) IN (SELECT MAX(RACE_YY)  
+													              ,CAND_NO 
+													          FROM TBDB_GROUP_ORG
+													          WHERE RACE_YY  = ?
+													            AND ROUND   >= ?
+													            AND ROUND   <= ?
+													            GROUP BY  CAND_NO  
+							                               )
+     
+    
+     ]]>
+    </query>
+    
+    <query id="tbdb_rec_tot_ub008" desc="전회차" fetchSize="10">
+    <![CDATA[
+              
+              UPDATE TBDB_REC_TOT A
+   				SET  A.BF_ROUND = (  
+                            SELECT  MAX(ROUND)
+                              FROM TBDB_RACE_POINT
+                              WHERE RACE_YY = ?
+                               AND  RACE_YY = A.RACE_YY
+                               AND  CAND_NO = A.CAND_NO
+                        )  
+				WHERE (A.RACE_YY||A.CAND_NO) IN (   SELECT DISTINCT(RACE_YY || CAND_NO ) 
+				                                      FROM TBDB_RACE_POINT
+				                                     WHERE RACE_YY = ?
+							      				 ) 
+     ]]>
+    </query>
+        <query id="tbdb_rec_tot_ub009" desc="종합" fetchSize="10">
+    <![CDATA[
+    
+	    BEGIN	     
+--출주횟수
+          UPDATE TBDB_REC_TOT A
+				SET  A.RACE_CNT = (
+				                SELECT NVL(COUNT(ROUND),0) ROUND
+				                FROM TBDB_RACE_POINT  
+				                WHERE RACE_YY  = ?
+				                AND   ROUND   >= ?
+				                AND   ROUND   <= ?
+				                AND  RACE_YY = A.RACE_YY
+				                AND  CAND_NO = A.CAND_NO) 
+				WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+					            			       FROM TBDB_RACE_POINT  
+					            			      WHERE RACE_YY  = ?
+					                                AND ROUND   >= ?
+					                                AND ROUND   <= ?
+							 ) ; 
+--	착순/낙차 집계자료						 
+		 UPDATE  TBDB_REC_TOT A
+				SET  ( A.CAND_NO
+				      ,A.PRE1_CNT
+				      ,A.BRK1_CNT
+				      ,A.PAS1_CNT
+				      ,A.MRK1_CNT
+				      ,A.PRE2_CNT
+				      ,A.BRK2_CNT
+				      ,A.PAS2_CNT
+				      ,A.MRK2_CNT
+				      ,A.PRE3_CNT
+				      ,A.BRK3_CNT
+				      ,A.PAS3_CNT
+				      ,A.MRK3_CNT
+				      ,A.RANK1_CNT
+				      ,A.RANK2_CNT
+				      ,A.RANK3_CNT
+				      ,A.RANK4_CNT
+				      ,A.RANK5_CNT
+				      ,A.RANK6_CNT
+				      ,A.RANK7_CNT
+				      ,A.DOWN_GOLIN_CNT
+				      ,A.DOWN_CNT
+				      ,A.WRONG_CNT
+				      ,A.WRONG_GOLIN_CNT
+				      ) = (
+			               SELECT   CAND_NO                                CAND_NO
+			                        ,SUM(DECODE(RANK||STRATEGY,'1001',1,0)) PRE1_CNT  		--선행1착
+			                        ,SUM(DECODE(RANK||STRATEGY,'1002',1,0)) BRK1_CNT 		--추입1착
+			                        ,SUM(DECODE(RANK||STRATEGY,'1003',1,0)) PAS1_CNT 		--젖히기1착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'1004',1,0)) MRK1_CNT 		--마크1착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2001',1,0)) PRE2_CNT 		--선행2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2002',1,0)) BRK2_CNT 		--추입2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2003',1,0)) PAS2_CNT 		--젖히기2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'2004',1,0)) MRK2_CNT 		--마크2착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3001',1,0)) PRE3_CNT		-- 선행3착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3002',1,0)) BRK3_CNT 		--추입3착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3003',1,0)) PAS3_CNT 		--젖히기3착회수
+			                        ,SUM(DECODE(RANK||STRATEGY,'3004',1,0)) MRK3_CNT 		--마크3착회수
+			                        ,SUM(DECODE(RANK,1,1,0))  RANK1_CNT  					--1착회수
+			                        ,SUM(DECODE(RANK,2,1,0))  RANK2_CNT  					--2착회수
+			                        ,SUM(DECODE(RANK,3,1,0))  RANK3_CNT 					--3착회수
+			                        ,SUM(DECODE(RANK,4,1,0))  RANK4_CNT  					--4착회수
+			                        ,SUM(DECODE(RANK,5,1,0))  RANK5_CNT  					--5착회수
+			                        ,SUM(DECODE(RANK,6,1,0))  RANK6_CNT  					--6착회수
+			                        ,SUM(DECODE(RANK,7,1,0))  RANK7_CNT  					--7착회수
+			                        ,SUM(CASE WHEN ABS_GBN =    '001'    THEN 1 ELSE 0 END) DOWN_GOLIN_CNT 	--낙차골인회수
+			                        ,SUM(CASE WHEN ABS_GBN >    '001'    THEN 1 ELSE 0 END) DOWN_CNT  		--낙차포기회수
+			                        ,SUM(CASE WHEN ABS_GBN =    '001'    THEN 1 ELSE 0 END) WRONG_CNT 		--고장포기회수
+			                        ,SUM(CASE WHEN ABS_GBN >    '001'    THEN 1 ELSE 0 END) WRONG_GOLIN_CNT --고장골인회수
+			                FROM TBDB_RACE_REC_DETL 
+			                WHERE RACE_YY = ?
+			                  AND ROUND  >= ?
+			                  AND ROUND  <= ?
+			                  AND RACE_YY   = A.RACE_YY
+			                  AND CAND_NO   = A.CAND_NO
+			                GROUP BY CAND_NO 
+                             )
+      WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+				            			       FROM TBDB_RACE_REC_DETL   
+				            			      WHERE RACE_YY  = ?
+				                                AND ROUND   >= ?
+				                                AND ROUND   <= ?);
+	 --승률연대율 
+	   UPDATE TBDB_REC_TOT A
+                SET  (A.WIN_RATE,HIGH_RANK_RATE) = (
+                               SELECT ROUND(SUM(DECODE(RANK,1,1,0)) / A.RACE_CNT,3)
+                                     ,ROUND(SUM(DECODE(RANK,1,1,2,1,0)) / A.RACE_CNT,3)
+                                FROM TBDB_RACE_REC_DETL 
+                                WHERE RACE_YY  = ?
+                                AND   ROUND   >= ?
+                                AND   ROUND   <= ?
+                                AND  RACE_YY = A.RACE_YY
+                                AND  CAND_NO = A.CAND_NO
+                                AND  A.RACE_CNT > 0) 
+                WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+	                                               FROM TBDB_RACE_REC_DETL
+	                                              WHERE RACE_YY  = ?
+	                                                AND ROUND   >= ?
+					                                AND ROUND   <= ?);
+	--위반행위				                                
+		 UPDATE TBDB_REC_TOT C
+				SET  (C.ELIM1_CNT,C.ELIM2_CNT,C.ELIM3_CNT) = (
+				                SELECT  SUM(DECODE(B.VIOL_CD,'011',1,0))
+								       ,SUM(DECODE(B.VIOL_CD,'021',1,0))
+								       ,SUM(DECODE(B.VIOL_CD,'031',1,0)) 
+								FROM TBDB_RACE_REC_MST A, TBDB_VIOL_ACT B
+								WHERE A.RACE_YY  = B.RACE_YY
+								  AND A.ROUND    = B.ROUND
+								  AND A.RACE_NO  = B.RACE_NO
+								  AND A.RACE_STAT= '001'
+								  AND B.RACE_YY  = C.RACE_YY
+								  AND B.CAND_NO  = C.CAND_NO
+								  AND A.RACE_YY  = ?
+								  AND A.ROUND   >= ? 
+								  AND A.ROUND   <= ? ) 
+				WHERE (C.RACE_YY||C.CAND_NO) IN  (SELECT  DISTINCT(B.RACE_YY||B.CAND_NO)
+					            			       FROM TBDB_RACE_REC_MST A, TBDB_VIOL_ACT B
+													WHERE A.RACE_YY  = B.RACE_YY
+													  AND A.ROUND    = B.ROUND
+													  AND A.RACE_NO  = B.RACE_NO
+													  AND A.RACE_STAT= '001'
+													  AND A.RACE_YY  = ?
+													  AND A.ROUND   >= ?
+													  AND A.ROUND   <= ?
+							                       );	
+   --선두유도원
+   UPDATE TBDB_REC_TOT A
+				            SET  A.LEAD_INDUCE_CNT = (  
+            				                            SELECT COUNT(CAND_NO) FROM(
+														SELECT DISTINCT ROUND,CAND_NO
+											            FROM TBDB_INDUCE_DCSN 
+														 ) 
+														  WHERE RACE_YY  =  ?
+														  AND   ROUND >=  ?
+														  AND   ROUND <=  ?
+											              AND   RACE_YY = A.RACE_YY
+											              AND   CAND_NO = A.CAND_NO  ) 
+				           WHERE (A.RACE_YY,A.CAND_NO) IN  ( SELECT RACE_YY,CAND_NO
+            					            			       FROM TBDB_INDUCE_DCSN 
+            					            			      WHERE RACE_YY  = ?
+            					                                AND ROUND   >= ?
+            					                                AND ROUND   <= ?
+            					                             );
+            					                             
+   --기어배수							        
+		 	 UPDATE TBDB_REC_TOT REC_TOT
+				SET  REC_TOT.GEAR_RATE = (  
+				                  SELECT A.GEAR_RATE
+								  FROM TBDB_GROUP_ORG A,
+								        (  SELECT MAX(ROUND) ROUND
+								                 ,RACE_YY    RACE_YY
+								                 ,CAND_NO    CAND_NO
+								           FROM TBDB_GROUP_ORG
+								          WHERE RACE_YY = ?
+								            AND ROUND   >=?
+								            AND ROUND   <=?
+								            GROUP BY  RACE_YY,CAND_NO ) B
+								   WHERE A.RACE_YY = B.RACE_YY
+								     AND A.ROUND   = B.ROUND 
+								     AND A.CAND_NO = B.CAND_NO
+						             AND A.RACE_YY = REC_TOT.RACE_YY
+						             AND A.CAND_NO = REC_TOT.CAND_NO) 
+				WHERE (REC_TOT.RACE_YY,REC_TOT.CAND_NO) IN (SELECT MAX(RACE_YY)  
+													              ,CAND_NO 
+													          FROM TBDB_GROUP_ORG
+													          WHERE RACE_YY  = ?
+													            AND ROUND   >= ?
+													            AND ROUND   <= ?
+													            GROUP BY  CAND_NO  
+							                               );
+--득점/총순위계산							                               		
+  UPDATE TBDB_REC_TOT A
+				SET  A.YY_AVG_RACE_SCR = (
+				              SELECT  ROUND(SUM(POINT_MARKS)/SUM(DAY_CNT),3) 
+								FROM  TBDB_RACE_POINT 
+								WHERE RACE_YY  = ? 
+								AND     ROUND >= ?
+								AND     ROUND <= ?
+								AND     DAY_CNT >= 1
+				                AND  RACE_YY = A.RACE_YY
+				                AND  CAND_NO = A.CAND_NO) 
+				WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+					            			       FROM TBDB_RACE_POINT  
+					            			      WHERE RACE_YY  = ?
+					                                AND ROUND   >= ?
+					                                AND ROUND   <= ? );
+			  
+			  UPDATE TBDB_REC_TOT A
+				SET  (A.TOT_RANK,A.GRD_TOT_RANK)  = (
+                              SELECT  REC_TOT.TOT_RANK
+                                     ,REC_TOT.GRD_TOT_RANK 
+                                 FROM 
+                                     ( SELECT  RACE_YY
+                                              ,CAND_NO
+                                              ,DENSE_RANK() OVER (ORDER BY NVL(YY_AVG_RACE_SCR,0) DESC) 				  TOT_RANK                 
+                                              ,DENSE_RANK() OVER (PARTITION BY GRD ORDER BY NVL(YY_AVG_RACE_SCR,0) DESC) GRD_TOT_RANK
+                                         FROM TBDB_REC_TOT
+        								WHERE  RACE_YY  = ?) REC_TOT
+                               WHERE REC_TOT.RACE_YY = A.RACE_YY
+                                 AND REC_TOT.CAND_NO = A.CAND_NO
+                      )
+               WHERE (A.RACE_YY,A.CAND_NO) IN  (SELECT RACE_YY,CAND_NO
+					            			       FROM TBDB_REC_TOT
+					            			      WHERE RACE_YY  =  ?);	 
+					            			      							                               
+  -- 전회차
+      UPDATE TBDB_REC_TOT A
+   				SET  A.BF_ROUND = (  
+                            SELECT  MAX(ROUND)
+                              FROM TBDB_RACE_POINT
+                              WHERE RACE_YY = ?
+                               AND  RACE_YY = A.RACE_YY
+                               AND  CAND_NO = A.CAND_NO
+                        )  
+				WHERE (A.RACE_YY||A.CAND_NO) IN (   SELECT DISTINCT(RACE_YY || CAND_NO ) 
+				                                      FROM TBDB_RACE_POINT
+				                                     WHERE RACE_YY = ?
+							      				 ); 
+  				END;							                               			        		                                                                              
+		]]>
+    </query>
+    
+    <query id="tbdb_rec_tot_db001" desc="삭제" fetchSize="10">
+     <![CDATA[    
+      ]]>
+    </query>
+</queryMap>

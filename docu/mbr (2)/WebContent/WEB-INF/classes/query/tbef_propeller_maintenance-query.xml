@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_propeller_maintenance 프로펠러 정기점검">
+	<query id="tbef_propeller_maintenance_ff001" desc="정기점검 내역 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* tbef_propeller_maintenance_ff001 IWORK_SFR-012 */
+            		T.MAINTENANCE_SEQ,
+			        T.PROPELLER_SEQ,
+			        T.PROPELLER_NO,
+			        T.RACER_NO,
+			        T.WEIGHT,
+			        T.END_THICKNESS,
+			        T.SHAPE_CHECK,
+			        T.PASS_YN,
+			        T.RMK,
+			        TO_CHAR(T.MAINTENANCE_DT, 'YYYYMMDD' ) MAINTENANCE_DT,
+			        T.INST_ID,
+			        T.INST_DT,
+			        T.UPDT_ID,
+			        T.UPDT_DT
+			FROM    TBEF_PROPELLER_MAINTENANCE T
+			WHERE	T.PROPELLER_SEQ = ?
+        ]]>
+    </query> 
+    
+    <query id="tbef_propeller_maintenance_ff002" desc="프로펠러 정기점검 내역 관리 조회." fetchSize="10">
+        <![CDATA[
+    		SELECT   /* tbef_propeller_maintenance_ff002 IWORK_SFR-012 */
+            		T.MAINTENANCE_SEQ,
+			        T.PROPELLER_SEQ,
+			        T.PROPELLER_NO,
+			        T.RACER_NO,
+			        T.WEIGHT,
+			        T.END_THICKNESS,
+			        T.SHAPE_CHECK,
+			        T.PASS_YN,
+			        T.RMK,
+			        TO_CHAR(T.MAINTENANCE_DT, 'YYYYMMDD') MAINTENANCE_DT,
+			        T.INST_ID,
+			        T.INST_DT,
+			        T.UPDT_ID,
+			        T.UPDT_DT,
+			        TRM.NM_KOR
+			FROM    TBEF_PROPELLER_MGR TPM,
+					TBEF_PROPELLER_MAINTENANCE T,
+			        TBEC_RACER_MASTER TRM
+			WHERE	TPM.PROPELLER_SEQ = T.PROPELLER_SEQ
+			AND		T.RACER_NO = TRM.RACER_NO(+)
+			AND     TPM.MBR_CD = ?
+			AND		T.MAINTENANCE_DT BETWEEN TO_DATE( NVL( ?, '19000101' ), 'YYYYMMDD' )
+			                       AND TO_DATE( NVL( ?, '29991231' ), 'YYYYMMDD' ) + .99999
+			AND     'T' = CASE
+			                 WHEN ? IS NULL THEN 'T'
+			                 WHEN ? IS NOT NULL
+			             			AND     TRM.NM_KOR LIKE ? || '%' THEN 'T'
+			             END
+			AND		'T' = CASE
+			                 WHEN ? IS NULL THEN 'T'
+			                 WHEN ? IS NOT NULL
+			             			AND     T.PROPELLER_NO LIKE ? || '%' THEN 'T'
+			             END
+			ORDER BY T.RACER_NO DESC, TPM.REG_DT DESC, T.MAINTENANCE_DT DESC
+ 		]]>
+    </query>
+    
+    
+    <query id="tbef_propeller_maintenance_ff003" desc="프로펠러 정기점검대상 조회." fetchSize="10">
+        <![CDATA[
+        	SELECT TBL.* FROM (
+				SELECT   /* tbef_propeller_maintenance_ff003 IWORK_SFR-012 정기점검내역에 등록되지 않은 목록 */
+				        T.MAINTENANCE_SEQ,
+				        TPM.PROPELLER_SEQ,
+				        TPM.PROPELLER_NO,
+				        TPM.RACER_NO,
+				        T.WEIGHT,
+				        T.END_THICKNESS,
+				        T.SHAPE_CHECK,
+				        T.PASS_YN,
+				        T.RMK,
+				        ? MAINTENANCE_DT,
+				        T.INST_ID,
+				        T.INST_DT,
+				        T.UPDT_ID,
+				        T.UPDT_DT,
+				        TRM.NM_KOR,
+				        TPM.REG_DT
+				FROM    TBEF_PROPELLER_MGR TPM,
+				        TBEF_PROPELLER_MAINTENANCE T,
+				        TBEC_RACER_MASTER TRM
+				WHERE   TPM.PROPELLER_SEQ = T.PROPELLER_SEQ(+)
+				AND     TPM.RACER_NO = TRM.RACER_NO(+)
+				AND     TPM.MBR_CD = ?
+				AND     TPM.DISUSE_TYPE_CD IS NULL
+				AND     TPM.REG_TYPE_CD IS NOT NULL
+				AND     T.MAINTENANCE_DT IS NULL
+				UNION
+				SELECT   /* 정기점검내역중 해당 점검일자에 등록된 목록. IWORK_SFR-012 */
+				        T.MAINTENANCE_SEQ,
+				        T.PROPELLER_SEQ,
+				        T.PROPELLER_NO,
+				        T.RACER_NO,
+				        T.WEIGHT,
+				        T.END_THICKNESS,
+				        T.SHAPE_CHECK,
+				        T.PASS_YN,
+				        T.RMK,
+				        TO_CHAR( T.MAINTENANCE_DT, 'YYYYMMDD' ) MAINTENANCE_DT,
+				        T.INST_ID,
+				        T.INST_DT,
+				        T.UPDT_ID,
+				        T.UPDT_DT,
+				        TRM.NM_KOR,
+				        TPM.REG_DT
+				FROM    TBEF_PROPELLER_MGR TPM,
+						TBEF_PROPELLER_MAINTENANCE T,
+				        TBEC_RACER_MASTER TRM
+				WHERE   TPM.PROPELLER_SEQ = T.PROPELLER_SEQ
+				AND		T.RACER_NO = TRM.RACER_NO(+)
+				AND     TPM.MBR_CD = ?
+				AND     T.MAINTENANCE_DT BETWEEN TO_DATE( ?, 'YYYYMMDD' ) AND TO_DATE( ?, 'YYYYMMDD' ) + .99999
+				)TBL
+			ORDER BY TBL.RACER_NO DESC, TBL.REG_DT DESC, TBL.MAINTENANCE_DT DESC
+ 		]]>
+    </query>
+    
+    <query id="tbef_propeller_maintenance_mf001" desc="프로펠러 정기점검  저장" fetchSize="10">
+        <![CDATA[
+
+ 			/* tbef_propeller_maintenance_mf001  IWORK_SFR-012 */
+            MERGE INTO TBEF_PROPELLER_MAINTENANCE TP
+
+            USING (
+
+                    SELECT
+                              ? MAINTENANCE_SEQ
+							, ? PROPELLER_SEQ
+							, ? PROPELLER_NO
+							, ? RACER_NO
+							, ? WEIGHT
+							, ? END_THICKNESS
+							, ? SHAPE_CHECK
+							, ? PASS_YN
+							, ? RMK
+							, ? MAINTENANCE_DT
+							, ? INST_ID
+							, SYSDATE INST_DT
+							, ? UPDT_ID
+							, SYSDATE UPDT_DT
+
+                    FROM    DUAL
+
+                  ) TMP
+
+            ON (    TP.MAINTENANCE_SEQ  = TMP.MAINTENANCE_SEQ
+
+                )
+
+            WHEN MATCHED THEN                              --데이터 중복건이 있는경우 Update
+
+			           UPDATE SET 
+								TP.PROPELLER_SEQ = TMP.PROPELLER_SEQ
+								, TP.PROPELLER_NO = TMP.PROPELLER_NO
+								, TP.RACER_NO = TMP.RACER_NO
+								, TP.WEIGHT = TMP.WEIGHT
+								, TP.END_THICKNESS = TMP.END_THICKNESS
+								, TP.SHAPE_CHECK = TMP.SHAPE_CHECK
+								, TP.PASS_YN = TMP.PASS_YN
+								, TP.RMK = TMP.RMK
+								, TP.MAINTENANCE_DT = TMP.MAINTENANCE_DT
+								, TP.UPDT_ID = TMP.UPDT_ID
+								, TP.UPDT_DT = TMP. UPDT_DT                       
+
+            WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+
+			           INSERT (
+
+			                          TP.MAINTENANCE_SEQ
+									, TP.PROPELLER_SEQ
+									, TP.PROPELLER_NO
+									, TP.RACER_NO
+									, TP.WEIGHT
+									, TP.END_THICKNESS
+									, TP.SHAPE_CHECK
+									, TP.PASS_YN
+									, TP.RMK
+									, TP.MAINTENANCE_DT
+									, TP.INST_ID
+									, TP.INST_DT
+
+			                  ) VALUES (
+									  SQ_TBEF_PROPELLER_MAINTENANCE.NEXTVAL 
+			                        , TMP.PROPELLER_SEQ
+									, TMP.PROPELLER_NO
+									, TMP.RACER_NO
+									, TMP.WEIGHT
+									, TMP.END_THICKNESS
+									, TMP.SHAPE_CHECK
+									, TMP.PASS_YN
+									, TMP.RMK
+									, TMP.MAINTENANCE_DT
+									, TMP.INST_ID
+									, TMP.INST_DT
+			                  )                         
+
+        ]]>
+    </query> 
+    
+    <query id="tbef_propeller_maintenance_df001" desc="프로펠러 정기점검 삭제  " fetchSize="50">
+        <![CDATA[
+			/* tbef_propeller_maintenance_df001  IWORK_SFR-012 */
+			DELETE FROM TBEF_PROPELLER_MAINTENANCE
+				WHERE MAINTENANCE_SEQ = ?
+        ]]>
+    </query>
+    
+    <query id="tbef_propeller_maintenance_df002" desc="프로펠러 정기점검 삭제  " fetchSize="50">
+        <![CDATA[
+			/* tbef_propeller_maintenance_df002  IWORK_SFR-012 */
+			DELETE FROM TBEF_PROPELLER_MAINTENANCE
+				WHERE PROPELLER_SEQ = ?
+        ]]>
+    </query> 
+    
+</queryMap>

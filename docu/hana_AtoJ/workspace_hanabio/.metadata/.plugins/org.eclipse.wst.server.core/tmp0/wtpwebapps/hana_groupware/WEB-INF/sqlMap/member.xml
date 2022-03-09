@@ -1,0 +1,880 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : member.xml
+  * @메뉴명 : 개인정보
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="member"> 
+	<resultMap type="com.hanaph.gw.pe.member.vo.MemberVO" id="MemberVO">
+		<result property="emp_no" column="EMP_NO"/>
+		<result property="photo1" column="PHOTO1" jdbcType="BLOB" javaType="byte[]" typeHandler="org.apache.ibatis.type.BlobTypeHandler"/>
+		<result property="photo1_nm" column="PHOTO1_NM"/>
+	</resultMap>
+	
+	<!-- 로그인 START -->
+	<select id="getLogin" parameterType="map" resultType="com.hanaph.gw.co.login.vo.LoginVO">
+		SELECT PASS_WORD
+		  FROM HANACOMM.CO_US_MEMBER_0
+		 WHERE EMP_NO = #{emp_no} AND USE_YN = 'Y' AND PASS_WORD = UTL_I18N.STRING_TO_RAW(#{pass_word},'AL32UTF8')
+	</select>
+	
+	<update id="updatePassword" parameterType="com.hanaph.gw.co.login.vo.LoginVO">
+		UPDATE HANACOMM.CO_US_MEMBER_0
+		   SET PASS_WORD = UTL_I18N.STRING_TO_RAW(#{new_password},'AL32UTF8')
+		 WHERE EMP_NO = #{emp_no}
+	</update>
+	
+	<insert id="insertHisPassword" parameterType="com.hanaph.gw.pe.member.vo.PasswordHisVO">
+		<selectKey keyProperty="seq" resultType="int" order="BEFORE">
+			SELECT   NVL(MAX (SEQ), 0) + 1 AS SEQ
+			    FROM HANACOMM.CO_US_PASSWORD_HISTORY
+			   WHERE EMP_NO = #{emp_no}			
+		</selectKey>
+		
+		INSERT INTO HANACOMM.CO_US_PASSWORD_HISTORY
+	            (EMP_NO,
+	             SEQ,
+	             PW_EXPIRE_DT, PASSWORD, FIRST_EMP_NO, LAST_EMP_NO, LAST_IP
+	            )
+	     VALUES (#{emp_no}, #{seq}, TO_CHAR(SYSDATE + 90000, 'YYYYMMDD'), UTL_I18N.STRING_TO_RAW(#{password},'AL32UTF8'), #{first_emp_no}, 
+	     		 #{last_emp_no}, #{last_ip}
+	            )
+	</insert>
+	<!-- 로그인 END -->
+	
+	<!-- 개인정보 START -->
+	<select id="getMemberList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT EMP.EMP_NO, EMP.EMP_KO_NM, EMP.GRAD_CD, HANAGROUPWARE.F_GW_GRAD_KO_NM(EMP.GRAD_CD) GRAD_KO_NM, 
+		       EMP.DEPT_CD, DEPT.DEPT_KO_NM, EMP.E_MAIL, EMP.IN_TEL,
+		       HANAHR.F_GET_SORT_SEQ(EMP.EMP_NO) EMP_SORT
+		  FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+		       HANACOMM.CO_US_MEMBER_0 MEM,
+		       HANAHR.HR_CO_DEPART_0 DEPT
+		 WHERE EMP.EMP_NO = MEM.EMP_NO
+		   AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030')
+		   AND DEPT.DEPT_CD = EMP.DEPT_CD		   
+		 <if test="emp_no != null and emp_no !=''"  >  
+		   AND EMP.EMP_NO = #{emp_no}
+		 </if>  
+		 <if test="dept_cd != null and dept_cd !=''">
+		   AND EMP.DEPT_CD = #{dept_cd}
+		 </if> 
+		 <if test="emp_ko_nm != null and emp_ko_nm !=''">
+		   AND EMP.EMP_KO_NM LIKE '%' || #{emp_ko_nm} || '%'
+		 </if>   
+		 <if test="up_dept_cd != null and up_dept_cd !=''">
+		   AND EMP.DEPT_CD IN (
+                 SELECT     TC.DEPT_CD
+                       FROM HANAHR.HR_CO_DEPART_0 TC
+                 START WITH TC.UP_DEPT_CD = #{up_dept_cd} AND TC.USE_YN = 'Y'
+                 CONNECT BY PRIOR TC.DEPT_CD = TC.UP_DEPT_CD
+                            AND TC.USE_YN = 'Y') 	
+		 </if>
+		 <if test="type != null and type !=''">
+			 <if test="login_emp_no != null and login_emp_no !=''">
+				<if test="type eq 'NOTICE' or type eq 'BOARD' ">
+				 	AND EMP.EMP_NO != #{login_emp_no}
+			 	</if>
+			 </if>
+			<if test="type eq 'AUTH'">
+				AND NOT EXISTS (
+			 	    SELECT EMP_NO
+	                  FROM GW_CO_AUTH_MAPPING AUTH
+	                 WHERE EMP.EMP_NO = AUTH.EMP_NO
+				)
+	        </if>
+			<if test="seq != null and seq !=''">
+	        	<if test="type eq 'NOTICE'">
+         		AND NOT EXISTS (
+			 		SELECT EMP_NO
+					  FROM GW_OF_NOTICE_TARGET NOTICE
+					 WHERE SEQ = #{seq}
+					   AND EMP.EMP_NO = NOTICE.EMP_NO
+	        	)
+		        </if>
+		        <if test="type eq 'BOARD'">
+         		AND NOT EXISTS (
+			 		SELECT EMP_NO
+					  FROM GW_OF_BOARD_TARGET BOARD
+					 WHERE SEQ = #{seq}
+					   AND EMP.EMP_NO = BOARD.EMP_NO
+				)
+		        </if>
+		        <if test="type eq 'MESSAGE' or type eq 'MESSAGE_DELIVER'">
+         		AND NOT EXISTS (
+			 		SELECT EMP_NO
+					  FROM GW_OF_MESSAGE_TARGET MESSAGE
+					 WHERE MESSAGE_SEQ = #{seq}
+					   AND EMP.EMP_NO = MESSAGE.EMP_NO
+				)					   
+		        </if>
+		        <if test="type eq 'SHARE'">
+         		AND NOT EXISTS (
+			 		SELECT EMP_NO
+					  FROM GW_EA_SHARE_TARGET TARGET
+					 WHERE APPROVAL_SEQ = #{seq}
+					   AND EMP.EMP_NO = TARGET.EMP_NO
+					UNION  
+                       SELECT EMP_NO
+                      FROM GW_EA_IMPL_DEPT_EMP TARGET
+                     WHERE APPROVAL_SEQ = #{seq}  
+                       AND EMP.EMP_NO = TARGET.EMP_NO
+				)					   
+	        	</if>
+	        </if>
+         </if>
+		 ORDER BY EMP_SORT ASC
+	</select>
+	
+	<select id="getMemberDetail" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT *
+		  FROM (SELECT   ROWNUM RNUM, EMP.EMP_NO, MEM.PASS_WORD, EMP.ENGAG_DIV,
+		                 EMP.EMP_KO_NM, EMP.EMP_CH_NM, EMP.EMP_EN_NM, EMP.RESID_NO,
+		                 EMP.BIRTH_DIV,
+		                 TO_CHAR (TO_DATE (EMP.BIRTH_DT, 'yyyymmdd'),'yyyy-mm-dd') BIRTH_DT,
+		                 EMP.STEP_CD, EMP.GRAD_CD,
+		                 HANAGROUPWARE.F_GW_GRAD_KO_NM (EMP.GRAD_CD) GRAD_KO_NM, EMP.DEPT_CD,
+		                 HANAHR.F_GET_DEPT_NM (EMP.DEPT_CD) DEPT_KO_NM, EMP.OPRT_CD,
+		                 EMP.POS_CD, EMP.ASSGN_CD,
+		                 TO_CHAR (TO_DATE (EMP.ENCMPY_DT, 'yyyymmdd'),'yyyy-mm-dd') ENCMPY_DT,
+		                 EMP.ENCMPY_CD, EMP.OCCPT_CD, EMP.DUTY_CD, EMP.STAT_CD,
+		                 EMP.PAGER_NO, EMP.ADDR1, EMP.ADDR2, EMP.ZIP_CD, EMP.TEL_NO,
+		                 EMP.E_MAIL, EMP.E_MAIL_DMNGB, EMP.E_MAIL_FULL, EMP.IN_TEL,
+		                 EMP.LAST_SCLAR, EMP.SCLAR_NM, EMP.FORIGEN_DIV, EMP.NATION_CD,
+		                 EMP.RES_DIV, EMP.RESNATN_CD, EMP.BRANCH_CD,
+		                 EMP.NPROMT_STEP_DT, EMP.PROMT_STEP_DT,
+		                 TO_CHAR (TO_DATE (EMP.PROMT_GRAD_DT, 'yyyymmdd'),'yyyy-mm-dd') PROMT_GRAD_DT,
+		                 EMP.RETIR_DT, EMP.RETIR_REASON, EMP.SUSP_FR_DATE,
+		                 EMP.SUSP_END_DT, EMP.SUSP_REASON, EMP.SUSP_RATE,
+		                 EMP.RETIR_MID_DT, EMP.RE_ENCMPY_DT, EMP.ELAS_WK, EMP.KT_YN,
+		                 EMP.MEDIA_CD, EMP.EMP_DIV, EMP.LBUN_YN, EMP.NIGHT_DIV,
+		                 EMP.CAR_REG_YN, EMP.CONTT_YN, EMP.FIRST_EMP_NO,
+		                 EMP.FIRST_REGDATE, EMP.LAST_EMP_NO, EMP.LAST_REGDATE,
+		                 EMP.LAST_IP, EMP.ADDR_EN, EMP.EMP_KIND, EMP.EMP_EXCP,
+		                 EMP.RE_ENCMPY_YN, EMP.BEF_EMP_NO, EMP.RETIR_DIV,
+		                 TO_CHAR (TO_DATE (EMP.PROMT_DEPT_DT, 'yyyymmdd'),'yyyy-mm-dd') PROMT_DEPT_DT,
+		                 (SELECT AUTH.AUTH_NM
+		                    FROM GW_CO_AUTH AUTH, GW_CO_AUTH_MAPPING AUMAP
+		                   WHERE AUTH.AUTH_SEQ = AUMAP.AUTH_SEQ
+		                     AND EMP.EMP_NO = AUMAP.EMP_NO) AUTH_NM,
+		                 TO_CHAR (TO_DATE (ANN.PROCM_DT, 'yyyymmdd'),'yyyy-mm-dd' ) PROCM_DT,
+		                 ANN.PROCM_DT PROCM_DT2        
+		            FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+		                 HANACOMM.CO_US_MEMBER_0 MEM,		                 
+		                 HANAHR.HR_HC_EMPANN_0 ANN
+		           WHERE EMP.EMP_NO = MEM.EMP_NO(+)
+                     AND EMP.EMP_NO = ANN.EMP_NO
+		             AND (EMP.ENGAG_DIV = '70010' OR EMP.ENGAG_DIV = '70020' OR EMP.ENGAG_DIV = '70030')
+		             AND EMP.EMP_NO = #{emp_no}
+		             AND ANN.PROCM_DIV IN ('11011', '11012', '11080', '11110')
+		        ORDER BY PROCM_DT2 DESC)
+		 WHERE RNUM = 1 
+	</select>
+	
+	<select id="getMemberPhoto" resultMap="MemberVO" parameterType="hashmap" >
+		SELECT EMP_NO, PHOTO1, PHOTO1_NM
+		  FROM HANAHR.HR_HC_EMPBAS_1
+		 WHERE EMP_NO = #{emp_no}
+	</select>
+	
+	<!-- 개인정보 END -->
+	<!-- 급여조회 START-->
+	<select id="getSalaryList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.SalaryVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+		SELECT TO_CHAR (TO_DATE (A.PAY_DATE, 'yyyymmdd'), 'yyyy-mm-dd') PAY_DATE,
+		       A.JIK_NAME, A.FIRST_EMP_NO, A.FIRST_REGDATE, A.LAST_EMP_NO, A.LAST_REGDATE,
+		       A.LAST_IP, A.BIGO, A.PAY_AMT1, A.PAY_AMT2, A.PAY_AMT3, A.PAY_AMT4, A.PAY_AMT5,
+		       A.PAY_AMT6, A.PAY_AMT7, A.PAY_AMT8, A.PAY_AMT9, A.PAY_AMT10, A.PAY_AMT11,
+		       A.PAY_AMT12, A.PAY_AMT13, A.PAY_AMT14, A.PAY_AMT15, A.PAY_AMT16, A.PAY_AMT17,
+		       A.PAY_AMT18, A.PAY_AMT19, A.PAY_AMT20, A.PAY_AMT21, A.PAY_AMT22, A.PAY_AMT23,
+		       A.PAY_AMT24, A.PAY_AMT25, A.PAY_AMT26, A.PAY_AMT27, A.PAY_AMT28, A.PAY_AMT29,
+		       A.PAY_AMT30, A.PAY_AMT31, A.PAY_AMT32, A.PAY_AMT33, A.PAY_AMT34, A.PAY_AMT35,
+		       A.PAY_AMT36, A.PAY_AMT37, A.PAY_AMT38, A.PAY_AMT39, A.PAY_AMT40, A.PAY_AMT41,
+		       A.PAY_AMT42, A.PAY_AMT43, A.PAY_AMT44, A.PAY_AMT45, A.PAY_AMT46, A.PAY_AMT47,
+		       A.PAY_AMT48
+		  FROM HANAHR.HR_GW_PAYADJ_0 A
+		       ,HANAHR.HR_CO_FINISH_0 B  
+		 WHERE A.PAY_DATE = TO_CHAR(LAST_DAY(B.YEAR||B.MM||'01'),'YYYYMMDD')
+		 AND B.SALRY_YN = 'Y' 
+		 AND A.EMP_NO = #{emp_no}
+		 <if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		 AND A.PAY_DATE BETWEEN #{search_start_dt} AND #{search_end_dt}
+		 </if>
+		 ORDER BY A.PAY_DATE DESC
+		 <if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getSalaryCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) 
+		  FROM HANAHR.HR_GW_PAYADJ_0
+		 WHERE EMP_NO = #{emp_no}
+		 <if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		 AND PAY_DATE BETWEEN #{search_start_dt} AND #{search_end_dt}
+		 </if>		 
+	</select>
+	
+	<select id="getSalaryDetail" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.SalaryVO">
+		SELECT TO_CHAR (TO_DATE (A.PAY_DT, 'yyyymmdd'), 'yyyy-mm-dd') AS PAY_DATE
+		        ,HANAHR.F_GET_DEPT_NM(B.DEPT_CD) AS DEPT_NAME
+		        ,HANAGROUPWARE.F_GW_GRAD_KO_NM(B.GRAD_CD) AS JIK_NAME
+		        ,B.EMP_NO AS EMP_NO
+		        ,B.EMP_KO_NM AS EMP_NAME 
+		        /*지급내역 22건 */      
+		        ,SUM(DECODE(A.PAY_CD,'0001',A.PAY_AMT,0)) AS PAY_AMT1 /*기본급*/
+		        ,SUM(DECODE(A.PAY_CD,'0100',A.PAY_AMT,0)) AS PAY_AMT18 /*상여금*/
+		        ,SUM(DECODE(A.PAY_CD,'0015',A.PAY_AMT,0)) AS PAY_AMT9 /* 직급수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0023',A.PAY_AMT,0)) AS PAY_AMT11 /*가족수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0210',A.PAY_AMT,0)) AS PAY_AMT20 /*연장근로수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0033',A.PAY_AMT,0)) AS PAY_AMT15 /*기타지급*/
+		        ,SUM(DECODE(A.PAY_CD,'1101',A.PAY_AMT,0)) AS PAY_AMT32 /*상여근태감액*/
+		        ,SUM(DECODE(A.PAY_CD,'0007',A.PAY_AMT,0)) AS PAY_AMT23 /*특수직무수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0011',A.PAY_AMT,0)) AS PAY_AMT6/*업무수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0212',A.PAY_AMT,0)) AS PAY_AMT22/*휴일근로수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0031',A.PAY_AMT,0)) AS PAY_AMT14/*기타수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0013',A.PAY_AMT,0)) AS PAY_AMT7/*식대보조비*/
+		        ,SUM(DECODE(A.PAY_CD,'0014',A.PAY_AMT,0)) AS PAY_AMT8/*식대보조*/
+		        ,SUM(DECODE(A.PAY_CD,'0009',A.PAY_AMT,0)) AS PAY_AMT5/*생산비과세*/        
+		        ,SUM(DECODE(A.PAY_CD,'0200',A.PAY_AMT,0)) AS PAY_AMT19/*인센티브*/
+		        ,SUM(DECODE(A.PAY_CD,'0061',A.PAY_AMT,0)) AS PAY_AMT17/*자격수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0005',A.PAY_AMT,0)) AS PAY_AMT3/*출납수당*/                 
+		        ,SUM(DECODE(A.PAY_CD,'0211',A.PAY_AMT,0)) AS PAY_AMT21/*야간근로수당*/
+		        ,SUM(DECODE(A.PAY_CD,'0025',A.PAY_AMT,0)) AS PAY_AMT12/*누락분 */
+		        ,SUM(DECODE(A.PAY_CD,'0021',A.PAY_AMT,0)) AS PAY_AMT10/*건강보험환급분 */             
+		        ,(SUM(DECODE(A.PAY_CD,'0001',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0100',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0015',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0023',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0210',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0033',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1101',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0007',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0011',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0212',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'0031',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0013',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0014',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0009',A.PAY_AMT,0)) +        
+		        SUM(DECODE(A.PAY_CD,'0200',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0061',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0005',A.PAY_AMT,0)) +                 
+		        SUM(DECODE(A.PAY_CD,'0211',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0025',A.PAY_AMT,0)) )AS PAY_AMT46/*급여총액*/
+		        /*공제내역 */          
+		        ,SUM(DECODE(A.PAY_CD,'1001',A.PAY_AMT,0)) AS PAY_AMT27/*소득세*/
+		        ,SUM(DECODE(A.PAY_CD,'1002',A.PAY_AMT,0)) AS PAY_AMT28/*주민세*/
+		        ,SUM(DECODE(A.PAY_CD,'1003',A.PAY_AMT,0)) AS PAY_AMT29/*국민연금*/
+		        ,SUM(DECODE(A.PAY_CD,'1004',A.PAY_AMT,0)) AS PAY_AMT30/*건강보험*/
+		        ,SUM(DECODE(A.PAY_CD,'1005',A.PAY_AMT,0)) AS PAY_AMT31/*고용보험*/         
+		        ,SUM(DECODE(A.PAY_CD,'1260',A.PAY_AMT,0)) AS PAY_AMT37/*가지급금*/
+		        ,SUM(DECODE(A.PAY_CD,'1290',A.PAY_AMT,0)) AS PAY_AMT40/*사우회비*/
+		        ,SUM(DECODE(A.PAY_CD,'1291',A.PAY_AMT,0)) AS PAY_AMT41/*사우회비상환*/      
+		        ,SUM(DECODE(A.PAY_CD,'1270',A.PAY_AMT,0)) AS PAY_AMT38/*기타공제*/ 
+		        ,SUM(DECODE(A.PAY_CD,'0301',A.PAY_AMT,'1301',A.PAY_AMT,0)) AS PAY_AMT24/*소득세_연말정산*/
+                ,SUM(DECODE(A.PAY_CD,'0302',A.PAY_AMT,'1302',A.PAY_AMT,0)) AS PAY_AMT25/*주민세_연말정산*/
+                ,SUM(DECODE(A.PAY_CD,'0303',A.PAY_AMT,'1303',A.PAY_AMT,0)) AS PAY_AMT26/*농특세_연말정산*/    
+		        ,SUM(DECODE(A.PAY_CD,'1400',A.PAY_AMT,0)) AS PAY_AMT45/*보증보험*/      
+		        ,(SUM(DECODE(A.PAY_CD,'1001',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'1002',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1003',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1004',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1005',A.PAY_AMT,0)) +         
+		        SUM(DECODE(A.PAY_CD,'1260',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'1290',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1291',A.PAY_AMT,0)) +      
+		        SUM(DECODE(A.PAY_CD,'1270',A.PAY_AMT,0)) +       
+				SUM(DECODE(A.PAY_CD,'0301',A.PAY_AMT,'1301',A.PAY_AMT,0)) +
+                SUM(DECODE(A.PAY_CD,'0302',A.PAY_AMT,'1302',A.PAY_AMT,0)) +
+                SUM(DECODE(A.PAY_CD,'0303',A.PAY_AMT,'1303',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1400',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0021',A.PAY_AMT,0)) ) AS PAY_AMT47 /*공제계*/
+		        ,(SUM(DECODE(A.PAY_CD,'0001',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0100',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0015',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0023',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0210',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0033',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1101',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0007',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0011',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0212',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'0031',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0013',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0014',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0009',A.PAY_AMT,0)) +        
+		        SUM(DECODE(A.PAY_CD,'0200',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0061',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0005',A.PAY_AMT,0)) +                 
+		        SUM(DECODE(A.PAY_CD,'0211',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0025',A.PAY_AMT,0))  )
+		        - (SUM(DECODE(A.PAY_CD,'1001',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'1002',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1003',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1004',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1005',A.PAY_AMT,0)) +         
+		        SUM(DECODE(A.PAY_CD,'1260',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'1290',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'1291',A.PAY_AMT,0)) +      
+		        SUM(DECODE(A.PAY_CD,'1270',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'0301',A.PAY_AMT,'1301',A.PAY_AMT,0)) +
+                SUM(DECODE(A.PAY_CD,'0302',A.PAY_AMT,'1302',A.PAY_AMT,0)) +
+                SUM(DECODE(A.PAY_CD,'0303',A.PAY_AMT,'1303',A.PAY_AMT,0)) + 
+		        SUM(DECODE(A.PAY_CD,'1400',A.PAY_AMT,0)) +
+		        SUM(DECODE(A.PAY_CD,'0021',A.PAY_AMT,0)) ) AS PAY_AMT48/*순지급액*/
+		    FROM HANAHR.HR_PY_PAYADJ_1 A
+		        ,HANAHR.HR_HC_EMPBAS_0 B
+		   WHERE A.EMP_NO  = B.EMP_NO
+		     AND A.PAY_DIV = '78010'
+		     AND A.PAY_DT  = #{pay_dt}
+		     AND A.EMP_NO  = #{emp_no}
+		   GROUP BY A.PAY_DT, B.DEPT_CD, B.GRAD_CD, B.EMP_NO, B.EMP_KO_NM
+	</select>
+	<!-- 급여조회 END-->
+	
+	<!-- 건강보험 START -->
+	<select id="getInsuranceList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.InsuranceVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+		SELECT IMPORT_YEAR, SAWON_NO, SAWON_NAME, JUMIN_NO, PAYMENT_1, PAYMENT_2,
+		       PAYMENT_3, T_PAY, MONTH, MONTH_PAY, DECIDE_1, DECIDE_2, DECIDE_3,
+		       CALC_1, CALC_2, CALC_3, BURDEN_1, BURDEN_2, BURDEN_3, TEMP_1, TEMP_2,
+		       TEMP_3
+		  FROM HANAHR.HR_PY_INSURANC
+		 WHERE SAWON_NO = #{emp_no}
+		 <if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getInsuranceCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) 
+		  FROM HANAHR.HR_PY_INSURANC
+		 WHERE SAWON_NO = #{emp_no}
+	</select>
+	
+	<select id="getInsuranceDetail" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.InsuranceVO">
+		SELECT IMPORT_YEAR, SAWON_NO, SAWON_NAME, JUMIN_NO, PAYMENT_1, PAYMENT_2,
+		       PAYMENT_3, T_PAY, MONTH, MONTH_PAY, DECIDE_1, DECIDE_2, DECIDE_3,
+		       CALC_1, CALC_2, CALC_3, BURDEN_1, BURDEN_2, BURDEN_3, TEMP_1, TEMP_2,
+		       TEMP_3
+		  FROM HANAHR.HR_PY_INSURANC
+		 WHERE IMPORT_YEAR = #{import_year} AND SAWON_NO = #{emp_no}
+	</select>
+	<!-- 건강보험 END -->
+	
+	<!-- 연차사용내역 START -->
+	<select id="getAnnualList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+		SELECT   DLIAPP.RQ_EMP_NO AS RQ_EMP_NO, EMP.EMP_KO_NM AS RQ_EMP_KO_NM,
+		         DLIAPP.RQ_VACAT_CD AS RQ_VACAT_CD, HANAHR.F_GET_COMMON_NM(DLIAPP.RQ_VACAT_CD) RQ_VACAT_NM,
+		         HANAHR.F_GET_DEPT_NM(EMP.DEPT_CD) DEPT_KO_NM,
+		         TO_CHAR (DLIAPP.RQ_FR_DT, 'yyyy-mm-dd') AS RQ_FR_DT,
+		         TO_CHAR (DLIAPP.RQ_TO_DT, 'yyyy-mm-dd') AS RQ_TO_DT,
+		         DLIAPP.RQ_EMP_NM AS RQ_EMP_NM,
+		         TO_CHAR (DLIAPP.RQ_WK_DAY, '90.9') AS RQ_WK_DAY,
+		         DLIAPP.RQ_REMARK AS RQ_REMARK, DLIAPP.RQ_APPRV_DT AS RQ_APPRV_DT,
+		         DLIAPP.RQ_APPRV_EMP_NO AS RQ_APPRV_EMP_NO,
+		         DLIAPP.RQ_APPRV_YN AS RQ_APPRV_YN,
+		         DLIAPP.FIRST_EMP_NO AS FIRST_EMP_NO,
+		         DLIAPP.FIRST_REGDATE AS FIRST_REGDATE,
+		         DLIAPP.LAST_EMP_NO AS LAST_EMP_NO,
+		         DLIAPP.LAST_REGDATE AS LAST_REGDATE, DLIAPP.LAST_IP AS LAST_IP,
+		         DLIAPP.APPROVAL_SEQ AS APPROVAL_SEQ,
+		         DLIAPP.APPROVAL_FLAG AS APPROVAL_FLAG
+		    FROM HANAHR.HR_WK_DLIAPP_0 DLIAPP,
+		         HANAHR.HR_HC_EMPBAS_0 EMP
+		   WHERE DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		   	<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		     AND (   DLIAPP.RQ_FR_DT BETWEEN #{search_start_dt}  AND #{search_end_dt}
+		          OR DLIAPP.RQ_TO_DT BETWEEN #{search_start_dt}  AND #{search_end_dt}
+		         )
+			</if>
+		     AND EMP.EMP_NO = #{emp_no}
+		     AND DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		     AND DLIAPP.RQ_VACAT_CD IN (SELECT COMN_CD
+		                                  FROM HANAHR.HR_CO_COMMON_0
+		                                 WHERE SUBSTR (COMN_CD, 1, 2) IN ('42', '77')
+		                                   AND USE_YN = 'Y')
+		ORDER BY RQ_FR_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getAnnualCount" parameterType="hashmap" resultType="int">
+		SELECT   COUNT(*)
+		    FROM HANAHR.HR_WK_DLIAPP_0 DLIAPP,
+		         HANAHR.HR_HC_EMPBAS_0 EMP,
+		         HANAHR.HR_CO_DEPART_0 DEPT
+		   WHERE DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		   	<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		     AND (   DLIAPP.RQ_FR_DT BETWEEN #{search_start_dt}  AND #{search_end_dt}
+		          OR DLIAPP.RQ_TO_DT BETWEEN #{search_start_dt}  AND #{search_end_dt}
+		         )
+			</if>
+		     AND EMP.EMP_NO = #{emp_no}
+		     AND DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		     AND DEPT.DEPT_CD = EMP.DEPT_CD
+		     AND DLIAPP.RQ_VACAT_CD IN (SELECT COMN_CD
+		                                  FROM HANAHR.HR_CO_COMMON_0
+		                                 WHERE SUBSTR (COMN_CD, 1, 2) IN ('42', '77')
+		                                   AND USE_YN = 'Y')
+		ORDER BY RQ_FR_DT DESC
+	</select>
+	
+	<select id="getAnnualUsedCount" parameterType="hashmap" resultType="float">
+		SELECT   NVL(SUM (RQ_WK_DAY), 0) AS USED_DAYS
+		    FROM HANAHR.HR_WK_DLIAPP_0 DLIAPP,
+		         HANAHR.HR_HC_EMPBAS_0 EMP
+		   WHERE DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		   	<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		     AND (   DLIAPP.RQ_FR_DT BETWEEN #{search_start_dt}  AND #{search_end_dt}
+		          OR DLIAPP.RQ_TO_DT BETWEEN #{search_start_dt}  AND #{search_end_dt}
+		         )
+			</if>
+		     AND EMP.EMP_NO = #{emp_no}
+		     AND DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		     AND DLIAPP.RQ_VACAT_CD IN ('42020','42220','42221')
+		ORDER BY RQ_FR_DT DESC
+	</select>
+	<!-- 연차사용내역 END -->
+	
+	<!-- 연차사용내역 END -->
+	
+	<!-- 연차사용계획 START -->
+	<select id="getAnnualPlan" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualMgrVO">
+		SELECT   A.EMP_NO AS YR_EMP_NO, A.EMP_KO_NM AS EMP_KO_NM, HANAHR.F_GET_DEPT_NM(A.DEPT_CD) DEPT_KO_NM,
+		         HANAGROUPWARE.F_GW_GRAD_KO_NM(A.GRAD_CD) GRAD_KO_NM, ENCMPY_DT AS ENCMPY_DT, 
+		         YR_YEAR_FLAG AS YR_YEAR_FLAG, YR_MONTH_FLAG AS YR_MONTH_FLAG, 
+		         YR_WORK_YEARS AS YR_WORK_YEARS, YR_WORK_MONTHS AS YR_WORK_MONTHS, 
+		         YR_WORK_DAYS AS YR_WORK_DAYS, YR_COMPANY_YEAR AS YR_COMPANY_YEAR,
+		         ROUND ((YR_COMPANY_YEAR) / 2, 0) - 1 AS ADD_USEABLE_DAYS,
+		         CASE
+		            WHEN (15 + TRUNC ((YR_COMPANY_YEAR) / 2)) > 26 THEN 25
+		            WHEN YR_YEAR_FLAG = '0' AND HANAHR.F_GET_WORK_DAYS_YMD(A.EMP_NO ,'Y' ,#{yr_year}||lpad(#{yr_mmdd} ,4 ,'0') ) = '0' THEN 0
+		            WHEN YR_YEAR_FLAG = '0' AND HANAHR.F_GET_WORK_DAYS_YMD(A.EMP_NO ,'Y' ,#{yr_year}||lpad(#{yr_mmdd} ,4 ,'0') ) = '1' THEN (
+		               		CASE
+		                        WHEN   TO_NUMBER (#{yr_year}) - TO_NUMBER (SUBSTR (ENCMPY_DT, 1, 4)) >= 2 
+		                        THEN 15
+		                        WHEN ROUND (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)) , 0 ) = 
+	                        				( 15 / 12 * (  13 - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)) + 0.5 ) 
+	                        	THEN 15 / 12 * (  13 - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))- DECODE (YR_MONTH_FLAG, 1, 0, 1))
+		                        WHEN TRUNC (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))- DECODE (YR_MONTH_FLAG, 1, 0, 1)) , 0 ) =
+		                               (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)))
+		                        THEN 15 / 12 * (  13 - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1))
+		                        ELSE ROUND ( 15 / 12 * (  13 - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)) + 0.24, 1)
+		                     END
+		                    )		            
+		            WHEN YR_YEAR_FLAG = '1' AND HANAHR.F_GET_WORK_DAYS_YMD(A.EMP_NO ,'Y' ,#{yr_year}||lpad(#{yr_mmdd} ,4 ,'0') ) = '0'
+		               THEN (
+		               		CASE WHEN   TO_NUMBER (#{yr_year}) - TO_NUMBER (SUBSTR (ENCMPY_DT, 1, 4)) >= 1 THEN 15
+		                        ELSE 0
+		                     END
+		                    )
+		            ELSE 15 + ROUND ((YR_COMPANY_YEAR) / 2, 0) - 1
+		         END AS USEABLE_DAYS,
+		         (SELECT NVL (SUM (RQ_WK_DAY), 0)
+		            FROM HANAHR.HR_WK_DLIAPP_0
+		           WHERE RQ_EMP_NO = A.EMP_NO
+		             AND RQ_VACAT_CD IN ('42020','42220','42221')
+		             AND RQ_FR_DT BETWEEN #{yr_year} || '0101' AND #{yr_year} || '1231')
+		                                                                 AS USED_DAYS,
+		         'N' AS CHECKS,
+		         NVL ((SELECT YR_NONUSE_DAY
+		                 FROM HANAHR.HR_WK_YEARLY_0 C
+		                WHERE C.YR_YEAR = #{yr_year} - 1 AND C.YR_EMP_NO = B.YR_EMP_NO),
+		              0
+		             ) AS YR_YEAR_USED_DAY,
+		         A.ENGAG_DIV AS ENGAG_DIV,
+		         DECODE (A.MEDIA_CD, '66020', '9', '66030', '9', '8') AS MEDIA_CD,
+		         #{yr_year} AS YR_YEAR,
+		         (SELECT NVL (SUM (RQ_WK_DAY), 0)
+		            FROM HANAHR.HR_WK_DLIAPP_0
+		           WHERE RQ_EMP_NO = A.EMP_NO
+		             AND RQ_VACAT_CD IN ('42020','42220','42221')
+		             AND RQ_FR_DT BETWEEN #{yr_year} || '0101' AND #{yr_year} || '0630')
+		                                                                 AS USED_DAYS_HALF
+		    FROM HANAHR.HR_HC_EMPBAS_0 A,
+		         HANAHR.HR_WK_YEARLY_0 B
+		   WHERE A.EMP_NO LIKE NVL (TRIM (#{emp_no}), '%')
+		     AND A.EMP_NO = B.YR_EMP_NO(+)
+		     AND B.YR_YEAR(+) = #{yr_year}
+		     AND A.ENGAG_DIV = '70010'
+		ORDER BY 1
+	</select>
+	
+	<select id="getAnnualCommonDT" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualVO">
+		SELECT   TO_CHAR(RQ_FR_DT, 'YYYYMMDD' ) RQ_FR_DT, TO_CHAR(RQ_TO_DT, 'YYYYMMDD' ) RQ_TO_DT, RQ_VACAT_CD , RQ_REMARK, RQ_WK_DAY, '1' AS GUBUN
+		    FROM HANAHR.HR_WK_DLIAPP_0 DLIAPP,
+		         HANAHR.HR_HC_EMPBAS_0 EMP,
+		         HANAHR.HR_CO_DEPART_0 DEPT
+		   WHERE DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		   	<if test="rq_year != null and rq_year !=''">
+		     AND (   DLIAPP.RQ_FR_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '1231'
+		          OR DLIAPP.RQ_TO_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '1231'
+		         )
+			</if>		    	
+		     AND EMP.EMP_NO = #{emp_no}
+		     AND DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		     AND DEPT.DEPT_CD = EMP.DEPT_CD
+		     AND DLIAPP.RQ_VACAT_CD IN ('42020','42220','42221')
+			 AND RQ_REMARK LIKE '%공동연차%'	
+		UNION        
+        SELECT   TO_CHAR(RQ_FR_DT, 'YYYYMMDD' ) RQ_FR_DT, TO_CHAR(RQ_TO_DT, 'YYYYMMDD' ) RQ_TO_DT, RQ_VACAT_CD 
+        ,DECODE(RQ_VACAT_CD ,'42020' ,'개인연차','개인반차') AS RQ_REMARK ,RQ_WK_DAY, '1' AS GUBUN         
+        FROM HANAHR.HR_WK_DLIAPP_0 DLIH
+        WHERE DLIH.RQ_EMP_NO = #{emp_no}
+        AND DLIH.FIRST_REGDATE BETWEEN #{rq_year} || '0101' AND #{rq_year} || '0630' 
+        <if test="rq_year != null and rq_year !=''">      
+        AND (   DLIH.RQ_FR_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '1231'
+                  OR DLIH.RQ_TO_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '1231'
+                 )
+		</if>
+        AND DLIH.RQ_VACAT_CD IN ('42020','42220','42221')
+        AND DLIH.RQ_REMARK NOT LIKE '%공동연차%'       	
+        UNION
+        SELECT HOLI_DT AS RQ_FR_DT, HOLI_DT AS RQ_TO_DT, HOLI_DIV AS RQ_VACAT_CD, REMARK AS RQ_REMARK, 1 AS RQ_WK_DAY, '2' AS GUBUN
+          FROM HANAHR.HR_CO_HOLIDA_0
+         WHERE HOLI_DIV = '75030' AND SUBSTR (HOLI_DT, 1, 4) = #{rq_year}
+        UNION
+        SELECT APPRV_DATE AS RQ_FR_DT
+        ,APPRV_DATE AS RQ_TO_DT
+        ,VACAT_CD AS RQ_VACAT_CD
+        ,DECODE(VACAT_CD ,'42020' ,'연차' ,'42220' ,'반차' ,'') AS RQ_REMARK
+        ,1 AS RQ_WK_DAY
+        ,'3' AS GUBUN
+          FROM HANAHR.HR_WK_DLIAPP_4
+         WHERE SUBSTR (APPRV_DATE, 1, 4) = #{rq_year}
+           AND EMP_NO = #{emp_no}
+	</select>
+	
+	<select id="getAnnualCommonDTCount" parameterType="hashmap" resultType="int">
+		SELECT   NVL(SUM(RQ_WK_DAY), 0) 
+		    FROM HANAHR.HR_WK_DLIAPP_0 DLIAPP,
+		         HANAHR.HR_HC_EMPBAS_0 EMP,
+		         HANAHR.HR_CO_DEPART_0 DEPT
+		   WHERE DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		   	<if test="rq_year != null and rq_year !=''">
+		     AND (   DLIAPP.RQ_FR_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '1231'
+		          OR DLIAPP.RQ_TO_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '1231'
+		         )
+			</if>
+		     AND EMP.EMP_NO = #{emp_no}
+		     AND DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		     AND DEPT.DEPT_CD = EMP.DEPT_CD
+		     AND DLIAPP.RQ_VACAT_CD IN ('42020','42220','42221')
+			 AND RQ_REMARK LIKE '%공동연차%'			
+	</select>
+	
+	<select id="getAnnualCommonDTCountHalf" parameterType="hashmap" resultType="int">
+		SELECT   NVL(SUM(RQ_WK_DAY), 0) 
+		    FROM HANAHR.HR_WK_DLIAPP_0 DLIAPP,
+		         HANAHR.HR_HC_EMPBAS_0 EMP,
+		         HANAHR.HR_CO_DEPART_0 DEPT
+		   WHERE DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		   	<if test="rq_year != null and rq_year !=''">
+		     AND (   DLIAPP.RQ_FR_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '0630'
+		          OR DLIAPP.RQ_TO_DT BETWEEN #{rq_year} || '0101' AND #{rq_year} || '0630'
+		         )
+			</if>
+		     AND EMP.EMP_NO = #{emp_no}
+		     AND DLIAPP.RQ_EMP_NO = EMP.EMP_NO
+		     AND DEPT.DEPT_CD = EMP.DEPT_CD
+		     AND DLIAPP.RQ_VACAT_CD IN ('42020','42220','42221')
+			 AND RQ_REMARK LIKE '%공동연차%'			
+	</select>
+	
+	<select id="getAnnualClosedYN" parameterType="hashmap" resultType="String">
+		SELECT CLOSED_YN FROM HANAHR.HR_WK_DLIAPP_4_CLOSED
+		 WHERE EMP_NO = #{emp_no}
+		  AND APPRV_YEAR = #{yr_year}
+	</select>
+	
+	<insert id="insertAnnualPlan" parameterType="com.hanaph.gw.pe.member.vo.AnnualHRVO">
+		INSERT INTO HANAHR.HR_WK_DLIAPP_4
+			   (EMP_NO, APPRV_DATE, HALF_TREM, VACAT_CD, REMARK, FIRST_EMP_NO, FIRST_REGDATE, LAST_IP, LAST_EMP_NO, LAST_REGDATE
+			   )
+		VALUES (#{emp_no} , #{apprv_date} , #{half_trem} ,#{vacat_cd}, #{remark} , #{first_emp_no} , SYSDATE, #{last_ip}, #{last_emp_no} , SYSDATE 
+	            )	
+	</insert>
+	
+	<delete id="deleteAnnualPlan" parameterType="com.hanaph.gw.pe.member.vo.AnnualHRVO">
+		DELETE FROM HANAHR.HR_WK_DLIAPP_4
+		 WHERE EMP_NO = #{emp_no}
+		   AND APPRV_DATE = #{apprv_date} 
+	</delete>
+	<!-- 연차사용계획 END -->
+	
+	<!-- 연차지정통보서 START -->
+	<select id="getAnnualPlanNotify" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualMgrVO">
+		SELECT   A.EMP_NO AS YR_EMP_NO, A.EMP_KO_NM AS EMP_KO_NM, HANAHR.F_GET_DEPT_NM(A.DEPT_CD) DEPT_KO_NM, 
+		         HANAGROUPWARE.F_GW_GRAD_KO_NM(A.GRAD_CD) GRAD_KO_NM, ENCMPY_DT AS ENCMPY_DT,
+		         YR_YEAR_FLAG AS YR_YEAR_FLAG, YR_MONTH_FLAG AS YR_MONTH_FLAG,
+		         YR_WORK_YEARS AS YR_WORK_YEARS, YR_WORK_MONTHS AS YR_WORK_MONTHS,
+		         YR_WORK_DAYS AS YR_WORK_DAYS, YR_COMPANY_YEAR AS YR_COMPANY_YEAR,
+		         ROUND ((YR_COMPANY_YEAR) / 2, 0) - 1 AS ADD_USEABLE_DAYS,
+		         CASE
+		            WHEN YR_WORK_YEARS >= 2
+		               THEN    TO_CHAR (TRUNC (ADD_MONTHS (SYSDATE, -12), 'y'), 'yyyy-mm-dd')
+		                    || ' ~ '
+		                    || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (ADD_MONTHS (SYSDATE, -12), 'y'), 11)), 'yyyy-mm-dd')
+		            WHEN YR_WORK_YEARS = 1
+		               THEN    TO_CHAR (TO_DATE (ENCMPY_DT), 'yyyy-mm-dd')
+		                    || ' ~ '
+		                    || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (ADD_MONTHS (SYSDATE, -12), 'y'), 11)), 'YYYY-MM-DD')
+		            ELSE    TO_CHAR (TRUNC (SYSDATE, 'y'), 'yyyy-mm-dd')
+		                 || ' ~ '
+		                 || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (SYSDATE, 'y'), 11)), 'yyyy-mm-dd')
+		         END AS CREATE_BETWEEN_DAY,
+		         CASE
+		            WHEN YR_WORK_YEARS >= 1
+		               THEN    TO_CHAR (TRUNC (SYSDATE, 'y'), 'yyyy-mm-dd')
+		                    || ' ~ '
+		                    || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (SYSDATE, 'y'), 11)), 'yyyy-mm-dd')
+		            ELSE    TO_CHAR (TO_DATE (ENCMPY_DT), 'yyyy-mm-dd')
+		                 || ' ~ '
+		                 || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (SYSDATE, 'y'), 23)), 'yyyy-mm-dd')
+		         END AS USE_BETWEEN_DAY,
+		         CASE
+		            WHEN (15 + TRUNC ((YR_COMPANY_YEAR) / 2)) > 26
+		               THEN 25
+		            WHEN YR_YEAR_FLAG = '0' AND YR_WORK_YEARS = 1
+		               THEN (CASE
+		                        WHEN   TO_NUMBER (#{rq_fr_dt})
+		                             - TO_NUMBER (SUBSTR (ENCMPY_DT, 1, 4)) >= 2
+		                           THEN 15
+		                        WHEN ROUND (  15
+		                                    / 12
+		                                    * (  13
+		                                       - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))
+		                                       - DECODE (YR_MONTH_FLAG, 1, 0, 1)
+		                                      ),
+		                                    0
+		                                   ) =
+		                               (    15
+		                                  / 12
+		                                  * (  13
+		                                     - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))
+		                                     - DECODE (YR_MONTH_FLAG, 1, 0, 1)
+		                                    )
+		                                + 0.5
+		                               )
+		                           THEN   15
+		                                / 12
+		                                * (  13
+		                                   - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))
+		                                   - DECODE (YR_MONTH_FLAG, 1, 0, 1)
+		                                  )
+		                        WHEN TRUNC (  15
+		                                    / 12
+		                                    * (  13
+		                                       - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))
+		                                       - DECODE (YR_MONTH_FLAG, 1, 0, 1)
+		                                      ),
+		                                    0
+		                                   ) =
+		                               (  15
+		                                / 12
+		                                * (  13
+		                                   - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))
+		                                   - DECODE (YR_MONTH_FLAG, 1, 0, 1)
+		                                  )
+		                               )
+		                           THEN   15
+		                                / 12
+		                                * (  13
+		                                   - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))
+		                                   - DECODE (YR_MONTH_FLAG, 1, 0, 1)
+		                                  )
+		                        ELSE ROUND (    15
+		                                      / 12
+		                                      * (  13
+		                                         - TO_NUMBER (SUBSTR (ENCMPY_DT, 5, 2))
+		                                         - DECODE (YR_MONTH_FLAG, 1, 0, 1)
+		                                        )
+		                                    + 0.24,
+		                                    1
+		                                   )
+		                     END
+		                    )
+		            WHEN YR_YEAR_FLAG = '0' AND YR_WORK_YEARS = 0
+		               THEN 0
+		            WHEN YR_YEAR_FLAG = '1' AND YR_WORK_YEARS = 0
+		               THEN 0
+		            ELSE 15 + ROUND ((YR_COMPANY_YEAR) / 2, 0) - 1
+		         END AS USEABLE_DAYS,
+		         (SELECT NVL (SUM (RQ_WK_DAY), 0)
+		            FROM HANAHR.HR_WK_DLIAPP_0
+		           WHERE RQ_EMP_NO = A.EMP_NO
+		             AND RQ_VACAT_CD IN ('42020','42220','42221')
+		             AND RQ_FR_DT BETWEEN #{rq_fr_dt} || '0101' AND #{rq_fr_dt} || '1231')
+		                                                                 AS USED_DAYS,
+		         'N' AS CHECKS,
+		         NVL ((SELECT YR_NONUSE_DAY
+		                 FROM HANAHR.HR_WK_YEARLY_0 C
+		                WHERE C.YR_YEAR = #{rq_fr_dt} - 1 AND C.YR_EMP_NO = B.YR_EMP_NO),
+		              0
+		             ) AS YR_YEAR_USED_DAY,
+		         (  
+		         	SELECT RQ_DAYS 
+                    FROM HANAHR.HR_WK_DLIAPP_5
+                    WHERE RQ_EMP_NO = #{emp_no}
+                    AND RQ_YEAR = #{rq_fr_dt} 
+                    AND RQ_MONTH = '11'
+				 ) AS NOVEMBER,
+		         (	
+		         	SELECT RQ_DAYS 
+                    FROM HANAHR.HR_WK_DLIAPP_5
+                    WHERE RQ_EMP_NO = #{emp_no}
+                    AND RQ_YEAR = #{rq_fr_dt} 
+                    AND RQ_MONTH = '12'
+                 ) AS DECEMBER,
+		         B.YR_YEAR AS YR_YEAR,
+		         (
+					SELECT NVL (SUM (RQ_WK_DAY), 0)
+                    FROM HANAHR.HR_WK_DLIAPP_0
+                   	WHERE RQ_EMP_NO = A.EMP_NO
+                    AND RQ_VACAT_CD IN ('42020','42220','42221')
+                    AND RQ_FR_DT BETWEEN #{rq_fr_dt} || '1101' AND #{rq_fr_dt} || '1231'
+                    AND RQ_REMARK LIKE '%'||'공동연차'||'%'                     
+                 ) AS JOINT_DAYS_REMAIN
+		    FROM HANAHR.HR_HC_EMPBAS_0 A,
+		         HANAHR.HR_WK_YEARLY_0 B
+		   WHERE A.EMP_NO LIKE TRIM (#{emp_no})
+		     AND A.EMP_NO = B.YR_EMP_NO(+)
+		     AND B.YR_YEAR(+) = #{rq_fr_dt}
+		     AND A.ENGAG_DIV = '70010'
+		ORDER BY 1
+	</select>
+	<!-- 연차지정통보서 END -->
+	
+	<!-- 연봉계약서 START-->
+	<select id="getContractList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.ContractVO">
+		<if test="page != null and page !=''" >
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+		SELECT A.EMP_NO, B.EMP_KO_NM AS EMP_KO_NM, HANAHR.F_GET_DEPT_NM(B.DEPT_CD) DEPT_KO_NM,
+		       HANAGROUPWARE.F_GW_GRAD_KO_NM(B.GRAD_CD) GRAD_KO_NM
+		                                  /*출력관련 날자*/
+		       , A.YMD_OUTPUT AS YMD_OUTPUT, A.YMD_START AS YMD_START,
+		       A.YMD_END AS YMD_END, A.ANNUAL_SALARY AS ANNUAL_SALARY,
+		       A.SEVERANCE_PAY AS SEVERANCE_PAY, A.WORK_MONTHS AS WORK_MONTHS
+		                                                                     /*회사정보*/
+		       ,
+		       RULE.BIZPLC_NM AS BIZPLC_NM, RULE.BIZPLC_ADDR AS BIZPLC_ADDR,
+		       (SELECT EMP_KO_NM
+		          FROM HANAHR.HR_HC_EMPBAS_0 BAS
+		         WHERE RULE.BIZPLC_PRSD = BAS.EMP_NO
+		           AND RULE.BIZPLC_CD = '0000') AS BIZPLC_PRSD,
+		           TO_CHAR (TO_DATE (A.YMD_START), 'yyyy-mm-dd') AS YMD_START_KO,
+			       TO_CHAR (TO_DATE (A.YMD_END), 'yyyy-mm-dd') AS YMD_END_KO,
+			       TO_CHAR (TO_DATE (A.YMD_OUTPUT), 'yyyy-mm-dd') AS YMD_OUTPUT_KO    
+		  FROM HANAHR.HR_PY_ANNUAL_SALARY A                                 /*연봉자료*/
+		                                   ,
+		       HANAHR.HR_HC_EMPBAS_0 B                                      /*인사정보*/
+		                              ,
+		       HANAHR.HR_CO_HRRULE_0 RULE
+		 WHERE A.EMP_NO = #{emp_no}
+		   AND A.EMP_NO = B.EMP_NO
+		   AND RULE.BIZPLC_CD = '0000'
+		 <if test="(ymd_start != null and ymd_start !='') and (ymd_end != null and ymd_end !='')">
+		   AND A.YMD_START = #{ymd_start}
+ 		   AND A.YMD_END = #{ymd_end}
+		 </if>
+		 <if test="page != null and page !=''" >
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getContractCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) 
+		  FROM HANAHR.HR_PY_ANNUAL_SALARY A                                 /*연봉자료*/
+                                   ,
+		       HANAHR.HR_HC_EMPBAS_0 B                                      /*인사정보*/
+		                              ,
+		       HANAHR.HR_CO_HRRULE_0 RULE
+		 WHERE A.EMP_NO = #{emp_no}
+		   AND A.EMP_NO = B.EMP_NO
+		   AND RULE.BIZPLC_CD = '0000'
+		 <if test="(ymd_start != null and ymd_start !='') and (ymd_end != null and ymd_end !='')">
+		   AND A.YMD_START = #{ymd_start}
+ 		   AND A.YMD_END = #{ymd_end}
+		 </if>		 
+	</select>
+	
+	<!-- 연봉계약서 END-->
+	
+	<!-- 휴가 신청서 연차 상신 -->
+	<insert id="insertAnnual" parameterType="com.hanaph.gw.pe.member.vo.AnnualVO">
+		INSERT INTO HANAHR.HR_WK_DLIAPP_0 
+	        (
+	         RQ_EMP_NO, APPRV_SEQ, RQ_VACAT_CD, RQ_FR_DT, RQ_TO_DT, RQ_EMP_NM, RQ_WK_DAY, 
+	         RQ_REMARK, FIRST_EMP_NO, FIRST_REGDATE, LAST_EMP_NO, LAST_REGDATE, LAST_IP
+	         )
+		VALUES(
+	        #{rq_emp_no}, #{apprv_seq}, #{rq_vacat_cd}, #{rq_fr_dt}, #{rq_to_dt}, #{rq_emp_nm}, #{rq_wk_day},
+	        #{rq_remark},#{first_emp_no} ,SYSDATE ,#{last_emp_no} ,SYSDATE ,#{last_ip}
+	         )
+	</insert>
+	
+	<!-- 연차 상신 취소 -->
+	<delete id="deleteAnnual" parameterType="com.hanaph.gw.pe.member.vo.AnnualVO">
+		DELETE HANAHR.HR_WK_DLIAPP_0 
+		 WHERE RQ_EMP_NO = #{rq_emp_no}
+		   AND APPRV_SEQ = #{apprv_seq}
+	</delete>
+	
+	<!-- 비밀번호 유효성 검사 프로시저 -->
+	<parameterMap type="hashmap" id="passwordValidate">
+		<parameter property="in_EMP_NO" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="in_PASSWORD" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="out_CODE" jdbcType="INTEGER" javaType="string" mode="OUT" />
+		<parameter property="out_MSG" jdbcType="VARCHAR" javaType="string" mode="OUT" />
+		<parameter property="out_COUNT" jdbcType="INTEGER" javaType="string" mode="OUT" />
+	</parameterMap>
+	<select id="callPasswordValidate" statementType="CALLABLE" parameterMap="passwordValidate">
+		{call HANACOMM.SP_PASSWORD_VALIDATE(?, ?, ?, ?, ?)}
+	</select>
+	
+	<!-- 비밀번호 변경 프로시저 -->
+	<parameterMap type="hashmap" id="passwordAccord">
+		<parameter property="in_EMP_NO" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="in_PASSWORD" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="out_CODE" jdbcType="INTEGER" javaType="string" mode="OUT" />
+		<parameter property="out_MSG" jdbcType="VARCHAR" javaType="string" mode="OUT" />
+		<parameter property="out_COUNT" jdbcType="INTEGER" javaType="string" mode="OUT" />
+	</parameterMap>
+	<select id="callPasswordAccord" statementType="CALLABLE" parameterMap="passwordAccord">
+		{call HANACOMM.SP_PASSWORD_ACCORD(?, ?, null, ?, ?, ?)}
+	</select>
+	
+</mapper>

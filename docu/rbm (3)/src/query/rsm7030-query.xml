@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM7030(경륜/경정 제세금 조회)">
+    <query id="rsm7030_s01" desc="본장 제세금 조회" fetchSize="10">
+        <![CDATA[                                                                 
+		WITH X AS ( /* rsm7030_s01 */
+				        SELECT A.COMM_NO, 
+				                 CASE WHEN A.COMM_NO = '02' THEN '창원경륜' 
+				                      WHEN A.COMM_NO = '04' THEN '부산경륜'
+				                      WHEN A.COMM_NO = '01' AND MEET_CD = '001' THEN '광명본장'
+				                      WHEN A.COMM_NO = '01' AND MEET_CD = '003' THEN '미사리본장'
+				                      ELSE C.CD_NM||'지점' END AS COMM_NM
+				                , SUM(DIV_TOTAL) AS DIV_TOTAL
+				                ,CASE WHEN COMM_NO = '01' THEN 1 ELSE 2 END GRP_NO 
+				                ,CASE WHEN COMM_NO = '02' OR COMM_NO = '04' THEN 100+TO_NUMBER(COMM_NO) ELSE TO_NUMBER(COMM_NO) END AS RNUM
+				        FROM (
+				        		-- 교차제외 매출액
+				                SELECT CASE WHEN A.MEET_CD||A.SELL_CD IN ('00101','00201','00303','00401') AND A.COMM_NO IN ('01','02','03','04','08') THEN '01'
+				                            WHEN A.MEET_CD||A.SELL_CD IN ('00301') AND A.COMM_NO IN ('01','02','03','04','08') THEN  '99'             
+				                            ELSE A.COMM_NO END AS COMM_NO
+				                       , A.MEET_CD
+				                       , SUM(DIV_TOTAL) AS DIV_TOTAL
+				                FROM  VW_SDL_DT_SUM_GSUM A, VW_SDL_INFO B
+				                WHERE 1=1
+				                AND   A.MEET_CD   = B.MEET_CD                                                        
+				                AND   A.STND_YEAR = B.STND_YEAR                                                    
+				                AND   A.TMS       = B.TMS                                                                
+				                AND   A.DAY_ORD   = B.DAY_ORD        
+				                AND   A.SELL_CD IN ('01','03')                       
+				                AND   A.MEET_CD   = ?				-- 0:MEET_CD
+				                AND   B.RACE_DAY BETWEEN ? AND ?	-- 1,2:STR_DT, END_DT  
+				                GROUP BY CASE WHEN A.MEET_CD||A.SELL_CD IN ('00101','00201','00303','00401') AND A.COMM_NO IN ('01','02','03','04','08') THEN '01'
+				                                     WHEN A.MEET_CD||A.SELL_CD IN ('00301') AND A.COMM_NO IN ('01','02','03','04','08') THEN  '99'             
+				                                     ELSE A.COMM_NO END, A.MEET_CD
+				                UNION ALL
+				                -- 교차 매출액
+				                SELECT   A.SELL_CD 
+				                       , A.MEET_CD 
+				                       , SUM(NET_AMT) DIV_TOTAL
+				                FROM    VW_PC_PAYOFFS A, VW_SDL_INFO B   -- 경주일 정보                                                                                 
+				                WHERE 1 = 1                                                                                        
+				                AND   A.MEET_CD   = B.MEET_CD                                                        
+				                AND   A.STND_YEAR = B.STND_YEAR                                                    
+				                AND   A.TMS       = B.TMS                                                                
+				                AND   A.DAY_ORD   = B.DAY_ORD        
+				                AND   B.MEET_CD   = ?              	-- 3:MEET_CD  
+				                AND   B.RACE_DAY BETWEEN ? AND ?	-- 4,5:STR_DT, END_DT                                                               
+				                AND   A.SELL_CD NOT IN ('01','03')                                                         
+				                GROUP BY A.SELL_CD, A.MEET_CD     
+				               ) A, TBRK_SPEC_CD C
+				        WHERE C.GRP_CD(+) = '060'
+				        AND    A.COMM_NO = C.CD(+)
+				        GROUP BY A.COMM_NO, A.MEET_CD, C.CD_NM
+					),
+			--임시로 저장해두고 합계랑 섞기위해서
+			Y AS (        
+					-- 본장 및 지점의 매출액 및 레저세        
+					SELECT   GRP_NO, RNUM, COMM_NM
+					         , DIV_TOTAL
+					         , TRUNC(CASE WHEN COMM_NO = '01' THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1) AS LSTAX         
+					         , NULL AS LETAX
+					         , NULL AS SPTAX
+					         , NULL AS TOTAL
+					FROM X
+					UNION ALL
+					-- 본장 및 지점의 매출액 및 레저세 소계
+					SELECT   GRP_NO, 999, DECODE(GRP_NO,1,'소계','지점소계') AS COMM_NM
+					         , SUM(DIV_TOTAL) 
+					         /* --구방식 레저세 계산의 합
+					         , SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) AS LSTAX  
+					         , TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.4,-1) AS LETAX
+					         , TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.2,-1) AS SPTAX
+					         , TRUNC(CASE WHEN GRP_NO = 1 THEN SUM(DIV_TOTAL)*0.1 
+					                           ELSE SUM(DIV_TOTAL) *0.05 END,-1)       +      
+					           TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.4,-1) +
+					           TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.2,-1) AS TOTAL					         
+					                   */
+					         -- 신방식 20150329 매출총액의 레저세, 구한 레저세에서 교육세, 농특세 계산
+					         , TRUNC(CASE WHEN GRP_NO = 1 THEN SUM(DIV_TOTAL)*0.1 
+					                           ELSE SUM(DIV_TOTAL) *0.05 END,-1) AS LSTAX
+					         , TRUNC( 
+					         		TRUNC(CASE WHEN GRP_NO = 1 THEN SUM(DIV_TOTAL)*0.1 
+					                           ELSE SUM(DIV_TOTAL) *0.05 END,-1)  
+					                 * 0.4,-1) AS LETAX
+					         , TRUNC(
+					         		TRUNC(CASE WHEN GRP_NO = 1 THEN SUM(DIV_TOTAL)*0.1 
+					                           ELSE SUM(DIV_TOTAL) *0.05 END,-1)  
+					                 * 0.2,-1) AS SPTAX
+					         , TRUNC(CASE WHEN GRP_NO = 1 THEN SUM(DIV_TOTAL)*0.1 
+					                           ELSE SUM(DIV_TOTAL) *0.05 END,-1)       	+      
+					           TRUNC( 
+					         		TRUNC(CASE WHEN GRP_NO = 1 THEN SUM(DIV_TOTAL)*0.1 
+					                           ELSE SUM(DIV_TOTAL) *0.05 END,-1)  
+					                 * 0.4,-1)											+
+					           TRUNC(
+					         		TRUNC(CASE WHEN GRP_NO = 1 THEN SUM(DIV_TOTAL)*0.1 
+					                           ELSE SUM(DIV_TOTAL) *0.05 END,-1)  
+					                 * 0.2,-1)										 AS TOTAL
+					FROM X
+					GROUP BY GRP_NO
+					UNION ALL
+					-- 전체 매출액 및 레저세 합계
+					SELECT  3 GRP_NO, 9999, '납부세액' AS COMM_NM
+					         , SUM(DIV_TOTAL)
+					         , SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) AS LSTAX      
+					         , TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.4,-1) AS LETAX
+					         , TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.2,-1) AS SPTAX
+					         , SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) +      
+					           TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.4,-1) +
+					           TRUNC(SUM(TRUNC(CASE WHEN GRP_NO = 1 THEN DIV_TOTAL*0.1
+					                           ELSE DIV_TOTAL *0.05 END,-1)) * 0.2,-1) AS TOTAL
+					FROM X
+					ORDER BY 1,2 
+				),
+				--합계를 위함
+				Z AS (  
+				    SELECT 
+				        sum(div_total) div_total, 
+				        sum(lstax) lstax,
+				        sum(letax) letax,
+				        sum(sptax) sptax,
+				        sum(total) total   
+				    FROM Y
+				    WHERE rnum = 999
+				)    
+				SELECT grp_no, rnum, comm_nm, 
+				      decode(grp_no,3,Z.div_total, y.div_total) div_total,
+				      decode(grp_no,3,Z.lstax, y.lstax) lstax,
+				      decode(grp_no,3,Z.letax, y.letax) letax,
+				      decode(grp_no,3,Z.sptax, y.sptax) sptax,
+				      decode(grp_no,3,Z.total, y.total) total
+				FROM Y, Z 
+        ]]>
+    </query>
+    
+    <query id="rsm7030_s02" desc="지점 제세금 조회" fetchSize="10">
+        <![CDATA[                                                                 
+				WITH X AS ( /* rsm7030_s02 */
+				        SELECT A.COMM_NO, 
+				                 CASE WHEN A.COMM_NO = '01' AND MEET_CD = '001' THEN '광명본장'
+				                      WHEN A.COMM_NO = '01' AND MEET_CD = '003' THEN '미사리본장'
+				                      WHEN A.COMM_NO = '100' THEN '부산광복지점'
+				                      WHEN A.COMM_NO = '101' THEN '부산서면지점'
+				                      WHEN A.COMM_NO = '102' THEN '김해지점'
+				                      WHEN A.COMM_NO = '103' THEN '부산금정본장'
+				                      WHEN A.COMM_NO = '104' THEN '창원본장'
+				                      ELSE C.CD_NM||'지점' END AS COMM_NM
+				                , SUM(DIV_TOTAL) AS DIV_TOTAL
+				                ,CASE WHEN COMM_NO = '01' THEN 1 ELSE 2 END GRP_NO 
+				                ,C.ORD_NO AS RNUM
+				        FROM (
+				        		-- 교차제외 매출액
+				                SELECT CASE WHEN A.MEET_CD||A.SELL_CD IN ('00101','00201','00303','00401') AND A.COMM_NO IN ('01','02','03','04','08') THEN '01'
+				                            WHEN A.MEET_CD||A.SELL_CD IN ('00301') AND A.COMM_NO IN ('01','02','03','04','08') THEN  '99'             
+				                            ELSE A.COMM_NO END AS COMM_NO
+				                       , A.MEET_CD
+				                       , SUM(DIV_TOTAL) AS DIV_TOTAL
+				                FROM  VW_SDL_DT_SUM_GSUM A, VW_SDL_INFO B
+				                WHERE 1=1
+				                AND   A.MEET_CD   = B.MEET_CD                                                        
+				                AND   A.STND_YEAR = B.STND_YEAR                                                    
+				                AND   A.TMS       = B.TMS                                                                
+				                AND   A.DAY_ORD   = B.DAY_ORD        
+				                AND   A.SELL_CD IN ('01','03')                       
+				                AND   A.MEET_CD   = ?				-- 0:MEET_CD
+				                AND   B.RACE_DAY BETWEEN ? AND ?	-- 1,2:STR_DT, END_DT  
+				                GROUP BY CASE WHEN A.MEET_CD||A.SELL_CD IN ('00101','00201','00303','00401') AND A.COMM_NO IN ('01','02','03','04','08') THEN '01'
+				                                     WHEN A.MEET_CD||A.SELL_CD IN ('00301') AND A.COMM_NO IN ('01','02','03','04','08') THEN  '99'             
+				                                     ELSE A.COMM_NO END, A.MEET_CD
+				                UNION ALL
+				                -- 교차 매출액
+                                SELECT DECODE(COMM_NO, '004','104', '002','102','001','104') AS COMM_NO,
+                                           MEET_CD, SUM(TOT_SALES) AS DIV_TOTAL
+                                FROM VIEW_SALES_CCRC
+                                WHERE 1=1
+				                AND   MEET_CD   = ?				-- 3:MEET_CD
+				                AND   RACE_DAY BETWEEN ? AND ?	-- 4,5:STR_DT, END_DT  
+                                GROUP BY DECODE(COMM_NO, '004','104', '002','102','001','104'), MEET_CD
+                                UNION ALL
+                                SELECT DECODE(COMM_NO, '101','100','006','100','102','101','003','103','005','103') COMM_NO,
+                                           MEET_CD, SUM(TOT_SALES)
+                                FROM VIEW_SALES_BCRC
+                                WHERE 1=1
+				                AND   MEET_CD   = ?				-- 6:MEET_CD
+				                AND   RACE_DAY BETWEEN ? AND ?	-- 7,8:STR_DT, END_DT  
+                                GROUP BY DECODE(COMM_NO, '101','100','006','100','102','101','003','103','005','103'), MEET_CD   
+				               ) A, TBRK_SPEC_CD C
+				        WHERE C.GRP_CD(+) IN ('060','032')
+				        AND   A.COMM_NO = C.CD(+)
+				        GROUP BY A.COMM_NO, A.MEET_CD, C.CD_NM, C.ORD_NO
+				        ORDER BY C.ORD_NO
+				        )        
+				-- 지자체 납부 각 지점의 매출액 및 레저세        
+				SELECT   GRP_NO, RNUM, COMM_NM
+				         , DIV_TOTAL
+				         , TRUNC(DIV_TOTAL *0.05,-1) AS LSTAX         
+				         /* 기존소스
+				         , TRUNC(DIV_TOTAL *0.02,-1) AS LETAX
+				         , TRUNC(DIV_TOTAL *0.01,-1) AS SPTAX
+				         , TRUNC(DIV_TOTAL *0.05,-1) +         
+				           TRUNC(DIV_TOTAL *0.02,-1) +
+				           TRUNC(DIV_TOTAL *0.01,-1) AS TOTAL */
+				         --변경소스 20150403
+				         , TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.4,-1) AS LETAX
+				         , TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.2,-1) AS SPTAX
+				         , TRUNC(DIV_TOTAL *0.05,-1) +         
+				           TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.4,-1) +
+				           TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.2,-1) AS TOTAL
+				FROM   X
+				WHERE COMM_NO != '01'
+				AND   DIV_TOTAL > 0
+				UNION ALL
+				-- 각 지자체별 납부액  매출액 및 레저세 합계
+				SELECT  3 GRP_NO, DECODE(LEV,1,998,999), DECODE(LEV,1,'카드납부','장외지점소계') AS COMM_NM
+				         , SUM(DIV_TOTAL)
+				         , SUM(TRUNC(DIV_TOTAL *0.05,-1)) AS LSTAX         
+				         /* 기존소스 
+				         , SUM(TRUNC(DIV_TOTAL *0.02,-1)) AS LETAX
+				         , SUM(TRUNC(DIV_TOTAL *0.01,-1)) AS SPTAX
+				         , SUM(TRUNC(DIV_TOTAL *0.05,-1)) +         
+				           SUM(TRUNC(DIV_TOTAL *0.02,-1)) +
+				           SUM(TRUNC(DIV_TOTAL *0.01,-1)) AS TOTAL */
+				         -- 변경소스 20150403
+				         , SUM(TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.4,-1)) AS LETAX
+				         , SUM(TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.2,-1)) AS SPTAX
+				         , SUM(TRUNC(DIV_TOTAL *0.05,-1)) +         
+				           SUM(TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.4,-1)) +
+				           SUM(TRUNC(TRUNC(DIV_TOTAL *0.05,-1) *0.2,-1)) AS TOTAL
+				FROM   X, (SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <3 ) B				
+				WHERE COMM_NO != '01'	
+				GROUP BY LEV			
+				UNION ALL
+				-- 경주 예수계
+				SELECT  3 GRP_NO, 9999, '경주예수계' AS COMM_NM
+				         , SUM(DIV_TOTAL)
+				         , NULL AS LSTAX         
+				         , NULL AS LETAX
+				         , NULL AS SPTAX
+				         , NULL AS TOTAL
+				FROM   X
+				ORDER BY 1,2                                                   
+        ]]>
+    </query>
+    
+</queryMap>

@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdm_auth_mngr(메뉴권한관리)">
+     
+     <query id="tbdm_mn_auth_fm001" desc="USERLIST쿼리" fetchSize="10">
+        <![CDATA[
+			SELECT /* tbdm_mn_auth_fm001 */
+			       A.USER_ID     -- 사용자ID         
+			       , A.USER_NM     -- 사용자명         
+			       --, A.PSWD        -- 비밀번호
+			       , B.MENU_USE	   -- 메뉴사용 여부         
+			       , B.DUTY_GRP_CD -- 업무그룹코드     
+			       , A.DEPT_CD     -- 부서코드
+			       , A.DEPT_NM	   -- 부서이름
+			       , A.TEAM_CD	   -- 팀코드
+			       , A.TEAM_NM	   -- 팀이름
+			       , A.FLOC		   -- 직위코드
+			       , A.FGRADE	   -- 직위         
+			       , A.TEL_NO      -- 전화번호         
+			       , B.HP_NO       -- 휴대폰번호
+			       , A.EMAIL	   -- 이메일       
+			       , B.STR_DT      -- 유효기간 시작일자
+			       , B.END_DT      -- 유효기간 종료일자
+			       , INST_ID     -- 작성자ID         
+			       , INST_DTM    -- 작성일시         
+			       , UPDT_ID     -- 수정자ID         
+			       , UPDT_DTM    -- 수정일시         
+			FROM   VWEA_USER A, TBDM_USER B
+			WHERE  A.USER_ID = B.USER_ID(+)
+			AND    B.MENU_USE = '001'
+			AND	   A.USER_NM LIKE NVL('%'|| ? ||'%', A.USER_NM)
+			
+        ]]>
+    </query>
+     
+     <query id="tbdm_mn_auth_fm002" desc="MENUAUTHLIST쿼리" fetchSize="10">
+        <![CDATA[
+			SELECT
+			      A.USER_ID
+			    , B.MN_ID
+			    , SRCH_YN
+			    , INPT_YN
+			    , APRV_YN
+			    , A.INST_ID
+			    , A.INST_DTM
+			    , A.UPDT_ID
+			    , A.UPDT_DTM
+			    , B.MN_NM
+			    , B.UPMNNM
+			    , B.ISGRP
+			    , SUBSTR(B.MN_ID, 1, 3) ACHK
+			FROM (SELECT
+			              USER_ID
+			            , MN_ID
+			            , DECODE(SRCH_YN, 'Y', 1, 0) SRCH_YN
+			            , DECODE(INPT_YN, 'Y', 1, 0) INPT_YN
+			            , DECODE(APRV_YN, 'Y', 1, 0) APRV_YN
+			            , INST_ID
+			            , INST_DTM
+			            , UPDT_ID
+			            , UPDT_DTM
+			        FROM TBDM_MN_AUTH_HIST
+			        WHERE USER_ID = ?
+			        AND   TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT AND_TM END_DT_TM ) A
+			    , (SELECT 
+			              A.MN_ID
+			            , A.MN_NM
+			            , A.UP_MN_ID
+			            , B.MN_NM UPMNNM
+			            , (CASE WHEN A.UP_MN_ID = '000000000' THEN '1' ELSE '0' END) ISGRP
+			        FROM (SELECT 
+			                  MN_ID
+			                , MN_NM
+			                , UP_MN_ID
+			            FROM TBDM_MN
+			            START WITH UP_MN_ID = '000000000'
+			            CONNECT BY UP_MN_ID = PRIOR MN_ID) A
+			        , TBDM_MN B
+			        WHERE SUBSTR(A.MN_ID, 0, 3)||'000000' = B.MN_ID
+			        ORDER BY A.MN_ID ASC) B
+			WHERE A.MN_ID(+) = B.MN_ID
+			AND B.ISGRP = 0
+        ]]>
+    </query>       
+
+
+     <query id="d05000004_s01" desc="USERLIST쿼리" fetchSize="10">
+        <![CDATA[
+			SELECT /* d05000004_s01 */
+                      NVL(A.USER_ID,?) AS USER_ID  
+                    , DECODE(B.LVL, '2', B.UP_MN_ID, B.UPUP_MN_ID) UPUP_MN_ID
+                    , DECODE(B.LVL, '2', B.UPMNNM, B.UPUPMN_NM) UPUPMN_NM
+                    , B.UP_MN_ID
+                    , B.UPMNNM
+                    , B.MN_ID
+                    , B.MN_NM
+                    , A.STR_DT_TM
+                    , A.END_DT_TM
+                    , SRCH_YN
+                    , INPT_YN
+                    , APRV_YN
+                    , B.LVL 
+                    , B.ORD_NO
+                    , B.MN_LEVEL
+                    , A.INST_ID
+                    , A.INST_DTM
+                    , A.UPDT_ID
+                    , A.UPDT_DTM  
+              FROM  (SELECT USER_ID    
+                            , MN_ID    
+                            , STR_DT_TM
+                            , END_DT_TM
+                            , DECODE(SRCH_YN, 'Y', 1, 0) SRCH_YN    
+                            , DECODE(INPT_YN, 'Y', 1, 0) INPT_YN   
+                            , DECODE(APRV_YN, 'Y', 1, 0) APRV_YN 
+                            , INST_ID    
+                            , INST_DTM    
+                            , UPDT_ID    
+                            , UPDT_DTM
+                       FROM TBDM_MN_AUTH_HIST    
+                      WHERE USER_ID =  ?
+                      AND   ?||TO_CHAR(SYSDATE,'HH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+                    ) A                    
+                    ,(
+                    SELECT A.MN_ID
+                            , A.MN_NM
+                            , A.UP_MN_ID
+                            , C.MN_NM UPMNNM
+                            , D.MN_ID UPUP_MN_ID
+                            , D.MN_NM UPUPMN_NM
+                            , A.LVL 
+                            , A.ORD_NO
+                            , A.MN_LEVEL 
+                            , ROWNUM AS SEQ
+                      FROM  (
+                                SELECT MN_ID
+                                         ,MN_NM
+                                         ,UP_MN_ID
+                                         ,ORD_NO
+                                         ,URL
+                                         ,LV AS MN_LEVEL
+                                         ,LEVEL -1 AS LVL
+                                FROM VWDM_MN
+                                START WITH MN_ID = '000000000'
+                                CONNECT BY PRIOR MN_ID = UP_MN_ID
+                                ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(LV)
+                             ) A
+                             , TBDM_MN B, TBDM_MN C, TBDM_MN D                    
+                     WHERE A.MN_ID    = B.MN_ID
+                       AND A.UP_MN_ID = C.MN_ID
+                       AND C.UP_MN_ID = D.MN_ID
+                       AND A.URL IS NOT NULL                    
+                   ORDER BY SEQ
+                   ) B
+             WHERE A.MN_ID(+) = B.MN_ID
+             ORDER BY B.SEQ
+        ]]>
+    </query>
+     
+     
+    <query id="d05000004_s02" desc="권한대상 사용자 조회(일반사용자)" fetchSize="10">
+      <![CDATA[
+           SELECT /* d05000004_s02 */
+                    '0' AS CHK
+					,A.GBN       --구분코드
+					,A.USER_ID   --사용자ID
+					,A.PSWD      --비밀번호
+					,A.USER_NM   --사용자명
+					,A.EMAIL     --이메일
+					,A.TEL_NO    --전화번호
+					,A.FLOC      --직위
+					,A.FGRADE    --직급
+					,A.ASSO_CD   --대분류코드
+					,A.DEPT_CD   --부서코드
+					,A.TEAM_CD   --팀코드
+					,A.ASSO_NM   --대분류명
+					,A.DEPT_NM   --부서명
+					,A.TEAM_NM   --팀명
+					
+            FROM VWEA_USER A
+                 ,(SELECT USER_ID 
+                   FROM   TBDM_MN_AUTH_HIST 
+                   WHERE  TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM 
+                   GROUP BY USER_ID) B
+            WHERE 1 = 1
+                 AND A.USER_ID = B.USER_ID
+                 AND A.USER_NM LIKE  '%' || NVL(? , A.USER_NM) || '%'  
+            ORDER BY A.DISP_ORDER
+            
+        ]]>
+    </query> 
+    
+    <query id="d05000004_s04" desc="사용자 조회" fetchSize="10">
+      <![CDATA[
+           SELECT /* d05000004_s04 */
+                     '0' AS CHK
+                    ,A.GBN       --구분코드
+                    ,A.USER_ID   --사용자ID
+                    ,A.PSWD      --비밀번호
+                    ,A.USER_NM   --사용자명
+                    ,A.EMAIL     --이메일
+                    ,A.TEL_NO    --전화번호
+                    ,A.FLOC      --직위
+                    ,A.FGRADE    --직급
+                    ,A.ASSO_CD   --대분류코드
+                    ,A.DEPT_CD   --부서코드
+                    ,A.TEAM_CD   --팀코드
+                    ,A.ASSO_NM   --대분류명
+                    ,A.DEPT_NM   --부서명
+                    ,A.TEAM_NM   --팀명
+                    
+            FROM VWEA_USER A
+            WHERE 1 = 1
+                 AND A.USER_NM LIKE  '%' || NVL(? , A.USER_NM) || '%'    
+            ORDER BY A.DISP_ORDER
+        ]]>
+    </query>     
+    
+    
+    
+    <query id="d05000004_i01" desc="MENUAUTHINSERT쿼리" fetchSize="10">
+        <![CDATA[
+			INSERT /* d05000004_i01 */
+			       INTO TBDM_MN_AUTH_HIST (
+			      USER_ID
+			    , MN_ID
+			    , STR_DT_TM
+			    , END_DT_TM
+			    , SRCH_YN
+			    , INPT_YN
+			    , APRV_YN
+			    , INST_ID
+			    , INST_DTM
+			) VALUES (
+			      ?                 -- USER_ID
+			    , ?                 -- MN_ID
+			    , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')
+			    , '299912312359'
+			    , ?                 -- SRCH_YN
+			    , ?                 -- INPT_YN
+			    , ?                 -- APRV_YN
+			    , ?                 -- INST_ID			    
+			    , SYSDATE           -- INST_DTM
+			)
+        ]]>
+    </query>  
+    
+    <query id="d05000004_u01" desc="권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE /* d05000004_u01 */
+			       TBDM_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(SYSDATE-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(현재시간-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DTM = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    STR_DT_TM  = ?			-- 시작일시분
+			AND    STR_DT_TM  < TO_CHAR(SYSDATE,'YYYYMMDDHH24MI')
+        ]]>
+    </query>  
+    
+
+    <query id="d05000004_u02" desc="권한 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* d05000004_u02 */
+			       TBDM_MN_AUTH_HIST
+			SET    SRCH_YN = ?			-- 조회권한
+			     , INPT_YN = ?			-- 수정권한
+			     , APRV_YN = ?			-- 승인권한
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DTM = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    STR_DT_TM  = ?		-- 시작일시분
+        ]]>
+    </query>  
+    
+
+     <query id="tbdm_mn_auth_dm001" desc="사용자의 전체 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbdm_mn_auth_dm001 */
+			       TBDM_MN_AUTH_HIST
+			SET    END_DT_TM = TO_CHAR(SYSDATE -1/24/60, 'YYYYMMDDHH24MI')
+			      ,UPDT_ID = ?
+			      ,UPDT_DTM = SYSDATE
+			WHERE  USER_ID = ?
+			AND    TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+        ]]>
+    </query>   
+          
+   
+     <query id="d05000004_s02" desc="권한에 자료 존재 여부 확인" fetchSize="10">
+        <![CDATA[
+			SELECT /* d05000004_s02 */
+			       USER_ID -- 건수
+			FROM   TBDM_MN_AUTH_HIST
+			WHERE  USER_ID = ?
+			AND    MN_ID   = ?
+			AND	   STR_DT_TM  = ?
+			
+        ]]>
+    </query>     
+    
+     <query id="d05000004_s03" desc="권한에 자료 존재 여부 확인" fetchSize="10">
+        <![CDATA[
+           SELECT /* d05000004_s03 */
+                    '0' AS CHK
+					,A.GBN       --구분코드
+					,A.USER_ID   --사용자ID
+					,A.PSWD      --비밀번호
+					,A.USER_NM   --사용자명
+					,A.EMAIL     --이메일
+					,A.TEL_NO    --전화번호
+					,A.FLOC      --직위
+					,A.FGRADE    --직급
+					,A.ASSO_CD   --대분류코드
+					,A.DEPT_CD   --부서코드
+					,A.TEAM_CD   --팀코드
+					,A.ASSO_NM   --대분류명
+					,A.DEPT_NM   --부서명
+					,A.TEAM_NM   --팀명					
+            FROM VWEA_USER A
+                 ,(SELECT USER_ID 
+                   FROM   TBDM_MN_AUTH_HIST 
+                   WHERE  TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+                   AND     NVL(SRCH_YN,'N') ||NVL(INPT_YN,'N')||NVL(APRV_YN,'N') <> 'NNN' 
+                   GROUP BY USER_ID) B
+            WHERE 1 = 1
+                 AND A.USER_ID = B.USER_ID
+                 AND A.USER_NM LIKE  '%' || NVL(? , A.USER_NM) || '%'  
+            ORDER BY A.DISP_ORDER
+            
+        ]]>
+    </query>
+         
+     <query id="d05000004_s05" desc="소속과 무관하게 자료 조회" fetchSize="10">
+        <![CDATA[
+           SELECT /* d05000004_s05 */
+                    '0' AS CHK
+					,A.USER_ID   --사용자ID
+					,A.USER_NM   --사용자명
+					,A.DEPT_NM   --부서명
+					,A.TEAM_NM   --팀명					
+            FROM    (
+		              SELECT  A.USER_SPEC_ID AS USER_ID,
+		                      A.USER_NAME    AS USER_NM,
+		                      B.DOC_GROUP_NAME AS DEPT_NM,
+		                      B.GROUP_NAME    AS TEAM_NM,
+		                      A.DISPLAY_ORDER
+		              FROM    V_USER_INFO@JUPITERLINK A,
+		                      V_GROUP@JUPITERLINK B
+		              WHERE   A.GROUP_ID        = B.GROUP_ID
+		              AND     A.ADD_POS_SEQNO   = '0'
+		              AND     A.DOC_GROUP_ID    = B.DOC_GROUP_ID
+		              ) A
+                 ,(SELECT USER_ID 
+                   FROM   TBDM_MN_AUTH_HIST 
+                   WHERE  TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+                   AND     NVL(SRCH_YN,'N') ||NVL(INPT_YN,'N')||NVL(APRV_YN,'N') <> 'NNN' 
+                   GROUP BY USER_ID) B
+            WHERE 1 = 1
+                 AND A.USER_ID = B.USER_ID
+                 AND A.USER_ID = ?  
+            ORDER BY A.DISPLAY_ORDER
+            
+        ]]>
+    </query>
+         
+    <query id="d05000004_i02" desc="권한이양 입력/수정(일반사용자)" fetchSize="10">
+        <![CDATA[        
+             INSERT /* d05000004_i02 */
+                    INTO TBDM_MN_AUTH_HIST (
+                     USER_ID                  --  사용자 ID
+                    ,MN_ID                    --  메뉴 ID
+                    ,STR_DT_TM
+                    ,END_DT_TM
+                    ,SRCH_YN                  --  조회사용여부                
+                    ,INPT_YN                  --  저장사용여부            
+                    ,APRV_YN                  --  승인사용여부 
+                    ,INST_ID                  --  작성일시                    
+                    ,INST_DTM                  --  작성자       
+                    ) 
+             SELECT  ?                  	  --  사용자 ID
+                    ,MN_ID                    --  메뉴 ID
+                    ,TO_CHAR(SYSDATE,'YYYYMMDDHH24MI')                        --  시작일시
+                    ,'299912312359'			  --  종료일시
+                    ,SRCH_YN                  --  조회사용여부                
+                    ,INPT_YN                  --  저장사용여부            
+                    ,APRV_YN                  --  승인사용여부 
+                    ,?
+                    ,SYSDATE
+             FROM   TBDM_MN_AUTH_HIST
+             WHERE  USER_ID = ?
+             AND    TO_CHAR(SYSDATE,'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM       
+             AND    NVL(SRCH_YN,'N')||NVL(INPT_YN,'N')||NVL(APRV_YN,'N') != 'NNN'  
+        ]]>
+    </query>
+      
+    <query id="d05000004_m01" desc="권한적용부서 입력" fetchSize="10">
+
+        <![CDATA[            
+             MERGE INTO TBDM_AUTH_APLY_DEPT A  --권한적용부서  관리 /* d05000004_m01 */
+             USING   
+                     (SELECT                     
+                          USER_ID                       -- 사용자ID
+                        , ASSO_CD                       -- 대분류코드              
+                        , DEPT_CD                       -- 부서코드             
+                        , TEAM_CD                       -- 팀코드
+                        , ? AS INST_ID                    -- 작성자                                               
+                     FROM    VWEA_USER 
+                     WHERE USER_ID   = ? ) B                   
+             ON (    
+                     A.USER_ID = B.USER_ID   
+             )                        
+             WHEN MATCHED THEN
+                 UPDATE SET
+                     A.ASSO_CD          = B.ASSO_CD            --대분류코드
+                    ,A.DEPT_CD          = B.DEPT_CD            --부서코드
+                    ,A.TEAM_CD          = B.TEAM_CD            --팀코드
+             WHEN NOT MATCHED THEN                  
+                 INSERT (                 
+                          A.USER_ID                       -- 사용자ID
+                        , A.ASSO_CD                       -- 대분류코드              
+                        , A.DEPT_CD                       -- 부서코드             
+                        , A.TEAM_CD                       -- 팀코드
+                        , A.INST_ID                       -- 작성자
+                        , A.INST_DT                       -- 작성일시
+                 ) VALUES (                 
+                          B.USER_ID                       -- 사용자ID
+                        , B.ASSO_CD                       -- 대분류코드              
+                        , B.DEPT_CD                       -- 부서코드             
+                        , B.TEAM_CD                       -- 팀코드
+                        , B.INST_ID                       -- 작성자
+                        , SYSDATE                         -- 작성일시
+                 )
+        ]]>
+
+    </query>     
+      
+      
+    <query id="d05000004_m02" desc="메뉴사용권한 입력" fetchSize="10">
+
+        <![CDATA[            
+             MERGE INTO TBDM_USER A /* d05000004_m02 */
+             USING   
+                     (SELECT                     
+                           USER_ID                       -- 사용자ID
+                        , ? AS INST_ID                    -- 작성자                                               
+                     FROM    VWEA_USER 
+                     WHERE USER_ID   = ? ) B                   
+             ON (    
+                     A.USER_ID = B.USER_ID   
+             )                        
+             WHEN MATCHED THEN
+                 UPDATE SET
+                     A.MENU_USE  = '001'
+                    ,A.UPDT_ID   = B.INST_ID
+                    ,A.UPDT_DTM  = SYSDATE
+             WHEN NOT MATCHED THEN                  
+                 INSERT (                 
+                          USER_ID                       -- 사용자ID
+                        , STR_DT                       -- 시작일자              
+                        , END_DT                       -- 종료일자
+                        , MENU_USE                      -- 메뉴사용여부('001':사용)             
+                        , INST_ID                       -- 작성자
+                        , INST_DTM                      -- 작성일시
+                 ) VALUES (                 
+                          B.USER_ID                       -- 사용자ID
+                        , TO_CHAR(SYSDATE, 'YYYYMMDD')    -- 시작일자              
+                        , '29991231'                      -- 종료일자             
+                        , '001'                       -- 작성자
+                        , B.INST_ID                       -- 작성자
+                        , SYSDATE                         -- 작성일시
+                 )
+        ]]>
+
+    </query>     
+</queryMap>

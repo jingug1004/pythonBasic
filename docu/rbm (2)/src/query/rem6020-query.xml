@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem6020(일자별 입장인원)">
+  
+    <query id="rem6020_s01" desc="일자별 입장인원 조회" fetchSize="10">
+      <![CDATA[
+      		WITH FIXED_SEAT AS ( --지정좌석실
+				SELECT ISSUE_DT 
+                 		,COMM_NO
+						,'4'
+						,COUNT(*) * 1500 AS AMT
+						,COUNT(*) AS CNT 
+						FROM  TBRC_FS_TRADE
+						WHERE 1=1
+						AND   ((COMM_NO = '21' AND  ISSUE_DT < '20161014') --영등포지점 20161014 이후 티머니에 포함
+						OR 
+						  (COMM_NO = '26' AND  ISSUE_DT < '20161012')) --천안지점 20161012 이후 티머니에 포함
+						GROUP BY ISSUE_DT, COMM_NO
+			)
+            SELECT /* rem6020_s01*/
+			     RACE_DAY
+			    ,SUM(CNT_SUM) TOT_CNT
+				,SUM(DECODE(COMM_NO, '00',CNT_SUM,0)) CNT_00 --광명
+				,SUM(DECODE(COMM_NO, '98',CNT_SUM,0)) CNT_98 --미사리	
+				,SUM(DECODE(COMM_NO, '11',CNT_SUM,0)) CNT_11 --수원
+				,SUM(DECODE(COMM_NO, '12',CNT_SUM,0)) CNT_12 --중랑
+				,SUM(DECODE(COMM_NO, '13',CNT_SUM,0)) CNT_13 --일산
+				,SUM(DECODE(COMM_NO, '14',CNT_SUM,0)) CNT_14 --분당
+				,SUM(DECODE(COMM_NO, '15',CNT_SUM,0)) CNT_15 --동대문	
+				,SUM(DECODE(COMM_NO, '16',CNT_SUM,0)) CNT_16 --장안
+				,SUM(DECODE(COMM_NO, '17',CNT_SUM,0)) CNT_17 --산본
+				,SUM(DECODE(COMM_NO, '18',CNT_SUM,0)) CNT_18 --부천
+				,SUM(DECODE(COMM_NO, '19',CNT_SUM,0)) CNT_19 --관악
+				,SUM(DECODE(COMM_NO, '20',CNT_SUM,0)) CNT_20 --성북
+				,SUM(DECODE(COMM_NO, '21',CNT_SUM,0)) CNT_21 --영등포
+				,SUM(DECODE(COMM_NO, '22',CNT_SUM,0)) CNT_22 --대전
+				,SUM(DECODE(COMM_NO, '23',CNT_SUM,0)) CNT_23 --인천
+				,SUM(DECODE(COMM_NO, '24',CNT_SUM,0)) CNT_24 --시흥
+				,SUM(DECODE(COMM_NO, '25',CNT_SUM,0)) CNT_25 --강남
+				,SUM(DECODE(COMM_NO, '26',CNT_SUM,0)) CNT_26 --천안
+				,SUM(DECODE(COMM_NO, '28',CNT_SUM,0)) CNT_28 --의정부
+				,SUM(DECODE(COMM_NO,'201',CNT_SUM,0)) CNT_201 --창원본장
+				,SUM(DECODE(COMM_NO,'202',CNT_SUM,0)) CNT_202 --창원김해
+				,SUM(DECODE(COMM_NO,'203',CNT_SUM,0)) CNT_203 --부산본장
+				,SUM(DECODE(COMM_NO,'204',CNT_SUM,0)) CNT_204 --부산광복
+				,SUM(DECODE(COMM_NO,'205',CNT_SUM,0)) CNT_205 --부산서면
+			FROM (
+				SELECT
+					S.RACE_DAY
+					,COMM_NO
+					,SUM(CNT) AS CNT_SUM
+					,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS PAY_CNT
+					,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS NOT_PAY_CNT
+					,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS REQUEST_FEE
+				FROM (
+					SELECT TRADE_DATE, COMM_NO, CARD_USER_TYPE, FEE, CNT
+					FROM   TBRC_T_TRADE_SUM
+					UNION ALL
+					SELECT * FROM FIXED_SEAT -- 지정좌석실	
+					UNION ALL
+					SELECT TRADE_DATE
+                          ,COMM_NO
+                          ,CARD_USER_TYPE
+                          ,FEE
+                          ,CNT 
+                    FROM TBRC_INWON_CRS
+                    WHERE 'Y' = ?  --지방경정포함여부
+				)  T,
+				(
+					SELECT RACE_DAY, BRNC_CD, COMM_NM, MEET_CD FROM (
+						SELECT RACE_DAY, C.CD AS BRNC_CD, C.CD_NM AS COMM_NM
+						       ,DECODE(S.MEET_CD, '002', '001', '004', '001', S.MEET_CD) MEET_CD
+						FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+						        FROM   VW_SDL_INFO
+						        GROUP BY RACE_DAY) S,
+						       TBRK_SPEC_CD C
+						WHERE 1=1
+						AND   S.MEET_CD LIKE   ? || '%'
+						AND   C.GRP_CD = '018'
+						AND   C.DEL_YN = 'N'
+						AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+						UNION ALL
+						-- 휴장기 교차경주 처리
+						SELECT RACE_DAY, C.CD AS BRNC_CD, C.CD_NM AS COMM_NM, '001' MEET_CD
+						FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+						       FROM   VW_SDL_INFO
+						       GROUP BY RACE_DAY) S,
+						      TBRK_SPEC_CD C
+						WHERE 1=1
+						AND   S.MEET_CD IN ('002','004')
+						AND   DECODE( ?,'001',1,2) = 1 --경륜일 경우만 조회
+						AND   C.GRP_CD = '018'
+						AND   C.DEL_YN = 'N'
+						AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+						AND   S.RACE_DAY IN (SELECT CD FROM TBRK_SPEC_CD WHERE GRP_CD = '175')
+					) GROUP BY RACE_DAY, BRNC_CD, COMM_NM, MEET_CD
+				) S
+				WHERE S.RACE_DAY = T.TRADE_DATE
+				AND S.BRNC_CD  = T.COMM_NO
+				AND T.COMM_NO NOT IN ('00', '98')
+				AND T.TRADE_DATE BETWEEN  ? AND  ?
+				GROUP BY S.RACE_DAY, COMM_NO
+			
+				UNION ALL
+			
+				SELECT
+					 S.RACE_DAY
+					,COMM_NO
+					,SUM(CNT) AS CNT_SUM
+					,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS PAY_CNT
+					,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS NOT_PAY_CNT
+					,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS REQUEST_FEE
+				FROM (
+					SELECT TRADE_DATE, COMM_NO, CARD_USER_TYPE, FEE, CNT
+					FROM   TBRC_T_TRADE_SUM
+					UNION ALL
+					--SELECT TRADE_DATE, '00', '4', FEE, CNT
+					SELECT TRADE_DATE, '00', CARD_USER_TYPE, FEE, CNT
+					FROM  TBRC_T_TRADE_KM_SUM
+					WHERE 'N' =  ? --광명입장권
+					UNION ALL
+					--SELECT TRADE_DATE, '98', '4', FEE, CNT
+					SELECT TRADE_DATE, '98', CARD_USER_TYPE, FEE, CNT
+					FROM  TBRC_T_TRADE_MSR_SUM
+					WHERE 'N' =  ? --미사리입장권
+					UNION ALL
+					SELECT * FROM FIXED_SEAT 
+				)  T,
+				(
+					SELECT RACE_DAY, BRNC_CD, COMM_NM, MEET_CD FROM (
+						SELECT RACE_DAY, C.CD AS BRNC_CD, C.CD_NM AS COMM_NM
+					          ,DECODE(S.MEET_CD, '002', '001', '004', '001', S.MEET_CD) MEET_CD
+						FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+					           FROM   VW_SDL_INFO
+					           GROUP BY RACE_DAY) S,
+					       TBRK_SPEC_CD C
+						WHERE 1=1
+						AND   S.MEET_CD LIKE  ? || '%'
+						AND   C.GRP_CD = '018'
+						AND   C.DEL_YN = 'N'
+						AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+						UNION ALL
+						-- 휴장기 교차경주 처리
+						SELECT RACE_DAY ,C.CD AS BRNC_CD, C.CD_NM AS COMM_NM, '001' MEET_CD
+						FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+					           FROM   VW_SDL_INFO
+					           GROUP BY RACE_DAY) S,
+					       TBRK_SPEC_CD C
+						WHERE 1=1
+						AND   S.MEET_CD IN ('002','004')
+						AND   DECODE(?,'001',1,2) = 1  --경륜일 경우만 조회
+						AND   C.GRP_CD = '018'
+						AND   C.DEL_YN = 'N'
+						AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+						AND   S.RACE_DAY IN (SELECT CD FROM TBRK_SPEC_CD WHERE GRP_CD = '175')
+					) GROUP BY RACE_DAY, BRNC_CD, COMM_NM, MEET_CD
+				) S
+				WHERE S.RACE_DAY = T.TRADE_DATE
+				AND S.BRNC_CD  = T.COMM_NO
+				AND T.COMM_NO IN ('00', '98')
+				AND T.COMM_NO <> DECODE(?, '1', DECODE(S.MEET_CD,'001','00','98') ,'-') --경륜이면 00, 경정이면 98 제외  20150115 김수정 요청
+				AND T.TRADE_DATE BETWEEN  ? AND  ?
+				GROUP BY S.RACE_DAY, COMM_NO
+			)
+			GROUP BY RACE_DAY
+			ORDER BY RACE_DAY
+        ]]>
+    </query> 
+    
+</queryMap>

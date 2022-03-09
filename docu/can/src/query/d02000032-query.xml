@@ -1,0 +1,861 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_race_rec_mst(경륜경주기록측정마스타)">
+
+    <query id="tbdb_race_rec_mst001" desc="경륜경주기록측정마스타 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+				    RACE_YY
+				    ,ROUND
+				    ,RACE_NO
+				    ,REFE
+				    ,WEATHER
+				    ,WIND_DIRC
+				    ,WIND_SPD
+				    ,TEMP
+				    ,HUMID
+				    ,RAIN
+				    ,START_TIME
+				    ,FNL_RACE_TIME
+				    ,FNL_RACE_TIME_HALF
+				    ,HIGH_TIME
+				    ,M200_TIME
+				    ,FNL_KEEP
+				    ,RACE_STAT
+				    ,RACE_GBN
+				    ,RACE_DESC
+				    ,INST_ID
+				    ,INST_DTM
+				    ,UPDT_ID
+				    ,UPDT_DTM
+				    ,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10076' AND CD = RACE_STAT) RACE_STAT_NM
+				    ,CFM_FG 
+				  
+			FROM   TBDB_RACE_REC_MST 
+		   WHERE   RACE_YY = ?
+		     AND   ROUND   = ?
+		     AND   to_number(RACE_NO) = ?
+        ]]>
+    </query>  
+    
+    
+    <query id="tbdb_race_rec_mst002" desc="경륜경주기록측정Detail 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			        DETL.RACE_YY
+			        ,DETL.ROUND
+			        ,DETL.RACE_NO
+			        ,DETL.BACK_NO
+			        ,DETL.CAND_NO
+			        ,DETL.RANK
+			        ,DETL.RACE_TIME
+			        ,DETL.REC_200M 
+			        ,DETL.DIST_DIF
+			        ,DETL.STRATEGY
+			        ,DETL.PRE_YN
+			        ,DETL.HS_YN
+			        ,DETL.BS_YN
+			        ,DETL.ABS_GBN
+			        ,DETL.GOAL_GBN
+			        ,POINT.POINT_MARKS SCR
+			        ,DETL.INST_ID
+			        ,DETL.INST_DTM
+			        ,DETL.UPDT_ID
+			        ,DETL.UPDT_DTM
+			        ,IDENT.NM_KOR AS CAND_NM
+			        ,BEFORE.BEFORE_STAT
+			        ,AFTER.DISQ -- 실격
+			        ,AFTER.WARN -- 경고
+			        ,AFTER.CAUT -- 주의
+			        ,AFTER.TWOS -- 2주연속 67위
+			        ,AFTER.THES -- 3일연속 7위
+			        ,AFTER.AFTER_STAT
+                    , (SELECT DECODE(COUNT(ACT1.VIOL_CD),0,0,2)
+                      FROM TBDB_VIOL_ACT ACT1                    
+                       WHERE   ACT1.RACE_YY = DETL.RACE_YY
+                         AND   ACT1.ROUND   = DETL.ROUND
+                         AND   TO_NUMBER(ACT1.RACE_NO) = TO_NUMBER(DETL.RACE_NO)
+                    	 AND   ACT1.BACK_NO = DETL.BACK_NO
+                    	 AND   ACT1.CAND_NO = DETL.CAND_NO 
+                    	 AND   ACT1.VIOL_CD = '377') AS OFFENSE_CD1   
+                   , (SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10033' AND CD = DETL.STRATEGY) STRATEGY_NM
+			  FROM  TBDB_RACE_REC_DETL DETL,
+			        TBDB_CAND_IDENT IDENT,
+			        TBDB_RACE_POINT POINT,
+			        (
+			        	SELECT
+							CAND_NO,
+							DECODE(SUM(DISQ),0,'','실격:'||SUM(DISQ)||'  ')
+							||DECODE(SUM(WARN),0,'','경고:'||SUM(WARN)||'  ')
+							||DECODE(SUM(CAUT),0,'','주의:'||SUM(CAUT)||'  ')
+							||DECODE(SUM(TWOS),0,'','2주연속 67위:'||SUM(TWOS)||' ')
+							||DECODE(SUM(THES),0,'','3일연속 7위:'||SUM(THES)||' ')
+							AS BEFORE_STAT
+						
+						FROM
+						(
+							SELECT
+							ACT1.CAND_NO,
+							DECODE(ACT1.VIOL_CD, '011', 1,0) AS DISQ, -- 실격
+							DECODE(ACT1.VIOL_CD, '021', 1,0) AS WARN, -- 경고
+							DECODE(ACT1.VIOL_CD, '031', 1,0) AS CAUT, -- 주의
+							DECODE(ACT1.VIOL_CD, '267', 1,0) AS TWOS, -- 2주연속 67위
+							DECODE(ACT1.VIOL_CD, '377', 1,0) AS THES  -- 3일연속 7위
+							FROM TBDB_VIOL_ACT ACT1
+							WHERE ACT1.RACE_YY = ?
+							AND   to_number(ACT1.ROUND)   = (SELECT MAX(ROUND)
+	                                  FROM TBDB_VIOL_ACT ACT2
+	                                 WHERE ACT2.RACE_YY = ?
+	                                   AND ACT2.ROUND < ?
+	                                   AND ACT2.CAND_NO = ACT1.CAND_NO)
+							AND ACT1.VIOL_CD IN ('011', '021', '031', '267', '377')
+						)
+						GROUP BY CAND_NO
+			        ) BEFORE,	--전회 위반사항
+			        (
+			        	SELECT
+							CAND_NO,
+							SUM(DISQ) AS DISQ,
+							SUM(WARN) AS WARN,
+							SUM(CAUT) AS CAUT,
+							SUM(TWOS) AS TWOS,
+							SUM(THES) AS THES,
+							DECODE(SUM(DISQ),0,'','실격:'||SUM(DISQ)||'  ')
+							||DECODE(SUM(WARN),0,'','경고:'||SUM(WARN)||'  ')
+							||DECODE(SUM(CAUT),0,'','주의:'||SUM(CAUT)||'  ')
+							||DECODE(SUM(TWOS),0,'','2주연속 67위:'||SUM(TWOS)||' ')
+							||DECODE(SUM(THES),0,'','3일연속 7위:'||SUM(THES)||' ')
+							AS AFTER_STAT
+						
+						FROM
+						(
+							SELECT
+							ACT1.CAND_NO,
+							DECODE(ACT1.VIOL_CD, '011', 1,0) AS DISQ, -- 실격
+							DECODE(ACT1.VIOL_CD, '021', 1,0) AS WARN, -- 경고
+							DECODE(ACT1.VIOL_CD, '031', 1,0) AS CAUT, -- 주의
+							DECODE(ACT1.VIOL_CD, '267', 1,0) AS TWOS, -- 2주연속 67위
+							DECODE(ACT1.VIOL_CD, '377', 1,0) AS THES  -- 3일연속 7위
+						
+							FROM TBDB_VIOL_ACT ACT1
+							WHERE ACT1.RACE_YY = ?
+							AND ACT1.ROUND = ?
+							AND ACT1.VIOL_CD IN ('011', '021', '031', '267', '377')
+						)
+						GROUP BY CAND_NO
+			        ) AFTER	--금회 위반사항
+			        
+			         
+		   WHERE DETL.RACE_YY            = ?
+		     AND DETL.ROUND              = ?
+		     AND to_number(DETL.RACE_NO) = ?
+		     AND DETL.CAND_NO            = IDENT.CAND_NO(+) 
+		     AND DETL.RACE_YY            = POINT.RACE_YY(+)
+		     AND DETL.ROUND              = POINT.ROUND(+)
+		     AND DETL.CAND_NO            = POINT.CAND_NO(+) 
+		     AND DETL.CAND_NO = BEFORE.CAND_NO(+)
+		     AND DETL.CAND_NO = AFTER.CAND_NO(+)
+		   ORDER BY DETL.BACK_NO ASC
+        ]]>
+    </query>  
+    
+    
+ <query id="tbdb_race_rec_mst_ib001" desc="경륜경주기록측정마스타  입력" fetchSize="10">
+ <![CDATA[ 
+ 
+         	    INSERT INTO TBDB_RACE_REC_MST ( 
+				    RACE_YY
+				    ,ROUND
+				    ,RACE_NO
+				    ,REFE
+				    ,WEATHER
+				    ,WIND_DIRC
+				    ,WIND_SPD
+				    ,TEMP
+				    ,HUMID
+				    ,RAIN
+				    ,START_TIME
+				    ,FNL_RACE_TIME
+				    ,FNL_RACE_TIME_HALF
+				    ,HIGH_TIME
+				    ,M200_TIME
+				    ,FNL_KEEP
+				    ,RACE_STAT
+				    ,RACE_GBN
+				    ,RACE_DESC
+				    ,CFM_FG
+				    ,INST_ID
+				    ,INST_DTM
+				    ,UPDT_ID
+				    ,UPDT_DTM ) 
+		    VALUES  (  ?
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,?
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,? 
+		              ,'N'
+		              ,?
+		              ,SYSDATE
+		              ,?
+		              ,SYSDATE ) 
+		    
+ ]]> 
+  </query>
+  
+  
+  
+  <query id="tbdb_race_rec_mst_ib002" desc="경륜경주기록측정마스타  갱신" fetchSize="10">
+ <![CDATA[ 
+			
+			UPDATE TBDB_RACE_REC_MST
+			SET
+			    REFE               = ? 
+			    ,WEATHER            = ? 
+			    ,WIND_DIRC          = ? 
+			    ,WIND_SPD           = ? 
+			    ,TEMP               = ? 
+			    ,HUMID              = ? 
+			    ,RAIN               = ? 
+			    ,START_TIME         = ? 
+			    ,FNL_RACE_TIME      = ? 
+			    ,FNL_RACE_TIME_HALF = ? 
+			    ,HIGH_TIME          = ? 
+			    ,M200_TIME          = ? 
+			    ,FNL_KEEP           = ? 
+			    ,RACE_STAT          = ? 
+			    ,RACE_GBN           = ? 
+			    ,RACE_DESC	        = ?  
+			    ,UPDT_ID            = ? 
+			    ,UPDT_DTM           = SYSDATE 
+			    
+			WHERE RACE_YY  = ?
+			  AND ROUND    = ?
+		      AND to_number(RACE_NO) = ?	
+
+  ]]> 
+  </query>
+  
+ <query id="tbdb_race_rec_mst_ib003" desc="경륜경주기록측정마스타  삭제" fetchSize="10">
+ <![CDATA[ 
+			DELETE 
+			FROM   
+			      TBDB_RACE_REC_MST
+			WHERE RACE_YY  = ?
+			  AND ROUND    = ?
+		      AND to_number(RACE_NO) = ?	
+
+
+  ]]> 
+  </query> 
+  
+ <query id="tbdb_race_rec_detl_ib001" desc="경륜경주기록측정detail  입력" fetchSize="10">
+ <![CDATA[ 
+         	 
+INSERT INTO TBDB_RACE_REC_DETL (
+			 RACE_YY
+			,ROUND
+			,RACE_NO
+			,BACK_NO
+			,CAND_NO
+			,RANK
+			,RACE_TIME
+			,REC_200M
+			,DIST_DIF
+			,STRATEGY
+			,PRE_YN
+			,HS_YN
+			,BS_YN
+			,ABS_GBN
+			,GOAL_GBN
+			,INST_ID
+			,INST_DTM
+			,UPDT_ID
+			,UPDT_DTM
+          )
+		VALUES ( ? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,SYSDATE
+				,?
+				,SYSDATE 
+			 )
+
+		    
+ ]]> 
+  </query>
+  
+  
+  <query id="tbdb_race_rec_detl_ib002" desc="경륜경주기록측정detail  갱신" fetchSize="10">
+ <![CDATA[ 
+			
+			UPDATE TBDB_RACE_REC_DETL 
+			SET
+			     RANK       = ? 
+			    ,RACE_TIME  = ? 
+			    ,REC_200M   = ? 
+			    ,DIST_DIF   = ? 
+			    ,STRATEGY   = ? 
+			    ,PRE_YN     = ? 
+			    ,HS_YN      = ? 
+			    ,BS_YN      = ? 
+			    ,ABS_GBN    = ? 
+			    ,GOAL_GBN   = ? 
+			    ,UPDT_ID    = ? 
+			    ,UPDT_DTM   = sysdate 
+			    
+			WHERE RACE_YY  = ?
+			  AND ROUND    = ?
+		      AND to_number(RACE_NO) = ?
+		      AND BACK_NO = ?
+		      AND CAND_NO = ?
+
+  ]]> 
+  </query>
+  
+  
+ <query id="tbdb_race_rec_detl_ib003" desc="경륜경주기록측정detail  삭제" fetchSize="10">
+ <![CDATA[ 
+			DELETE 
+			FROM   
+			      TBDB_RACE_REC_DETL
+			WHERE RACE_YY  = ?
+			  AND ROUND    = ?
+		      AND to_number(RACE_NO) = ?	
+		      AND BACK_NO = ?
+		      AND CAND_NO = ?
+
+
+  ]]> 
+  </query> 
+  
+  
+    
+    <query id="tbdb_viol_act002" desc="금일 위반사항  조회" fetchSize="10">
+        <![CDATA[
+			-- 금일 위반사항 
+			SELECT 
+			        ACT.RACE_YY
+			        ,ACT.ROUND
+			        ,ACT.RACE_NO
+			        ,ACT.BACK_NO
+			        ,ACT.CAND_NO
+			        ,ACT.SEQ
+			        ,ACT.WHEEL_NO
+			        ,ACT.VIOL_PLC
+			        ,ACT.VIOL_JO1
+			        ,ACT.VIOL_HANG1
+			        ,ACT.VIOL_HO1
+			        ,ACT.VIOL_JO2
+			        ,ACT.VIOL_HANG2
+			        ,ACT.VIOL_HO2
+			        ,ACT.VIOL_CD
+			        ,ACT.GBN
+			        ,ACT.REFE
+			        ,ACT.REPORT_DT
+			        ,ACT.VIOL_DESC
+			        ,IDENT.NM_KOR AS CAND_NM 
+			        ,'0' AS CHK 
+			  FROM TBDB_VIOL_ACT ACT,
+			       TBDB_CAND_IDENT IDENT 
+			 WHERE ACT.RACE_YY  = ?
+			   AND ACT.ROUND    = ?
+		       AND ACT.RACE_NO  = ?
+			   AND ACT.BACK_NO  = ?
+			   AND ACT.CAND_NO  = ?
+		       AND ACT.CAND_NO = IDENT.CAND_NO(+) 
+			  ORDER BY SEQ ASC 
+        ]]>
+    </query>  
+  
+  
+ <query id="tbdb_viol_act_ib001" desc="위반사항  입력" fetchSize="10">
+ <![CDATA[ 
+         	 INSERT INTO TBDB_VIOL_ACT
+					(
+					RACE_YY   
+					,ROUND     
+					,RACE_NO   
+					,BACK_NO   
+					,CAND_NO   
+					,SEQ       
+					,WHEEL_NO  
+					,VIOL_PLC  
+					,VIOL_JO1  
+					,VIOL_HANG1
+					,VIOL_HO1  
+					,VIOL_JO2  
+					,VIOL_HANG2
+					,VIOL_HO2  
+					,VIOL_CD   
+					,GBN       
+					,REFE      
+					,REPORT_DT 
+					,VIOL_DESC 
+					,INST_ID   
+					,INST_DTM  
+					,UPDT_ID   
+					,UPDT_DTM  )
+				VALUES ( ?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+				        ,?
+						,SYSDATE
+						,?
+						,SYSDATE
+					
+				)
+
+		    
+	 ]]> 
+   </query>
+  <query id="tbdb_viol_act_ib002" desc="위반사항 한줄 수정" fetchSize="10">
+ <![CDATA[ 
+	  UPDATE 	 TBDB_VIOL_ACT SET 		
+				 WHEEL_NO 	   = ? 
+				,VIOL_PLC 	   = ?  
+				,VIOL_JO1 	   = ?  
+				,VIOL_HANG1    = ?
+				,VIOL_HO1 	   = ?  
+				,VIOL_JO2 	   = ?  
+				,VIOL_HANG2    = ?
+				,VIOL_HO2 	   = ?  
+				,VIOL_CD 	   = ?   
+				,GBN     	   = ?   
+				,REFE    	   = ?   
+				,REPORT_DT     = ?
+				,VIOL_DESC     = ?
+				,UPDT_ID   	   = ? 
+				,UPDT_DTM  	   = SYSDATE
+		WHERE	
+				 RACE_YY       = ?
+				 AND ROUND     = ?     
+				 AND RACE_NO   = ?  
+				 AND BACK_NO   = ?  
+				 AND CAND_NO   = ?  
+				 AND SEQ       = ?
+	  ]]> 
+     </query> 
+   <query id="tbdb_viol_act_ib003" desc="위반사항 한줄  삭제" fetchSize="10">
+	 <![CDATA[ 
+				DELETE 
+				FROM   
+				      TBDB_VIOL_ACT
+				WHERE RACE_YY  = ?
+				  AND ROUND    = ?
+			      AND to_number(RACE_NO)  = ?
+			      AND BACK_NO = ?
+			      AND CAND_NO = ?
+			      AND SEQ = ? 
+	
+	
+	  ]]> 
+     </query> 
+  
+     <query id="tbdb_viol_act_ib004" desc="위반사항 전체  삭제" fetchSize="10">
+	 <![CDATA[ 
+				DELETE 
+				FROM   
+				      TBDB_VIOL_ACT
+				WHERE RACE_YY  = ?
+				  AND ROUND    = ?
+			      AND to_number(RACE_NO)  = ?
+			      AND BACK_NO = ?
+			      AND CAND_NO = ?
+	
+	
+	  ]]> 
+     </query> 
+     
+    <query id="tbdb_induce_dcsn001" desc="유도원기록 조회" fetchSize="10">
+        <![CDATA[
+				
+			SELECT 
+				DCSN.RACE_YY
+				,DCSN.ROUND
+				,DCSN.RACE_NO
+				,DCSN.CAND_NO
+				,DCSN.GUIDE1_TIME
+				,DCSN.GUIDE1_DIFF
+				,DCSN.GUIDE2_TIME
+				,DCSN.GUIDE2_DIFF
+				,DCSN.GUIDE3_TIME
+				,DCSN.GUIDE3_DIFF
+				,DCSN.GUIDE4_TIME
+				,DCSN.GUIDE4_DIFF
+				,DCSN.GUIDE5_TIME
+				,DCSN.GUIDE5_DIFF
+				,DCSN.GUIDE6_TIME
+				,DCSN.GUIDE6_DIFF
+				,DCSN.GUIDE7_TIME
+				,DCSN.GUIDE7_DIFF
+				,DCSN.GUIDE8_TIME
+				,DCSN.GUIDE8_DIFF
+				,DCSN.RECORD_MAN
+				,DCSN.REFE
+				,DCSN.GUIDE_YN
+				,DCSN.GUIDE_CONT
+				,DCSN.REFE_DESC
+				,DCSN.AVOID_PLAC
+				,DCSN.ACDNT_TIME
+				,DCSN.ACDNT_PLAC
+				,DCSN.ACDNT_CAUSE
+				,DCSN.GUIDE_DEAL
+				,DCSN.GUIDE_EFFECT
+			    ,IDENT.NM_KOR AS CAND_NM
+		   FROM TBDB_INDUCE_DCSN DCSN , 
+			       TBDB_CAND_IDENT IDENT 
+		  WHERE DCSN.RACE_YY = ?
+			AND DCSN.ROUND   = ?
+			AND to_number(DCSN.RACE_NO)  = ?
+			AND DCSN.CAND_NO = IDENT.CAND_NO(+)  
+        ]]>
+    </query> 
+    
+    <query id="tbdb_race_rec_mst003" desc="경륜경주기록측정마스타 상단 값  조회 " fetchSize="10">
+        <![CDATA[
+
+			SELECT DISTINCT (SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10039' AND CD = A.MAT_METH) MAT_METH_NM 
+			       ,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10040' AND CD = A.RACE_METH) RACE_METH_NM
+			       ,SUBSTR(RACE_DT,1,4) || '-' || SUBSTR(RACE_DT,5,2) || '-' || SUBSTR(RACE_DT,7,2)
+			       || '   ' || (SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10041' AND CD = A.AM_PM_GBN) AM_PM_GBN_NM
+			       ,A.AM_PM_GBN 
+			       ,A.RACE_METH
+			       ,(SELECT COUNT(1) FROM TBDB_RACE_POINT POINT WHERE POINT.RACE_YY = A.RACE_YY  AND POINT.ROUND = A.SELT_ROUND ) AS BEFORE_CNT
+			       ,(SELECT CD_NM FROM TBDA_SPEC_CD  WHERE GRP_CD = 'D10042' AND CD = B.RACE_GRD_CD) RACE_GRD_NM 
+			  FROM TBDB_DETL_RACE_SCHE A, TBDB_GROUP_ORG B
+			 WHERE A.RACE_YY    = ?
+			   AND to_number(A.ROUND)    = ?
+			   AND A.RACE_YY    = B.RACE_YY
+			   AND A.ROUND      = B.ROUND 
+			   AND B.RACE_NO    = ?   
+			   
+        ]]>
+    </query>  
+    
+    <query id="tbdb_race_rec_mst004" desc="경륜경주기록측정마스타 key 값  조회 " fetchSize="10">
+        <![CDATA[
+			SELECT  A.CCIT_CNT CCIT_CNT
+			       ,A.RACELEN  RACELEN
+			       ,A.STR_TIME STR_TIME
+		   	  FROM TBDB_STRT_TIME_DIST A
+			 WHERE   A.RACE_YY   = ?
+			   AND   to_number(A.RACE_NO)   = ?
+		   	   AND   A.RACE_MM   = ?
+			   AND   A.AM_PM_GBN = ?
+        ]]>
+    </query>  
+    
+    
+    <query id="tbdb_induce_dcsn_002" desc="유도원 저장" fetchSize="10">
+        <![CDATA[
+				
+			INSERT INTO TBDB_INDUCE_DCSN ( 
+				RACE_YY
+				,ROUND
+				,RACE_NO
+				,CAND_NO
+				,GUIDE1_TIME
+				,GUIDE1_DIFF
+				,GUIDE2_TIME
+				,GUIDE2_DIFF
+				,GUIDE3_TIME
+				,GUIDE3_DIFF
+				,GUIDE4_TIME
+				,GUIDE4_DIFF
+				,GUIDE5_TIME
+				,GUIDE5_DIFF
+				,GUIDE6_TIME
+				,GUIDE6_DIFF
+				,GUIDE7_TIME
+				,GUIDE7_DIFF
+				,GUIDE8_TIME
+				,GUIDE8_DIFF
+				,RECORD_MAN
+				,REFE
+				,GUIDE_YN
+				,GUIDE_CONT
+				,REFE_DESC
+				,AVOID_PLAC
+				,ACDNT_TIME
+				,ACDNT_PLAC
+				,ACDNT_CAUSE
+				,GUIDE_DEAL
+				,GUIDE_EFFECT
+				,INST_ID
+				,INST_DTM
+				,UPDT_ID
+				,UPDT_DTM
+				)
+			VALUES (
+			         ?
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,? 
+				,SYSDATE
+				,? 
+				,SYSDATE
+			) 
+        ]]>
+    </query>  
+    
+    
+  <query id="tbdb_induce_dcsn_003" desc="유도원기록  갱신" fetchSize="10">
+ <![CDATA[ 
+
+				UPDATE TBDB_INDUCE_DCSN
+				   SET 
+					 GUIDE1_TIME  = ? 
+					,GUIDE1_DIFF  = ? 
+					,GUIDE2_TIME  = ? 
+					,GUIDE2_DIFF  = ? 
+					,GUIDE3_TIME  = ? 
+					,GUIDE3_DIFF  = ? 
+					,GUIDE4_TIME  = ? 
+					,GUIDE4_DIFF  = ? 
+					,GUIDE5_TIME  = ? 
+					,GUIDE5_DIFF  = ? 
+					,GUIDE6_TIME  = ? 
+					,GUIDE6_DIFF  = ? 
+					,GUIDE7_TIME  = ? 
+					,GUIDE7_DIFF  = ? 
+					,GUIDE8_TIME  = ? 
+					,GUIDE8_DIFF  = ? 
+					,RECORD_MAN   = ? 
+					,REFE         = ? 
+					,GUIDE_YN     = ? 
+					,GUIDE_CONT   = ? 
+					,REFE_DESC    = ? 
+					,AVOID_PLAC   = ? 
+					,ACDNT_TIME   = ? 
+					,ACDNT_PLAC   = ? 
+					,ACDNT_CAUSE  = ? 
+					,GUIDE_DEAL   = ? 
+					,GUIDE_EFFECT = ? 
+					,UPDT_ID      = ?
+					,UPDT_DTM     =  SYSDATE
+				WHERE RACE_YY  = ?       
+				  AND ROUND    = ?     
+				  AND to_number(RACE_NO)  = ?    
+				  AND CAND_NO  = ?    
+
+
+  ]]> 
+  </query>
+    
+       <query id="tbdb_induce_dcsn_004" desc="유도원기록  삭제" fetchSize="10">
+	 <![CDATA[ 
+				DELETE 
+				FROM   
+				      TBDB_INDUCE_DCSN
+				WHERE RACE_YY  = ?
+				  AND ROUND    = ?
+			      AND to_number(RACE_NO)  = ?
+			      AND CAND_NO = ?
+	
+	
+	  ]]> 
+     </query> 
+     
+ <query id="tbdb_race_rec_mst011" desc="성적처리(경주득점일 계산)  조회 " fetchSize="10">
+        <![CDATA[
+
+        SELECT SUM(B.PROP_SCR) / DECODE(COUNT(*),0,1,COUNT(*)) AS BASIC_SCR 
+		FROM TBDB_CAND_ASSIGN A, TBDB_RACER_GRD_SCR B
+		WHERE A.RACE_YY = ?
+		  AND A.ROUND   = ?
+		  AND A.RACE_YY = B.RACE_YY
+		  AND A.ROUND	= B.ROUND         -- 2008-7-7 회차 적용
+		  AND A.GRD     = B.GRD
+		  AND A.CAND_NO IN (?,?,?,?,?,?,?) 
+		  
+        ]]>
+    </query>  
+    
+    
+ <query id="tbdb_race_rec_mst012" desc=" 성적처리(경주득점일 계산) - (수정토너먼트 경주시 전회차가 있을 경우 사용 )  조회 " fetchSize="10">
+        <![CDATA[
+			
+	SELECT SUM(POINT_MARKS) / DECODE(count(*),0,1,count(*)) AS BASIC_SCR
+			FROM TBDB_RACE_POINT A, TBDB_RACE_REC_DETL C, TBDB_DETL_RACE_SCHE D
+			WHERE 1=1
+			and A.RACE_YY   = C.RACE_YY
+			and A.ROUND     = C.ROUND
+			and A.CAND_NO   = C.CAND_NO
+			and A.RACE_YY   = D.RACE_YY
+			and A.ROUND     = D.SELT_ROUND
+			and C.RACE_YY   =  ?
+			and D.ROUND     = ?
+			and (A.POINT_MARKS > 0 OR A.POINT_MARKS IS NULL)
+			and C.CAND_NO IN (?,?,?,?,?,?,?) 
+
+        ]]>
+</query>  
+    
+<query id="tbdb_race_rec_mst013" desc=" 성적처리(경주득점일 계산) - (수정토너먼트 경주시 전회차가 없을 경우 사용 )  조회 " fetchSize="10">
+        <![CDATA[
+
+	      SELECT SUM(B.PROP_SCR)/ DECODE(COUNT(*),0,1,COUNT(*)) AS BASIC_SCR 
+	        FROM TBDB_CAND_ASSIGN A, TBDB_RACER_GRD_SCR B 
+	       WHERE A.RACE_YY   = ? 
+	         AND A.ROUND       = ? 
+	         AND A.RACE_YY   = B.RACE_YY
+	         AND A.ROUND	 = B.ROUND         -- 2008-7-7 회차 적용
+	         AND A.GRD       = B.GRD 
+	         AND A.CAND_NO IN (?,?,?,?,?,?,?)  
+		  
+        ]]>
+</query>  
+    
+  <query id="tbdb_race_point_001" desc="경륜경주기록 점수  갱신" fetchSize="10">
+ <![CDATA[ 
+			
+			UPDATE TBDB_RACE_POINT
+			SET
+			    POINT_MARKS         = ? 
+			    ,DAY_CNT            = '1' 
+			    ,UPDT_ID            = ? 
+			    ,UPDT_DTM           = SYSDATE 
+			    
+			WHERE RACE_YY  = ?
+			  AND ROUND    = ?
+		      AND CAND_NO  = ?	
+
+  ]]> 
+  </query>
+  
+    
+    
+ <query id="tbdb_race_point_002" desc="경륜경주기록 점수  입력" fetchSize="10">
+ <![CDATA[ 
+ 
+         	    INSERT INTO TBDB_RACE_POINT ( 
+				    RACE_YY
+				    ,ROUND
+				    ,CAND_NO
+				    ,POINT_MARKS
+				    ,DAY_CNT 
+				    ,INST_ID
+				    ,INST_DTM
+				    ,UPDT_ID
+				    ,UPDT_DTM ) 
+		    VALUES  (  ?
+		              ,? 
+		              ,? 
+		              ,?
+		              ,'1' 
+		              ,?
+		              ,SYSDATE
+		              ,?
+		              ,SYSDATE ) 
+		    
+ ]]> 
+  </query>
+  
+     
+ <query id="tbdb_viol_act_print" desc="위반사항/유도원 출력물 조회 " fetchSize="10">
+        <![CDATA[
+			SELECT rownum as NUM,
+			       DECODE(GBN,'1','유','무') AS GBN_NM, 
+			       (SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10082' AND CD = ACT.VIOL_PLC) VIOL_PLC_NM, 
+			       ACT.BACK_NO|| ' ' ||(SELECT IDENT.NM_KOR FROM TBDB_CAND_IDENT IDENT WHERE IDENT.CAND_NO = ACT.CAND_NO) CAND_NM,
+			       DECODE(ACT.VIOL_JO2,'','',ACT.VIOL_JO2 ||'조 ') || DECODE(ACT.VIOL_HANG2,'','  ',ACT.VIOL_HANG2 ||'항 ')|| DECODE(ACT.VIOL_HO2,'','  ',ACT.VIOL_HO2||'호 ') AS VIOL,
+			       (SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10083' AND CD = ACT.VIOL_CD) VIOL_NM,
+			       ACT.BACK_NO||'번 선수는 '|| ACT.WHEEL_NO||'바퀴째 부근에서 '|| ACT.VIOL_DESC DESCRIPTION
+			       
+			  FROM TBDB_VIOL_ACT ACT  
+			 WHERE ACT.RACE_YY = ?
+			   AND ACT.ROUND   = ?
+			   AND ACT.RACE_NO = ? 			   
+		  
+        ]]>
+</query>  
+    
+    
+  <query id="tbdb_race_rec_mst_cfm" desc="경륜경주기록측정마스타  CFM_FG 갱신" fetchSize="10">
+ <![CDATA[ 
+			
+			UPDATE TBDB_RACE_REC_MST
+			SET    CFM_FG  = ? 			
+			       ,UPDT_ID = ? 
+                   ,UPDT_DTM = sysdate    
+			WHERE RACE_YY  = ?
+			  AND ROUND    = ?
+
+  ]]> 
+  </query>
+  
+  
+</queryMap>

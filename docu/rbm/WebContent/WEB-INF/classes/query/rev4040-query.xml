@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV4040(개인별랭크산정결과)">
+	<query id="rev4040_s01" desc="개인별랭크산정결과 조회" fetchSize="10">
+		<![CDATA[
+			  SELECT /* rev4040_s01 */
+			         ESTM_YEAR,
+			         DEPT_CD,
+			         DEPT_NM,
+			         WK_JOB_CD,
+			         WK_JOB_NM,
+			         EMP_NO,
+			         EMP_NM,
+			         CNTR_ITM_CD,
+			         CNTR_ITM_NM,
+			         TOT_SCR,
+			         TOT_GRD,
+			         RNK,
+			         TOT_CNT,
+			         CEIL(RNK / TOT_CNT * 10000) / 100 PER,
+                     WK_JOB_CD_ORG,
+                     (SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND WK_JOB_CD = A.WK_JOB_CD_ORG) AS WK_JOB_NM_ORG
+			    FROM
+			     (
+			        SELECT T1.ESTM_YEAR,
+			               T1.ESTM_NUM,
+			               T1.DEPT_CD,
+			               T1.DEPT_NM,
+			               T1.WK_JOB_CD,
+			               T1.WK_JOB_NM,
+			               T1.EMP_NO,
+			               T1.EMP_NM,
+			               T1.CNTR_ITM_CD,
+			               CNTR_ITM_NM,
+			               T1.TOT_SCR,
+			               T1.TOT_GRD,
+			               RANK() OVER(PARTITION BY T1.CNTR_ITM_CD ORDER BY T1.TOT_SCR DESC) RNK,
+			               T2.TOT_CNT,
+                           E.WK_JOB_CD AS WK_JOB_CD_ORG
+			          FROM TBRF_EV_TOTAL_RSLT T1,
+			               ( SELECT ESTM_YEAR,
+			                        ESTM_NUM,
+			                        CNTR_ITM_CD,
+			                        COUNT(*) TOT_CNT
+			                   FROM TBRF_EV_TOTAL_RSLT
+			                  WHERE 1=1
+			                    AND ESTM_YEAR = ?
+			                    AND ESTM_NUM  = ?
+			               GROUP BY ESTM_YEAR,
+			                        ESTM_NUM,
+			                        CNTR_ITM_CD) T2,
+                           TBRF_EV_EMP E   
+			         WHERE 1=1
+			           AND T1.ESTM_YEAR = T2.ESTM_YEAR
+			           AND T1.ESTM_NUM  = T2.ESTM_NUM
+			           AND T1.CNTR_ITM_CD = T2.CNTR_ITM_CD
+                       AND T1.ESTM_YEAR = E.ESTM_YEAR
+                       AND T1.ESTM_NUM  = E.ESTM_NUM
+                       AND T1.EMP_NO    = E.EMP_NO
+                       AND E.WRK_GBN    = '001'
+			           AND T1.ESTM_YEAR = ?
+			           AND T1.ESTM_NUM  = ?   
+			     ) A
+			   WHERE 1=1
+			     AND DECODE(?, '', '1', DEPT_CD)     = DECODE(?, '', '1', ?)
+	             AND DECODE(?, '', '1', CNTR_ITM_CD) = DECODE(?, '', '1', ?)
+	             AND EMP_NM LIKE '%' || NVL(?, EMP_NM) || '%'
+		    ORDER BY CNTR_ITM_CD, PER
+        ]]>
+	</query>
+	<query id="rev4040_s02" desc="종합평가등급  조회" fetchSize="10">
+		<![CDATA[
+        	SELECT   /* rev4040_s02 */
+        	         CNTR_ITM_CD AS CD,
+        	         CNTR_JOB_NM AS CD_NM
+		    FROM     TBRF_EV_JOB_ITEM
+	        WHERE    1 = 1
+	        AND      ESTM_YEAR = ?
+		    AND      ESTM_NUM = ?
+		    AND      ESTM_ITEM_CD = '0'
+		    ORDER BY CNTR_ITM_CD
+        ]]>
+	</query>
+</queryMap>

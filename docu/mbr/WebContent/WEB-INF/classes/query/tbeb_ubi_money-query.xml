@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbea_auth_mngr(메뉴권한관리)">
+    <query id="tbeb_ubi_money_fb001" desc="MENUAUTHINSERT쿼리" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     STND_YEAR || '년'       STR
+                   , TRUNC(NVL(SUM(POOL_TOTAL), 0)/1000000) MON_STTS
+            FROM   USRBM.TBES_SDL_PT
+            WHERE  STND_YEAR  = TO_CHAR(SYSDATE, 'YYYY') - 1
+            GROUP BY STND_YEAR -- 전년 매출액
+            UNION ALL
+            SELECT
+                     STND_YEAR || '년'      STR
+                   , TRUNC(NVL(SUM(POOL_TOTAL), 0)/1000000) MON_STTS
+            FROM   USRBM.TBES_SDL_PT
+            WHERE  STND_YEAR  = TO_CHAR(SYSDATE, 'YYYY')
+            GROUP BY STND_YEAR -- 올해매출액
+            UNION ALL
+            SELECT
+                     TO_CHAR(TO_CHAR(SYSDATE, 'MM') - 1) || '월' STR
+                   , TRUNC(NVL(SUM(POOL_TOTAL), 0)/1000000) MON_STTS
+            FROM   USRBM.TBES_SDL_PT
+            WHERE  (STND_YEAR, MEET_CD, TMS) IN (
+                                                  SELECT
+                                                           STND_YEAR
+                                                         , '003'
+                                                         , TMS
+                                                  FROM   TBEB_RACE_TMS
+                                                  WHERE  STND_YEAR = TO_CHAR(SYSDATE, 'YYYY')
+                                                  AND    MONTH     = TO_CHAR(SYSDATE, 'MM') - 1
+                                                 ) -- 전월매출액
+            UNION ALL
+            SELECT
+                     TO_CHAR(TO_CHAR(SYSDATE, 'MM') + 0) || '월' STR
+                   , TRUNC(NVL(SUM(POOL_TOTAL), 0)/1000000) MON_STTS
+            FROM   USRBM.TBES_SDL_PT
+            WHERE  (STND_YEAR, MEET_CD, TMS) IN (
+                                                  SELECT
+                                                           STND_YEAR
+                                                         , '003'
+                                                         , TMS
+                                                  FROM   TBEB_RACE_TMS
+                                                  WHERE  STND_YEAR = TO_CHAR(SYSDATE, 'YYYY')
+                                                  AND    MONTH     = TO_CHAR(SYSDATE, 'MM') + 0
+                                                 ) -- 해당월매출액
+            UNION ALL
+            SELECT
+                     TO_CHAR(SYSDATE, 'MM/DD') || '일' STR
+                   , TRUNC(NVL(SUM(POOL_TOTAL), 0)/1000000) MON_STTS
+            FROM   USRBM.TBES_SDL_PT
+            WHERE  (STND_YEAR, MEET_CD, TMS, DAY_ORD) IN (
+                                                           SELECT
+                                                                    STND_YEAR
+                                                                  , '003'
+                                                                  , TMS
+                                                                  , DAY_ORD
+                                                           FROM   TBEB_RACE_DAY_ORD
+                                                           WHERE  RACE_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	 	                                                  ) -- 해당일매출액
+        ]]>
+    </query>
+    <query id="tbeb_ubi_money_fb002" desc="월별매출액" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     MONTH
+                   , TRUNC(NVL(SUM(POOL_TOTAL), 0)/1000000) TOTM
+            FROM     USRBM.TBES_SDL_PT  TSP
+                   , TBEB_RACE_TMS TRT
+            WHERE  TSP.STND_YEAR = TRT.STND_YEAR
+            AND    TSP.MEET_CD   = '003'
+            AND    TRT.MBR_CD    = '001'
+            AND    TSP.TMS       = TRT.TMS
+            AND    TSP.STND_YEAR = TO_CHAR(SYSDATE, 'YYYY')
+            GROUP BY MONTH
+            ORDER BY MONTH
+        ]]>
+    </query>
+</queryMap>

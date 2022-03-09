@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsy4080(업무일지 관리)">
+    <query id="rsy4080_s01" desc="업무일지  조회" fetchSize="10">
+      <![CDATA[
+ 			SELECT /* rsy4080_s01 */
+				   '0' AS CHK
+			 	  ,USER_ID			-- 업무일지 등록자
+				  ,DUTY_DT			-- 업무일지 등록일자
+				  ,SEQ				-- 연번
+				  ,JOB_TYPE			-- 작업구분
+				  ,JOB_TYPE_DTL		-- 작업 세부구분				  
+				  ,EMP_NO			-- 작업자 사번
+				  ,IMPTC			-- 중요도
+				  ,STATUS			-- 상태
+				  ,DUTY_TITLE		-- 제목
+				  ,DUTY_PLAN		-- 작업계획
+				  ,DUTY_DONE		-- 처리내용
+				  ,DUE_DT			-- 처리기한
+				  ,END_DT			-- 완료일자
+			FROM TBRE_DUTY
+			WHERE 1=1
+			    AND USER_ID = ?
+			    AND DUTY_DT BETWEEN ? AND ?
+			    AND STATUS LIKE ?||'%'
+			    AND NVL2(END_DT, '002', '001') LIKE DECODE(?, '000', '%', ?)
+			    AND (DUTY_TITLE LIKE '%'||?||'%' OR
+			         DUTY_DONE LIKE '%'||?||'%' OR
+			         DUTY_PLAN LIKE '%'||?||'%')
+		    ORDER BY DUTY_DT, SEQ 
+			
+        ]]>
+    </query>       
+
+   <query id="rsy4080_u01" desc="홈피정보 입력/수정" fetchSize="10">
+
+        <![CDATA[
+        
+			 MERGE INTO TBRE_DUTY DST  /* rsy4080_u01 */
+			 USING   
+			         (SELECT
+			             ? AS USER_ID           -- 등록자                                 				                                    
+	                    ,? AS DUTY_DT           -- 등록일자                                 				                                    
+	                    ,? AS SEQ               -- 연번                               
+	                    ,? AS JOB_TYPE          -- 작업구분                    
+	                    ,? AS JOB_TYPE_DTL      -- 적업 세부구분		      
+	                    ,? AS EMP_NO            -- 사번                    
+	                    ,? AS IMPTC       		-- 중요도             
+	                    ,? AS STATUS            -- 상태코드               
+	                    ,? AS DUTY_TITLE        -- 작업 제목                              
+			            ,? AS DUTY_PLAN         -- 작업 계획                              
+			            ,? AS DUTY_DONE         -- 처리내역                              
+			            ,? AS DUE_DT            -- 처리기한                              
+			            ,? AS END_DT            -- 완료일자                              
+			          FROM    DUAL ) SRC  
+			     
+			 ON (    
+			          DST.USER_ID = SRC.USER_ID
+			      AND DST.DUTY_DT = SRC.DUTY_DT
+			      AND DST.SEQ     = SRC.SEQ   
+			 )           
+			 
+			 WHEN MATCHED THEN
+			     UPDATE SET
+                     DST.JOB_TYPE     = SRC.JOB_TYPE               
+			        ,DST.JOB_TYPE_DTL = SRC.JOB_TYPE_DTL           
+                    ,DST.EMP_NO   	  = SRC.EMP_NO                     
+                    ,DST.IMPTC        = SRC.IMPTC                
+                    ,DST.STATUS  	  = SRC.STATUS              
+                    ,DST.DUTY_TITLE   = SRC.DUTY_TITLE                     
+                    ,DST.DUTY_PLAN    = SRC.DUTY_PLAN       
+                    ,DST.DUTY_DONE    = SRC.DUTY_DONE                     
+                    ,DST.DUE_DT    	  = SRC.DUE_DT                        
+                    ,DST.END_DT    	  = SRC.END_DT                        
+			 WHEN NOT MATCHED THEN 
+			     
+			     INSERT (
+			 		   USER_ID		                                   
+					  ,DUTY_DT		                                   
+					  ,SEQ			                                 
+					  ,JOB_TYPE		                                     
+					  ,JOB_TYPE_DTL					         
+					  ,EMP_NO		                      
+					  ,IMPTC	               
+					  ,STATUS	                 
+					  ,DUTY_TITLE                                
+					  ,DUTY_PLAN	                                   
+					  ,DUTY_DONE	                                   
+					  ,DUE_DT	                                   
+					  ,END_DT	                                   
+				  ) VALUES (
+			              SRC.USER_ID                                                 				                                    
+	                    , SRC.DUTY_DT                                                 				                                    
+	                    , (SELECT NVL(MAX(SEQ),0)+1 
+	                       FROM TBRE_DUTY 
+	                       WHERE DUTY_DT = ? --SRC.DUTY_DT
+	                       )
+	                    , SRC.JOB_TYPE                                             
+	                    , SRC.JOB_TYPE_DTL                                             
+	                    , SRC.EMP_NO                                             
+	                    , SRC.IMPTC                                             
+	                    , SRC.STATUS                                             
+	                    , SRC.DUTY_TITLE                                             
+	                    , SRC.DUTY_PLAN                                             
+	                    , SRC.DUTY_DONE                                             
+	                    , SRC.DUE_DT                                             
+	                    , SRC.END_DT                                             
+			     )     
+        ]]>
+
+    </query>    
+    
+
+    <query id="rsy4080_d01" desc="업무일지 삭제" fetchSize="10">
+
+        <![CDATA[
+			DELETE TBRE_DUTY   /* rsy4080_d01 */	
+			 WHERE USER_ID = ?
+			   AND DUTY_DT = ?
+			   AND SEQ = ? 
+        ]]>
+
+    </query>  
+
+</queryMap>

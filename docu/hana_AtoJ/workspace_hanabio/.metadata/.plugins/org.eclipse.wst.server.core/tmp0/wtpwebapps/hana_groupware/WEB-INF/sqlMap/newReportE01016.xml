@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : newReportE01016.xml
+  * @메뉴명 : 원부자재 납부확인서
+  * @최초작성일 : 2016/01/25            
+  * @author : 전산팀                  
+  * @수정내역 :	
+-->
+<mapper namespace="newReportE01016">
+	<!-- 원부자재 납품확인서 -->
+	<insert id="insertDelivery" parameterType="com.hanaph.gw.ea.newReport.vo.DeliveryVO" >
+		INSERT INTO GW_EA_DELIVERY
+        (
+        	SEQ, APPROVAL_SEQ, YMD, SLIP_NO, CUST_ID, 
+		       CUST_NM,	MATERIAL_ID, MATERIAL_NM, STANDARD, QTY, 
+		       UNIT, DANGA,	AMT, BALJU_NO, AMT_SUM, 
+		       VAT_SUM ,BIGO
+        )
+     	VALUES
+     	(
+     		SEQ_GW_EA_DELIVERY.nextval, #{approval_seq}, #{ymd}, #{slip_no}, #{cust_id}, 
+     		#{cust_nm}, #{material_id}, #{material_nm}, #{standard}, #{qty}, 
+     		#{unit}, #{danga}, #{amt}, #{balju_no}, #{amt_sum}, 
+     		#{vat_sum}, #{bigo}
+        )
+	</insert>
+	
+	<select id="deliveryDetail" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.DeliveryVO">
+		SELECT SEQ, APPROVAL_SEQ, YMD, SLIP_NO, CUST_ID, 
+		       CUST_NM,	MATERIAL_ID, MATERIAL_NM, STANDARD, TO_CHAR(QTY, '999,999,999.00') QTY, 
+		       UNIT, TO_CHAR(DANGA, '999,999,999.00') DANGA,	TO_CHAR(AMT, '999,999,999.00') AMT, BALJU_NO, BIGO,
+		       TO_CHAR(AMT_SUM, '999,999,999.00') AMT_SUM, TO_CHAR(VAT_SUM, '999,999,999.00') VAT_SUM,
+		       TO_CHAR(NVL(AMT_SUM,0)+ NVL(VAT_SUM,0), '999,999,999.00') TOT_SUM, BIGO
+		  FROM GW_EA_DELIVERY
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</select>
+	
+	<delete id="deleteDelivery" parameterType="com.hanaph.gw.ea.newReport.vo.DeliveryVO">
+		DELETE FROM GW_EA_DELIVERY WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	
+	<!--원부자재 납풉확인서 CHOE 20160125 다른 결재 문서와 다른 점 : 1.입고일자로 조회하기  -->
+	<select id="searchSlipNo" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.DeliveryVO">
+  		   SELECT YMD ,SLIP_NO ,SALE.F_GET_NAME('SALE0007' ,SAWON_ID, '') SAWON_NM 
+           FROM SALE.INV0301 
+           WHERE YMD = REPLACE(#{search_ymd} ,'-','')  
+           ORDER BY SLIP_NO
+	</select>
+	
+	<!--물품 구입 청구서 CHOE 20151214 다른 결재 문서와 다른 점 : 2.전표번호로 data 조회하기  -->
+	<select id="searchSlipData" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.DeliveryVO">
+        SELECT IPCHUL.YMD YMD  
+        ,IPCHUL.SLIP_NO  SLIP_NO
+        ,IPCHUL_D.MATERIAL_ID MATERIAL_ID
+        ,MATERIAL.MATERIAL_NM MATERIAL_NM
+        ,MATERIAL.UNIT UNIT
+        ,MATERIAL.STANDARD STANDARD                
+        ,IPCHUL.CUST_ID CUST_ID
+        ,CUST.CUST_NM CUST_NM
+        ,TO_CHAR(IPCHUL_D.QTY, '999,999,999.00') QTY
+        ,TO_CHAR(IPCHUL_D.DANGA, '999,999,999.00') DANGA
+        ,TO_CHAR(IPCHUL_D.AMT, '999,999,999.00') AMT
+        ,IPCHUL_D.BALJU_NO BALJU_NO
+        ,TO_CHAR(IPCHUL.AMT_SUM, '999,999,999.00') AMT_SUM
+        ,TO_CHAR(IPCHUL.VAT_SUM, '999,999,999.00') VAT_SUM 
+        ,TO_CHAR(NVL(IPCHUL.VAT_SUM,0) + NVL(IPCHUL.AMT_SUM,0), '999,999,999.00') TOT_SUM
+        ,IPCHUL_D.BIGO BIGO  
+        ,SALE.F_GET_NAME('SALE0007' ,IPCHUL.SAWON_ID, '') SAWON_NM      
+        FROM SALE.INV0301 IPCHUL
+        ,SALE.INV0302 IPCHUL_D
+        ,SALE.INV0003 MATERIAL
+        ,SALE.INV0011 CUST
+        WHERE IPCHUL.YMD||IPCHUL.SLIP_NO = #{search_no}
+        AND IPCHUL.YMD =  IPCHUL_D.YMD
+        AND IPCHUL.SLIP_NO = IPCHUL_D.SLIP_NO       
+        AND MATERIAL.MATERIAL_ID = IPCHUL_D.MATERIAL_ID
+        AND IPCHUL.CUST_ID = CUST.CUST_ID(+)
+	</select>
+</mapper>

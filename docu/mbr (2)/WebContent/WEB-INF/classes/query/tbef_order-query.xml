@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_order 주문서등록 ">
+	<query id="tbef_order_ff001" desc="주문서 조회 " fetchSize="50">
+        <![CDATA[
+            -- 주문서 조회  
+             SELECT
+            		ROWNUM AS NUM,          -- 순번
+            		STND_YEAR,              -- 년도
+            		MBR_CD,					-- 경정장
+            	    ORDER_SEQ,       		-- 일련번호
+			        PARTS_COM_CD,   		-- 주문업체
+			        COM_NM,					-- 업체명
+				    ORDER_DT,      			-- 주문일자
+				    ORDER_CON,				-- 내용
+				    ENT_STATE, 	   			-- 상태
+				    RMK		 	   			-- 비고
+			FROM(	    
+	            SELECT 
+	            	   A.STND_YEAR,              	-- 년도
+	            	   A.MBR_CD,					-- 경정장
+	            	   A.ORDER_SEQ,       			-- 일련번호
+				       A.PARTS_COM_CD,   			-- 주문업체
+				       E.COM_NM,					-- 업체명
+					   A.ORDER_DT,      			-- 주문일자
+					   A.ORDER_CON,		-- 내용
+					   A.ENT_STATE, 	   			-- 상태
+					   A.RMK		 	   			-- 비고
+				 FROM TBEF_ORDER A, TBEF_PARTS_COM E	 	  
+				 WHERE A.MBR_CD = ?
+				 AND   A.STND_YEAR = ?
+				 AND   A.ORDER_DT BETWEEN ? AND ?
+				 AND   A.PARTS_COM_CD = E.PARTS_COM_CD			 
+				 ORDER BY A.ORDER_DT DESC, ORDER_SEQ DESC
+			)
+        ]]>
+    </query>
+         
+         
+    <query id="tbef_order_ff002" desc="주문 상세 내역 조회 " fetchSize="50">
+        <![CDATA[
+            -- 주문 상세 내역 조회  
+				SELECT
+				      ROWNUM NUM,           -- 순번
+				      STND_YEAR,            -- 년도
+				      MBR_CD,                -- 경정장
+				      ORDER_SEQ,            -- 일련번호
+				      PARTS_CD,            -- 품번
+				      PRICE_STND_YEAR,            -- 일련번호
+				      PARTS_ITEM_CD_NM,    -- 품명
+				      SPEC,                -- 규격
+				      ORDER_CNT,            -- 주문수량
+				      RMK,                    -- 비고
+				      MODULE_CODE,         -- 식별번호    
+				      UNIT_PRICE,          -- 단가    
+				      AMOUNT                -- 금액    
+				FROM(       
+				    SELECT 
+				          TOP.STND_YEAR,
+				          TOP.MBR_CD,
+				          TOP.ORDER_SEQ,
+				          TOP.PARTS_CD,
+				          TOP.PRICE_STND_YEAR,
+				          TPM.PARTS_ITEM_CD_NM,
+				          TPM.SPEC,
+				          TOP.ORDER_CNT,
+				          TOP.RMK,
+				          SUBSTR(TPM.MODULE_CODE,1,1) || '-'|| 
+				          DECODE(SUBSTR(TPM.MODULE_CODE,2,1),0,'',SUBSTR(TPM.MODULE_CODE,2,1)) || SUBSTR(TPM.MODULE_CODE,3,1) || '-'||
+				          DECODE(SUBSTR(TPM.MODULE_CODE,4,1),0,'',SUBSTR(TPM.MODULE_CODE,4,1)) || SUBSTR(TPM.MODULE_CODE,5,1) || '-'||
+				          DECODE(SUBSTR(TPM.MODULE_CODE,6,1),0,'',SUBSTR(TPM.MODULE_CODE,6,1)) || SUBSTR(TPM.MODULE_CODE,7,1) AS MODULE_CODE,
+				          TPP.UNIT_PRICE,
+				          NVL(TPP.UNIT_PRICE,0) * NVL(TOP.ORDER_CNT,0) AS AMOUNT          
+				     FROM TBEF_ORDER_PARTS TOP, TBEF_PARTS_MASTER TPM, TBEF_PARTS_PRICE TPP
+				     WHERE TOP.PARTS_CD = TPM.PARTS_CD
+				     AND TOP.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+				     AND TOP.PARTS_CD = TPP.PARTS_CD
+				     AND TOP.STND_YEAR = ?
+				     AND TOP.MBR_CD  = ?
+				     AND TOP.ORDER_SEQ = ?
+				     ORDER BY TOP.STND_YEAR, TOP.MBR_CD, TPM.MODULE_CODE, TOP.PARTS_CD
+				 )
+ 
+        ]]>
+    </query>   
+    
+    
+    <query id="tbef_order_mf001" desc="주문서 등록/수정  " fetchSize="10">
+        <![CDATA[
+        	/* 주문서  마스터 등록 및 수정  */
+            MERGE INTO TBEF_ORDER TOR
+            USING (
+            	SELECT 
+				   ? AS STND_YEAR,       -- 기준년도	
+	               ? AS MBR_CD,			-- 경정장 
+				   ? AS ORDER_SEQ, 		-- 주문일련번호 
+				   ? AS PARTS_COM_CD,	-- 회사코드
+				   ? AS ORDER_DT,		-- 주문일자
+				   ? AS ORDER_CON,		-- 주문내역
+			       ? AS RMK,				-- 비고	
+			       ? AS ENT_STATE,       -- 입고상태	
+				   ? AS USER_ID 		-- 작성자 아이디 
+				FROM DUAL
+			) TL
+            ON (TOR.STND_YEAR = TL.STND_YEAR		-- 기준년도 
+            	AND TOR.MBR_CD = TL.MBR_CD			-- 경정장 코드 
+				AND TOR.ORDER_SEQ = TL.ORDER_SEQ		-- 일련번호				
+			    )
+			WHEN MATCHED THEN
+				UPDATE				
+			 	SET	TOR.PARTS_COM_CD = TL.PARTS_COM_CD,	-- 회사코드
+				    TOR.ORDER_DT = TL.ORDER_DT,		-- 주문일자
+				    TOR.ORDER_CON = TL.ORDER_CON,		-- 주문내역
+			        TOR.RMK = TL.RMK,				-- 비고	
+			        TOR.ENT_STATE = TL.ENT_STATE,       -- 입고상태	
+				    TOR.UPDT_ID = TL.USER_ID,		-- 수정자 ID
+				    TOR.UPDT_DTM = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+				   TOR.STND_YEAR,       -- 기준년도	
+	               TOR.MBR_CD,			-- 경정장 
+				   TOR.ORDER_SEQ, 		-- 주문일련번호 
+				   TOR.PARTS_COM_CD,	-- 회사코드
+				   TOR.ORDER_DT,		-- 주문일자
+				   TOR.ORDER_CON,		-- 주문내역
+			       TOR.RMK,				-- 비고	
+			       TOR.ENT_STATE,       -- 입고상태	
+				   TOR.INST_ID, 	-- 작성자 아이디 
+				   TOR.INST_DTM 	-- 작성일시 
+				   ) 
+				VALUES ( 
+					TL.STND_YEAR,       -- 기준년도	
+	                TL.MBR_CD,			-- 경정장 
+				    (SELECT NVL(MAX(ORDER_SEQ)+1,1) SEQ 
+               		   FROM TBEF_ORDER 
+            		   	WHERE STND_YEAR = ? 
+						AND MBR_CD = ?), 		-- 주문일련번호 
+				    TL.PARTS_COM_CD,	-- 회사코드
+				    TL.ORDER_DT,		-- 주문일자
+				    TL.ORDER_CON,		-- 주문내역
+			        TL.RMK,				-- 비고	
+			        '001',       -- 입고상태
+				   	TL.USER_ID, 	-- 작성자 아이디 
+				    SYSDATE)
+        ]]>
+    </query> 
+     
+    <query id="tbef_order_df001" desc="주문서 삭제 " fetchSize="10">
+        <![CDATA[
+           	-- 주문서 삭제 
+			DELETE 
+			FROM TBEF_ORDER
+			WHERE  STND_YEAR    = ?         -- 기준년도
+			AND    MBR_CD       = ?			-- 경정장 
+		    AND    ORDER_SEQ    = ?			-- 주문일련번호 		
+        ]]>
+    </query> 
+    
+    
+     <query id="tbef_order_parts_mf001" desc=" 주문서  상세 내역   등록/수정 " fetchSize="10">
+        <![CDATA[
+        	/* 주문서  상세 내역   등록및 수정  */
+            MERGE INTO TBEF_ORDER_PARTS TOP
+            USING (
+            	SELECT 
+				   ? AS STND_YEAR,        -- 기준년도
+	               ? AS MBR_CD,			-- 경정장 
+				   ? AS ORDER_SEQ, 		-- 주문일련번호 
+				   ? AS PARTS_CD,		-- 부품코드
+				   ? AS PRICE_STND_YEAR,		-- 부품일련번호
+				   ? AS ORDER_CNT,		-- 주문수량
+			       ? AS RMK,				-- 비고			
+				   ? AS USER_ID 		-- 작성자 아이디 
+				FROM DUAL
+			) TL
+            ON (TOP.STND_YEAR = TL.STND_YEAR		-- 기준년도 
+            	AND TOP.MBR_CD = TL.MBR_CD			-- 경정장 코드 
+				AND TOP.ORDER_SEQ = TL.ORDER_SEQ		-- 일련번호		
+				AND TOP.PARTS_CD = TL.PARTS_CD		--  부품코드		
+				AND TOP.PRICE_STND_YEAR = TL.PRICE_STND_YEAR		-- 부품일련번호				
+			    )
+			WHEN MATCHED THEN
+				UPDATE				
+			 	SET	TOP.ORDER_CNT = TL.ORDER_CNT,		-- 주문수량
+			        TOP.RMK = TL.RMK,				-- 비고		
+				    TOP.UPDT_ID = TL.USER_ID,		-- 수정자 ID
+				    TOP.UPDT_DTM = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+				   TOP.STND_YEAR,        -- 기준년도
+	               TOP.MBR_CD,			-- 경정장 
+				   TOP.ORDER_SEQ, 		-- 주문일련번호 
+				   TOP.PARTS_CD,		-- 부품코드
+				   TOP.PRICE_STND_YEAR,		-- 부품일련번호
+				   TOP.ORDER_CNT,		-- 주문수량
+			       TOP.RMK,				-- 비고			
+				   TOP.INST_ID, 	-- 작성자 아이디 
+				   TOP.INST_DTM 	-- 작성일시 
+				   ) 
+				VALUES ( 
+					TL.STND_YEAR,        -- 기준년도
+	                TL.MBR_CD,			-- 경정장 
+				    (SELECT MAX(ORDER_SEQ) SEQ 
+               		   FROM TBEF_ORDER 
+            		   	WHERE STND_YEAR = ?
+						AND MBR_CD = ?), 		-- 주문일련번호 
+				    TL.PARTS_CD,		-- 부품코드
+				    TL.PRICE_STND_YEAR,		-- 부품일련번호
+				    TL.ORDER_CNT,		-- 주문수량
+			        TL.RMK,				-- 비고	
+				   	TL.USER_ID, 	-- 작성자 아이디 
+				    SYSDATE)
+        ]]>
+    </query> 
+    
+    <query id="tbef_order_parts_df001" desc="주문서 상세 내역 삭제 " fetchSize="10">
+        <![CDATA[
+           	-- 주문서 상세 내역 삭제
+			DELETE 
+			FROM TBEF_ORDER_PARTS
+			WHERE  STND_YEAR    = ?         -- 기준년도
+			AND    MBR_CD       = ?			-- 경정장 
+		    AND    ORDER_SEQ    = ?			-- 주문일련번호 	
+		    AND    PARTS_CD     = ?			-- 부품코드 	
+		    AND    PRICE_STND_YEAR     = ?		-- 부품일련번호 		
+        ]]>
+    </query> 
+    <query id="tbef_order_parts_df002" desc="주문서 상세 내역 삭제(마스터 삭제시) " fetchSize="10">
+        <![CDATA[
+           	-- 주문서 상세 내역 삭제(마스터 삭제시)
+			DELETE 
+			FROM TBEF_ORDER_PARTS
+			WHERE  STND_YEAR    = ?         -- 기준년도
+			AND    MBR_CD       = ?			-- 경정장 
+		    AND    ORDER_SEQ    = ?			-- 주문일련번호 			   
+        ]]>
+    </query> 
+</queryMap>

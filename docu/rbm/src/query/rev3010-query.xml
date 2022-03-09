@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+
+<queryMap desc="REV3010(평가진행현황)">
+    
+    <query id="rev3010_s01" desc="그리드조회" fetchSize="10">
+        <![CDATA[			
+			SELECT   /* rev3010_s01 */
+                                    '0' AS CHK, 
+                                    T0.ESTM_YEAR 
+                                    ,T0.ESTM_NUM 
+                                    ,T0.DEPT_CD 
+                                    ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE DEPT_CD = T0.DEPT_CD AND ESTM_YEAR = T0.ESTM_YEAR AND ESTM_NUM = T0.ESTM_NUM) AS DEPT_NM 
+                                    ,T0.EMP_NO 
+                                    ,T0.EMP_NM 
+                                    ,T0.HP_NO
+                                    ,NVL(T1.PRM_YN_1, '미완료') AS PRM_YN_1 
+			                        ,NVL(T2.PRM_YN_2, '미완료') AS PRM_YN_2 
+			                        ,NVL(T3.MNR_YN, '미완료') AS MNR_YN 
+			                        ,NVL(T4.SVR_YN, '미완료') AS SVR_YN 
+			                        ,NVL(T5.MULT_YN, '미완료') AS MULT_YN  
+                                    ,NULL AS FINAL_YN
+                             FROM   (SELECT  ESTM_YEAR 
+                                            ,ESTM_NUM 
+                                            ,EMP_NO 
+                                            ,EMP_NM 
+                                            ,HP_NO 
+                                            ,DEPT_CD 
+                                      FROM TBRF_EV_EMP A 
+                                     WHERE 1 = 1  
+                                       AND MNG_GBN = 'Y'
+                                       AND EXISTS (         --2014.11.15(평가대상자가 있는 경우에만)
+                                                    SELECT *
+                                                    FROM TBRF_EV_EMP B
+                                                    WHERE ESTM_ESC_GBN = 'Y'
+                                                    AND   A.ESTM_YEAR = B.ESTM_YEAR
+                                                    AND   A.ESTM_NUM  = B.ESTM_NUM
+                                                    AND   A.DEPT_CD = B.ESTM_DEPT                         
+                                                   )
+                                    ) T0     
+                                   ,(SELECT ESTM_YEAR 
+                                           ,ESTM_NUM 
+                                           ,ESTM_DEPT 
+                                           ,DECODE(SUM(PRM_YN_1), 0, '완료', '미완료') AS PRM_YN_1 
+                                      FROM  
+                                             (SELECT  ESTM_YEAR 
+                                                   ,ESTM_NUM 
+                                                   ,ESTM_DEPT 
+                                                   ,CASE WHEN FST_ESTM_SCR IS NULL THEN 1 ELSE 0 END   AS PRM_YN_1          
+                                              FROM TBRF_EV_WK_PRM 
+                                             )  
+                                     WHERE 1 = 1 
+                                   GROUP BY ESTM_YEAR 
+                                           ,ESTM_NUM 
+                                           ,ESTM_DEPT 
+                                     ) T1    
+                                    ,(SELECT ESTM_YEAR 
+                                           ,ESTM_NUM 
+                                           ,ESTM_DEPT 
+                                           ,DECODE(SUM(PRM_YN_2), 0, '완료', '미완료') AS PRM_YN_2 
+                                      FROM  
+                                             (SELECT  ESTM_YEAR 
+                                                   ,ESTM_NUM 
+                                                   ,ESTM_DEPT 
+                                                   ,CASE WHEN SND_ESTM_SCR IS NULL THEN 1 ELSE 0 END   AS PRM_YN_2          
+                                              FROM TBRF_EV_WK_PRM 
+                                             )  
+                                     WHERE 1 = 1 
+                                   GROUP BY ESTM_YEAR 
+                                           ,ESTM_NUM 
+                                           ,ESTM_DEPT 
+                                     ) T2   
+                                    ,( SELECT ESTM_YEAR 
+									           ,ESTM_NUM 
+									           ,ESTM_DEPT 
+									           ,DECODE(CNT, 3, '완료', '미완료') AS MNR_YN 
+									      FROM  
+									             (SELECT  ESTM_YEAR
+									                   ,ESTM_NUM
+									                   ,APRV_DEPT AS ESTM_DEPT
+									                   ,NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+									              FROM TBRF_EV_APRV
+									              WHERE 1 = 1
+									                AND APRV_SEQ = '2'
+									                AND APRV_REQ_NO IS NOT NULL
+									             GROUP BY   ESTM_YEAR
+									                   ,ESTM_NUM 
+									                   ,APRV_DEPT
+									                   ,APRV_STAS
+									             )  
+									     WHERE 1 = 1 
+									    GROUP BY ESTM_YEAR 
+									           ,ESTM_NUM 
+									           ,ESTM_DEPT  
+									           ,CNT
+                                    ) T3    
+                                   ,(SELECT ESTM_YEAR 
+                                           ,ESTM_NUM 
+                                           ,ESTM_DEPT 
+                                           ,DECODE(CNT, 3, '완료', '미완료') AS SVR_YN 
+                                      FROM  
+									             (SELECT  ESTM_YEAR
+									                   ,ESTM_NUM
+									                   ,APRV_DEPT AS ESTM_DEPT
+									                   ,NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+									              FROM TBRF_EV_APRV
+									              WHERE 1 = 1
+									                AND APRV_SEQ = '3'
+									                AND APRV_REQ_NO IS NOT NULL
+									             GROUP BY   ESTM_YEAR
+									                   ,ESTM_NUM 
+									                   ,APRV_DEPT
+									                   ,APRV_STAS
+									             )  
+									     WHERE 1 = 1 
+									    GROUP BY ESTM_YEAR 
+									           ,ESTM_NUM 
+									           ,ESTM_DEPT  
+									           ,CNT         
+                                    ) T4   
+                                   ,(
+                                   		SELECT  A1.ESTM_YEAR 
+									           ,A1.ESTM_NUM 
+									           ,A1.ESTM_DEPT 
+									           ,CASE WHEN SUM(A1.CHK_CNT) > 0 THEN '미완료' ELSE '완료' END AS MULT_YN  
+									  FROM (  
+									          -- 평가개시 여부 체크 : 평가 개시전에는 미완료  
+											  SELECT A.ESTM_YEAR 
+									                ,A.ESTM_NUM 
+									                ,ESTM_DEPT AS ESTM_DEPT 
+									                ,DECODE(NVL(A.ESTM_OPN_YN,'N'), 'N', 1, 0) AS CHK_CNT  
+											  FROM TBRF_EV_MASTER A,
+											       (
+											       SELECT ESTM_YEAR, ESTM_NUM, ESTM_DEPT
+							                         FROM TBRF_EV_EMP
+							                         WHERE ESTM_YEAR = ?
+							                         AND   ESTM_NUM = ?
+							                         AND   ESTM_ESC_GBN = 'Y'
+							                         GROUP BY ESTM_YEAR, ESTM_NUM, ESTM_DEPT											       
+											       ) D  
+											  WHERE 1=1  
+											  AND A.ESTM_YEAR = ?
+											     AND A.ESTM_NUM  = ?  
+											  UNION ALL  
+											  -- 제외가 아닌 것중에서 미완료가 한개라도 있으면 미완료.  
+											  SELECT  
+									                 B.ESTM_YEAR 
+									                ,B.ESTM_NUM 
+									                ,B.ESTM_DEPT 
+									                ,SUM(DECODE(NVL(B.CFM_YN,'N'),'N',1,0))  --0보다 크면 미완료  
+											   FROM TBRF_EV_WK_MULT B 
+											   WHERE 1 = 1  
+											     AND B.ESTM_YEAR = ?
+											     AND B.ESTM_NUM  = ?
+											     AND B.MULT_ESTM_GRP != '0'  
+											     AND NVL(B.EXPT_YN,'N') = 'N' 
+									           GROUP BY   B.ESTM_YEAR 
+									                ,B.ESTM_NUM  
+									                ,B.ESTM_DEPT 
+									  ) A1 
+									    WHERE A1.ESTM_DEPT IS NOT NULL 
+									    GROUP BY A1.ESTM_YEAR 
+									           ,A1.ESTM_NUM  
+									           ,A1.ESTM_DEPT  
+										      
+                                    ) T5   
+                            WHERE 1 = 1            
+                              AND T0.ESTM_YEAR = T1.ESTM_YEAR(+) 
+                              AND T0.ESTM_YEAR = T2.ESTM_YEAR(+) 
+                              AND T0.ESTM_YEAR = T3.ESTM_YEAR(+) 
+                              AND T0.ESTM_YEAR = T4.ESTM_YEAR(+) 
+                              AND T0.ESTM_YEAR = T5.ESTM_YEAR(+) 
+                              AND T0.ESTM_NUM = T1.ESTM_NUM(+) 
+                              AND T0.ESTM_NUM = T2.ESTM_NUM(+) 
+                              AND T0.ESTM_NUM = T3.ESTM_NUM(+) 
+                              AND T0.ESTM_NUM = T4.ESTM_NUM(+) 
+                              AND T0.ESTM_NUM = T5.ESTM_NUM(+) 
+                              AND T0.DEPT_CD = T1.ESTM_DEPT(+) 
+                              AND T0.DEPT_CD = T2.ESTM_DEPT(+) 
+                              AND T0.DEPT_CD = T3.ESTM_DEPT(+) 
+                              AND T0.DEPT_CD = T4.ESTM_DEPT(+) 
+                              AND T0.DEPT_CD = T5.ESTM_DEPT(+)  
+                              AND T0.ESTM_YEAR = ?
+                              AND T0.ESTM_NUM = ?
+                              AND DECODE(?, '', '2',T0.DEPT_CD) = DECODE(?, '', '2', ?) 
+                      ORDER BY T0.DEPT_CD                              
+        ]]>
+    </query>
+      
+</queryMap>

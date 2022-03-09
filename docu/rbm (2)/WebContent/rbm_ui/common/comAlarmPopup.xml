@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="448" Id="comAlarmPopup" Left="8" OnLoadCompleted="fcFormLoadSetting" OnTimer="fcClose" PidAttrib="7" Title="알림관리화면" Top="8" Ver="1.0" Width="460" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsAlarm">
+				<Contents>
+					<colinfo id="RECV_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="RECV_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="SUBJECT" size="256" summ="default" type="STRING"/>
+					<colinfo id="CONTENT" size="256" summ="default" type="STRING"/>
+					<colinfo id="DEPT_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="MENU_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="CHK" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Image Height="32" Id="Image2" ImageID="pop_bg" LeftMargin="25" TabOrder="1" Width="460"></Image>
+		<Static Height="20" Id="Static9" Left="26" Style="snis_pop_title" TabOrder="2" Text="알림관리" Top="8" VAlign="Middle" Width="207"></Static>
+		<Grid AutoFitEndLine="Hide" BindDataset="dsAlarm" BKColor="user15" BkColor2="user16" BkSelColor="user17" BoldHead="true" Border="Flat" BorderColor="user22" Bottom="442" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="345" Id="grdList" InputPanel="FALSE" Left="2" LineColor="user18" OnHeadClick="fcGridSort" Right="456" SelColor="user19" Style="snis_grid" TabOrder="3" TabStop="true" Top="97" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="454">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="25"/>
+						<col width="161"/>
+						<col width="100"/>
+						<col width="78"/>
+						<col width="70"/>
+					</columns>
+					<head>
+						<cell bkcolor="user20" col="0" color="user21" display="text" font="굴림,9"/>
+						<cell bkcolor="user20" col="1" color="user21" display="text" font="굴림,9" text="부서명"/>
+						<cell bkcolor="user20" col="2" color="user21" display="text" font="굴림,9" text="성명"/>
+						<cell bkcolor="user20" col="3" color="user21" display="text" font="굴림,9" text="사원ID"/>
+						<cell bkcolor="user20" col="4" color="user21" display="text" font="굴림,9" text="메뉴ID"/>
+					</head>
+					<body>
+						<cell align="center" col="0" colid="CHK" display="checkbox" edit="checkbox" imemode="english"/>
+						<cell align="left" col="1" colid="DEPT_NM" display="text" font="굴림,9"/>
+						<cell align="left" col="2" colid="RECV_NM" display="text" font="굴림,9"/>
+						<cell align="left" col="3" colid="RECV_ID" display="text" font="굴림,9"/>
+						<cell align="left" col="4" colid="MENU_ID" display="text" font="굴림,9"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Shape BKColor="user0" Bottom="96" Height="63" Id="Shape1" Left="2" LineColor="user1" LineKind="Vertical" Right="456" RoundHeight="8" RoundUnit="Pixel" RoundWidth="8" TabOrder="5" Top="33" Type="RoundRect" Width="454"></Shape>
+		<Edit AutoSelect="TRUE" Border="Flat" Height="22" Id="edSubject" ImeMode="native" Left="80" LeftMargin="5" MaxLength="30" Style="snis_if_input01" TabOrder="4" Top="40" Width="368"></Edit>
+		<Static Align="Right" Border="None" Height="22" Id="Static3" Left="8" Style="snis_if_lable" TabOrder="6" Text="제목" Top="40" VAlign="Middle" Width="58"></Static>
+		<Static Align="Right" Border="None" Height="22" Id="Static0" Left="8" Style="snis_if_lable" TabOrder="7" Text="내용" Top="64" VAlign="Middle" Width="58"></Static>
+		<Image Cursor="HAND" Height="20" Id="ImgConfirm" ImageID="btn_txt_02" Left="352" OnClick="fcSend" Static="FALSE" TabOrder="8" Text="전송" Top="8" Width="51"></Image>
+		<Image Cursor="HAND" Height="20" Id="Image0" ImageID="btn_txt_02" Left="404" OnClick="fcClose" Static="FALSE" TabOrder="9" Text="&#32;닫기" Top="8" Width="51"></Image>
+		<Edit AutoSelect="TRUE" Border="Flat" Height="22" Id="edContent" ImeMode="native" Left="80" LeftMargin="5" MaxLength="100" Style="snis_if_input01" TabOrder="10" Top="64" Width="368"></Edit>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/************************
+*  공통 Script Include  *
+************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+
+/*********************
+*  화면 변수 선언부  *
+*********************/
+var sAlarmCd     = "";   
+var sSendUserId  = "";   
+
+
+/*-----------------------------------+
+|  최초 화면 Load時 처리 할 사항     |
++------------------------------------*/
+function fcFormLoadSetting(obj){
+    
+    if ( IsExistVar("ALARM_CD") ) sAlarmCd = ALARM_CD;
+    
+    if (fnc_isNull(sAlarmCd)) {
+        alert("알림구분코드는 반드시 입력해 주셔야 합니다.");
+        return;
+    }
+
+	sSendUserId = gdsUser.GetColumn(0, "USER_ID");
+	
+	trace("알림구분코드 : " + sAlarmCd + ", 보내는사람 : " + sSendUserId);
+	
+
+    fcSearch();
+}
+
+/*-----------------------+
+|  확정관리 조회 실행 !  |
++------------------------*/
+function fcSearch(obj) {	
+	//필수 조회 조건 체크
+	
+	var sServiceName = "common-service:searchAlarm";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsAlarm=dsAlarm ";
+    
+	fcd_AddParam("ALARM_CD", sAlarmCd); 
+		
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+
+}
+
+/*--------------+
+|  취소 처리 !  |
++---------------*/
+function fcClose(obj) {
+	Close(false);     //Null 반환 후 종료
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);
+}
+
+
+//전송 버튼 클릭 시 처리
+function fcSend(obj,nX,nY)
+{
+    var i;
+        
+    
+    if (fnc_isNull(edSubject.text)) {
+        fnc_Message(SNIS_COM_1035, "N", "제목");
+        return;
+    }
+    if (fnc_isNull(edContent.text)) {
+        fnc_Message(SNIS_COM_1035, "N", "내용");
+        return;
+    }   
+    //체크된 데이터가 없으면 체크
+    if (fnc_GetColumnValueCount(dsAlarm, "CHK", "1") == 0) {
+        fnc_Message(SNIS_rbm_J001, "N", "");
+        return;
+    }
+    
+    //1.정보를 DB에 저장한다.(해당 하는 코드로 삭제 후 입력한다.) --> 저장로직
+    var sServiceName = "common-service:saveAlarm";
+    var sInDataSet   = "dsAlarm=dsAlarm ";
+    var sOutDataSet  = "";
+    
+    fcd_AddParam("ALARM_CD", sAlarmCd);         //확정구분코드
+	fcd_AddParam("SUBJECT", edSubject.text);    //제목
+	fcd_AddParam("CONTENT", edContent.text);    //내용
+    
+    http.Sync=true;
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);    
+	http.Sync=false;
+}
+
+
+/*------------------------------------+
+|  Transaction 후 처리 해야 할 내용!  |
++-------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+	
+	if (sServiceName == "common-service:searchAlarm") {
+        edSubject.text = dsAlarm.GetColumn(0, "SUBJECT");
+        edContent.text = dsAlarm.GetColumn(0, "CONTENT");
+	}
+	
+	if (sServiceName == "common-service:saveAlarm") {
+        var sRecvId = "";
+        var sMenuId = "";
+    
+        for (i=0; i < dsAlarm.rowcount; i++) {
+            if(dsAlarm.GetColumn(i, "CHK") == "1") {
+                sRecvId = dsAlarm.GetColumn(i, "RECV_ID");
+                sMenuId = dsAlarm.GetColumn(i, "MENU_ID");
+                
+                trace("보내기 전 받는ID:::메뉴ID >>>> " + sRecvId + ":::" + sMenuId);
+                fcd_SendMessage(sSendUserId, sRecvId, edSubject.Text, sMenuId+'^'+sRecvId, edContent.Text, i);
+                
+            }
+            
+        } 
+        
+        SetTimer(1,1000);   //1초
+              
+	}	
+	
+}
+]]></Script>
+</Window>

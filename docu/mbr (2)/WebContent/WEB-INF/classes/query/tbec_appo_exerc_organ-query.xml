@@ -1,0 +1,659 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_appo_exerc_organ(지정연습편성)">
+    <query id="tbec_appo_exerc_organ_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+             SELECT  /* tbec_appo_exerc_organ_fc001 */
+                      TOR.STND_YEAR       STND_YEAR
+	                 ,TOR.MBR_CD          MBR_CD
+	                 ,TOR.TMS             TMS
+	                 ,TOR.DAY_ORD         DAY_ORD
+	                 ,TOR.RACE_NO         RACE_NO
+	                 ,TAEO.RACER_NO       RACER_NO
+	                 ,TOR.RACE_REG_NO     RACE_REG_NO
+	                 ,TRM.NM_KOR          NM_KOR
+	                 ,TAEO.MOT_NO         MOT_NO
+	                 ,TAEO.BOAT_NO        BOAT_NO
+	                 ,TO_CHAR(TAEO.START_TM_1_0 ,'0.00')    START_TM_1_0
+	                 ,TO_CHAR(TAEO.START_TM_2_0 ,'0.00')    START_TM_2_0
+        	         ,TO_CHAR(TAEO.START_TM_3_0 ,'0.00')    START_TM_3_0        
+                     ,TO_CHAR(TAEO.START_TM_1 ,'0.00')    START_TM_1
+	                 ,TO_CHAR(TAEO.START_TM_2 ,'0.00')    START_TM_2
+        	         ,TO_CHAR(TAEO.START_TM_3 ,'0.00')    START_TM_3        
+                     ,TO_CHAR(TAEO.RUN_TM_0 ,'0.00')  RUN_TM_0
+	                 ,TO_CHAR(TAEO.RUN_TM  ,'0.00')   RUN_TM
+	                 ,TAEO.RMK_0          RMK_0
+	                 ,TAEO.RMK            RMK
+	                 ,NVL(TAEO.START_FLYING_CNT_1_0,'')     	START_FLYING_CNT_1_0
+	                 ,NVL(TAEO.START_LATE_CNT_1_0,'')     	START_LATE_CNT_1_0
+	                 ,NVL(TAEO.START_FLYING_CNT_2_0,'')     	START_FLYING_CNT_2_0
+	                 ,NVL(TAEO.START_LATE_CNT_2_0,'')     	START_LATE_CNT_2_0
+	                 ,NVL(TAEO.START_FLYING_CNT_3_0,'')     	START_FLYING_CNT_3_0
+	                 ,NVL(TAEO.START_LATE_CNT_3_0,'')     	START_LATE_CNT_3_0
+	                 ,NVL(TAEO.START_FLYING_CNT_1,'')     	START_FLYING_CNT_1
+	                 ,NVL(TAEO.START_LATE_CNT_1,'')    		START_LATE_CNT_1
+	                 ,NVL(TAEO.START_FLYING_CNT_2,'')         START_FLYING_CNT_2
+                     ,NVL(TAEO.START_LATE_CNT_2,'')         START_LATE_CNT_2
+	                 ,NVL(TAEO.START_FLYING_CNT_3,'')         START_FLYING_CNT_3
+                     ,NVL(TAEO.START_LATE_CNT_3,'')         START_LATE_CNT_3
+                     ,TAEO.START_RMK
+                     ,TAEO.START_RMK_2R
+	         FROM  (SELECT STND_YEAR, MBR_CD, TMS, ? AS DAY_ORD, RACE_NO, RACE_REG_NO FROM  TBEB_ORGAN TOR
+                     WHERE TOR.STND_YEAR    = ?
+                     AND TOR.MBR_CD        	= ?
+                     AND TOR.TMS           	= ?
+                     AND RACE_NO           <= ?
+                     GROUP BY STND_YEAR, MBR_CD, TMS, RACE_NO, RACE_REG_NO
+                     ORDER BY RACE_NO) TOR
+                    , TBEC_APPO_EXERC_ORGAN TAEO
+	                , TBEC_RACER_MASTER TRM
+	         WHERE TOR.STND_YEAR            = TAEO.STND_YEAR(+) 
+	                AND TOR.MBR_CD          = TAEO.MBR_CD(+) 
+	                AND TOR.TMS             = TAEO.TMS(+) 
+	                AND TOR.RACE_NO         = TAEO.RACE_NO(+)
+                    AND TOR.RACE_REG_NO     = TAEO.RACE_REG_NO(+)
+                    AND TOR.DAY_ORD       	= TAEO.DAY_ORD(+)
+	                AND TAEO.RACER_NO       = TRM.RACER_NO(+)
+             ORDER BY RACE_NO, RACE_REG_NO
+        ]]>
+    </query> 
+    <query id="tbec_appo_exerc_organ_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+            MERGE /* tbec_appo_exerc_organ_ic001 */
+                  INTO TBEC_APPO_EXERC_ORGAN TAEO
+            USING   DUAL
+            ON        (     TAEO.STND_YEAR     		= ?     -- 기준년도
+            				AND TAEO.MBR_CD			= ?		-- 경정장코드
+            				AND TAEO.TMS			= ?		-- 회차
+            				AND TAEO.DAY_ORD		= ?		-- 일차
+            				AND TAEO.RACE_NO		= ?		-- 경주번호
+            				AND TAEO.RACE_REG_NO	= ?		-- 정번            				
+                    )
+            WHEN MATCHED THEN
+                    UPDATE  SET
+                        RACER_NO        	= ?         -- 등록번호
+                      , MOT_NO          	= ?         -- 모터번호
+                      , BOAT_NO         	= ?         -- 보트번호
+                      , START_TM_1_0      	= DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)      -- 스타트타임1_1R
+                      , START_TM_2_0		= DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)		-- 스타트타임2_1R
+                      , START_TM_3_0		= DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)		-- 스타트타임3_1R
+                      , START_TM_1      	= DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)      -- 스타트타임1_2R
+                      , START_TM_2			= DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)		-- 스타트타임2_2R
+                      , START_TM_3			= DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)		-- 스타트타임3_2R
+                      , RMK_0				= ?			-- 비고1
+                      , RMK					= ?			-- 비고2
+                      , START_FLYING_CNT_1_0	= ?			-- 스타트플라잉카운트1_1R
+	                  , START_LATE_CNT_1_0		= ?			-- 스타트레이트카운트1_1R
+	                  , START_FLYING_CNT_2_0	= ?			-- 스타트플라잉카운트2_1R
+	                  , START_LATE_CNT_2_0		= ?			-- 스타트레이트카운트2_1R
+	                  , START_FLYING_CNT_3_0	= ?			-- 스타트플라잉카운트3_1R
+	                  , START_LATE_CNT_3_0		= ?			-- 스타트레이트카운트3_1R
+	                  , START_FLYING_CNT_1		= ?			-- 스타트플라잉카운트1_2R
+	                  , START_LATE_CNT_1		= ?			-- 스타트레이트카운트1_2R
+	                  , START_FLYING_CNT_2		= ?			-- 스타트플라잉카운트2_2R
+	                  , START_LATE_CNT_2		= ?			-- 스타트레이트카운트2_2R
+	                  , START_FLYING_CNT_3		= ?			-- 스타트플라잉카운트3_2R
+	                  , START_LATE_CNT_3		= ?			-- 스타트레이트카운트3_2R
+	                  , START_RMK    		    = ?			-- 스타트타임비고1R
+	                  , START_RMK_2R 		    = ?			-- 스타트타임비고2R
+                      , UPDT_ID                 = ?         -- 수정자ID    
+                      , UPDT_DTM                = SYSDATE   -- 수정일시    
+            WHEN NOT MATCHED THEN
+                    INSERT (
+                      STND_YEAR             -- 기준년도    
+                      , MBR_CD            	-- 경정장코드
+                      , TMS              	-- 회차
+                      , DAY_ORD             -- 일차
+                      , RACE_NO             -- 경주번호
+                      , RACE_REG_NO         -- 정번
+                      , RACER_NO			-- 등록번호
+                      , MOT_NO				-- 모터번호
+                      , BOAT_NO				-- 보트번호
+                      , START_TM_1_0      	-- 스타트타임1_1R
+                      , START_TM_2_0		--  스타트타임2_1R
+                      , START_TM_3_0		--  스타트타임3_1R
+                      , START_TM_1      	-- 스타트타임1_2R
+                      , START_TM_2			--  스타트타임2_2R
+                      , START_TM_3			--  스타트타임3_2R
+                      , RMK_0				--  비고 1                     
+                      , RMK					-- 비고  2                    
+                      , START_FLYING_CNT_1_0	-- 스타트플라잉카운트1_1R
+	                  , START_LATE_CNT_1_0		-- 스타트레이트카운트1_1R
+	                  , START_FLYING_CNT_2_0	-- 스타트플라잉카운트2_1R
+	                  , START_LATE_CNT_2_0		-- 스타트레이트카운트2_1R
+	                  , START_FLYING_CNT_3_0	-- 스타트플라잉카운트3_1R
+	                  , START_LATE_CNT_3_0		-- 스타트레이트카운트3_1R
+	                  , START_FLYING_CNT_1		-- 스타트플라잉카운트1_2R
+	                  , START_LATE_CNT_1		-- 스타트레이트카운트1_2R
+	                  , START_FLYING_CNT_2		-- 스타트플라잉카운트2_2R
+	                  , START_LATE_CNT_2		-- 스타트레이트카운트2_2R
+	                  , START_FLYING_CNT_3		-- 스타트플라잉카운트3_2R
+	                  , START_LATE_CNT_3		-- 스타트레이트카운트3_2R
+	                  , START_RMK   		    -- 스타트타임비고1R
+	                  , START_RMK_2R            -- 스타트타임비고2R
+                      , INST_ID                 -- 작성자ID    
+                      , INST_DTM                -- 작성일시   
+                      , UPDT_ID          	    -- 수정자ID    
+				      , UPDT_DTM         	    -- 수정일시
+					) VALUES (	
+	                    ?           	-- 기준년도
+	                  , ?               -- 경정장코드
+	                  , ?     			-- 회차
+	                  , ?        		-- 일차
+	                  , ?            	-- 경주번호
+	                  , ?               -- 정번
+                      , ?				-- 등록번호
+                      , ?				-- 모터번호
+                      , ?				-- 보트번호
+                      , DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)      			-- 스타트타임1_1R
+                      , DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)				-- 스타트타임2_1R
+                      , DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)				-- 스타트타임3_1R
+                      , DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)      			-- 스타트타임1_2R
+                      , DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)				-- 스타트타임2_1R
+                      , DECODE(LENGTH(?),NULL,NULL,1,?,2,? /10,3,? /100, ?)				-- 스타트타임3_1R
+                      , ?				-- 비고 1                     
+                      , ?				-- 비고  2                    
+                      , ?				-- 스타트플라잉카운트1_1R
+	                  , ?				-- 스타트레이트카운트1_1R
+	                  , ?				-- 스타트플라잉카운트2_1R
+	                  , ?				-- 스타트레이트카운트2_1R
+	                  , ?				-- 스타트플라잉카운트3_1R
+	                  , ?				-- 스타트레이트카운트3_1R
+	                  , ?				-- 스타트플라잉카운트1_2R
+	                  , ?				-- 스타트레이트카운트1_2R
+	                  , ?				-- 스타트플라잉카운트2_2R
+	                  , ?				-- 스타트레이트카운트2_2R
+	                  , ?				-- 스타트플라잉카운트3_2R
+	                  , ?				-- 스타트레이트카운트3_2R                
+	                  , ?				-- 스타트타임비고1R                
+	                  , ?				-- 스타트타임비고2R                
+				      , ?          		-- 작성자ID    
+				      , SYSDATE         -- 작성일시   
+				      , ?          		-- 수정자ID    
+				      , SYSDATE         -- 수정일시				
+					)
+        ]]>
+    </query>   
+    <query id="tbec_appo_exerc_organ_ic002" desc="저장" fetchSize="10">
+        <![CDATA[
+            MERGE /* tbec_appo_exerc_organ_ic002 */
+                  INTO TBEC_APPO_EXERC_RSLT TAER
+            USING   DUAL
+            ON        (     TAER.STND_YEAR     		= ?     -- 기준년도
+            				AND TAER.MBR_CD			= ?		-- 경정장코드
+            				AND TAER.TMS			= ?		-- 회차
+            				AND TAER.DAY_ORD		= ?		-- 일차				
+                    )
+            WHEN MATCHED THEN
+                    UPDATE  SET
+                        CNTNT        	= ?         -- 내용
+                      , CNTNT1        	= ?         -- 내용1
+                      , NOTICE        	= ?         -- 홈페이지 공지사항
+                      , UPDT_ID         = ?         -- 수정자ID    
+                      , UPDT_DTM        = SYSDATE   -- 수정일시    
+            WHEN NOT MATCHED THEN
+                    INSERT (
+                      STND_YEAR             -- 기준년도    
+                      , MBR_CD            	-- 경정장코드
+                      , TMS              	-- 회차
+                      , DAY_ORD             -- 일차
+                      , CNTNT				-- 내용                      
+                      , CNTNT1				--  내용                      
+                      , NOTICE				-- 홈페이지 공지사항                      
+                      , INST_ID             -- 작성자ID    
+                      , INST_DTM            -- 작성일시   
+                      , UPDT_ID          	-- 수정자ID    
+				      , UPDT_DTM         	-- 수정일시
+					) VALUES (	
+	                    ?           	-- 기준년도
+	                  , ?               -- 경정장코드
+	                  , ?     			-- 회차
+	                  , ?        		-- 일차
+                      , ?				-- 내용 	                  
+                      , ?				-- 내용1 	                  
+                      , ?				-- 홈페이지 공지사항 	                  
+				      , ?          		-- 작성자ID    
+				      , SYSDATE         -- 작성일시   
+				      , ?          		-- 수정자ID    
+				      , SYSDATE         -- 수정일시				
+					)
+        ]]>
+    </query>   
+    <query id="tbec_appo_exerc_organ_fc002" desc="조회" fetchSize="10">
+        <![CDATA[
+	        SELECT  /* tbec_appo_exerc_organ_fc002 */
+	                 TA.RACER_NO		-- 등록번호
+	                ,TRM.NM_KOR		-- 성명
+	                ,TA.MOT_NO		-- 모터번호
+        			,TA.BOAT_NO		-- 보트번호
+	        FROM 
+	        		(SELECT TA.STND_YEAR
+							        , TA.MBR_CD
+							        , TA.TMS
+							        , TA.RACER_NO
+							        , TA.BOAT_NO
+							        , TA.MOT_NO 
+							FROM TBEB_ARRANGE TA
+							    , TBEB_RACE_TMS TRT
+							WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+							        AND TRT.STND_YEAR   = TA.STND_YEAR
+							        AND TRT.TMS         = TA.TMS) TA
+	            ,TBEC_RACER_MASTER TRM
+	        WHERE TA.STND_YEAR  = ?
+	        AND TA.MBR_CD       = ?
+	        AND TA.TMS          = ?
+	        AND TA.RACER_NO     = TRM.RACER_NO
+	        ORDER BY NM_KOR
+        ]]>
+    </query> 
+    <query id="tbec_appo_exerc_organ_fc003" desc="조회" fetchSize="10">
+        <![CDATA[
+	        SELECT	/* tbec_appo_exerc_organ_fc003 */
+	                STND_YEAR		-- 기준년도
+	        	  , MBR_CD			-- 경정장코드
+	        	  , TMS				-- 회차
+	        	  , DAY_ORD			-- 일차
+	        	  , CNTNT			-- 내용
+	        	  , CNTNT1			--  내용
+	        	  , NOTICE			-- 홈페이지 공지사항
+	        FROM	TBEC_APPO_EXERC_RSLT TAER
+	        WHERE	TAER.STND_YEAR  	= NVL(?, TAER.STND_YEAR)
+	        AND 	TAER.MBR_CD       	= NVL(?, TAER.MBR_CD)
+	        AND 	TAER.TMS          	= NVL(?, TAER.TMS)
+	        AND 	TAER.DAY_ORD        = NVL(?, TAER.DAY_ORD)
+        ]]>
+    </query>
+    <query id="tbec_appo_exerc_organ_fc004" desc="지정연습 경주수 조회" fetchSize="10">
+        <![CDATA[    
+            SELECT /* tbec_appo_exerc_organ_fc004 */
+                   ROUND(COUNT(*)/6) AS CNT
+            FROM TBEB_ARRANGE TA
+			GROUP BY 
+    			TA.STND_YEAR, 
+    			TA.MBR_CD, 
+    			TA.TMS
+            HAVING TA.STND_YEAR 	= ?
+                AND TA.MBR_CD 		= ?
+                AND TA.TMS 			= ?
+        ]]>
+    </query>
+    <query id="tbec_appo_exerc_organ_fc005" desc="지정연습 경주 조회" fetchSize="10">
+        <![CDATA[    
+           SELECT  /* tbec_appo_exerc_organ_fc005 */
+                  A.STND_YEAR
+                 ,A.MBR_CD 
+                 ,A.TMS
+                 ,NVL(?, A.DAY_ORD) DAY_ORD
+                 ,A.RACE_NO
+                 ,A.RACE_REG_NO
+                 ,'' AS RACER_NO
+                 ,'' AS NM_KOR
+                 ,'' AS MOT_NO
+                 ,'' AS BOAT_NO
+                 ,'' AS START_TM_1_0
+                 ,'' AS START_TM_2_0
+                 ,'' AS START_TM_3_0
+                 ,'' AS START_TM_1
+                 ,'' AS START_TM_2
+                 ,'' AS START_TM_3
+                 ,'' AS RUN_TM_0
+                 ,'' AS RUN_TM
+                 ,'' AS RMK_0
+                 ,'' AS RMK
+                 ,'' AS START_FLYING_CNT_1_0	-- 스타트플라잉카운트1_1R
+	             ,'' AS START_LATE_CNT_1_0		-- 스타트레이트카운트1_1R
+	             ,'' AS START_FLYING_CNT_2_0	-- 스타트플라잉카운트2_1R
+	             ,'' AS START_LATE_CNT_2_0		-- 스타트레이트카운트2_1R
+	             ,'' AS START_FLYING_CNT_3_0	-- 스타트플라잉카운트3_1R
+	             ,'' AS START_LATE_CNT_3_0		-- 스타트레이트카운트3_1R
+	             ,'' AS START_FLYING_CNT_1		-- 스타트플라잉카운트1_2R
+	             ,'' AS START_LATE_CNT_1		-- 스타트레이트카운트1_2R
+	             ,'' AS START_FLYING_CNT_2		-- 스타트플라잉카운트2_2R
+	             ,'' AS START_LATE_CNT_2		-- 스타트레이트카운트2_2R
+	             ,'' AS START_FLYING_CNT_3		-- 스타트플라잉카운트3_2R
+	             ,'' AS START_LATE_CNT_3		-- 스타트레이트카운트3_2R	             
+           FROM
+               (SELECT  TOR.STND_YEAR       STND_YEAR
+                       ,TOR.MBR_CD          MBR_CD        
+                       ,TOR.TMS             TMS
+                       ,TOR.DAY_ORD         DAY_ORD
+                       ,TOR.RACE_NO         RACE_NO
+                       ,TOR.RACE_REG_NO     RACE_REG_NO
+                FROM 
+                    TBEB_ORGAN TOR,
+                    (SELECT STND_YEAR
+                             , MBR_CD
+                             , TMS
+                             , DAY_ORD
+                             , RACE_NO
+                             , RACE_REG_NO
+                        FROM TBEC_APPO_EXERC_ORGAN  
+                        WHERE STND_YEAR       = ?    -- 기준년도
+                        AND MBR_CD            = ?    -- 경정장코드 
+                        AND TMS               = ?    -- 회차
+                        AND DAY_ORD           = ?    -- 일차
+                    ) TAEO
+                 WHERE TOR.STND_YEAR          = ?    -- 기준년도
+                AND TOR.MBR_CD                = ?    -- 경정장코드
+                AND TOR.TMS                   = ?    -- 회차
+                AND TOR.DAY_ORD               = DECODE (?,'0','1',?)    -- 일차
+                AND TOR.RACE_NO              <= ?			--최대 조편성 수
+                AND TOR.STND_YEAR    = TAEO.STND_YEAR(+)
+                AND TOR.MBR_CD       = TAEO.MBR_CD(+)
+                AND TOR.TMS          = TAEO.TMS(+)
+                AND TOR.DAY_ORD      = TAEO.DAY_ORD(+)
+                AND TOR.RACE_NO      = TAEO.RACE_NO(+)                                                 
+                AND TOR.RACE_REG_NO  = TAEO.RACE_REG_NO(+) ) A 
+                ORDER BY  A.STND_YEAR        
+                                ,A.MBR_CD                   
+                                ,A.TMS              
+                                ,A.DAY_ORD                                                                
+                                ,A.RACE_NO
+                                ,A.RACE_REG_NO
+        ]]>
+    </query>
+    <query id="tbec_appo_exerc_organ_fc006" desc="경주편성 결과 조회" fetchSize="10">
+        <![CDATA[ 
+            SELECT  /* tbec_appo_exerc_organ_fc006 */
+                     TOR.RACER_NO
+                   , TRM.NM_KOR
+                   , TOR.RACE_NO
+                   , TOR.RACE_REG_NO
+                   , TOR.MOT_NO
+                   , TOR.BOAT_NO
+            FROM     (
+                        SELECT 
+                                 RACER_NO
+                               , RACE_NO
+                               , RACE_REG_NO
+                               , MOT_NO
+                               , BOAT_NO
+                               , RANK() OVER (PARTITION BY RACER_NO 
+                                                  ORDER BY RACE_NO
+                                                         , RACE_REG_NO) SEQ
+                        FROM   TBEB_ORGAN
+                        WHERE  STND_YEAR = ?
+                        AND    MBR_CD    = ?
+                        AND    TMS       = ?
+                        AND    DAY_ORD   = ?
+                     ) TOR
+                   , TBEC_RACER_MASTER TRM
+            WHERE  TOR.RACER_NO = TRM.RACER_NO
+            AND    TOR.SEQ      = 1
+            ORDER BY TOR.RACE_NO
+                   , TOR.RACE_REG_NO
+        ]]>
+    </query>
+    <query id="tbec_appo_exerc_organ_fc007" desc="지정연습편성 2회차분 편성이력 조회" fetchSize="10">
+        <![CDATA[ 
+			SELECT  /* tbec_appo_exerc_organ_fc007 */
+			        RACER_NO, 
+			        SUM(TO_NUMBER(RACE_NO1)) AS RACE_NO1, 
+			        SUM(TO_NUMBER(RACE_REG_NO1)) AS RACE_REG_NO1, 
+			        SUM(TO_NUMBER(RACE_NO2)) AS RACE_NO2, 
+			        SUM(TO_NUMBER(RACE_REG_NO2)) AS RACE_REG_NO2
+			FROM (
+			    SELECT RACER_NO, 
+			           CASE TMS WHEN TO_NUMBER(?) THEN RACE_NO END RACE_NO1
+			           ,CASE TMS WHEN TO_NUMBER(?) THEN RACE_NO END RACE_NO2
+			           ,CASE TMS WHEN TO_NUMBER(?) THEN RACE_REG_NO END RACE_REG_NO1
+			           ,CASE TMS WHEN TO_NUMBER(?) THEN RACE_REG_NO END RACE_REG_NO2
+			    FROM TBEC_APPO_EXERC_ORGAN TAEO
+			    WHERE TAEO.STND_YEAR     	= ?
+			    AND TAEO.MBR_CD     		= ?
+			    AND TAEO.TMS BETWEEN ? AND ?
+			    AND TAEO.DAY_ORD     		= 0
+			    GROUP BY STND_YEAR, MBR_CD, RACER_NO, TMS, RACE_NO, RACE_REG_NO
+			)
+			GROUP BY RACER_NO
+			ORDER BY RACER_NO
+        ]]>
+    </query> 
+       
+    <query id="tbec_appo_exerc_organ_fc008" desc="주선된 선수를 이름별로 정렬" fetchSize="10">
+        <![CDATA[     
+            SELECT  /* tbec_appo_exerc_organ_fc008 */
+                      TA.RACER_NO
+                    , TRM.NM_KOR
+                    , TA.MOT_NO
+                    , TA.BOAT_NO
+            FROM TBEB_ARRANGE TA,
+                    TBEC_RACER_MASTER TRM
+            WHERE STND_YEAR 	= ?
+            AND MBR_CD      	= ?
+            AND TMS         	= ?
+            AND TA.RACER_NO    	= TRM.RACER_NO
+            ORDER BY TRM.NM_KOR
+        ]]>
+    </query>  
+    <query id="tbec_appo_exerc_organ_fc008_1" desc="주선된 선수를 이름별로 정렬" fetchSize="10">
+        <![CDATA[     
+            SELECT   /* tbec_appo_exerc_organ_fc008_1 */
+                     TA  .RACER_NO
+                   , TRM .NM_KOR
+                   , TA  .MOT_NO
+                   , TA  .BOAT_NO
+                   , TAEO.TMS
+                   , TAEO.RACE_NO
+                   , TAEO.RACE_REG_NO
+            FROM     TBEB_ARRANGE      TA
+                   , TBEC_RACER_MASTER TRM
+                   , (
+                        SELECT
+                                 TA  .RACER_NO
+                               , TA  .TMS
+                               , TAEO.RACE_NO
+                               , TAEO.RACE_REG_NO
+                        FROM     TBEC_APPO_EXERC_ORGAN TAEO
+                               , (
+                                    SELECT
+                                             TA.RACER_NO
+                                           , TA.STND_YEAR
+                                           , TA.MBR_CD
+                                           , TA.TMS
+                                           , RANK() OVER (PARTITION BY TA.RACER_NO
+                                                              ORDER BY TA.TMS DESC) SEQ
+                                    FROM   TBEB_ARRANGE          TA
+                                    WHERE  TA.STND_YEAR = ?
+                                    AND    TA.MBR_CD    = ?
+                                    AND    TA.TMS       BETWEEN ? - 2
+                                                            AND ? - 1
+                                 ) TA
+                        WHERE  TAEO.STND_YEAR = TA.STND_YEAR
+                        AND    TAEO.MBR_CD    = TA.MBR_CD
+                        AND    TAEO.TMS       = TA.TMS
+                        AND    TAEO.RACER_NO  = TA.RACER_NO
+                        AND    TAEO.DAY_ORD   = 0
+                        AND    TA  .SEQ       = 1
+                        ORDER BY TAEO.RACE_NO
+                               , TAEO.RACE_REG_NO
+                     ) TAEO
+            WHERE  TA.RACER_NO  = TRM .RACER_NO
+            AND    TA.RACER_NO  = TAEO.RACER_NO(+)
+            AND    TA.STND_YEAR = ?
+            AND    TA.MBR_CD    = ?
+            AND    TA.TMS       = ?
+            ORDER BY TAEO.RACE_NO DESC
+                   , TA  .RACER_NO DESC
+        ]]>
+    </query>  
+    <query id="tbec_appo_exerc_organ_fc009" desc="지정연습레포트 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* tbec_appo_exerc_organ_fc009 */
+                  A.F_STND_YEAR
+                  ,A.F_MBR_CD
+                  ,A.F_TMS
+                  ,A.F_DAY_ORD
+                  ,A.F_RACE_NO
+                  ,A.F_RACE_REG_NO
+                  ,B.RACER_NO AS F_RACER_NO
+                  ,D.NM_KOR AS F_NM_KOR
+                  ,F.MOT_NO AS F_MOT_NO
+                  ,F.BOAT_NO AS F_BOAT_NO
+                  ,TO_CHAR(B.START_TM_1 ,'0.00')  AS F_START_TM_1
+                  ,TO_CHAR(B.START_TM_2 ,'0.00')  AS F_START_TM_2
+                  ,TO_CHAR(B.START_TM_3 ,'0.00')  AS F_START_TM_3
+                  ,TO_CHAR(B.START_TM_4 ,'0.00')  AS F_START_TM_4
+                  ,TO_CHAR(B.RUN_TM_0 ,'0.00')    AS F_RUN_TM_0
+                  ,TO_CHAR(B.RUN_TM ,'0.00')	  AS F_RUN_TM
+                  ,B.F_RMK_0 AS F_RMK_0
+                  ,B.RMK AS F_RMK
+                  ,NVL(B.START_FLYING_CNT_1,'') AS F_START_FLYING_CNT_1	-- 스타트플라잉카운트1
+	              ,NVL(B.START_LATE_CNT_1,'') 	AS F_LATE_CNT_1			-- 스타트레이트카운트1
+	              ,NVL(B.START_FLYING_CNT_2,'')	AS F_START_FLYING_CNT_2	-- 스타트플라잉카운트2
+	              ,NVL(B.START_LATE_CNT_2,'')	AS F_LATE_CNT_2			-- 스타트레이트카운트2
+	              ,NVL(B.START_FLYING_CNT_3,'')	AS F_START_FLYING_CNT_3	-- 스타트플라잉카운트3
+	              ,NVL(B.START_LATE_CNT_3,'')	AS F_LATE_CNT_3			-- 스타트레이트카운트3
+	              ,NVL(B.START_FLYING_CNT_4,'')	AS F_START_FLYING_CNT_4	-- 스타트플라잉카운트4
+	              ,NVL(B.START_LATE_CNT_4,'')	AS F_LATE_CNT_4			-- 스타트레이트카운트4
+                  ,A.S_STND_YEAR 
+                  ,A.S_MBR_CD
+                  ,A.S_TMS
+                  ,A.S_DAY_ORD 
+                  ,A.S_RACE_NO
+                  ,A.S_RACE_REG_NO
+                  ,C.RACER_NO AS S_RACER_NO
+                  ,E.NM_KOR AS S_NM_KOR
+                  ,G.MOT_NO AS S_MOT_NO
+                  ,G.BOAT_NO AS S_BOAT_NO
+                  ,TO_CHAR(C.START_TM_1 ,'0.00')  AS S_START_TM_1
+                  ,TO_CHAR(C.START_TM_2 ,'0.00')  AS S_START_TM_2
+                  ,TO_CHAR(C.START_TM_3 ,'0.00')  AS S_START_TM_3
+                  ,TO_CHAR(C.START_TM_4 ,'0.00')  AS S_START_TM_4
+                  ,TO_CHAR(C.RUN_TM_0 ,'0.00')    AS S_RUN_TM_0
+                  ,TO_CHAR(C.RUN_TM ,'0.00')	  AS S_RUN_TM
+                  ,C.RMK_0 AS S_RMK_0
+                  ,C.RMK AS S_RMK
+                  ,NVL(C.START_FLYING_CNT_1,'')	AS S_START_FLYING_CNT_1	-- 스타트플라잉카운트1
+	              ,NVL(C.START_LATE_CNT_1,'')	AS S_LATE_CNT_1			-- 스타트레이트카운트1
+	              ,NVL(C.START_FLYING_CNT_2,'')	AS S_START_FLYING_CNT_2	-- 스타트플라잉카운트2
+	              ,NVL(C.START_LATE_CNT_2,'')	AS S_LATE_CNT_2			-- 스타트레이트카운트2
+	              ,NVL(C.START_FLYING_CNT_3,'')	AS S_START_FLYING_CNT_3	-- 스타트플라잉카운트3
+	              ,NVL(C.START_LATE_CNT_3,'')	AS S_LATE_CNT_3			-- 스타트레이트카운트3
+	              ,NVL(C.START_FLYING_CNT_4,'')	AS S_START_FLYING_CNT_4	-- 스타트플라잉카운트4
+	              ,NVL(C.START_LATE_CNT_4,'')	AS S_LATE_CNT_4			-- 스타트레이트카운트4
+                  ,C.START_RMK 
+                  ,C.START_RMK_2R
+            FROM (
+                   SELECT   A.ORD
+                                ,SUM(A.FIRST_STND_YEAR)      F_STND_YEAR
+                                ,SUM(A.SECOND_STND_YEAR)     S_STND_YEAR
+                                ,SUM(A.FIRST_MBR_CD)         F_MBR_CD 
+                                ,SUM(A.SECOND_MBR_CD)        S_MBR_CD
+                                ,SUM(A.FIRST_TMS)            F_TMS 
+                                ,SUM(A.SECOND_TMS)           S_TMS 
+                                ,SUM(A.FIRST_DAY_ORD)        F_DAY_ORD 
+                                ,SUM(A.SECOND_DAY_ORD)       S_DAY_ORD 
+                                ,SUM(A.FIRST_RACE_NO)        F_RACE_NO 
+                                ,SUM(A.SECOND_RACE_NO)       S_RACE_NO 
+                                ,SUM(A.FIRST_RACE_REG_NO)    F_RACE_REG_NO 
+                                ,SUM(A.SECOND_RACE_REG_NO)   S_RACE_REG_NO 
+                                --,SUM(A.FIRST_RACER_NO)    F_RACER_NO 
+                                --,SUM(A.SECOND_RACER_NO)   S_RACER_NO
+                      FROM (      SELECT   TRUNC((ROWNUM+1)/2) AS ORD
+                                         ,DECODE(MOD(ROWNUM,2),1,A.STND_YEAR,NULL)     FIRST_STND_YEAR
+                                         ,DECODE(MOD(ROWNUM,2),0,A.STND_YEAR,NULL)     SECOND_STND_YEAR
+                                         ,DECODE(MOD(ROWNUM,2),1,A.MBR_CD,NULL)        FIRST_MBR_CD 
+                                         ,DECODE(MOD(ROWNUM,2),0,A.MBR_CD,NULL)        SECOND_MBR_CD 
+                                         ,DECODE(MOD(ROWNUM,2),1,A.TMS,NULL)           FIRST_TMS 
+                                         ,DECODE(MOD(ROWNUM,2),0,A.TMS,NULL)           SECOND_TMS
+                                         ,DECODE(MOD(ROWNUM,2),1,A.DAY_ORD,NULL)       FIRST_DAY_ORD
+                                         ,DECODE(MOD(ROWNUM,2),0,A.DAY_ORD,NULL)       SECOND_DAY_ORD
+                                         ,DECODE(MOD(ROWNUM,2),1,A.RACE_NO,NULL)       FIRST_RACE_NO 
+                                         ,DECODE(MOD(ROWNUM,2),0,A.RACE_NO,NULL)       SECOND_RACE_NO 
+                                         ,DECODE(MOD(ROWNUM,2),1,A.RACE_REG_NO,NULL)   FIRST_RACE_REG_NO
+                                         ,DECODE(MOD(ROWNUM,2),0,A.RACE_REG_NO,NULL)   SECOND_RACE_REG_NO
+                                  FROM (                    
+                                           SELECT A.STND_YEAR
+                                                 ,A.MBR_CD 
+                                                 ,A.TMS
+                                                 ,A.DAY_ORD
+                                                 ,A.RACE_NO
+                                                 ,A.RACE_REG_NO
+                                           FROM
+                                               (SELECT       TRUNC((ROWNUM+5)/6) GUBUN                
+					                                ,TAEO.STND_YEAR       STND_YEAR
+					                                 ,TAEO.MBR_CD          MBR_CD        
+					                                 ,TAEO.TMS             TMS
+					                                 ,TAEO.DAY_ORD         DAY_ORD
+					                                 ,TAEO.RACE_NO         RACE_NO
+					                                 ,TAEO.RACE_REG_NO     RACE_REG_NO
+							                        FROM TBEC_APPO_EXERC_ORGAN   TAEO
+							                   WHERE TAEO.STND_YEAR      = ?
+							                      AND TAEO.MBR_CD        = ?    
+							                      AND TAEO.TMS           = ?
+							                      AND TAEO.DAY_ORD       = ?
+                                             ) A 
+                                             ORDER BY DECODE(A.RACE_NO,1,1,2,2,3,3,4,4,5,5,6,1,7,2,8,3,9,4,10,5)                 
+                                                                ,A.STND_YEAR        
+                                                                ,A.MBR_CD                   
+                                                                ,A.TMS              
+                                                                ,A.DAY_ORD          
+                                                                ,A.RACE_REG_NO
+                                                                ,A.RACE_NO
+                                        ) A 
+                      ) A
+                      GROUP BY A.ORD       
+                 ) A,  
+                 TBEC_APPO_EXERC_ORGAN  B,
+                 TBEC_APPO_EXERC_ORGAN  C,
+                 TBEC_RACER_MASTER      D,
+                 TBEC_RACER_MASTER      E,
+                 (SELECT TA.STND_YEAR
+									        , TA.MBR_CD
+									        , TA.TMS
+									        , TA.RACER_NO
+									        , TA.BOAT_NO
+									        , TA.MOT_NO 
+									FROM TBEB_ARRANGE TA
+									    , TBEB_RACE_TMS TRT
+									WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+									        AND TRT.STND_YEAR   = TA.STND_YEAR
+									        AND TRT.TMS         = TA.TMS)           F,
+                 (SELECT TA.STND_YEAR
+									        , TA.MBR_CD
+									        , TA.TMS
+									        , TA.RACER_NO
+									        , TA.BOAT_NO
+									        , TA.MOT_NO 
+									FROM TBEB_ARRANGE TA
+									    , TBEB_RACE_TMS TRT
+									WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+									        AND TRT.STND_YEAR   = TA.STND_YEAR
+									        AND TRT.TMS         = TA.TMS)           G
+            WHERE  A.F_STND_YEAR   = B.STND_YEAR
+            AND    A.S_STND_YEAR   = C.STND_YEAR(+)
+            AND    A.F_MBR_CD      = B.MBR_CD 
+            AND    A.S_MBR_CD      = C.MBR_CD(+)
+            AND    A.F_TMS         = B.TMS 
+            AND    A.S_TMS         = C.TMS(+)
+            AND    A.F_DAY_ORD     = B.DAY_ORD
+            AND    A.S_DAY_ORD     = C.DAY_ORD(+)
+            AND    A.F_RACE_NO     = B.RACE_NO 
+            AND    A.S_RACE_NO     = C.RACE_NO(+)
+            AND    A.F_RACE_REG_NO = B.RACE_REG_NO 
+            AND    A.S_RACE_REG_NO = C.RACE_REG_NO(+)
+            AND    B.RACER_NO      = D.RACER_NO(+)
+            AND    C.RACER_NO      = E.RACER_NO(+)
+            AND    A.F_STND_YEAR   = F.STND_YEAR
+            AND    A.S_STND_YEAR   = G.STND_YEAR
+            AND    A.F_MBR_CD      = F.MBR_CD 
+            AND    A.S_MBR_CD      = G.MBR_CD
+            AND    A.F_TMS         = F.TMS 
+            AND    A.S_TMS         = G.TMS
+            AND    B.RACER_NO      = F.RACER_NO
+            AND    C.RACER_NO      = G.RACER_NO
+            ORDER BY ORD 
+        ]]>
+    </query>
+    <query id="tbec_appo_exerc_organ_fc010" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* tbec_appo_exerc_organ_fc001 : default=12 */
+			       NVL(MAX(RACE_NO),12) AS MAX_RACE_NO
+			FROM   TBEC_APPO_EXERC_ORGAN
+			WHERE  STND_YEAR = ?
+			AND    MBR_CD    = ?
+			AND    TMS       = ?
+			AND    DAY_ORD   = ?
+        ]]>
+    </query> 
+</queryMap>

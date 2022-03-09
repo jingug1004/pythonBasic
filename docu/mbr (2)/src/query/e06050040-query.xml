@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="e06050040 입고등록 ">
+	<query id="e06050040_s01" desc="입고 리스트 조회 " fetchSize="50">
+        <![CDATA[
+            -- 입고 리스트 조회
+			SELECT  /* e06050040_s01 */
+                    A.JUMUN_NO                  --주문번호
+                   ,ORDER_CON
+                   ,CASE WHEN JUMUN_CNT = TOT_ENT_CNT THEN '003'
+                            WHEN NVL(TOT_ENT_CNT,0) = 0 THEN '001'
+                            ELSE '002' END AS ENT_STAT
+             FROM  (
+                    SELECT   JUMUN_NO
+                            ,GET_SUPP_NM(MIN(SUPP_CD))||DECODE(COUNT(*), 1, '', ' 외 '||TO_CHAR(COUNT(*) -1,'999')||'종') AS ORDER_CON
+                            ,SUM(QTY) AS JUMUN_CNT
+                    FROM  TBEF_SUPP_IO
+                    WHERE IO_TYPE = '2'
+                    GROUP BY JUMUN_NO
+                    ) A,
+                    (
+                     SELECT  JUMUN_NO, SUM(QTY) AS TOT_ENT_CNT
+                     FROM    TBEF_SUPP_IO
+                     WHERE   IO_TYPE = '3'
+                     GROUP BY JUMUN_NO
+                    ) C  
+             WHERE 1=1
+             AND   A.JUMUN_NO = C.JUMUN_NO(+)
+             AND   A.JUMUN_NO BETWEEN ? AND ?
+             ORDER BY A.JUMUN_NO DESC
+        ]]>
+    </query>         
+    <query id="e06050040_s02" desc="주문 상세 내역 조회 " fetchSize="50">
+        <![CDATA[
+            -- 주문 상세 내역 조회  
+			SELECT /* e06050040_s02 */
+			        A.JUMUN_NO
+			       ,A.SUPP_CD
+			       ,B.SUPP_NM
+			       ,B.SPEC
+			       ,A.QTY AS ORDER_CNT		-- 주문수량
+			       ,C.QTY_SUM AS END_CNT	-- 입고당일 이외 입고수량
+			       ,C.CUR_QTY AS ENT_CNT	-- 입고당일 입고수량
+			       ,B.DANGA   
+			FROM   TBEF_SUPP_IO A
+			      ,TBEF_SUPP_CD B
+			      ,(SELECT JUMUN_NO, SUPP_CD, 
+			               SUM(DECODE(IO_DT,?,0,QTY)) AS QTY_SUM, 
+			               SUM(DECODE(IO_DT,?,QTY,0)) AS CUR_QTY
+			        FROM   TBEF_SUPP_IO
+			        WHERE  IO_TYPE = '3'
+			        GROUP BY JUMUN_NO, SUPP_CD) C
+			WHERE  A.SUPP_CD  = B.SUPP_CD
+			AND    A.IO_TYPE  = '2'
+			AND    A.JUMUN_NO = C.JUMUN_NO(+)
+			AND    A.SUPP_CD  = C.SUPP_CD(+)
+			AND    A.JUMUN_NO = ?               	-- 주문번호(주문일자)
+			ORDER BY A.SUPP_CD
+        ]]>
+    </query>
+        <query id="e06050040_m01" desc="입고 등록/수정  " fetchSize="10">        <![CDATA[        	/* 주문내역 등록 및 수정  */            MERGE /* e06050040_m01 */
+                  INTO TBEF_SUPP_IO DST            USING (
+            	SELECT 				   ?   AS IO_DT,       	-- 주문일자
+	               ?   AS IO_TYPE,		-- 입출구분 				   ?   AS SUPP_CD, 		-- 소모품코드
+				   ?   AS SEQ,			-- 연번
+				   ?   AS JUMUN_NO,		-- 주문번호(주문일자)
+				   ?   AS QTY,			-- 주문수량
+			       ?   AS AMOUNT,			-- 금액
+				   ?   AS USER_ID 		-- 작성자 아이디 				FROM DUAL
+			) SRC
+            ON (    DST.IO_DT   = SRC.IO_DT		-- 주문일자
+            	AND DST.IO_TYPE = SRC.IO_TYPE	-- 입출구분
+				AND DST.SUPP_CD = SRC.SUPP_CD	-- 소모품코드
+				--AND DST.SEQ     = SRC.SEQ		-- 연번	--입고등록, 입고는 같은 날 같은 부품인 경우 합산(나중에 입력된 값으로 변경)
+			    )
+			WHEN MATCHED THEN				UPDATE							 	SET	DST.JUMUN_NO = SRC.JUMUN_NO,	-- 주문번호				    DST.QTY      = SRC.QTY,			-- 주문수량				    DST.AMOUNT   = SRC.AMOUNT,		-- 주문금액				    DST.UPDT_ID  = SRC.USER_ID,		-- 수정자 ID				    DST.UPDT_DT  = SYSDATE   			WHEN NOT MATCHED THEN				INSERT (				    IO_DT		               ,IO_TYPE 				   ,SUPP_CD 				   ,SEQ					   ,JUMUN_NO				   ,QTY	
+			       ,AMOUNT	
+			       ,INST_ID 				   ,INST_DT  				   ) 				VALUES ( 
+				    SRC.IO_DT
+				   ,SRC.IO_TYPE
+				   ,SRC.SUPP_CD
+				   ,(SELECT NVL(MAX(SEQ)+1,0)
+				     FROM   TBEF_SUPP_IO
+				     WHERE  IO_DT   = ?
+				     AND    IO_TYPE = ?
+				     AND    SUPP_CD = ?)
+				   ,SRC.JUMUN_NO
+				   ,SRC.QTY
+				   ,SRC.AMOUNT				   ,SRC.USER_ID  				   ,SYSDATE)
+        ]]>
+    </query>
+     </queryMap>

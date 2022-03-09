@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="76" Id="grdRaceInfo" Left="8" OnLoadCompleted="fcFormLoadSetting" OnSize="FrameTop_OnSize" OnTimer="FrameTop_OnTimer" PidAttrib="7" Title="FrameTop" ToolTipFont="Default,0" Top="8" Ver="1.0" Width="1280" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsOutUserMn"></Dataset>
+		</Datasets>
+		<Image Height="76" Id="Image0" ImageID="c_topbg" LeftMargin="0" TabOrder="1" Width="1280"></Image>
+		<Image Height="14" Id="Image5" ImageID="t_h_icon" Left="17" TabOrder="2" Top="56" Transparent="TRUE" Width="21"></Image>
+		<Static BindDataset="gdsUser" Color="#053973" Column="USER_NM" Height="12" Id="Static0" Left="41" TabOrder="3" Top="58" VAlign="Middle" Width="123"></Static>
+		<MenuBar BorderColor="white" CaptionCol="MN_NM" EnableCol="Enable" EndColor="white" Font="새굴림,9" GradationMode="Horizontal" Height="26" HighlightBKColor="#bae2f1" HighlightTextColor="white" IconCol="PAGE_DESC" Id="MenuBar0" IDCol="SCRN_ID" ImageID="c_topbg_02" Left="185" LevelCol="LVL" MainTextColor="#112170" MenuDataset="gdsMenu" OnMenuClick="MenuBar0_OnMenuClick" PopupBKColor="white" PopupBoard3D="False" PopupHighlightBKColor="white" PopupHighlightTextColor="white" PopupLeftMargin="0" PopupTextColor="#112170" Selection3D="False" StartColor="white" Style="ORIGINAL" TabOrder="4" Top="49" Width="1085"></MenuBar>
+		<Div Height="29" Id="TopDiv" Left="862" TabOrder="5" Text="Div0" Top="4" Width="413">
+			<Contents>
+				<Image Height="29" Id="Image6" ImageID="t_quick_bg_k" TabOrder="6" Width="413"></Image>
+				<Combo BKColor="#eaf4f8" Border="Flat" BorderColor="#8ca5c0" Color="#033872" Height="20" Id="Combo0" INDEX="0" Left="5" TabOrder="1" Text="패밀리사이트&#32;이동" Top="3" Visible="FALSE" Width="170"></Combo>
+				<Image Height="20" Id="Image4" ImageID="t_quick_logout_k" Left="337" OnClick="fcCancel" Static="FALSE" TabOrder="2" Top="4" Transparent="TRUE" Width="71"></Image>
+				<Image Height="20" Id="Image3" ImageID="t_quick_home_k" Left="212" OnClick="TopDiv_Image3_OnClick" Static="FALSE" TabOrder="3" Top="4" Transparent="TRUE" Width="65"></Image>
+				<Image Height="20" Id="Image2" ImageID="t_quick_help_k" Left="277" Static="FALSE" TabOrder="4" Top="4" Transparent="TRUE" Width="60"></Image>
+				<Image Height="20" Id="Image1" ImageID="t_quick_go_k" Left="178" TabOrder="5" Top="4" Transparent="TRUE" Visible="FALSE" Width="30"></Image>
+			</Contents>
+		</Div>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+#include "lib::can_app_script.js";
+#include "lib::can_common_script.js";
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. 최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj){
+	var admin = gdsUser.GetColumn(0,"USER_ID");
+	
+	
+	// ssl 도입이전엔 client 에서 처리 하자.. 
+	if(admin = "05071") {
+		//사용자 IP체크
+		var ipList = ext_GetIPAddress();
+		ip    = ipList[0];
+	
+		var mcList = ext_GetMacAddress();
+		mac    = mcList[0];
+	
+		if(!(ip="160.100.52.116" and mac ="30-5a-3a-7a-14-e2"))  {
+			//alert("GetIpAddress-GetMacAddress:" +ip + mac);
+			alert('시스템 관리자는 지정된 PC에서만 사용이 가능합니다.');
+			exit();
+		}	
+	}
+    
+
+    fcSearch();
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. 닫기(close) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcCancel(obj) {	
+	exit();          					//프로그램 종료
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  02. 조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearchCheck(obj) {
+	
+	return true;
+}
+
+function fcSearch(obj) {
+    if ( !fcSearchCheck(obj) ) return;
+
+	var sServiceName = "common_login-service:searchUserMn";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsOutUserMn=dsOutUserMn";
+    var sUserIp = ext_GetIPAddress();
+	if ( Pos(sUserIp,",") != -1) {
+		sUserIp = mid(sUserIp, 1, Pos(sUserIp,",") -1);
+	} else {
+		sUserIp = Replace(Replace(sUserIp, "["), "]");
+	}
+	
+    fcd_AddParam("USER_ID", gdsUser.getColumn(0, "USER_ID"));
+    fcd_AddParam("USER_IP", Trim(sUserIp));
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+	
+	// 조회 후
+	if ( sServiceName == "common_login-service:searchUserMn" ) {
+        gdsMenu.Copy(dsOutUserMn);
+	}
+}
+
+function FrameTop_OnSize(obj,nCx,nCy,nState){
+	TopDiv.Left = nCx - TopDiv.Width;
+	TopDivPro.Left = nCx - TopDivPro.Width;
+}
+
+function btn_process_OnClick(obj)
+{
+	if ( Global.FrameRight.Visible ) {
+		Global.FrameRight.Visible = false;
+	} else {
+		Global.FrameRight.Visible = true;
+	}
+}
+
+function MenuBar0_OnMenuClick(obj, strID){
+	if ( !fnc_IsNull(strID) ) {
+		global.FrameBottom.fcOpenMdiForm(strID);
+	}
+}
+
+function TopDiv_Image3_OnClick(obj,nX,nY)
+{
+    global.FrameBottom.fcOpenMdiForm("D00000000", "메인화면", "common::comMain.xml");    
+}]]></Script>
+</Window>

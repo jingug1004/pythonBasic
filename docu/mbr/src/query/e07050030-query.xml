@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="선수연금보험 재가입내역">
+    
+    <query id="e07050030_s01" desc="정보 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* e07050030_s01 */
+				A.RACER_NO
+				,C.NM_KOR AS RACER_NM
+				,A.SEQ
+				,A.ENGM_YN
+				,DECODE(A.ENGM_YN,'2','1','0') SUSPEN_YN	--ENGM_YN:2 이면 보류
+				,A.CHG_RSN
+				,A.REG_DT
+				,B.MAX_SEQ
+			FROM
+				TBEG_INSUPEN_HST A,
+				(SELECT RACER_NO, MAX(SEQ) MAX_SEQ FROM TBEG_INSUPEN_HST GROUP BY RACER_NO ) B,
+				TBEC_RACER_MASTER C
+			WHERE A.RACER_NO = B.RACER_NO
+			AND   A.RACER_NO = C.RACER_NO
+			ORDER BY RACER_NO, SEQ DESC
+        ]]>
+    </query>
+    
+    <query id="e07050030_i01" desc="재가입내역 입력" fetchSize="10">
+
+        <![CDATA[
+        	INSERT /* e07050030_i01 */
+        	       INTO TBEG_INSUPEN_HST
+			(RACER_NO, SEQ, ENGM_YN, CHG_RSN, REG_DT, INST_ID, INST_DT, UPDT_ID, UPDT_DT)
+			VALUES
+			(
+				?,
+				(SELECT
+					DECODE(MAX(SEQ),NULL,0,MAX(SEQ))+1 SEQ
+				FROM TBEG_INSUPEN_MST A, TBEG_INSUPEN_HST B
+				WHERE 1=1
+				AND A.RACER_NO = B.RACER_NO(+)
+				AND B.RACER_NO = ?
+				),
+				(SELECT
+					DECODE(
+					SUBSTR(
+						DECODE(
+							MAX(SEQ||ENGM_YN),NULL,'0000',	--자료가 없으면 0
+							LPAD(''||MAX(SEQ||ENGM_YN),4,0) --자료가 있으면 최대값
+						)
+					,4,1)
+					,2,1,1,0,1)								--지급보류이면 가입으로, 아니면 가장 최근자료의 반대값
+					AS SEQ
+				FROM TBEC_RACER_MASTER A, TBEG_INSUPEN_HST B
+				WHERE A.RACER_NO = B.RACER_NO(+)
+				AND B.RACER_NO = ?
+				--AND B.ENGM_YN != '2'						--지급보류 상태가 아닌것만
+				),
+				?,
+				?,
+				?,SYSDATE,?,SYSDATE
+			)
+
+        ]]>
+
+    </query>
+    
+    <query id="e07050030_i02" desc="재가입내역 입력(지급보류)" fetchSize="10">
+
+        <![CDATA[
+        	INSERT /* e07050030_i02 */
+        	       INTO TBEG_INSUPEN_HST
+			(RACER_NO, SEQ, ENGM_YN, CHG_RSN, REG_DT, INST_ID, INST_DT, UPDT_ID, UPDT_DT)
+			VALUES
+			(
+				?,
+				(SELECT
+					DECODE(MAX(SEQ),NULL,0,MAX(SEQ))+1 SEQ
+				FROM TBEG_INSUPEN_MST A, TBEG_INSUPEN_HST B
+				WHERE 1=1
+				AND A.RACER_NO = B.RACER_NO(+)
+				AND B.RACER_NO = ?
+				),
+				2,
+				?,
+				?,
+				?,SYSDATE,?,SYSDATE
+			)
+
+        ]]>
+
+    </query>
+    
+    <query id="e07050030_u01" desc="재가입내역 수정" fetchSize="10">
+
+        <![CDATA[
+        	UPDATE /* e07050030_u01 */
+        	       TBEG_INSUPEN_HST
+        	SET
+        	   CHG_RSN=?,  REG_DT=?,  UPDT_ID=?, UPDT_DT=SYSDATE
+        	WHERE RACER_NO = ? AND SEQ = ?
+        ]]>
+
+    </query>
+    
+    <query id="e07050030_u02" desc="기준정보 재가입내역 수정" fetchSize="10">
+
+        <![CDATA[
+        	UPDATE /* e07050030_u02 */
+        	       TBEG_INSUPEN_MST
+        	SET
+        	  ENGM_YN=(
+        	  	SELECT SUBSTR(LPAD(''||MAX(SEQ||ENGM_YN),4,0),4,1)
+        	  	FROM TBEG_INSUPEN_HST
+        	  	WHERE RACER_NO = ?
+        	  ),
+        	  RENT_CNT=(
+        	  	SELECT
+        	  		SUM(DECODE(ENGM_YN,'1',1,0))-1 CNT --지급보류 후 재가입은 카운트 제외
+				FROM TBEG_INSUPEN_HST
+				WHERE RACER_NO = ?
+        	  	AND ENGM_YN != '2'	--지급보류 상태가 아닌것만
+        	  )
+        	WHERE RACER_NO = ?
+        ]]>
+
+    </query>
+    
+     <query id="e07050030_u03" desc="기준정보 재가입내역 수정(지급보류)" fetchSize="10">
+
+        <![CDATA[
+        	UPDATE /* e07050030_u03 */
+        	      TBEG_INSUPEN_MST
+        	SET ENGM_YN= 2
+        	WHERE RACER_NO = ?
+        ]]>
+
+    </query>
+    
+    <query id="e07050030_d01" desc="재가입내역 삭제" fetchSize="10">
+
+        <![CDATA[
+			DELETE FROM TBEG_INSUPEN_HST WHERE RACER_NO = ? AND SEQ = ?
+        ]]>
+
+    </query>
+    
+    
+</queryMap>

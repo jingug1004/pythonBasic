@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem2020(삼진아웃활동결과 조회)">
+    <query id="rem2020_s01" desc="삼진아웃활동결과" fetchSize="10">
+      <![CDATA[
+
+			SELECT   /* rem2020_s01 */
+			      A.BRNC_CD  --지점코드
+			     ,SUM(DECODE(ACT_MM ,'01',CNT)) MM_01  --1월
+			     ,SUM(DECODE(ACT_MM ,'02',CNT)) MM_02   --2월
+			     ,SUM(DECODE(ACT_MM ,'03',CNT)) MM_03   --3월
+			     ,SUM(DECODE(ACT_MM ,'04',CNT)) MM_04   --4월
+			     ,SUM(DECODE(ACT_MM ,'05',CNT)) MM_05   --5월
+			     ,SUM(DECODE(ACT_MM ,'06',CNT)) MM_06   --6월
+			     ,SUM(DECODE(ACT_MM ,'07',CNT)) MM_07   --7월
+			     ,SUM(DECODE(ACT_MM ,'08',CNT)) MM_08   --8월
+			     ,SUM(DECODE(ACT_MM ,'09',CNT)) MM_09   --9월
+			     ,SUM(DECODE(ACT_MM ,'10',CNT)) MM_10   --10월
+			     ,SUM(DECODE(ACT_MM ,'11',CNT)) MM_11   --11월
+			     ,SUM(DECODE(ACT_MM ,'12',CNT)) MM_12   --12월
+			     ,SUM(CNT) AS TOT_CNT
+			     ,ORD_NO AS  ORD_NO
+			FROM
+			(
+			     SELECT 
+			      A.CD as BRNC_CD                                --지점코드
+			     ,ACT_MM                                         --활동월
+			     ,SUM(DECODE(?, '001', WARN_CNT, 
+			                    '002', LEAV_CNT, 
+			                    '003', ENT_REFU_CNT, 
+			                    '101', WARN_MINR_CNT, 
+			                    '102', LEAV_MINR_CNT, 
+			                    '103', ENT_REFU_MINR_CNT, 
+			                    '000', NVL(WARN_CNT,0)+NVL(LEAV_CNT,0)+NVL(ENT_REFU_CNT,0)+
+			                           NVL(WARN_MINR_CNT,0)+NVL(LEAV_MINR_CNT,0)+NVL(ENT_REFU_MINR_CNT,0),
+			                    0)) AS CNT
+			     ,ORD_NO AS ORD_NO  
+			    FROM 
+			        (SELECT CD, CD_NM ,ORD_NO
+			            FROM TBRK_SPEC_CD 
+			            WHERE GRP_CD ='018'
+			              AND DEL_YN = 'N'
+			            ORDER BY ORD_NO) A,
+			         (SELECT * 
+			            FROM TBRC_THR_OUT_REPORT 
+			            WHERE ACT_YEAR= ? 
+			            AND   BRNC_CD LIKE  ?||'%'
+			          ) B
+			    WHERE  A.CD = B.BRNC_CD(+)
+			    GROUP BY CD, ACT_MM, ORD_NO
+			)A
+			GROUP BY BRNC_CD, ORD_NO
+			ORDER BY ORD_NO
+
+
+        ]]>
+    </query>       
+
+     
+    <query id="rem2020_s02" desc="삼진아웃활동결과집계" fetchSize="10">
+      <![CDATA[
+
+			SELECT   /* rem2020_s02 */
+			         	      DECODE(THR_OUT_TYPE,'0','구매상한위반','1','기초질서위반','합계') AS THR_OUT_TYPE  --활동 종류
+						     ,C.CD_NM2 AS JOB_TYPE      --경고종류
+						     ,A.JOB_TYPE AS JOB_TYPE_CD
+						     ,SUM(DECODE(ACT_MM ,'01',CNT)) MM_01  --1월
+						     ,SUM(DECODE(ACT_MM ,'02',CNT)) MM_02   --2월
+						     ,SUM(DECODE(ACT_MM ,'03',CNT)) MM_03   --3월
+						     ,SUM(DECODE(ACT_MM ,'04',CNT)) MM_04   --4월
+						     ,SUM(DECODE(ACT_MM ,'05',CNT)) MM_05   --5월
+						     ,SUM(DECODE(ACT_MM ,'06',CNT)) MM_06   --6월
+						     ,SUM(DECODE(ACT_MM ,'07',CNT)) MM_07   --7월
+						     ,SUM(DECODE(ACT_MM ,'08',CNT)) MM_08   --8월
+						     ,SUM(DECODE(ACT_MM ,'09',CNT)) MM_09   --9월
+						     ,SUM(DECODE(ACT_MM ,'10',CNT)) MM_10   --10월
+						     ,SUM(DECODE(ACT_MM ,'11',CNT)) MM_11   --11월
+						     ,SUM(DECODE(ACT_MM ,'12',CNT)) MM_12   --12월
+						     ,SUM(CNT) AS TOT_CNT
+						FROM
+						(
+						    SELECT ACT_MM, SUBSTR(JOB_TYPE,1,1) AS THR_OUT_TYPE, JOB_TYPE, SUM(CNT) AS CNT
+							FROM (
+							          SELECT ACT_YEAR, ACT_MM, BRNC_CD, '001' JOB_TYPE, NVL(WARN_CNT,0) AS CNT
+							          FROM   TBRC_THR_OUT_REPORT
+							          UNION ALL
+							          SELECT ACT_YEAR, ACT_MM, BRNC_CD, '002', NVL(LEAV_CNT,0)
+							          FROM   TBRC_THR_OUT_REPORT
+							          UNION ALL
+							          SELECT ACT_YEAR, ACT_MM, BRNC_CD, '003', NVL(ENT_REFU_CNT,0)
+							          FROM   TBRC_THR_OUT_REPORT
+							          UNION ALL
+							          SELECT ACT_YEAR, ACT_MM, BRNC_CD, '101', NVL(WARN_MINR_CNT,0)
+							          FROM   TBRC_THR_OUT_REPORT
+							          UNION ALL
+							          SELECT ACT_YEAR, ACT_MM, BRNC_CD, '102', NVL(LEAV_MINR_CNT,0)
+							          FROM   TBRC_THR_OUT_REPORT
+							          UNION ALL
+							          SELECT ACT_YEAR, ACT_MM, BRNC_CD, '103', NVL(ENT_REFU_MINR_CNT,0)
+							          FROM   TBRC_THR_OUT_REPORT
+							    )
+							WHERE ACT_YEAR = ?
+							AND   BRNC_CD LIKE ?||'%'
+							GROUP BY ACT_MM, SUBSTR(JOB_TYPE,1,1), JOB_TYPE   
+						)A, TBRK_SPEC_CD C
+						WHERE C.GRP_CD = '041'
+						AND   A.JOB_TYPE = C.CD
+						GROUP BY THR_OUT_TYPE, C.CD_NM2, A.JOB_TYPE
+						ORDER BY THR_OUT_TYPE, A.JOB_TYPE
+
+        ]]>
+    </query>       
+        
+</queryMap>

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3130(지점별 발매)">
+	<query id="rsm3130_s01" desc="지점별 발매" fetchSize="10">
+        <![CDATA[        
+         	WITH TMP_PC_TEMP AS ( /* rsm3130_s01 */
+			 SELECT SELL_CD, COMM_NO, A.STND_YEAR, A.TMS ,A.RACE_DAY,
+			        SUM(DECODE(? ,'SOLD_NUM-CNCL_NUM',SOLD_NUM-CNCL_NUM -- 4번째콤보     0:OPT
+		                                  ,'SOLD_NUM',SOLD_NUM
+		                                  ,'SOLD_NUM+CASH_NUM',SOLD_NUM+CASH_NUM
+		                                  ,'SOLD_NUM+CASH_NUM+CNCL_NUM',SOLD_NUM+CASH_NUM+CNCL_NUM
+		                                  ,'SOLD_AMT-CNCL_AMT',SOLD_AMT-CNCL_AMT
+		                                  ,'SOLD_AMT',SOLD_AMT
+		                                  ,'SOLD_AMT+CASH_AMT',SOLD_AMT+CASH_AMT
+		                                  ,'SOLD_AMT+CASH_AMT+CNCL_AMT',SOLD_AMT+CASH_AMT+CNCL_AMT
+		        	  	 ,SOLD_NUM-CNCL_NUM)
+		        	    ) AMT
+			 FROM                                                                                               
+			    VW_SDL_INFO A,                                                                    
+			    VW_PC_TELMP T                                      
+			 WHERE 1 = 1                                                                                        
+			     AND A.MEET_CD   = ?  	-- 경륜구분코드	    1:MEET_CD
+			     AND A.RACE_DAY >= ?	-- 검색 시작일		  2:RACE_DAY_ST
+			     AND A.RACE_DAY <= ? 	-- 검색 종료일		  3:RACE_DAY_END
+			     AND T.MEET_CD   = A.MEET_CD                                                                      
+			     AND T.STND_YEAR = A.STND_YEAR                                                                  
+			     AND T.TMS       = A.TMS                                                                              
+			     AND T.DAY_ORD   = A.DAY_ORD 
+			     AND 'TBJI_PC_TELMP'        = ?  -- TBJI_PC_TELMP:경주권 , TBJI_PC_WINNMP : 구매권  -- 첫번째 콤보	 4
+		         AND TELLER_ID NOT LIKE DECODE(?,'2','991','***')|| '%'   -- 1 유인무인,2 유인,3 무인 3번째콤보	    5
+		         AND TELLER_ID     LIKE DECODE(?,'3','991','')|| '%'      -- 1 유인무인,2 유인,3 무인 3번째콤보	    6
+		    GROUP BY SELL_CD, COMM_NO, A.STND_YEAR, A.TMS ,A.RACE_DAY
+		    
+		    UNION ALL    
+			 SELECT SELL_CD, COMM_NO, A.STND_YEAR, A.TMS ,A.RACE_DAY,
+			        SUM(DECODE(? ,'SOLD_NUM-CNCL_NUM',SOLD_NUM-CNCL_NUM   -- 4번째콤보 7
+		                         ,'SOLD_NUM',SOLD_NUM
+		                         ,'SOLD_NUM+CASH_NUM',SOLD_NUM+CASH_NUM
+		                         ,'SOLD_NUM+CASH_NUM+CNCL_NUM',SOLD_NUM+CASH_NUM+CNCL_NUM
+		                         ,'SOLD_AMT-CNCL_AMT',SOLD_AMT-CNCL_AMT
+		                         ,'SOLD_AMT',SOLD_AMT
+		                         ,'SOLD_AMT+CASH_AMT',SOLD_AMT+CASH_AMT
+		                         ,'SOLD_AMT+CASH_AMT+CNCL_AMT',SOLD_AMT+CASH_AMT+CNCL_AMT
+		        	  	 		,SOLD_NUM-CNCL_NUM)
+		        	    ) AMT
+			 FROM                                                                                               
+			    VW_SDL_INFO A,                                                                    
+			    VW_PC_WINNMP T                                      
+			 WHERE 1 = 1                                                                                     
+			     AND A.MEET_CD   = ? 		-- 8:MEET_CD  경륜구분코드	
+			     AND A.RACE_DAY >= ?	-- 9:RACE_DAY_ST 검색 시작일
+			     AND A.RACE_DAY <= ? 	-- 10:RACE_DAY_END 검색 종료일		    
+			     AND T.MEET_CD   = A.MEET_CD                                                                      
+			     AND T.STND_YEAR = A.STND_YEAR                                                                  
+			     AND T.TMS       = A.TMS                                                                              
+			     AND T.DAY_ORD   = A.DAY_ORD 
+			     AND 'TBJI_PC_WINNMP'        = ?  -- 11:TABLE_NM TBJI_PC_TELMP:경주권 , TBJI_PC_WINNMP : 구매권  -- 첫번째 콤보     
+		         AND TELLER_ID NOT LIKE DECODE(?,'2','991','***')|| '%'   -- 12:TELLER_ID 1 유인무인,2 유인,3 무인 3번째콤보	   
+		         AND TELLER_ID     LIKE DECODE(?,'3','991','')|| '%'      -- 13:TELLER_ID 1 유인무인,2 유인,3 무인 3번째콤보	
+		    GROUP BY SELL_CD, COMM_NO, A.STND_YEAR, A.TMS ,A.RACE_DAY
+		    ) 
+		    
+		SELECT STND_YEAR, TMS, RACE_DAY,
+		     SUM(AMT) DIV_TOTAL,	-- 발매 총계                 
+		     SUM(CASE WHEN SELL_CD = DECODE(?, '001', '01'
+		     								 , '002', '01'
+		                                     , '003', '03'
+		                                     , '004', '01') 
+					     AND COMM_NO IN ('01','02','03','04','08') THEN AMT 
+		        END) BONGJANG,		-- 본장     
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '11' THEN AMT END) JANG01, 	-- 수원
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '12' THEN AMT END) JANG02,  -- 상봉
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '13' THEN AMT END) JANG03,  -- 일산
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '15' THEN AMT END) JANG04,  -- 동대문
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '14' THEN AMT END) JANG05,  -- 분당
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '16' THEN AMT END) JANG06,  -- 장안
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '17' THEN AMT END) JANG07,  -- 산본
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '18' THEN AMT END) JANG08,  -- 부천
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '19' THEN AMT END) JANG09,  -- 관악
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '20' THEN AMT END) JANG10,  -- 길음
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '21' THEN AMT END) JANG11,  -- 당산
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '22' THEN AMT END) JANG12,  -- 유성
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '23' THEN AMT END) JANG13,  -- 인천
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '24' THEN AMT END) JANG14,  -- 시흥
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '25' THEN AMT END) JANG15,  -- 논현
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '26' THEN AMT END) JANG16,  -- 천안
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '27' THEN AMT END) JANG17,  -- 올림픽
+		     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '28' THEN AMT END) JANG18,  -- 의정부
+		     SUM(CASE WHEN ?||SELL_CD IN ('00103','00203','00301','00403') AND COMM_NO IN ('01','02','03','04','08') THEN AMT END) JANG99, -- 공동활용본장
+		     SUM(CASE WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN AMT END) GYEJWA,  --  계좌        
+		     SUM(CASE WHEN SELL_CD NOT IN('01','03') THEN AMT END) GYOCHA                   -- 교차   
+		FROM (SELECT SELL_CD, COMM_NO, STND_YEAR,  TMS TMS, ' ' AS RACE_DAY, AMT
+		        FROM TMP_PC_TEMP
+		       WHERE 'TMS' = ? 		-- 16:GROUP_OPT TMS:회차, RACE_DAY:경주일 --회차별   두번째콤보
+		       UNION ALL
+		       SELECT SELL_CD, COMM_NO, STND_YEAR, 0 AS TMS, RACE_DAY, AMT
+		        FROM TMP_PC_TEMP
+		       WHERE 'RACE_DAY' = ? -- 17:GROUP_OPT TMS:회차, RACE_DAY:경주일 --일자별   두번째콤보     
+		      )
+		        
+		GROUP BY STND_YEAR, TMS, RACE_DAY
+		ORDER BY STND_YEAR, TMS, RACE_DAY                                                                      
+         
+        ]]>
+    </query>
+    
+
+
+</queryMap>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBO2050(월별매표현황)">
+    <query id="rbo2050_s01" desc="월별매표현황 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo2050_s01 */
+			     SUBSTR(A.SALES_DT,0,4) ||'-'|| SUBSTR(A.SALES_DT,5,2)   SALES_DT                                                                   --판매일자    
+			    ,NVL(SUM(A.UNIT_PRICE),0) UNIT_PRICE                                            --단가        
+			    ,NVL(SUM(A.SAVE_AMT),0) SAVE_AMT                                                --입금액      
+			    ,NVL(SUM(A.REFUND_AMT),0) REFUND_AMT                                                --환불액    
+			    ,NVL(SUM(A.SAVE_AMT),0) - NVL(SUM(A.REFUND_AMT),0) CURR_AMT                         --실입금액
+			    ,COUNT(*) TOTAL_CNT                                                           --총건수
+			    ,SUM(DECODE(A.REFUND_YN,'N',1,0)) SALE_CNT                                        --판매건수
+			    ,SUM(DECODE(A.REFUND_YN,'Y',1,0)) REFUND_CNT                                        --환불건수
+			    ,SUM(DECODE(A.REFUND_YN,'N',1,0)) - SUM(DECODE(SIGN(A.SAVE_AMT),0,1,0)) NOMAL_CUST  --일반고객
+			    ,SUM(DECODE(SIGN(A.SAVE_AMT),0,1,0)) FREE_CUST                                  --무료고객
+			    
+              FROM  TBRB_APPO_SEAT_MANA  A --지정좌석
+                , (SELECT * FROM VW_SDL_INFO  WHERE MEET_CD IN ('001','003') ) B
+			 WHERE  1=1
+			   AND  A.SALES_DT = B.RACE_DAY(+)
+			   AND  A.BRNC_CD  = ?                          --지점코드
+			   AND  SUBSTR(A.SALES_DT,0,6) BETWEEN ? AND ?  --판매일자의 년월
+			   
+			   AND DECODE(?,'',1,B.MEET_CD)  = DECODE(?,'',1,?) 
+          GROUP BY SUBSTR(A.SALES_DT,0,4) ||'-'|| SUBSTR(A.SALES_DT,5,2)
+
+
+        ]]>
+    </query>
+</queryMap>

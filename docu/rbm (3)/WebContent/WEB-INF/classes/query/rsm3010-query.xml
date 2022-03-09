@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3010(월별매출액)">
+	
+    <query id="rsm3010_select01" desc="월별매출액(SELECT)" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm3010_s01 */                                                         	     
+			      TO_NUMBER(A.MM) AS MM,    -- 월
+			      SUM(DECODE(A.RACE_YOIL,'MON',DIV_TOTAL,0)) MON_SUM,		-- 월요일 합계        
+				  ROUND(AVG(DECODE(A.RACE_YOIL,'MON',DIV_TOTAL))) MON_AVG,  -- 월요일 평균
+			      SUM(DECODE(A.RACE_YOIL,'TUE',DIV_TOTAL,0)) TUE_SUM,		-- 화요일 합계        
+				  ROUND(AVG(DECODE(A.RACE_YOIL,'TUE',DIV_TOTAL))) TUE_AVG,  -- 화요일 평균		     
+			      SUM(DECODE(A.RACE_YOIL,'WED',DIV_TOTAL,0)) WED_SUM,          -- 수요일 합계	     
+			      ROUND(AVG(DECODE(A.RACE_YOIL,'WED',DIV_TOTAL))) WED_AVG,     -- 수요일 평균            
+			      SUM(DECODE(A.RACE_YOIL,'THU',DIV_TOTAL,0)) THU_SUM,          -- 목요일 합계	     
+			      ROUND(AVG(DECODE(A.RACE_YOIL,'THU',DIV_TOTAL))) THU_AVG,    -- 목요일 평균	     
+			      SUM(DECODE(A.RACE_YOIL,'FRI',DIV_TOTAL,0)) FRI_SUM,          -- 금요일 합계	     
+			      ROUND(AVG(DECODE(A.RACE_YOIL,'FRI',DIV_TOTAL))) FRI_AVG,   -- 금요일 평균		     
+			      SUM(DECODE(A.RACE_YOIL,'SAT',DIV_TOTAL,0)) SAT_SUM,          -- 토요일 합계	     
+			      ROUND(AVG(DECODE(A.RACE_YOIL,'SAT',DIV_TOTAL))) SAT_AVG,   -- 토요일 평균		     
+			      SUM(DECODE(A.RACE_YOIL,'SUN',DIV_TOTAL,0)) SUN_SUM,           -- 일요일 합계	     
+			      ROUND(AVG(DECODE(A.RACE_YOIL,'SUN',DIV_TOTAL))) SUN_AVG,   -- 일요일 평균		     
+			      SUM(A.DIV_TOTAL) DIV_SUM,                                  -- 전체 합계		     
+			      ROUND(AVG(A.DIV_TOTAL)) DIV_AVG                            -- 전체 평균
+			      
+			      
+        ]]>
+    </query>
+    
+    <query id="rsm3010_from01" desc="월별매출액 FROM(지점이 전체일 경우 VW_SDL_PT)" fetchSize="10">
+        <![CDATA[
+					     
+			  FROM   /* rsm3010_from01 */                                                        			     
+			  (                                                              			     
+			      SELECT                                                     			     
+			          B.MEET_CD,                                             			     
+			          B.STND_YEAR,                                           			     
+			          B.TMS,                                                 			     
+			          B.RACE_YOIL,                                           			     
+			          TO_CHAR(TO_DATE(B.RACE_DAY,'YYYYMMDD'),'MM') MM,       			     
+			          SUM(A.POOL_TOTAL) DIV_TOTAL                             			     
+			      FROM                                                       			     
+			          VW_SDL_PT A, 		-- 쿼리 속도를 빠르게 하기 위함		     
+			          VW_SDL_INFO B     -- 경주일 정보                               		     
+			      WHERE 1 = 1                                                			     
+			          AND B.MEET_CD		= ?		-- 0:MEET_CD:개최지 코드
+			          AND B.RACE_DAY	>= ?	-- 1:RACE_DAY:검색 시작 일                                        		     
+			          AND B.RACE_DAY	<= ?  	-- 2:RACE_DAY:검색 마지막 일                                   		     
+			          AND B.STND_YEAR = SUBSTR(?,1,4)	-- 3:RACE_DAY:검색 시작 일
+			          AND A.MEET_CD = B.MEET_CD                              			     
+			          AND A.STND_YEAR = B.STND_YEAR                          			     
+			          AND A.TMS = B.TMS                                      			     
+			          AND A.DAY_ORD = B.DAY_ORD  
+			          AND A.POOL_TOTAL > 0				
+			
+					  -- 지점이 전체일 경우 조건 없음                                      			     
+			            			
+        ]]>
+    </query>
+    
+    
+    <query id="rsm3010_from02" desc="월별매출액 FROM(지점이 전체가 아닐  경우 VW_SDL_DT)" fetchSize="10">
+        <![CDATA[
+					     
+			  FROM   /* rsm3010_from02 */                                                          			     
+			  (                                                              			     
+			      SELECT                                                     			     
+			          B.MEET_CD,                                             			     
+			          B.STND_YEAR,                                           			     
+			          B.TMS,                                                 			     
+			          B.RACE_YOIL,                                           			     
+			          TO_CHAR(TO_DATE(B.RACE_DAY,'YYYYMMDD'),'MM') MM,       			     
+			          SUM(A.DIV_TOTAL) DIV_TOTAL                             			     
+			      FROM                                                       			     
+			          VW_SDL_DT_SUM A, 		-- 지점                                         			     
+			          VW_SDL_INFO B     -- 경주일 정보                               		     
+			      WHERE 1 = 1                                                			     
+			          AND B.MEET_CD		= ?		-- 0:MEET_CD:개최지 코드							     
+			          AND B.RACE_DAY	>= ?    -- 1:RACE_DAY:검색 시작 일                                     		     
+			          AND B.RACE_DAY	<= ?    -- 2:RACE_DAY:검색 마지막 일                                   		                                 		     
+			          AND B.STND_YEAR = SUBSTR(?,1,4)  -- 3:RACE_DAY:검색 시작 일
+			          AND A.MEET_CD = B.MEET_CD                              			     
+			          AND A.STND_YEAR = B.STND_YEAR                          			     
+			          AND A.TMS = B.TMS                                      			     
+			          AND A.DAY_ORD = B.DAY_ORD  
+			          AND A.DIV_TOTAL > 0				
+			
+					  -- 지점이 전체일 경우 조건 없음                                      			     
+			            			
+        ]]>
+    </query>
+    
+    
+    <query id="rsm3010_where01" desc="월별매출액 WHERE(경정, 미사리 본장)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm3010_where01 */	
+           	-- 경정, 미사리 본장
+			AND A.SELL_CD = '03'				
+			AND A.COMM_NO IN ('01','02','03','04','08') -- 광명/미사리
+        ]]>
+    </query>
+    
+    <query id="rsm3010_where02" desc="월별매출액 WHERE(경정, 교차 )" fetchSize="10">
+        <![CDATA[	
+        	/* rsm3010_where02 */
+            -- 경정, 교차 						
+			AND A.SELL_CD NOT IN ('01','03')
+        ]]>
+    </query>
+    
+     <query id="rsm3010_where03" desc="월별매출액 WHERE(경륜, 광명 )" fetchSize="10">
+        <![CDATA[	
+        	/* rsm3010_where03 */
+            -- 경륜, 광명					
+			AND A.SELL_CD = '01'			
+			AND A.COMM_NO IN ('01','02','03','04','08') -- 광명/미사리
+        ]]>
+    </query>
+    
+    <query id="rsm3010_where04" desc="월별매출액 WHERE(경륜  교차 )" fetchSize="10">
+        <![CDATA[	
+        	/* rsm3010_where04 */
+            -- 경륜  교차
+			AND A.SELL_CD <> '01'	
+        ]]>
+    </query>
+    
+    <query id="rsm3010_where05" desc="월별매출액 지점" fetchSize="10">
+        <![CDATA[	
+        	/* rsm3010_where05 */
+            -- 지점		
+			AND A.COMM_NO = ?	
+        ]]>
+    </query>
+    
+    <query id="rsm3010_where06" desc="월별매출액 지점" fetchSize="10">
+        <![CDATA[	
+        	/* rsm3010_where06 */
+            -- 지점	
+             AND SELL_CD = DECODE(?,'003','01','03')
+             AND COMM_NO IN ('01','02','03','04','08') 
+        ]]>
+    </query>
+    
+    
+    <query id="rsm3010_group01" desc="월별매출액 GROUPBY" fetchSize="10">
+        <![CDATA[
+        	/* rsm3010_group01 */
+        		GROUP BY                                                   			     
+			          B.MEET_CD, B.STND_YEAR, B.TMS,                         			     
+			          B.RACE_YOIL,                                           			     
+			          TO_CHAR(TO_DATE(B.RACE_DAY,'YYYYMMDD'),'MM')           			     
+			  ) A   
+			  
+			  WHERE 1 = 1                                                    			     
+			  GROUP BY A.MEET_CD, A.STND_YEAR,A.MM							
+			  ORDER BY A.MM
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm3010_s02" desc="월별매출액 개최지별 요일 조회" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rsm3010_s02 */
+			    B.RACE_YOIL -- 요일
+			FROM VW_SDL_INFO B
+			WHERE 1=1
+			  AND B.MEET_CD		= ?		-- 0:MEET_CD:개최지 코드							     
+			  AND B.RACE_DAY	>= ?    -- 1:RACE_DAY:검색 시작 일                                     		     
+			  AND B.RACE_DAY	<= ?    -- 2:RACE_DAY:검색 마지막 일                           
+			GROUP BY RACE_YOIL 
+        ]]>
+    </query>
+    
+</queryMap>

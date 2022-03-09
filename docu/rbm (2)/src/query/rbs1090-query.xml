@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS1090(년도별 적립금액 등록)">
+    
+    
+    <query id="rbs1090_s_list" desc="년도별 적립금액 등록 조회" fetchSize="10">
+        <![CDATA[
+                   
+              SELECT   /* rbs1090_s_list */
+                     E.SAV_CNTNT_CD,    -- 적립내역코드
+                     E.BUSI_YEAR,       -- 사업년도
+                     E.ACC_CD,          -- 회계구분          
+                     
+                     NVL(E.LAST_AMU_AMT,0) LAST_AMU_AMT,   -- 전년누적잔액 (A)
+                                               
+                     E.PLAN_SUM,        -- 소계  (B)       
+                     E.TRANS_AMT,       -- 전년이월액
+                     E.CONFIRM_AMT,     -- 집행액         
+                     
+                     E.SAV_AMT,         -- 적립금액 (C)
+                     (NVL(E.LAST_AMU_AMT,0) - NVL(E.PLAN_SUM,0) +NVL(E.SAV_AMT,0)) AMU_AMT,         -- 누적잔액 (A - B + C)
+                              
+                     E.IS_NEW           -- 원래 있는 ROW 는 FALSE(UPDATE), 없는 건 TRUE(INSERT)
+            
+            FROM     (
+                      SELECT   D.SAV_CNTNT_CD,    -- 적립내역코드
+                               D.BUSI_YEAR,       -- 사업년도
+                               D.ACC_CD,          -- 회계구분  
+            
+                               --D.LAST_AMU_AMT,   -- 전년누적잔액 (A)
+                                         
+                               D.PLAN_SUM,        -- 소계  (B)       
+                               D.TRANS_AMT,       -- 전년이월액
+                               D.CONFIRM_AMT,     -- 승인액
+                               
+                               D.SAV_AMT,         -- 적립금액 (C)
+                               
+                            
+                       
+                               
+                               --NVL(LEAD(D.AMU_AMT, 2) OVER(ORDER BY D.BUSI_YEAR DESC, D.ACC_CD), 0) - D.PLAN_SUM + D.SAV_AMT AS AMU_AMT,  -- 누적금액
+                                                
+                               D.IS_NEW,
+                               
+                               ( NVL(PRE_AMU_AMT,0) - NVL(PRE_TRANS_AMT,0) -NVL(PRE_CONFIRM_AMT,0) + NVL(PRE_SAV_AMT,0) )AS LAST_AMU_AMT                     -- 전년누적잔액
+                              
+                                                                       
+                                        , PRE_TRANS_AMT,
+                                         PRE_CONFIRM_AMT,
+                                         PRE_SAV_AMT,
+                                         PRE_AMU_AMT
+                                         
+                      FROM     (
+                                SELECT   B.SAV_CNTNT_CD,                         -- 적립내역코드
+                                         A.BUSI_YEAR,                            -- 사업년도
+                                         A.ACC_CD,                               -- 회계구분  
+                                         
+                                
+                                         
+                                         NVL( (C.TRANS_AMT + C.CONFIRM_AMT ), 0) AS PLAN_SUM,      -- 소계         
+                                         NVL(C.TRANS_AMT  , 0) AS TRANS_AMT,     -- 전년이월액
+                                         NVL(C.CONFIRM_AMT, 0) AS CONFIRM_AMT,   -- 승인액
+                                         
+                                         NVL(B.SAV_AMT,     0) AS SAV_AMT,       -- 적립금액
+                                         NVL(B.AMU_AMT,    0) AS AMU_AMT,        -- 누적금액                                         
+                                         
+                                         DECODE(B.SAV_CNTNT_CD, NULL, 'T', 'F') AS IS_NEW,  -- 원래 있는 ROW 는 FALSE(UPDATE), 없는 건 TRUE(INSERT)
+                                         
+                                         PRE_TRANS_AMT,
+                                         PRE_CONFIRM_AMT,
+                                         PRE_SAV_AMT,
+                                         PRE_AMU_AMT
+                                         
+                                FROM     (
+                                          -- 기준
+                                          SELECT   TO_CHAR(SYSDATE, 'YYYY') AS BUSI_YEAR, '001' AS ACC_CD
+                                                   --'2010' AS BUSI_YEAR, '001' AS ACC_CD
+                                          FROM     DUAL  
+                                          UNION 
+            
+                                          SELECT   TO_CHAR(SYSDATE, 'YYYY') AS BUSI_YEAR, '002' AS ACC_CD
+                                                   --'2010' AS BUSI_YEAR, '002' AS ACC_CD
+                                          FROM     DUAL
+                                          UNION 
+                                          
+                                          SELECT   A.BUSI_YEAR, A.ACC_CD    
+                                          FROM     TBRE_SAV_CNTNT A 
+                                         ) A, 
+                                         
+                                         (
+                                          -- 적립금액
+                                          SELECT   B.SAV_CNTNT_CD,   -- 적립내역코드
+                                                   B.BUSI_YEAR,      -- 사업년도
+                                                   B.ACC_CD,         -- 회계구분  
+                                                   
+                                                   B.SAV_AMT,        -- 적립금액
+                                                   B.AMU_AMT         -- 누적금액
+                                          FROM     TBRE_SAV_CNTNT B 
+                                         ) B,
+                                         
+                                         (
+                                          -- 사용계획
+                                          SELECT   
+                                                    C.BUSI_YEAR,  -- 사업년도
+                                                   C.ACC_BGN_CD, -- 회계구분
+                                                   
+                                                   --SUM(NVL(C.TRANS_AMT, 0) + NVL(C.CONFIRM_AMT, 0)) AS PLAN_SUM,    -- 소계         
+                                                   
+                                                   MAX(NVL(
+                                                            ( SELECT
+                                                                    NVL(SUM(EXEC_AMT),0)
+                                                                FROM TBRE_BUSI_PLAN BP
+                                                                    ,TBRE_BUSI_EXEC BE
+                                                                WHERE BP.PREP_AMT_CD = BE.PREP_AMT_CD                           
+                                                                    AND SUBSTR(BE.EXEC_DT,0,4) =  C.BUSI_YEAR
+                                                                    AND SUBSTR(BP.BUSI_YEAR,0,4) = C.BUSI_YEAR -1
+                                                               ), 0))   AS TRANS_AMT,   -- 당해년도에집행된 이월액
+                                                                
+                                                                                      
+                          
+                            
+                                                   
+                                                   SUM(NVL(
+                                                            (SELECT
+                                                                NVL(SUM(EXEC_AMT),0)
+                                                            FROM TBRE_BUSI_EXEC E
+                                                            WHERE E.PREP_AMT_CD = C.PREP_AMT_CD
+                                                               
+                                                                AND SUBSTR(E.EXEC_DT,0,4) =  C.BUSI_YEAR
+                                                        
+                                                    ), 0))  AS CONFIRM_AMT  -- 승인액
+                                                    
+                                                    
+                                                    ,MAX(NVL(
+                                                            ( SELECT
+                                                                    NVL(SUM(EXEC_AMT),0)
+                                                                FROM TBRE_BUSI_PLAN BP
+                                                                    ,TBRE_BUSI_EXEC BE
+                                                                WHERE BP.PREP_AMT_CD = BE.PREP_AMT_CD                           
+                                                                    AND SUBSTR(BE.EXEC_DT,0,4) =  C.BUSI_YEAR -1
+                                                                    AND SUBSTR(BP.BUSI_YEAR,0,4) = C.BUSI_YEAR -2
+                                                               ), 0))   AS PRE_TRANS_AMT   -- 당해년도에집행된 이월액
+                                                    ,MAX(NVL(
+                                                    (SELECT
+                                                                NVL(SUM(EXEC_AMT),0)
+                                                            FROM TBRE_BUSI_EXEC E
+                                                            WHERE  SUBSTR(E.EXEC_DT,0,4)  =  C.BUSI_YEAR -1
+                                                        
+                                                    ), 0))  AS PRE_CONFIRM_AMT  -- 승인액
+                                                    
+                                                  , MAX (( SELECT SAV_AMT  FROM TBRE_SAV_CNTNT G 
+                                                       WHERE  G.BUSI_YEAR = (C.BUSI_YEAR -1) 
+                                                       )) AS PRE_SAV_AMT 
+                                                        
+                                                  ,MAX((SELECT AMU_AMT  FROM TBRE_SAV_CNTNT G 
+                                                   WHERE  G.BUSI_YEAR = (C.BUSI_YEAR -2) 
+                                                    AND G.ACC_CD = C.ACC_BGN_CD) )PRE_AMU_AMT                                       FROM     TBRE_BUSI_PLAN C
+                                          GROUP BY C.BUSI_YEAR, C.ACC_BGN_CD
+                                          ORDER BY C.BUSI_YEAR DESC, C.ACC_BGN_CD
+                                         ) C
+                                         
+                                WHERE    A.BUSI_YEAR = B.BUSI_YEAR(+) 
+                                AND      A.ACC_CD    = B.ACC_CD(+)        
+                                AND      A.BUSI_YEAR = C.BUSI_YEAR(+) 
+                                AND      A.ACC_CD    = C.ACC_BGN_CD(+)  
+                                ORDER BY A.BUSI_YEAR DESC, A.ACC_CD
+                               ) D
+            
+                      ORDER BY D.BUSI_YEAR DESC, D.ACC_CD
+                     ) E 
+            ORDER BY E.BUSI_YEAR DESC, E.ACC_CD
+
+			
+
+			
+        ]]>
+    </query>       
+
+	
+	<query id="rbs1090_i_sav" desc="적립금액 등록" fetchSize="10">
+        <![CDATA[
+        
+			INSERT   /* rbs1090_i_sav */			   
+			         INTO TBRE_SAV_CNTNT A
+			         (   
+			          A.SAV_CNTNT_CD,   -- 적립내역코드
+			          A.BUSI_YEAR,      -- 사업년도
+			          A.ACC_CD,         -- 회계구분코드
+			          A.SAV_AMT,        -- 적립금액
+			          A.AMU_AMT,        -- 누적잔액
+			               
+			          A.INST_ID,        -- 등록자ID    
+			          A.INST_DT         -- 등록일자           
+			         ) 
+			         VALUES 
+			         (
+			          (
+			           SELECT   NVL(LPAD(MAX(TO_NUMBER(SAV_CNTNT_CD)) + 1, 8, '0'), '00000001')  -- 적립내역코드
+			           FROM     TBRE_SAV_CNTNT 
+			           ),             
+			           ?,       -- 1. 사업년도 
+			           ?,       -- 2. 회계구분코드
+			           ?,       -- 3. 적립금액   
+			           ?,       -- 4. 누적잔액        
+			                          
+			           ?,       -- 5. 사용자 ID
+			           SYSDATE
+			         )
+
+        ]]>
+    </query>      
+    
+    <query id="rbs1090_u_sav" desc="적립금액 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rbs1090_u_sav */
+			         TBRE_SAV_CNTNT A
+			
+			SET      A.SAV_AMT  = ?,       -- 1. 적립금액    
+			         A.AMU_AMT  = ?,       -- 2. 누적잔액   
+			        			           
+			         A.UPDT_ID  = ?,       -- 3. 사용자 ID    
+			         A.UPDT_DT  = SYSDATE
+			        
+			WHERE    A.SAV_CNTNT_CD = ?    -- 4. 적립내역코드
+
+        ]]>
+    </query>
+
+        
+</queryMap>

@@ -1,0 +1,870 @@
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = 'RBR4020';
+var sBUTTONLIST   = 'FFFFTFT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+var sMenuGrpNum     = "0";                         	   // 메뉴그룹의 갯수보관
+var sMenuListNum    = "0";                             // 메뉴리스트의 갯수보관
+var sMenuUpId       = "";
+var sMenuUpNm       = "";
+var dsSel1			= "";							//tab에서 사용할 DataSet1
+var dsSel2          = "";							//tab에서 사용할 DataSet2
+
+var sCurDate = fcd_GetSysdate("YYYYMMDD");				// 시스템의 오늘날짜
+var sCurYear = substr(sCurDate, 0, 4);					// 시스템의 현재년도
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {  
+    sBUTTONLIST   = 'TTTFTFT';
+  
+ 	//화면환경 설정
+	sFORMCAPTION  = obj.Title;
+	sFORMLOCATION = "";
+
+	//화면 정보 Display 및 Button 권한 설정
+	fnc_FormLoadSetting(obj, sFORMCAPTION, sFORMLOCATION, sBUTTONLIST, sUSERAUTH);
+	
+	//초기 화면 BK Color설정 
+	fnc_SetBKColor(this);
+    
+    //공통코드 조회
+    fcd_GetComboDs(dsInComCd);
+	
+	//초기 데이터셋
+	dsSel1 = dsCommDesc;						
+	dsSel2 = dsFloorMana;
+	
+	//사용 데이터셋(종료, 탭변경시)
+	
+	
+	// 개발편하기 위한 초기값 나중에 삭제(광명지점 강제 선택)
+	cboBrncCdSearch.Value= '001';
+	fcSearch();
+	
+	//SetTimer(1, 100);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 UNLoad時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	//자료 변경 여부를 체크하고자 하는 DataSet Object를 넘긴다.
+	//sDataset 변경 시, 아래의 fcTbOnChanging의 sDataset도 같이 변경해준다.ㄴ
+	var sDataset = "dsCommDesc|dsFloorMana|dsHistMana|dsEmpStat|dsServMana|dsFacStat";
+	
+	if ( !fnc_FormUnloadCheck(sDataset, sFormId) ) return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  탭 변경시 처리
++-------------------------------------------------------------------------------------------------*/
+// 변경하기 전에 자료 변경 여부를 체크
+function fcTbOnChanging(obj,nOldIndex,nNewIndex)
+{
+	var sDataset = "dsCommDesc|dsFloorMana|dsHistMana|dsEmpStat|dsServMana|dsFacStat";
+	
+	if ( !fnc_TabUnloadCheck(sDataset) ) 
+	{
+		return false;
+	}
+}
+
+function fnc_TabUnloadCheck(obj) {
+
+	sDataset = split(obj, "|");
+
+    var bChangeYn = false;
+    
+    for ( var i = 0; i < sDataset.length(); i++ ) {
+        objDataset = Object(sDataset[i]);
+        if ( fnc_DatasetChangeCheck(objDataset) ) {
+			bChangeYn = true;
+			break;
+		}
+    }
+
+	//변경된 자료가 있는지 체크함
+	if ( bChangeYn ) {
+		if ( !fnc_Message(SNIS_RBM_A006, "Y") ) {
+			return false;    //탭을 변경하지 않는다
+		}
+	}
+	
+	//데이터셋 초기화
+	for ( var i = 0; i < sDataset.length(); i++ ) {
+        objDataset = Object(sDataset[i]);
+        objDataset.Clear();
+    }
+    return true;
+}
+/***************************************************************************************************
+*                                      업무화면 공통 버튼 Event 처리 부분                          *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  초기화 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInit(obj) {
+
+	switch (Tab.TabIndex) {
+		case 0 :
+			//데이터셋을 2개 사용하는 화면 -> 일반사항
+			dsSel1.ClearData();
+			dsSel2.ClearData();
+			break;
+		case 1 :
+		case 2 :
+		case 3 :
+		case 6 :
+			//연혁, 직원현황, 용역관리,시설현황
+			dsSel1.ClearData();
+			break;
+		case 4 :
+			//매출액, 입장인원
+			break;
+		case 5 :
+			//장비 및 설비
+			break;
+	}
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+
+// 조회 전 Check
+function fcSearchCheck(obj) {
+	fcInit(obj);
+	
+	return true;
+}
+
+function fcSearch(obj) {
+    if ( !fcSearchCheck(obj) ) return;
+    
+    var sServiceName, sInDataSet, sOutDataSet;
+    
+    switch (Tab.TabIndex) {
+		case 0 :
+			//일반사항, 층관리
+			sServiceName = "rbr1011-service:searchCommDesc";
+			sInDataSet   = "";
+			sOutDataSet  = "dsCommDesc=dsCommDesc dsFloorMana=dsFloorMana ";
+			break;
+		case 1 :
+			//연혁dsHistMana
+			sServiceName = "rbr1012-service:searchHistMana";
+			sInDataSet   = "";
+			sOutDataSet  = "dsHistMana=dsHistMana ";
+			break;
+		case 2 :
+			//직원현황
+			sServiceName = "rbr1013-service:searchEmpStat";
+			sInDataSet   = "";
+			sOutDataSet  = "dsEmpStat=dsEmpStat ";
+			break;
+		case 3 :
+			//용역관리
+			sServiceName = "rbr1014-service:searchServMana";
+			sInDataSet   = "";
+			sOutDataSet  = "dsServMana=dsServMana ";
+			break;
+		case 4 :
+			//매출액, 입장인원
+			break;
+		case 5 :
+			//장비 및 설비
+			break;
+		case 6 :
+			//시설현황
+			sServiceName = "rbr1017-service:searchFacStat";
+			sInDataSet   = "";
+			sOutDataSet  = "dsFacStat=dsFacStat dsFloorCd=dsFloorCd ";
+			break;
+	}
+	
+	fcd_AddParam("BRNC_CD"  , cboBrncCdSearch.Value);
+	fcd_AddParam("STND_YEAR", cboStndYearSearch.Value);
+	
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", true);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+
+// 저장 전에 체크
+function fcSaveCheck(obj) {  
+	
+	//변경된 자료가 있는지 체크
+	if ( !fnc_DatasetChangeCheck(dsSel1) && !fnc_DatasetChangeCheck(dsSel2)) {
+		//저장 할 자료가 없음
+		fnc_Message(SNIS_COM_1006, "N");	
+		return false;
+	}
+
+	// 필수항목체크
+	switch (Tab.TabIndex) {
+		case 0 :	//일반사항, 층관리
+			
+			oDataSet          = dsFloorMana;
+			sMandatoryColID   = "FLOOR";
+			sMandatoryColName = "층";
+			oGrid             = Tab.tbCommDesc.grdFloorMana;
+			
+			if ( fnc_GetMandatoryViolateRow(oDataSet, sMandatoryColID, sMandatoryColName, oGrid) > -1 ) {
+				return false;
+			}
+			break;
+		case 1 :	//연혁
+			
+			oDataSet          = dsHistMana;
+			sMandatoryColID   = "YM|CNTNT";
+			sMandatoryColName = "년월|내용";
+			oGrid             = Tab.tbHistMana.grdHistMana;
+			
+			if ( fnc_GetMandatoryViolateRow(oDataSet, sMandatoryColID, sMandatoryColName, oGrid) > -1 ) {
+				return false;
+			}
+			break;
+		case 2 :
+			//직원현황
+			break;
+		case 3 :
+			//용역관리
+			oDataSet          = dsServMana;
+			sMandatoryColID   = "SERV_CD|WORK_TPY_CD|JOB_TIT_CD|PRSN_NUM";
+			sMandatoryColName = "용역구분코드|근무형태|직책(성별)|인원수";
+			oGrid             = Tab.tbServMana.grdServMana;
+			
+			if ( fnc_GetMandatoryViolateRow(oDataSet, sMandatoryColID, sMandatoryColName, oGrid) > -1 ) {
+				return false;
+			}
+			break;
+		case 4 :
+			//매출액, 입장인원
+			break;
+		case 5 :
+			//장비 및 설비
+			break;
+		case 6 :
+			//시설현황
+			oDataSet          = dsFacStat;
+			sMandatoryColID   = "FLOOR|FAC_CD|FAC_GBN|AMT";
+			sMandatoryColName = "층수|시설코드|시설구분코드|수량(판매원)";
+			oGrid             = Tab.tbFacStat.grdFacStat;
+
+			if ( fnc_GetMandatoryViolateRow(oDataSet, sMandatoryColID, sMandatoryColName, oGrid) > -1 ) {
+				return false;
+			}
+			break;
+	}
+	return true;
+}
+
+function fcSave(obj) {
+
+    if ( !fcSaveCheck() ) return;   
+    
+    var confirmMsg = "저장하시겠습니까?";
+    
+    var sServiceName, sInDataSet, sOutDataSet;
+		
+    if(fnc_Message(SNIS_CRA_B999, "Y", confirmMsg)) {
+               
+        switch (Tab.TabIndex) {
+			case 0 :
+				//일반사항, 층관리
+				sServiceName = "rbr1011-service:saveCommDesc";
+				sInDataSet   = "dsCommDesc=dsCommDesc:u dsFloorMana=dsFloorMana:u";
+				sOutDataSet  = "dsCommDesc=dsCommDesc dsFloorMana=dsFloorMana"; 
+	
+				break;
+			case 1 :
+				//연혁
+				sServiceName = "rbr1012-service:saveHistMana";
+				sInDataSet   = "dsHistMana=dsHistMana:u ";
+				sOutDataSet  = "dsHistMana=dsHistMana "; 
+				break;
+			case 2 :
+				//직원현황
+				break;
+			case 3 :
+				//용역관리
+				sServiceName = "rbr1014-service:saveServMana";
+				sInDataSet   = "dsServMana=dsServMana:u ";
+				sOutDataSet  = "dsServMana=dsServMana "; 
+				break;
+			case 4 :
+				//매출액, 입장인원
+				break;
+			case 5 :
+				//장비 및 설비
+				break;
+			case 6 :
+				//시설현황
+				sServiceName = "rbr1017-service:saveFacStat";
+				sInDataSet   = "dsFacStat=dsFacStat:u ";
+				sOutDataSet  = "dsFacStat=dsFacStat "; 
+				break;
+		}       
+        
+		fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+
+function fcDeleteCheck(obj) { 
+ 	
+	return true;
+}
+
+function fcDelete(obj) {
+		
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcToExcel(obj) {
+	
+	var sExcelList; 
+	
+	switch (Tab.TabIndex) {
+		case 0 :
+			//일반사항, 층관리
+			sExcelList = "grdFloorMana:층관리";
+			break;
+		case 1 :
+			//연혁
+			sExcelList = "grdHistMana:연혁";
+			break;
+		case 2 :
+			//직원현황
+			sExcelList = "grdEmpStat:직원현황";
+			break;
+		case 3 :
+			//용역관리
+			sExcelList = "grdServMana:용역관리";
+			break;
+		case 4 :
+			//매출액, 입장인원
+			break;
+		case 5 :
+			//장비 및 설비
+			break;
+		case 6 :
+			//시설현황
+			sExcelList = "grdFacStat:시설현황";
+			break;
+	} 
+    
+    fcd_OpenExcelListExport(sExcelList);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  프린트 인쇄 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcPrint(obj) {
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	//화면 종료
+	Close();	
+}
+
+
+/***************************************************************************************************
+*                                      Grid 삽입, 추가, 삭제 처리                                  *
+***************************************************************************************************/
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행추가 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcAddRow(obj) {
+	//DataSet의 Header 정보가 있을 때  Add 처리
+	
+	var sMsg = "현재 작업중인 행이 존재하기 때문에\r\n 행을 추가할 수 ";
+	
+	switch (obj.GetForm().id) {
+		case "floorBtnRow" :		// 일반사항, 층관리
+		
+			// 일반사항이 없을 시, 층관리 추가 불가능
+			if ( dsCommDesc.rowcount == 0 )
+			{
+				fnc_Message(SNIS_RBM_A002, "N");
+				return;
+			}
+							
+			nRow  = dsFloorMana.AddRow();
+			
+			dsFloorMana.SetColumn(nRow, "BRNC_CD"  , dsCommDesc.GetColumn(dsCommDesc.row, "BRNC_CD"));
+			dsFloorMana.SetColumn(nRow, "STND_YEAR", dsCommDesc.GetColumn(dsCommDesc.row, "STND_YEAR"));
+			
+			tab.tbCommDesc.grdFloorMana.SetFocus(); // 입력 첫 항목으로 Focus
+			break;
+			
+		case "histBtnRow" :		// 연혁관리
+			
+			nRow  = dsHistMana.AddRow();
+			
+			dsHistMana.SetColumn(nRow, "BRNC_CD", cboBrncCdSearch.Value);
+			
+			tab.tbHistMana.grdHistMana.SetFocus(); // 입력 첫 항목으로 Focus			
+			break;
+		
+		case "servBtnRow" :		// 용역관리
+			
+			nRow  = dsServMana.AddRow();
+			
+			dsServMana.SetColumn(nRow, "BRNC_CD"  , cboBrncCdSearch.Value);
+			dsServMana.SetColumn(nRow, "STND_YEAR", cboStndYearSearch.Value);
+			
+			tab.tbServMana.grdServMana.SetFocus(); // 입력 첫 항목으로 Focus
+			break;
+			
+		case "facBtnRow" :
+			
+			nRow  = dsFacStat.AddRow();
+			
+			dsFacStat.SetColumn(nRow, "BRNC_CD"  , cboBrncCdSearch.Value);
+			dsFacStat.SetColumn(nRow, "STND_YEAR", cboStndYearSearch.Value);
+			
+			tab.tbFacStat.grdFacStat.SetFocus(); // 입력 첫 항목으로 Focus
+			break;
+	}	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삽입 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInsRow(obj) {
+	switch (obj.GetForm().id) {
+		case "servBtnRow" :
+			var nRow = dsServMana.InsertRow(dsServMana.GetCurrow());
+			
+			dsServMana.SetColumn(nRow, "BRNC_CD"    , cboBrncCdSearch.Value);
+			dsServMana.SetColumn(nRow, "STND_YEAR"  , cboStndYearSearch.Value);
+			dsServMana.SetColumn(nRow, "SERV_CD"    , dsServMana.GetColumn(nRow+1, "SERV_CD"));
+			dsServMana.SetColumn(nRow, "WORK_TPY_CD", dsServMana.GetColumn(nRow+1, "WORK_TPY_CD"));
+			
+			tab.tbServMana.grdServMana.SetFocus();               
+			break;
+			
+		case "facBtnRow" :
+			var nRow  = dsFacStat.InsertRow(dsFacStat.GetCurrow());
+			
+			dsFacStat.SetColumn(nRow, "BRNC_CD"   , cboBrncCdSearch.Value);
+			dsFacStat.SetColumn(nRow, "STND_YEAR" , cboStndYearSearch.Value);
+			dsFacStat.SetColumn(nRow, "FLOOR"     , dsFacStat.GetColumn(nRow+1, "FLOOR"));
+			dsFacStat.SetColumn(nRow, "FAC_GBN", dsFacStat.GetColumn(nRow+1, "FAC_GBN"));
+		
+			tab.tbFacStat.grdFacStat.SetFocus(); // 입력 첫 항목으로 Focus
+			break;
+	}
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcDelRow(obj) {
+	switch( obj.GetForm().id ) {
+		case "floorBtnRow" :	//층관리 삭제'
+			var sMsg = "";
+	
+			for(var i = 0 ; i < dsFloorMana.rowcount ; i++)
+			{
+				if( dsFloorMana.GetColumn(i, "CHK") == "1" && dsFloorMana.GetColumn(i, "DELETE_CD") == "N")
+				{	
+					sMsg += (i+1) + ", ";
+					dsFloorMana.SetColumn(i, "CHK", "0");
+				}
+			}
+			
+			if( sMsg == "" )
+			{
+				if ( !fnc_DeleteCheck(dsFloorMana, "chk", "1") ) return;
+			} else {
+				sMsg = LEFT(sMsg, LENGTH(sMsg)-2); 
+				fnc_Message(SNIS_RBM_B001, "N", sMsg, "시설현황에서 사용하는 층");
+			}
+			break;			
+		case "histBtnRow" :		//연혁 삭제
+			if ( !fnc_DeleteCheck(dsHistMana, "chk", "1") ) return;
+			break;
+		case "servBtnRow" :		//용역관리 삭제
+			if ( !fnc_DeleteCheck(dsServMana, "chk", "1") ) return;
+			break;
+		case "facBtnRow" :
+			if ( !fnc_DeleteCheck(dsFacStat, "chk", "1") ) return;
+			break;
+	}
+}
+
+
+/***************************************************************************************************
+*                                      공통 Function 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Text Box가 Focus를 받을 때
++-------------------------------------------------------------------------------------------------*/
+function fcEditFocus(obj) {
+//	fnc_EditFocus(obj);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Help Popup Open
++-------------------------------------------------------------------------------------------------*/
+function fcHelpDialoge(obj,nX,nY) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드에서 팝업 처리 
++-------------------------------------------------------------------------------------------------*/
+function fcGrdOnExpandEdit(objGrd, nRow, nCell, strVal, nPivotIndex){
+	
+}
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+	
+	// 조회 완료 후
+	if ( sServiceName == "rbr1010-service:searchCommDesc" ) {
+		if( Tab.TabIndex == 0) {
+			if( dsCommDesc.rowcount == 0 )
+			{
+				//일반사항에 조회내용이 없을 경우, 신규로 생성 
+				var sBrncCd   = cboBrncCdSearch.Value;
+				var sStndYear = cboStndYearSearch.Value;
+								
+				var nRow = dsCommDesc.AddRow();
+				
+				dsCommDesc.SetColumn(nRow, "BRNC_CD"  , sBrncCd);
+				dsCommDesc.SetColumn(nRow, "STND_YEAR", sStndYear);
+			}
+		}
+		
+	}			
+	
+	// 저장 완료 후
+	if ( sServiceName == "rbr4020-service:saveEvntHistMana" ) {
+		fcSearch();		
+	}	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 Post Process!
++-------------------------------------------------------------------------------------------------*/
+function fcPostProcess(sServiceName) {
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  코드나 명 입력 후 Lost Focus 시 해당 정보 Display
++-------------------------------------------------------------------------------------------------*/
+function fcCodeNameDisplay(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Column의 값이 변경된 경우
++-------------------------------------------------------------------------------------------------*/
+function fcDsOnColumnChanged(obj,nRow,strColumnID,varOldValue,varNewValue,nPivotIndex)
+{
+	switch (obj.id) {
+		case "dsFloorMana" :	//일반사항, 층 관리
+			//중복코드 체크(층)
+			if ( strColumnID == "FLOOR" ) {
+				if ( fnc_GetExistValue(obj, strColumnID, varNewValue) != nRow ) {
+					fnc_Message(L_COM_ALT_0016, "N", "층이");
+					obj.row = nRow;
+					obj.SetColumn(nRow, strColumnID, varOldValue);
+				}
+				if ( fnc_GetExistValue(obj, strColumnID, varNewValue, nRow + 1) > 0 ) {
+					fnc_Message(L_COM_ALT_0016, "N", "층이");
+					obj.row = nRow;
+					obj.SetColumn(nRow, strColumnID, varOldValue);
+				}
+			}
+			break;
+			
+		case "dsHistMana" :	//연혁관리
+			// 날짜형식 체크
+			if( strColumnID == "YM" ) {				
+				if( !fnc_IsDate(varNewValue + "01") && varNewValue != "" )
+				{
+					fnc_Message(SNIS_RBM_A005, "N");
+					dsHistMana.SetColumn(nRow, strColumnID, "");
+				}
+			}
+			break;
+		
+		case "dsServMana" :	//용역관리
+			//기본키 중복체크
+			if( strColumnID == "SERV_CD" || strColumnID == "JOB_TIT_CD") {
+				var sServCd   = dsServMana.GetColumn(nRow, "SERV_CD");
+				var sJobTitCd = dsServMana.GetColumn(nRow, "JOB_TIT_CD");
+				
+				for(var i = 0 ; i < dsServMana.rowcount ; i++ )
+				{
+					if(i != nRow) {
+					
+						if( (dsServMana.GetColumn(i, "SERV_CD")    == sServCd)    &&
+							(dsServMana.GetColumn(i, "JOB_TIT_CD") == sJobTitCd)) {
+							
+							fnc_Message(L_COM_ALT_0016, "N", "용역구분과 직책이");
+							dsServMana.SetColumn(nRow, strColumnID, varOldValue);
+							return;
+						}
+					}
+				}
+			}
+			break;
+		
+		case "dsFacStat" :	//시설현황
+			
+			//기본키 중복체크
+			if( strColumnID == "FLOOR" || strColumnID == "FAC_CD") {
+				var sFloor = dsFacStat.GetColumn(nRow, "FLOOR");
+				var sFacCd = dsFacStat.GetColumn(nRow, "FAC_CD");
+				
+				for(var i = 0 ; i < dsFacStat.rowcount ; i++ )
+				{
+					if(i != nRow) {
+					
+						if( (dsFacStat.GetColumn(i, "FLOOR")  == sFloor) &&
+							(dsFacStat.GetColumn(i, "FAC_CD") == sFacCd)) {
+							
+							fnc_Message(L_COM_ALT_0016, "N", "층과 시설이");
+							dsFacStat.SetColumn(nRow, strColumnID, varOldValue);
+							return;
+						}
+					}
+				}
+			}
+			break;
+	}
+}	
+
+function fcCboOnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	
+	switch( obj.id ) {
+		case "cboStndYearSearch" : 
+		case "cboBrncCdSearch"   :	//Form의 조회 조건 변경시(년도/지점)
+			fcSearch();
+			break;
+			
+		case "cboFacGbnCd" :	//시설현황의 '구분'을 변경할 때 
+			
+			//dsFacCdSearch.Clear();
+			
+			//dsFacCdSearch.Copy(dsFacCd);
+
+			var sFilter = "CD_TERM1 = " + quote(strCode);
+			dsFacCdSearch.Filter(sFilter);
+				
+			
+			/*
+			var sFilter = "CD_TERM1 = " + quote(strCode);
+			dsFacCd.Filter(sFilter);
+			Tab.tbFacStat.cboFacCd.Value = "";
+						
+			//alert(sFilter);*/
+			break;	
+	}
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  상세코드 조회
++-------------------------------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	//Return Key Press時 Next Component focus
+	if ( nChar == 13 ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+	//Control Key가 눌려져 있다면 단축키 처리
+	//if (bControl) fnc_HotKey(this, nChar);
+}
+
+// 우편번호 찾기
+function fcPostDialoge(obj)
+{
+	var sFormId 	= "";
+	var sArgs 		= "";
+	var arrReturn   = array(2);
+	var nRow		= dsCommDesc.row;
+	
+	sFormId = "common::comPost.xml";
+	sArgs = "";	
+	
+	if( dsCommDesc.rowcount == 0 )
+	{
+		fnc_Message(SNIS_RBM_A002, "N");
+		return;
+	}
+	
+	arrReturn = Dialog(sFormId, sArgs, 334, 443, "");
+		
+	dsCommDesc.SetColumn(nRow, "POST_CD", arrReturn[0]);
+	dsCommDesc.SetColumn(nRow, "ADDR"   , arrReturn[1]);
+}
+
+function fcDsOnLoadCompleted(obj,nErrorCode,strErrorMsg,nReason)
+{	
+
+	switch (obj.id) {
+		case "dsCommDesc" :
+			// 매출합계 계산
+			var nRow = dsCommDesc.row;
+	
+			Tab.tbCommDesc.mskSalesTotal = toInteger(dsCommDesc.GetColumn(nRow, "SALES_GOAL_CRA")) 
+										 + toInteger(dsCommDesc.GetColumn(nRow, "SALES_GOAL_MRA"));			
+			break;
+			
+		case "dsFloorMana" :
+			
+			var nCommAreaSqmtTotal = 0;
+			var nCommAreaPy        = 0;
+			var nOnlyAreaSqmt      = 0;
+			var nOnlyAreaPy        = 0;
+			
+			for(var i = 0 ; i < dsFloorMana.rowcount ; i++)
+			{	
+				// 공용면적 계산(m2)
+				nCommAreaSqmtTotal += toFloat(dsFloorMana.GetColumn(i, "COMM_AREA_SQMT"));
+				// 공용면적 계산(평)
+				nCommAreaPy += toFloat(dsFloorMana.GetColumn(i, "COMM_AREA_PY"));
+				// 전용면적 계산(m2)
+				nOnlyAreaSqmt += toFloat(dsFloorMana.GetColumn(i, "ONLY_AREA_SQMT"));
+				// 전용면적 계산(평)
+				nOnlyAreaPy += toFloat(dsFloorMana.GetColumn(i, "ONLY_AREA_PY"));
+			}
+			
+			Tab.tbCommDesc.mskCommAreaSqmtTotal = nCommAreaSqmtTotal;
+			Tab.tbCommDesc.mskCommAreaPyTotal   = nCommAreaPy;
+			Tab.tbCommDesc.mskOnlyAreaSqmtTotal = nOnlyAreaSqmt;
+			Tab.tbCommDesc.mskOnlyAreaPyTotal   = nOnlyAreaPy;
+			
+			break;
+	}
+}
+
+// Tab 변경시, 변경된 Tab으로 조회
+function fcTbOnChanged(obj,nOldIndex,nNewindex)
+{	
+	switch (Tab.TabIndex) {
+		case 0 :
+			//일반사항, 층관리
+			dsSel1 = dsCommDesc;
+			dsSel2 = dsFloorMana;
+			break;
+		case 1 :
+			//연혁
+			dsSel1 = dsHistMana;
+			break;
+		case 2 :
+			//직원현황
+			dsSel1 = dsEmpStat;
+			break;
+		case 3 :
+			//용역관리
+			dsSel1 = dsServMana;
+			break;
+		case 4 :
+			//매출액, 입장인원
+			break;
+		case 5 :
+			//장비 및 설비
+			break;
+		case 6 :
+			//시설현황
+			dsSel1 = dsFacStat;
+			break;
+	}
+	
+	fcSearch();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  신규일 때는 기본키 입력/수정 가능, 기존 자료일 때는 수정불가  
++-------------------------------------------------------------------------------------------------*/
+function fcDsOnRowPosChanged(obj,nOldRow,nRow)
+{	
+	switch (obj.id) {
+		case "dsServMana" :	//용역관리
+			//용역구분, 직책코드
+			if(dsServMana.getRowType(nRow) == "insert")
+			{
+				tab.tbServMana.cboServCd  .Enable = true;
+				tab.tbServMana.cboJobTitCd.Enable = true;
+			} else {
+				tab.tbServMana.cboServCd  .Enable = false;
+				tab.tbServMana.cboJobTitCd.Enable = false;
+			}
+			break;
+		
+		case "dsFacStat" :	//시설현황
+			//층수, 시설코드
+			if(dsFacStat.getRowType(nRow) == "insert")
+			{
+				tab.tbFacStat.cboFloor   .Enable = true;
+				tab.tbFacStat.cboFacCd   .Enable = true;
+				tab.tbFacStat.cboFacGbnCd.Enable = true;
+			} else {
+				tab.tbFacStat.cboFloor   .Enable = false;
+				tab.tbFacStat.cboFacCd   .Enable = false;
+				tab.tbFacStat.cboFacGbnCd.Enable = false;
+			}
+			break;
+	}
+}

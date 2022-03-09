@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem4030(기간별 정산금액 조회 )">
+  
+    <query id="rem4030_s01" desc="기간별 지점별 정산금액 조회" fetchSize="10">
+      <![CDATA[
+      
+		    WITH LOCALRC AS ( --지방경정
+				SELECT RCDATE, DECODE(BRANCHCD,'001','201','002','202') BRANCHCD, '4', SUM(PAID)*1500, SUM(PAID) CNT
+				FROM CCRC.VIEW_BOAT_ENTER@CCRCLINK
+				WHERE RCDATE BETWEEN ? AND ?
+				GROUP BY RCDATE, BRANCHCD
+				UNION ALL
+				SELECT RACEDATE, DECODE(BRANCHCD, '101','203', '201','204','301','205') BRANCHCD, '4', SUM(ENTNUM_FEE)*1500, SUM(ENTNUM_FEE) CNT
+				FROM BCRC.VW_INWON@BCRCDBLINK
+				WHERE CYCLECD = '099'
+				AND RACEDATE BETWEEN ? AND ?
+				GROUP BY RACEDATE, BRANCHCD
+				UNION ALL
+				SELECT RACEDATE, DECODE(BRANCHCD, '101','203', '201','204','301','205') BRANCHCD, '5', 0, SUM(ENTNUM_FREE) CNT
+				FROM BCRC.VW_INWON@BCRCDBLINK
+				WHERE CYCLECD = '099'
+				AND RACEDATE BETWEEN ? AND ?
+				GROUP BY RACEDATE, BRANCHCD
+			)
+			--, FIXED_SEAT AS ( --지정좌석실
+				--SELECT ISSUE_DT 
+                	--,COMM_NO
+					--,'4'
+					--,COUNT(*) * 1500 AS AMT
+					--,COUNT(*) AS CNT 
+				--FROM  TBRC_FS_TRADE
+				--WHERE 1=1
+				--AND   ((COMM_NO = '21' AND  ISSUE_DT < '20161014') --영등포지점 20161014 이후 티머니에 포함
+						--OR 
+					  --(COMM_NO = '26' AND  ISSUE_DT < '20161012')) --천안지점 20161012 이후 티머니에 포함
+				--GROUP BY ISSUE_DT, COMM_NO
+			--)
+			, FIXED_SEAT AS ( --지정좌석실
+				SELECT ISSUE_DT, 
+				       COMM_NO, 
+				       '4', 
+				       AMT, 
+				       CNT  
+				  FROM (
+						SELECT ISSUE_DT, COMM_NO, '4', 
+						       SUM(AMOUNT) AS AMT, 
+						       COUNT(SEQ_NO) AS CNT 
+						  FROM TBRC_FS_TRADE --지정좌석실
+						 WHERE ISSUE_DT BETWEEN ? AND ?
+						GROUP BY ISSUE_DT, COMM_NO
+						UNION ALL
+						SELECT ISSUE_DT, '00' COMM_NO, '4', 
+						       SUM(AMOUNT) AS AMT, 
+						       SUM(QTY) CNT 
+						  FROM TBRC_FS_TRADE_KM --지정좌석실광명
+						 WHERE ISSUE_DT BETWEEN ? AND ?
+						GROUP BY ISSUE_DT
+						UNION ALL
+						SELECT  /* 경주사업 지정좌석관리(대전, 올림픽지점) */
+			                   SALES_DT AS ISSUE_DT, BRNC_CD COMM_NO, '4',
+			                   SUM(DECODE(REFUND_YN, 'N', SAVE_AMT)) AS AMT,
+			                   SUM(CASE WHEN REFUND_YN = 'N' THEN 1 ELSE 0 END) CNT
+			              FROM TBRB_APPO_SEAT_MANA
+			             WHERE SALES_DT BETWEEN ? AND ?
+			            GROUP BY SALES_DT, BRNC_CD
+						)
+			)
+			
+            SELECT /* rem4030_s01 */
+                    COMM_NO
+                   ,C.CD_NM AS COMM_NM
+                   ,SUM(CNT_SUM) AS CNT_SUM
+                   ,SUM(PAY_CNT) AS PAY_CNT
+                   ,SUM(NOT_PAY_CNT) AS NOT_PAY_CNT
+                   ,SUM(REQUEST_FEE) AS REQUEST_FEE
+                   ,SUM(SUPY_AMT) AS SUPY_AMT
+                   ,SUM(ADD_TAX) AS ADD_TAX
+                   ,SUM(PRV_WST_TAX) AS PRV_WST_TAX
+                   ,SUM(EDU_TAX) AS EDU_TAX
+            FROM (                       
+                    --2014년 이전 개별소비세(200원), 교육세(60원) : 본장, 지점 동일
+                    SELECT
+                            COMM_NO
+                           ,CNT_SUM
+                           ,PAY_CNT
+                           ,NOT_PAY_CNT
+                           ,REQUEST_FEE
+                           ,ROUND(REQUEST_FEE/1.1) SUPY_AMT
+                           ,(REQUEST_FEE - ROUND(REQUEST_FEE/1.1)) ADD_TAX
+                           ,CNT_SUM * 200 AS PRV_WST_TAX
+                           ,CNT_SUM * 60 AS EDU_TAX
+                    FROM (
+                          SELECT COMM_NO
+                                ,SUM(CNT) AS CNT_SUM
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS NOT_PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS REQUEST_FEE
+                           FROM (
+                                    SELECT TRADE_DATE
+                                          ,COMM_NO
+                                          ,CARD_USER_TYPE
+                                          ,FEE
+                                          ,CNT
+                                    FROM   TBRC_T_TRADE_SUM
+                                    UNION ALL
+                                    SELECT TRADE_DATE
+                                          ,'00'
+                                          ,DECODE(FEE,0,'1','4')
+                                          ,FEE
+                                          ,CNT
+                                    FROM  TBRC_T_TRADE_KM_SUM
+                                    WHERE 'N' =  ?                            
+                                    UNION ALL
+                                    SELECT * FROM FIXED_SEAT 
+                                    WHERE 'Y' = ?
+                                    UNION ALL
+                                    SELECT * FROM LOCALRC
+                                    WHERE 'Y' = ?  --지방경정포함여부
+                                 )  T,
+                                 (
+                                    SELECT RACE_DAY
+                                          ,C.CD AS BRNC_CD
+                                          ,C.CD_NM AS COMM_NM
+                                          ,S.MEET_CD
+                                    FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+                                           FROM   VW_SDL_INFO
+                                           GROUP BY RACE_DAY) S,
+                                          TBRK_SPEC_CD C
+                                    WHERE 1=1
+                                    AND   S.MEET_CD LIKE  ? || '%'
+                                    AND   C.GRP_CD = '018'
+                                    AND   C.DEL_YN = 'N'
+                                    AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+                                    AND   S.RACE_DAY < '20140101' 
+                                 ) S                    
+                            WHERE S.RACE_DAY = T.TRADE_DATE
+                              AND S.BRNC_CD  = T.COMM_NO
+                              AND T.COMM_NO  <> DECODE( ?, '1', DECODE(S.MEET_CD,'001','00','98') ,'-') --경륜이면 00, 경정이면 98 제외  20150115 김수정 요청
+                              AND T.TRADE_DATE BETWEEN ? AND ?
+                           GROUP BY COMM_NO)
+                    UNION ALL
+                    --2014 ~ 2015년 개별소비세(400원), 교육세(120원): 본장, 지점 동일
+                    SELECT
+                            COMM_NO
+                           ,CNT_SUM
+                           ,PAY_CNT
+                           ,NOT_PAY_CNT
+                           ,REQUEST_FEE
+                           ,ROUND(REQUEST_FEE/1.1) SUPY_AMT
+                           ,(REQUEST_FEE - ROUND(REQUEST_FEE/1.1)) ADD_TAX
+                           ,CNT_SUM * 400 AS PRV_WST_TAX
+                           ,CNT_SUM * 120 AS EDU_TAX
+                    FROM (
+                          SELECT COMM_NO
+                                ,SUM(CNT) AS CNT_SUM
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS NOT_PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS REQUEST_FEE
+                           FROM (
+                                    SELECT TRADE_DATE
+                                          ,COMM_NO
+                                          ,CARD_USER_TYPE
+                                          ,FEE
+                                          ,CNT
+                                    FROM   TBRC_T_TRADE_SUM
+                                    UNION ALL
+                                    SELECT TRADE_DATE
+                                          ,'00'
+                                          ,DECODE(FEE,0,'1','4')
+                                          ,FEE
+                                          ,CNT
+                                    FROM  TBRC_T_TRADE_KM_SUM
+                                    WHERE 'N' = ?                            
+                                    UNION ALL
+                                    SELECT * FROM FIXED_SEAT 
+                                    WHERE 'Y' = ?
+                                    UNION ALL
+                                    SELECT * FROM LOCALRC
+                                    WHERE 'Y' = ?  --지방경정포함여부
+                                 )  T,
+                                 (
+                                    SELECT RACE_DAY
+                                          ,C.CD AS BRNC_CD
+                                          ,C.CD_NM AS COMM_NM
+                                          ,S.MEET_CD
+                                    FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+                                           FROM   VW_SDL_INFO
+                                           GROUP BY RACE_DAY) S,
+                                          TBRK_SPEC_CD C
+                                    WHERE 1=1
+                                    AND   S.MEET_CD LIKE  ? || '%'
+                                    AND   C.GRP_CD = '018'
+                                    AND   C.DEL_YN = 'N'
+                                    AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+                                    AND   S.RACE_DAY BETWEEN  '20140101' AND '20151231'
+                                 ) S                    
+                            WHERE S.RACE_DAY = T.TRADE_DATE
+                              AND S.BRNC_CD  = T.COMM_NO
+                              AND T.COMM_NO  <> DECODE( ?, '1', DECODE(S.MEET_CD,'001','00','98') ,'-') --경륜이면 00, 경정이면 98 제외  20150115 김수정 요청
+                              AND T.TRADE_DATE BETWEEN ? AND ?
+                           GROUP BY COMM_NO) 
+                    UNION ALL        
+                    --2016년 이후 지점 : 개별소비세(800원), 교육세(240원), 본장제외
+                    SELECT
+                            COMM_NO
+                           ,CNT_SUM
+                           ,PAY_CNT
+                           ,NOT_PAY_CNT
+                           ,REQUEST_FEE
+                           ,ROUND(REQUEST_FEE/1.1) SUPY_AMT
+                           ,(REQUEST_FEE - ROUND(REQUEST_FEE/1.1)) ADD_TAX
+                           ,CNT_SUM * 800 AS PRV_WST_TAX
+                           ,CNT_SUM * 240 AS EDU_TAX
+                    FROM (
+                          SELECT COMM_NO
+                                ,SUM(CNT) AS CNT_SUM
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS NOT_PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS REQUEST_FEE
+                           FROM (
+                                    SELECT TRADE_DATE
+                                          ,COMM_NO
+                                          ,CARD_USER_TYPE
+                                          ,FEE
+                                          ,CNT
+                                    FROM   TBRC_T_TRADE_SUM
+                                    UNION ALL
+                                    SELECT * FROM FIXED_SEAT 
+                                    WHERE 'Y' = ?
+                                    UNION ALL
+                                    SELECT * FROM  LOCALRC
+                                    WHERE 'Y' = ?  --지방경정포함여부                                    
+                                 )  T,
+                                 (
+                                 	SELECT RACE_DAY, BRNC_CD, COMM_NM, MEET_CD FROM (
+	                                    SELECT RACE_DAY
+	                                          ,C.CD AS BRNC_CD
+	                                          ,C.CD_NM AS COMM_NM
+	                                          ,DECODE(S.MEET_CD, '002', '001', '004', '001', S.MEET_CD) MEET_CD
+	                                    FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+	                                           FROM   VW_SDL_INFO
+	                                           GROUP BY RACE_DAY) S,
+	                                          TBRK_SPEC_CD C
+	                                    WHERE 1=1
+	                                    AND   S.MEET_CD LIKE  ? || '%'
+	                                    AND   C.GRP_CD = '018'
+	                                    AND   C.DEL_YN = 'N'
+	                                    AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+	                                    AND   S.RACE_DAY >  '20160101'
+	                                    UNION ALL
+	                                    SELECT RACE_DAY  -- 휴장기 교차경주 처리
+	                                          ,C.CD AS BRNC_CD
+	                                          ,C.CD_NM AS COMM_NM
+	                                          ,'001' MEET_CD
+	                                    FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+	                                           FROM   VW_SDL_INFO
+	                                           GROUP BY RACE_DAY) S,
+	                                          TBRK_SPEC_CD C
+	                                    WHERE 1=1
+	                                    AND   S.MEET_CD IN ('002','004')
+	                                    AND   DECODE(?,'001',1,2) = 1 --경륜일 경우만 조회
+	                                    AND   C.GRP_CD = '018'
+	                                    AND   C.DEL_YN = 'N'
+	                                    AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+	                                    AND   S.RACE_DAY IN (SELECT CD FROM TBRK_SPEC_CD WHERE GRP_CD = '175')
+									) GROUP BY RACE_DAY, BRNC_CD, COMM_NM, MEET_CD
+                                 ) S                    
+                            WHERE S.RACE_DAY = T.TRADE_DATE
+                              AND S.BRNC_CD  = T.COMM_NO
+                              AND T.COMM_NO NOT IN ('00', '98')
+                              AND T.TRADE_DATE BETWEEN ? AND ?
+                           GROUP BY COMM_NO) 
+                    UNION ALL        
+                    --2016년 이후 본장 : 개별소비세(400원), 교육세(120원), 지점제외
+                    SELECT
+                            COMM_NO
+                           ,CNT_SUM
+                           ,PAY_CNT
+                           ,NOT_PAY_CNT
+                           ,REQUEST_FEE
+                           ,ROUND(REQUEST_FEE/1.1) SUPY_AMT
+                           ,(REQUEST_FEE - ROUND(REQUEST_FEE/1.1)) ADD_TAX
+                           ,CNT_SUM * 400 AS PRV_WST_TAX
+                           ,CNT_SUM * 120 AS EDU_TAX
+                    FROM (
+                          SELECT COMM_NO
+                                ,SUM(CNT) AS CNT_SUM
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS NOT_PAY_CNT
+                                ,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS REQUEST_FEE
+                           FROM (
+                                    SELECT TRADE_DATE
+                                          ,COMM_NO
+                                          ,CARD_USER_TYPE
+                                          ,FEE
+                                          ,CNT
+                                    FROM   TBRC_T_TRADE_SUM
+                                    UNION ALL
+                                    SELECT TRADE_DATE
+                                          ,'00'
+                                          ,DECODE(FEE,0,'1','4')
+                                          ,FEE
+                                          ,CNT
+                                    FROM  TBRC_T_TRADE_KM_SUM
+                                    WHERE 'N' = ?
+                                    UNION ALL
+                                    SELECT TRADE_DATE
+                                          ,'98'
+                                          ,DECODE(FEE,0,'1','4')
+                                          ,FEE
+                                          ,CNT
+                                    FROM  TBRC_T_TRADE_MSR_SUM
+                                    WHERE 'N' = ?
+                                    UNION ALL
+                                    SELECT * FROM FIXED_SEAT 
+                                    WHERE 'Y' = ?
+                                    UNION ALL
+                                    SELECT * FROM  LOCALRC
+                                    WHERE 'Y' = ?  --지방경정포함여부
+                                 )  T,
+                                 (
+                            	 	SELECT RACE_DAY, BRNC_CD, COMM_NM, MEET_CD FROM (
+	                                    SELECT RACE_DAY
+	                                          ,C.CD AS BRNC_CD
+	                                          ,C.CD_NM AS COMM_NM
+	                                          ,DECODE(S.MEET_CD, '002', '001', '004', '001', S.MEET_CD) MEET_CD
+	                                    FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+	                                           FROM   VW_SDL_INFO
+	                                           GROUP BY RACE_DAY) S,
+	                                          TBRK_SPEC_CD C
+	                                    WHERE 1=1
+	                                    AND   S.MEET_CD LIKE  ? || '%'
+	                                    AND   C.GRP_CD = '018'
+	                                    AND   C.DEL_YN = 'N'
+	                                    AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+	                                    AND   S.RACE_DAY >  '20160101'
+	                                    UNION ALL
+	                                    SELECT RACE_DAY  -- 휴장기 교차경주 처리
+	                                          ,C.CD AS BRNC_CD
+	                                          ,C.CD_NM AS COMM_NM
+	                                          ,'001' MEET_CD
+	                                    FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+	                                           FROM   VW_SDL_INFO
+	                                           GROUP BY RACE_DAY) S,
+	                                          TBRK_SPEC_CD C
+	                                    WHERE 1=1
+	                                    AND   S.MEET_CD IN ('002','004')
+	                                    AND   DECODE(?,'001',1,2) = 1  --경륜일 경우만 조회
+	                                    AND   C.GRP_CD = '018'
+	                                    AND   C.DEL_YN = 'N'
+	                                    AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+	                                    AND   S.RACE_DAY IN (SELECT CD FROM TBRK_SPEC_CD WHERE GRP_CD = '175')
+									) GROUP BY RACE_DAY, BRNC_CD, COMM_NM, MEET_CD
+                                 ) S                    
+                            WHERE S.RACE_DAY = T.TRADE_DATE
+                              AND S.BRNC_CD  = T.COMM_NO
+                              AND T.COMM_NO IN ('00', '98')
+                              AND T.COMM_NO <> DECODE( ?, '1', DECODE(S.MEET_CD,'001','00','98') ,'-') --경륜이면 00, 경정이면 98 제외  20150115 김수정 요청                              
+                              AND T.TRADE_DATE BETWEEN ? AND ?
+                           GROUP BY COMM_NO) ) A, TBRK_SPEC_CD C
+            WHERE A.COMM_NO = C.CD(+) AND C.GRP_CD(+) ='018'
+            GROUP BY C.ORD_NO, COMM_NO, C.CD_NM
+            ORDER BY C.ORD_NO, COMM_NO   
+        ]]>
+    </query> 
+    
+</queryMap>

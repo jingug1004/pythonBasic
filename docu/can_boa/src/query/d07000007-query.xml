@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="d07000007">
+    <query id="d07000007_s01" desc="조회" fetchSize="10">
+        <![CDATA[
+           SELECT  /* d07000007_s01 */
+                    '0' AS CHK 
+                   , TTA. TRNG_ASK_SEQ
+                   , TTA.TRNG_PLC_CD
+                   , TTA.TRNG_ASK_STR_DT
+                   , TTA.TRNG_ASK_END_DT
+                   , TTA.TRNG_ASK_DD_NUM
+                   , TTA.TRNG_ASK_STAT_CD
+                   , TTA.RMK
+                   , (
+                        SELECT COUNT(*) RACER_CNT
+                        FROM   TBDO_RACER_TRNG_MENTO_MAPP MAPP
+                        WHERE  MAPP.TRNG_ASK_SEQ = TAR.TRNG_ASK_SEQ
+                          AND  MAPP.MENTO_GRP_NO = TAR.MENTO_GRP_NO
+                     ) MENTEE_CNT
+                   ,TAR.MENTO_GRP_NO
+                   ,TAR.RACER_NO AS MENTO_RACER_NO
+                   ,(SELECT NM_KOR FROM MRASYS.TBEC_RACER_MASTER  RM WHERE RM.RACER_NO = TAR.RACER_NO) AS MENTOR_NM
+            FROM   MRASYS.TBEB_TRNG_ASK TTA
+                  ,MRASYS.TBEB_TRNG_ASK_RACER TAR
+            WHERE  TRNG_ASK_END_DT >= NVL( ?, TRNG_ASK_END_DT)
+            AND    TRNG_ASK_STR_DT <= NVL( ?, TRNG_ASK_STR_DT)
+            AND    TRNG_ASK_STAT_CD > '000'
+            AND    TTA.TRNG_ASK_SEQ = TAR.TRNG_ASK_SEQ
+            AND    TAR.MENTO_YN = '1'
+            ORDER BY TTA.TRNG_ASK_SEQ, TAR.MENTO_GRP_NO
+        ]]>
+    </query>
+    
+    <query id="d07000007_s02" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* d07000007_s02 */
+                    '0' AS CHK 
+                   ,RTM.TRNG_ASK_SEQ              --선수훈련번호
+			       ,RTM.MENTO_GRP_NO              --멘토그룹번호
+			       ,RTM.TRNG_DT                   --훈련일자
+			       ,RTM.TRNG_CONT                 --훈련내용
+                   , (
+                        SELECT COUNT(*) RACER_CNT
+                        FROM   TBDO_RACER_TRNG_MENTO_MAPP MAPP,
+                               MRASYS.TBEB_TRNG_ASK TTA
+                        WHERE  MAPP.MENTEE_TRNG_ASK_SEQ = TTA.TRNG_ASK_SEQ
+                           AND MAPP.TRNG_ASK_SEQ = RTM.TRNG_ASK_SEQ
+                           AND MAPP.MENTO_GRP_NO = RTM.MENTO_GRP_NO        
+                           AND RTM.TRNG_DT BETWEEN TTA.TRNG_ASK_STR_DT AND TTA.TRNG_ASK_END_DT        
+                     ) MENTEE_CNT
+			       ,(SELECT NM_KOR FROM MRASYS.TBEC_RACER_MASTER  RM WHERE RM.RACER_NO = TAR.RACER_NO) AS MENTOR_NM
+			 FROM TBDO_RACER_TRNG_MENTO RTM
+		         , MRASYS.TBEB_TRNG_ASK_RACER TAR
+		    WHERE RTM.TRNG_ASK_SEQ = TAR.TRNG_ASK_SEQ
+		    AND   RTM.MENTO_GRP_NO = TAR.MENTO_GRP_NO
+            AND   TAR.MENTO_YN = '1'
+			AND   RTM.TRNG_ASK_SEQ = ?
+			AND   RTM.MENTO_GRP_NO = ?
+            ORDER BY RTM.TRNG_DT
+        ]]>
+    </query>
+    
+    <query id="d07000007_s03" desc="멘티 조회" fetchSize="10">
+        <![CDATA[
+           SELECT  /* d07000007_s03 */
+                     '0' AS CHK 
+                   , MAPP.TRNG_ASK_SEQ
+                   , MAPP.MENTO_GRP_NO
+                   , MAPP.MENTO_RACER_NO
+                   , MAPP.MENTEE_TRNG_ASK_SEQ
+                   , MAPP.MENTEE_RACER_NO
+                   , MAPP.RMK
+                   ,(SELECT NM_KOR FROM MRASYS.TBEC_RACER_MASTER  RM WHERE RM.RACER_NO = MAPP.MENTEE_RACER_NO) AS MENTEE_RACER_NM
+            FROM    MRASYS.TBEB_TRNG_ASK       TTA
+                   ,TBDO_RACER_TRNG_MENTO_MAPP MAPP
+            WHERE  1=1
+            AND    TTA.TRNG_ASK_END_DT >= NVL( ?, TTA.TRNG_ASK_END_DT)
+            AND    TTA.TRNG_ASK_STR_DT <= NVL( ?, TTA.TRNG_ASK_STR_DT)
+            AND    TTA.TRNG_ASK_STAT_CD > '000'
+            AND    TTA.TRNG_ASK_SEQ = MAPP.TRNG_ASK_SEQ
+            ORDER BY TTA.TRNG_ASK_SEQ, MAPP.MENTO_GRP_NO
+        ]]>
+    </query>
+    
+    <query id="d07000007_s04" desc="멘토가 아닌 훈련선수 전체조회" fetchSize="10">
+        <![CDATA[
+           SELECT  /* d07000007_s04 */
+                     TAR.TRNG_ASK_SEQ
+                   , TAR.RACER_NO
+                   , RM.NM_KOR AS RACER_NM
+            FROM    MRASYS.TBEB_TRNG_ASK       TTA
+                   ,MRASYS.TBEB_TRNG_ASK_RACER TAR
+                   ,MRASYS.TBEC_RACER_MASTER   RM 
+            WHERE  TRNG_ASK_END_DT >= NVL( ?, TRNG_ASK_END_DT)
+            AND    TRNG_ASK_STR_DT <= NVL( ?, TRNG_ASK_STR_DT)
+            AND    TRNG_ASK_STAT_CD > '000'
+            AND    TTA.TRNG_ASK_SEQ = TAR.TRNG_ASK_SEQ
+            AND    NVL(TAR.MENTO_YN,'0') != '1'
+            AND    TAR.RACER_NO = RM.RACER_NO
+            ORDER BY TTA.TRNG_ASK_SEQ, TAR.MENTO_GRP_NO
+        ]]>
+    </query>
+    
+    <query id="d07000007_s05" desc="해당기간의 훈련선수 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* d07000007_s05 */
+                     DECODE(TAR.TRNG_ASK_SEQ||TAR.MENTO_GRP_NO, ?||?, '1', '0') AS CHK 
+                   , TAR.TRNG_ASK_SEQ
+                   , TTA.TRNG_ASK_DD_NUM
+                   , TAR.RACER_NO 
+                   ,(SELECT NM_KOR FROM MRASYS.TBEC_RACER_MASTER  RM WHERE RM.RACER_NO = TAR.RACER_NO) AS RACER_NM
+            FROM    MRASYS.TBEB_TRNG_ASK       TTA
+                   ,MRASYS.TBEB_TRNG_ASK_RACER TAR
+            WHERE  TRNG_ASK_END_DT >= ?
+            AND    TRNG_ASK_STR_DT <= ?
+            AND    TRNG_ASK_STAT_CD > '000'
+            AND    NVL(MENTO_YN,'0') <> '1'	--멘토는 제외(다른 요청번호의 멘토도 제외)
+            AND    TTA.TRNG_ASK_SEQ = TAR.TRNG_ASK_SEQ
+            ORDER BY TTA.TRNG_ASK_SEQ, TAR.MENTO_GRP_NO, TAR.RACER_NO
+        ]]>
+    </query>
+    
+      <query id="d07000007_m01" desc="훈련일지 자료 생성" fetchSize="10">
+        <![CDATA[
+       MERGE INTO /* d07000007_m01 */
+                  TBDO_RACER_TRNG_MENTO DST
+       USING (
+                     SELECT ? AS TRNG_ASK_SEQ,
+                            ? AS MENTO_GRP_NO,
+                            ? AS TRNG_DT, 
+                            ? AS TRNG_CONT,
+                            ? AS USER_ID
+                    FROM DUAL
+             )  SRC
+            ON (
+                      DST.TRNG_ASK_SEQ = SRC.TRNG_ASK_SEQ
+                  AND DST.MENTO_GRP_NO = SRC.MENTO_GRP_NO
+                  AND DST.TRNG_DT      = SRC.TRNG_DT
+            )            
+            WHEN MATCHED THEN
+                UPDATE SET
+                           DST.TRNG_CONT = SRC.TRNG_CONT  
+                          ,DST.UPDT_ID   = SRC.USER_ID
+                          ,DST.UPDT_DTM  = SYSDATE                          
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  TRNG_ASK_SEQ
+                , MENTO_GRP_NO
+                , TRNG_DT
+                , TRNG_CONT
+                , INST_ID
+                , INST_DTM
+               ) VALUES (
+                  SRC.TRNG_ASK_SEQ
+                , SRC.MENTO_GRP_NO
+                , SRC.TRNG_DT
+                , SRC.TRNG_CONT
+                , SRC.USER_ID                
+                , SYSDATE    
+              )
+              
+        ]]>
+    </query> 
+    
+      <query id="d07000007_m02" desc="멘토 정보 입력/수정" fetchSize="10">
+        <![CDATA[
+       MERGE INTO /* d07000007_m02 */
+                  TBDO_RACER_TRNG_MENTO_MAPP DST
+       USING (
+                     SELECT ? AS TRNG_ASK_SEQ,
+                            ? AS MENTO_GRP_NO,
+                            ? AS MENTEE_RACER_NO,
+                            ? AS MENTO_RACER_NO,
+                            ? AS MENTEE_TRNG_ASK_SEQ,
+                            ? AS RMK, 
+                            ? AS USER_ID
+                    FROM DUAL
+             )  SRC
+            ON (
+                      DST.TRNG_ASK_SEQ    = SRC.TRNG_ASK_SEQ
+                  AND DST.MENTO_GRP_NO    = SRC.MENTO_GRP_NO
+                  AND DST.MENTEE_RACER_NO = SRC.MENTEE_RACER_NO
+            )            
+            WHEN MATCHED THEN
+                UPDATE SET
+                           DST.RMK      = SRC.RMK  
+                          ,DST.UPDT_ID  = SRC.USER_ID
+                          ,DST.UPDT_DTM = SYSDATE                          
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  TRNG_ASK_SEQ
+                , MENTO_GRP_NO
+                , MENTEE_RACER_NO
+                , MENTO_RACER_NO
+                , MENTEE_TRNG_ASK_SEQ
+                , RMK
+                , INST_ID
+                , INST_DTM
+               ) VALUES (
+                  SRC.TRNG_ASK_SEQ
+                , SRC.MENTO_GRP_NO
+                , SRC.MENTEE_RACER_NO
+                , SRC.MENTO_RACER_NO
+                , SRC.MENTEE_TRNG_ASK_SEQ
+                , SRC.RMK
+                , SRC.USER_ID                
+                , SYSDATE    
+              )
+              
+        ]]>
+    </query> 
+    
+    <query id="d07000007_d01" desc="멘토 교육 내용 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE  /* d07000007_d01 */
+			FROM   TBDO_RACER_TRNG_MENTO
+			WHERE  TRNG_ASK_SEQ = ?
+			  AND  MENTO_GRP_NO = ?
+			  AND  TRNG_DT      = ?
+	    ]]>
+    </query>
+    
+    
+    <query id="d07000007_d02" desc="멘티선수삭제" fetchSize="10">
+		<![CDATA[
+			DELETE  /* d07000007_d02 */
+			FROM   TBDO_RACER_TRNG_MENTO_MAPP
+			WHERE  TRNG_ASK_SEQ = ?
+			  AND  MENTO_GRP_NO = ?
+			  AND  MENTEE_RACER_NO  = ?
+	    ]]>
+    </query>
+    
+    
+</queryMap>

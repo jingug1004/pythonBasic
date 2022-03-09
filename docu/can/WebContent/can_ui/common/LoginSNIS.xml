@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="440" Id="MBR" Left="8" OnKeyDown="fcHotKey" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="경륜후보생관리&#32;로그인" ToolTipFont="Default,0" Top="8" Ver="1.0" Width="786" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsOutUser">
+				<Contents></Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsOutReportFilePath" OnLoadCompleted="dsOutReportFilePath_OnLoadCompleted">
+				<Contents>
+					<colinfo id="REPORT_FILE_PATH" size="100" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsLoginInfo">
+				<Contents>
+					<colinfo id="USER_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="SEQ" size="256" summ="default" type="STRING"/>
+					<colinfo id="IP_ADDR" size="256" summ="default" type="STRING"/>
+					<colinfo id="LOGIN_TIME" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Image Height="440" Id="Image0" ImageID="login_bg_c" TabOrder="3" TabStop="FALSE" Width="786"></Image>
+		<Shape BKColor="#e8f2f2" Bottom="400" Height="65" Id="Shape0" Left="460" LineColor="#dce8e8" Right="771" RoundUnit="Pixel" TabOrder="7" Top="335" Type="RoundRect" Width="311"></Shape>
+		<Edit Border="Flat" BorderColor="#a9d7d7" Height="20" Id="edPswd" Left="545" LeftMargin="3" MaxLength="15" OnKeyDown="edPswd_OnKeyDown" Password="TRUE" TabOrder="2" Top="369" Width="140"></Edit>
+		<Edit Border="Flat" BorderColor="#a9d7d7" Height="20" Id="edUserId" Left="545" LeftMargin="3" MaxLength="6" TabOrder="1" Top="347" Width="140"></Edit>
+		<Button Height="20" Id="btn_close" ImageID="log_btn_close" Left="700" OnClick="fcCancel" TabOrder="4" TabStop="FALSE" Text="Button0" Top="50" Width="60"></Button>
+		<Static Align="Right" Color="#366767" Font="굴림,8,Bold" Height="20" Id="Static1" Left="470" TabOrder="5" Text="비밀번호" Top="369" VAlign="Middle" Width="70"></Static>
+		<Static Align="Right" Color="#366767" Font="굴림,8,Bold" Height="20" Id="Static2" Left="472" TabOrder="6" Text="사용자ID" Top="347" VAlign="Middle" Width="70"></Static>
+		<Button ButtonStyle="TRUE" Color="user55" DisableColor="user56" Height="43" Id="btn_login" ImageID="log_btn_login" Left="690" LeftMargin="14" OnClick="fcSearch" TabOrder="8" Top="347" Width="72"></Button>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+/****************************************************************************************************                                         공통 Script Include                                      ****************************************************************************************************/#include "lib::can_app_script.js";#include "lib::can_common_script.js";
+/****************************************************************************************************                                          화면 변수 선언부                                        ****************************************************************************************************/
+var bExitFlag = true;var nPosX = (getDeviceInfo("CXScreen")-386)/2;var nPosY = (getDeviceInfo("CYScreen")-152)/2;	var bPawdEnc = "N";var nLoginTryCnt = 0;
+/****************************************************************************************************                                         공통 Event 처리 부분                                     ****************************************************************************************************/
+
+/*-------------------------------------------------------------------------------------------------+>>  01. 최초 화면 Load時 처리 할 사항+-------------------------------------------------------------------------------------------------*/function fcFormLoadSetting(obj){
+    var sGlobalVal = getReg("GlobalVal");
+    var arr = Split(sGlobalVal, "|");
+    var AutoMnID   = arr[0];
+    var AutoUserID = arr[1];
+    var AutoUserPW = arr[2];
+    var EncUserPW  = arr[3];
+    if(AutoUserID != null && trim(AutoUserID) != "" && AutoUserPW != null && trim(AutoUserPW) != "") {
+        edUserId.Text = AutoUserID;
+        edPswd.Text = AutoUserPW;
+        if (EncUserPW == null) EncUserPW = "N";        else bPawdEnc = EncUserPW;
+        if (trim(AutoUserID) != "" && trim(AutoUserID) != null) {
+			edUserId.Text = AutoUserID;
+			setReg("GlobalVal", "");
+			fcAutoSearch(AutoUserID);
+		}
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------+>>  02. 화면 unLoad時 처리 할 사항+-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj){
+	if ( bExitFlag ) {	        exit();	}}
+/*-------------------------------------------------------------------------------------------------+>>  03. 단축키 처리(Form KeyDown)+-------------------------------------------------------------------------------------------------*/function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {	//Return Key Press時 Next Component focus	if (nChar==13) {			var oFocusComponent = GetNextComponent(true);
+				if(oFocusComponent.Id == "edPswd"){			fcSearch(this);		}
+		oFocusComponent.setfocus();			return;			}
+	if(nChar == 113){		fcSearch(btn_login, "Y");	}}
+/****************************************************************************************************                                      공통 버튼 Event 처리 부분                                   ****************************************************************************************************//*-------------------------------------------------------------------------------------------------+>>  01. 닫기(close) 버튼 클릭 時 처리+-------------------------------------------------------------------------------------------------*/function fcCancel(obj) {		exit();          					//프로그램 종료}
+/*-------------------------------------------------------------------------------------------------+>>  02. 조회 버튼 클릭 時 처리+-------------------------------------------------------------------------------------------------*/function fcSearchCheck(obj) {
+	if( fnc_IsNull(edUserId.Text) ) {			// 기수 누락			alert('사용자 아이디를 입력하세요!');			edUserId.SetFocus();			return false;	}
+	if( fnc_IsNull(edPswd.Text) ) {			// 기수 누락			alert('비밀번호를 입력하세요!');			edPswd.SetFocus();			return false;	}
+	return true;}
+
+function fcSearch(obj) {    if ( !fcSearchCheck(obj) ) return;
+	var sUserIp = ext_GetIPAddress();	var sServiceName = "common_login-service:searchUser";    var sInDataSet   = "";    var sOutDataSet  = "dsOutUser=dsOutUser";
+    fcd_AddParam("USER_ID",  Trim(edUserId.Text));    fcd_AddParam("PSWD",     Trim(edPswd.Text));    fcd_AddParam("USER_IP",  Trim(sUserIp));    fcd_AddParam("PSWD_ENC", bPawdEnc);    
+
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);}
+
+/**  * 로그인 오류 메세지창(popupDiv) 닫기 */function PopupDiv0_btn_confirm_OnClick(obj){	PopupDiv0.ClosePopup();}
+/****************************************************************************************************                                      사용자 정의  처리 부분                                      ****************************************************************************************************//*-------------------------------------------------------------------------------------------------+>>  01. Transaction 후 처리 해야 할 내용!+-------------------------------------------------------------------------------------------------*/function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;    InitSession(true);	// 조회 후
+	if(sServiceName == "common_login-service:searchUser" ) {        if ( dsOutUser.GetRowCount() == 0 ) {            fnc_Message(SNIS_COM_0003, "N");            edUserId.Text = "";            edPswd.Text   = "";            bPawdEnc = "N";            return;        }
+		//로그인 오류횟수 초기화
+        if ( dsOutUser.GetColumn(dsOutUser.currow, "PSWD_CHK") == "5") {
+			var loginTime = dsOutUser.GetColumn(dsOutUser.currow, "LOGIN_DT");
+			var todayTime = substr(GetDate(),0,12);
+			var difTime = toNumber(todayTime) - toNumber(loginTime);
+			
+			if(difTime < 30){
+				fnc_Message(SNIS_COM_1037, "N");
+				return;
+			}
+			else{
+				//로그인 오류횟수,시간 초기화
+				fcSaveLoginPswdReset();
+			}
+        }
+        
+        if ( dsOutUser.GetColumn(dsOutUser.currow, "ISVALID") != "T" ) {        //if ( dsOutUser.GetColumn(dsOutUser.currow, "PSWD") != edPswd.Text ) {            fnc_Message(SNIS_COM_0004, "N");            edPswd.Text   = "";            bPawdEnc = "N";			nLoginTryCnt++;
+			
+			//로그인 오류횟수 check용 정보 입력
+            fcSaveLoginPswdChk();
+            
+            // 3번 비번이 틀리면 창이 닫히도록 처리.
+			if( nLoginTryCnt > 2 )
+			{
+				fcCancel();
+			}
+			else
+				return;        }        
+        //로그인 오류횟수,시간 초기화
+		fcSaveLoginPswdReset();
+				bExitFlag = false;		gdsUser.Copy(dsOutUser);
+		fcSaveLogin();		        //close();
+        	}else if ( sServiceName == "common_login-service:searchUserAuto" ) {// 조회 후        if (dsOutUser.GetRowCount() == 0) {			fnc_Message(SNIS_COM_0003, "N");			edUserId.Text = "";			edPswd.Text   = "";			nLoginTryCnt++;
+		
+			//로그인 오류횟수 check용 정보 입력
+            fcSaveLoginPswdChk();
+            
+			// 3번 비번이 틀리면 창이 닫히도록 처리.
+			if( nLoginTryCnt > 2 )
+			{
+				fcCancel();
+			}
+			else
+				return;		}
+		
+		//로그인 오류횟수 초기화
+        if ( dsOutUser.GetColumn(dsOutUser.currow, "PSWD_CHK") == "5") {
+			var loginTime = dsOutUser.GetColumn(dsOutUser.currow, "LOGIN_DT");
+			var todayTime = substr(GetDate(),0,12);
+			var difTime = toNumber(todayTime) - toNumber(loginTime);
+			
+			if(difTime < 30){
+				fnc_Message(SNIS_COM_1037, "N");
+				return;
+			}
+			else{
+				//로그인 오류횟수,시간 초기화
+				fcSaveLoginPswdReset();
+			}
+        }
+        
+		//로그인 오류횟수,시간 초기화
+		fcSaveLoginPswdReset();
+		
+		bExitFlag = false;		gdsUser.Copy(dsOutUser);		fcSaveLogin();
+		//close();	}
+	
+	// 로그인 정보 저장 후 개인정보조회기록을 위한 seq 저장.
+	else if (sServiceName == "common_login-service:saveLogin") {
+		fcSearchLoginInfo();
+		//close();
+	}
+	// 로그인 seq 저장. (개인정보조회기록 시 사용)
+	else if (sServiceName == "common_login-service:searchLoginInfo") {
+		gdsUser.SetColumn(0, "LOG_SEQ", dsLoginInfo.GetColumn(0, "SEQ"));
+		//alert(gdsUser.GetColumn(0, "LOG_SEQ"));
+		close();
+	}}
+/*-------------------------------------------------------------------------------------------------+>>  03. 오류메시지 DisPlay 처리(Session이 참이 아닌 상태에서는 파업이 않됨)+-------------------------------------------------------------------------------------------------*/function fcMessage(sMessage){	PopDivMessage.ta_msg.Text = sMessage;	PopDivMessage.TrackPopup(nPosX,nPosY); }
+/*-------------------------------------------------------------------------------------------------+>>  03. 오류메시지 DisPlay 처리(Session이 참이 아닌 상태에서는 파업이 않됨)+-------------------------------------------------------------------------------------------------*/function fcPopupDivClose(obj){	PopDivMessage.ClosePopup();}
+/*-------------------------------------------------------------------------------------------------+>>+-------------------------------------------------------------------------------------------------*/function edPswd_OnKeyDown(obj, nChar, bShift, bCtrl, bAlt, LLParam, HLParam) {
+	if (nChar == 13) {		fcSearch(obj);	}}
+/*-------------------------------------------------------------------------------------------------+>> 자동로그인 +-------------------------------------------------------------------------------------------------*/function fcAutoSearch(AUTOUSERID) {
+	var sServiceName = "common_login-service:searchUserAuto";	var sInDataSet   = "";	var sOutDataSet  = "dsOutUser=dsOutUser";
+	fcd_AddParam("USER_ID", AUTOUSERID);
+	fcd_AddParam("AUTO_LOGIN", "Y");
+	
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);}
+
+/*-------------------------------------------------------------------------------------------------+
+>> 로그인 기록 저장 
++-------------------------------------------------------------------------------------------------*/
+function fcSaveLogin(obj) {
+
+	var sServiceName = "";
+	var sInDataSet   = "";
+	var sOutDataSet  = "";    
+	
+	sServiceName = "common_login-service:saveLogin";
+	
+	fcd_AddParam("USER_ID", edUserId.Text);
+	fcd_AddParam("IP_ADDR", Replace( Replace(ext_GetIPAddress(),"[",""), "]", "") );
+
+	http.sync = true;
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+    http.sync = false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>> 최종 로그인 정보 jdlee 201340511
++-------------------------------------------------------------------------------------------------*/
+function fcSearchLoginInfo() {
+	var sServiceName = "common_login-service:searchLoginInfo";
+	var sInDataSet   = "";
+	var sOutDataSet  = "dsLoginInfo=dsLoginInfo";
+
+	fcd_AddParam("USER_ID", edUserId.Text);
+
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+//로그인 오류횟수 check용 정보 입력
+function fcSaveLoginPswdChk(obj){
+	var sServiceName = "common_login-service:saveLoginPswdChk";
+    var sInDataSet   = "";
+    var sOutDataSet  = "";
+    
+    fcd_AddParam("USER_ID",  Trim(edUserId.Text));
+    
+    fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+
+//로그인 오류횟수/시간 초기화
+function fcSaveLoginPswdReset(obj){
+	var sServiceName = "common_login-service:saveLoginPswdReset";
+    var sInDataSet   = "";
+    var sOutDataSet  = "";
+    
+    fcd_AddParam("USER_ID",  Trim(edUserId.Text));
+    
+    fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+]]></Script>
+</Window>

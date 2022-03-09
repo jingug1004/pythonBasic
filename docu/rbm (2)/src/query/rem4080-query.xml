@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem4080(티머니 입장통계 조회 )">
+  
+    <query id="rem4080_s01" desc="요일별 지점별 입장현황 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rem4080_s01 */
+			        COMM_NO, C.CD_NM AS COMM_NM
+			       ,NVL(SUM(DECODE(TRADE_DAY, '2', CNT)),0) AS CNT_2
+			       ,NVL(SUM(DECODE(TRADE_DAY, '3', CNT)),0) AS CNT_3
+			       ,NVL(SUM(DECODE(TRADE_DAY, '4', CNT)),0) AS CNT_4
+			       ,NVL(SUM(DECODE(TRADE_DAY, '5', CNT)),0) AS CNT_5
+			       ,NVL(SUM(DECODE(TRADE_DAY, '6', CNT)),0) AS CNT_6
+			       ,NVL(SUM(DECODE(TRADE_DAY, '7', CNT)),0) AS CNT_7
+			       ,NVL(SUM(DECODE(TRADE_DAY, '1', CNT)),0) AS CNT_1
+			       ,NVL(SUM(CNT),0) AS CNT_SUM
+			FROM  (
+			        SELECT TRADE_DATE, COMM_NO, 
+			        CASE WHEN COMM_NO='00' THEN DECODE(?,'Y',CNT,0) ELSE CNT END AS CNT,
+			        TO_CHAR(TO_DATE(TRADE_DATE,'yyyymmdd'), 'd') AS TRADE_DAY
+			        FROM   TBRC_T_TRADE_SUM --현금입장인원 데이터가 없음
+			        WHERE  TRADE_DATE BETWEEN ? AND ?
+			        
+			        --광명입장권
+			        UNION ALL
+			        SELECT TRADE_DATE, '00', (SUM(CNT) - SUM(DECODE(?,'Y',K_CNT,0))) AS CNT, TO_CHAR(TO_DATE(TRADE_DATE,'yyyymmdd'), 'd') AS TRADE_DAY
+			        FROM   TBRC_T_TRADE_RACE_SUM
+			        WHERE  TRADE_DATE BETWEEN ? AND ?
+			        AND    COMM_NO IN ('00', '98')
+			        AND    'N' = ?
+              		GROUP BY TRADE_DATE
+			        
+                    --미사리입장권
+                    UNION ALL
+			        SELECT TRADE_DATE, '98', CNT, TO_CHAR(TO_DATE(TRADE_DATE,'yyyymmdd'), 'd') AS TRADE_DAY
+			        FROM   TBRC_T_TRADE_MSR_SUM
+			        WHERE  TRADE_DATE BETWEEN ? AND ?
+			        AND    'N' = ?        
+			      )X
+			      ,TBRK_SPEC_CD C
+			      ,(SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+                    FROM   VW_SDL_INFO
+                    GROUP BY RACE_DAY) I
+			      ,( 
+                        SELECT RACE_DAY
+                              ,C.CD AS BRNC_CD
+                              ,C.CD_NM AS COMM_NM
+                        FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+	                               FROM   VW_SDL_INFO
+	                               GROUP BY RACE_DAY) S,
+                              TBRK_SPEC_CD C
+                        WHERE 1=1
+                        --AND   S.MEET_CD IN ('001','003')  --교차만 시행하는 경우 땜시(2014.8.8)
+                        AND   C.GRP_CD = '018'
+                        AND   C.DEL_YN = 'N'
+                        AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+                        AND   S.MEET_CD LIKE ?||'%' 
+                        AND   S.RACE_DAY BETWEEN ? AND ?
+                    ) S
+			WHERE 1=1
+			AND   X.TRADE_DATE = I.RACE_DAY
+			--AND   I.MEET_CD IN ('001','003')
+			AND   X.TRADE_DATE = S.RACE_DAY
+			AND   X.COMM_NO    = S.BRNC_CD
+			AND   I.MEET_CD LIKE ?||'%'
+			AND   X.COMM_NO = C.CD(+)
+			AND   C.GRP_CD(+) = '018'
+			GROUP BY COMM_NO, C.CD_NM
+			ORDER BY 1          
+        ]]>
+    </query> 
+    
+    <query id="rem4080_s02" desc="경주별 입장통계  조회" fetchSize="10">
+      <![CDATA[
+			WITH STAY_MANA AS( /* rem4080_s02 */
+			           SELECT     
+			               RACE_NO,  
+			               SUM(ENT_PRSN_NUM) TOT_PRSN_NUM, 
+			               SUM(DECODE(DNUM,'2',ENT_PRSN_NUM)) MON_PRSN_NUM ,
+			               SUM(DECODE(DNUM,'3',ENT_PRSN_NUM)) TUE_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'4',ENT_PRSN_NUM)) WEN_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'5',ENT_PRSN_NUM)) THU_PRSN_NUM ,  
+			               SUM(DECODE(DNUM,'6',ENT_PRSN_NUM)) FRI_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'7',ENT_PRSN_NUM)) SAT_PRSN_NUM , 
+			               SUM(DECODE(DNUM,'1',ENT_PRSN_NUM)) SUN_PRSN_NUM ,
+			               COUNT(DISTINCT DNUM) DAYCNT
+			           FROM (
+			                 SELECT *
+			                   FROM (
+					                 SELECT TRADE_DATE, COMM_NO, MEET_CD,
+					                        DECODE(RACE_NO,0,1,RACE_NO) RACE_NO,
+					                        TO_CHAR(TO_DATE(TRADE_DATE,'YYYYMMDD'),'D') DNUM,
+					                        SUM(CNT) 
+					                        + SUM(CASE WHEN COMM_NO = '00' AND CARD_USER_TYPE = '4' AND ? = 'Y' THEN K_CNT ELSE 0 END) --광명 현금입장권 포함
+					                        + SUM(CASE WHEN COMM_NO = '98' AND CARD_USER_TYPE = '4' AND ? = 'Y' THEN K_CNT ELSE 0 END) --미사리 현금입장권 포함 
+					                        AS ENT_PRSN_NUM
+					                   FROM TBRC_T_TRADE_RACE_SUM --현금입장인원 데이터가 포함
+					                 WHERE 1 = 1
+					                 GROUP BY TRADE_DATE, COMM_NO, MEET_CD,
+					                          DECODE(RACE_NO,0,1,RACE_NO),
+					                          TO_CHAR(TO_DATE(TRADE_DATE,'YYYYMMDD'),'D')
+					                ) T 
+								    ,( 
+				                        SELECT RACE_DAY
+				                              ,C.CD AS BRNC_CD
+				                              ,C.CD_NM AS COMM_NM
+				                        FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+                                               FROM   VW_SDL_INFO
+                                               GROUP BY RACE_DAY) S,
+				                              TBRK_SPEC_CD C
+				                        WHERE 1=1
+				                        AND   C.GRP_CD = '018'
+				                        AND   C.DEL_YN = 'N'
+				                        AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+				                        AND   S.MEET_CD LIKE ?||'%' 
+				                        AND   S.RACE_DAY BETWEEN ? AND ?
+					                  ) S
+			                  WHERE  T.TRADE_DATE >= ?
+			                  AND    T.TRADE_DATE <= ?
+			                  AND    T.MEET_CD  LIKE ?
+			                  AND    T.COMM_NO  LIKE ?||'%' 
+							  AND    T.TRADE_DATE = S.RACE_DAY
+							  AND    T.COMM_NO    = S.BRNC_CD
+			             --GROUP BY DECODE(RACE_NO,0,1,RACE_NO) ,TO_CHAR(TO_DATE(TRADE_DATE,'YYYYMMDD'),'D')
+			          ) E
+			      GROUP BY E.RACE_NO 
+			   )                               
+			   SELECT  
+			     A.RACE_NO 
+			    ,A.TOT_PRSN_NUM                
+			    ,ROUND(DECODE(A.DAYCNT,0,0, A.TOT_PRSN_NUM/A.DAYCNT)) DAVG
+			    ,A.MON_PRSN_NUM
+			    ,A.TUE_PRSN_NUM
+			    ,A.WEN_PRSN_NUM
+			    ,A.THU_PRSN_NUM
+			    ,A.FRI_PRSN_NUM
+			    ,A.SAT_PRSN_NUM
+			    ,A.SUN_PRSN_NUM
+			   FROM STAY_MANA A
+				ORDER BY A.RACE_NO
+
+        ]]>
+    </query> 
+    
+    <query id="rem4080_s03" desc="경주별 회차별 입장인원  조회" fetchSize="10">
+      <![CDATA[
+			WITH X AS /* rem4080_s03 */
+			(
+			    SELECT A.TMS
+			          ,A.RACE_NO
+			          ,SUM(CNT) AS CNT
+			          ,COUNT(DISTINCT RACE_NO) CT
+			    FROM  (
+			          SELECT *
+			                   FROM (
+					                 SELECT T.TRADE_DATE, T.COMM_NO, T.MEET_CD, V.TMS,
+					                        DECODE(T.RACE_NO,0,1,T.RACE_NO) RACE_NO,
+					                        SUM(T.CNT)
+						                     + SUM(CASE WHEN COMM_NO = '00' AND CARD_USER_TYPE = '4' AND ? = 'Y' THEN K_CNT ELSE 0 END) --광명 현금입장권 포함
+					                         + SUM(CASE WHEN COMM_NO = '98' AND CARD_USER_TYPE = '4' AND ? = 'Y' THEN K_CNT ELSE 0 END) --미사리 현금입장권 포함 
+					                        AS CNT
+					                   FROM TBRC_T_TRADE_RACE_SUM T,
+					                        VW_SDL_INFO V					                   
+					                  WHERE 1 = 1
+					                  AND   T.TRADE_DATE = V.RACE_DAY
+			          				  AND   V.MEET_CD IN ('001','003')
+					                 GROUP BY T.TRADE_DATE, T.COMM_NO, T.MEET_CD, V.TMS,
+					                          DECODE(T.RACE_NO,0,1,T.RACE_NO)
+
+					                ) T
+						    ,( 
+			                        SELECT RACE_DAY
+			                              ,C.CD AS BRNC_CD
+			                              ,C.CD_NM AS COMM_NM
+			                        FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+	                                       FROM   VW_SDL_INFO
+	                                       GROUP BY RACE_DAY) S,
+			                              TBRK_SPEC_CD C
+			                        WHERE 1=1
+			                        --AND   S.MEET_CD IN ('001','003')
+			                        AND   C.GRP_CD = '018'
+			                        AND   C.DEL_YN = 'N'
+			                        AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+			                        AND   S.MEET_CD LIKE ?||'%' 
+			                        AND   S.RACE_DAY BETWEEN ? AND ?
+			                  ) S		          
+        			  WHERE T.MEET_CD LIKE ?||'%'
+			          AND   TRADE_DATE BETWEEN ? AND ?
+			          AND   COMM_NO LIKE ?||'%'
+					  AND   T.TRADE_DATE = S.RACE_DAY
+					  AND   T.COMM_NO    = S.BRNC_CD
+			          ) A
+			    WHERE A.CNT > 0
+			    GROUP BY A.TMS, A.RACE_NO
+			)
+			SELECT TMS, CUM1, CUM2, CUM3, CUM4, CUM5, CUM6, CUM7, CUM8, CUM9, CUM10,
+		            CUM11, CUM12, CUM13, CUM14, CUM15, CUM16, CUM17, CUM18,
+		            SUM(CUM1+CUM2+CUM3+CUM4+CUM5+CUM6+CUM7+CUM8+CUM9+CUM10+CUM11+CUM12+CUM13+CUM14+CUM15+CUM16+CUM17+CUM18) AS CUM_SUM,
+		            CUM_AVG
+		        FROM (
+		              SELECT  TMS 
+		                     ,SUM(DECODE(RACE_NO,1,CNT,0)) AS CUM1
+		                     ,SUM(DECODE(RACE_NO,2,CNT,0)) AS CUM2
+		                     ,SUM(DECODE(RACE_NO,3,CNT,0)) AS CUM3
+		                     ,SUM(DECODE(RACE_NO,4,CNT,0)) AS CUM4
+		                     ,SUM(DECODE(RACE_NO,5,CNT,0)) AS CUM5
+		                     ,SUM(DECODE(RACE_NO,6,CNT,0)) AS CUM6
+		                     ,SUM(DECODE(RACE_NO,7,CNT,0)) AS CUM7
+		                     ,SUM(DECODE(RACE_NO,8,CNT,0)) AS CUM8
+		                     ,SUM(DECODE(RACE_NO,9,CNT,0)) AS CUM9
+		                     ,SUM(DECODE(RACE_NO,10,CNT,0)) AS CUM10
+		                     ,SUM(DECODE(RACE_NO,11,CNT,0)) AS CUM11
+		                     ,SUM(DECODE(RACE_NO,12,CNT,0)) AS CUM12
+		                     ,SUM(DECODE(RACE_NO,13,CNT,0)) AS CUM13
+		                     ,SUM(DECODE(RACE_NO,14,CNT,0)) AS CUM14
+		                     ,SUM(DECODE(RACE_NO,15,CNT,0)) AS CUM15
+		                     ,SUM(DECODE(RACE_NO,16,CNT,0)) AS CUM16
+		                     ,SUM(DECODE(RACE_NO,17,CNT,0)) AS CUM17
+		                     ,SUM(DECODE(RACE_NO,18,CNT,0)) AS CUM18
+		                     ,ROUND(SUM(CNT)/SUM(CT)) AS CUM_AVG
+		              FROM X
+		              GROUP BY TMS
+		          )    
+			GROUP BY  TMS, CUM1, CUM2, CUM3, CUM4, CUM5, CUM6, CUM7, CUM8, CUM9, CUM10,
+			            CUM11, CUM12, CUM13, CUM14, CUM15, CUM16, CUM17, CUM18, CUM_AVG  
+			ORDER BY 1   
+
+         ]]>
+    </query> 
+    
+    <query id="rem4080_s04" desc="요일별 회차별 입장현황 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rem4080_s04 */
+			        TMS AS COMM_NM
+			       ,NVL(SUM(DECODE(TRADE_DAY, '2', CNT)),0) AS CNT_2
+			       ,NVL(SUM(DECODE(TRADE_DAY, '3', CNT)),0) AS CNT_3
+			       ,NVL(SUM(DECODE(TRADE_DAY, '4', CNT)),0) AS CNT_4
+			       ,NVL(SUM(DECODE(TRADE_DAY, '5', CNT)),0) AS CNT_5
+			       ,NVL(SUM(DECODE(TRADE_DAY, '6', CNT)),0) AS CNT_6
+			       ,NVL(SUM(DECODE(TRADE_DAY, '7', CNT)),0) AS CNT_7
+			       ,NVL(SUM(DECODE(TRADE_DAY, '1', CNT)),0) AS CNT_1
+			       ,NVL(SUM(CNT),0) AS CNT_SUM
+			FROM  (
+			        SELECT TRADE_DATE, COMM_NO, 
+			        --CNT, 
+			        CASE WHEN COMM_NO='00' THEN DECODE(?,'Y',CNT,0) ELSE CNT END AS CNT,
+			        TO_CHAR(TO_DATE(TRADE_DATE,'yyyymmdd'), 'd') AS TRADE_DAY
+			        FROM   TBRC_T_TRADE_SUM
+			        WHERE  TRADE_DATE BETWEEN ? AND ?
+			        
+			        --광명입장권
+			        UNION ALL
+			        --SELECT TRADE_DATE, '00', CNT, TO_CHAR(TO_DATE(TRADE_DATE,'yyyymmdd'), 'd') AS TRADE_DAY
+			        --FROM   TBRC_T_TRADE_KM_SUM
+			        --WHERE  TRADE_DATE BETWEEN ? AND ?
+			        --AND    '1' = ?
+			        
+			        SELECT TRADE_DATE, '00', (SUM(CNT) - SUM(DECODE(?,'Y',K_CNT,0))) AS CNT, TO_CHAR(TO_DATE(TRADE_DATE,'yyyymmdd'), 'd') AS TRADE_DAY
+			        FROM   TBRC_T_TRADE_RACE_SUM
+			        WHERE  TRADE_DATE BETWEEN ? AND ?
+			        AND    COMM_NO = '00'
+			        AND    'N' = ?
+              		GROUP BY TRADE_DATE
+              		
+			        --지정좌석실
+                    UNION ALL                                        
+                    SELECT ISSUE_DT 
+                          ,COMM_NO
+                          ,COUNT(*) AS CNT
+                          ,TO_CHAR(TO_DATE(ISSUE_DT,'yyyymmdd'),'d') 
+                    FROM  TBRC_FS_TRADE
+                    WHERE 1=1
+                    AND   COMM_NO IN ('21','26')
+                    AND   ISSUE_DT BETWEEN ? AND ?
+                    AND   'N' =  ?
+                    GROUP BY ISSUE_DT, COMM_NO
+                    --미사리입장권
+                    UNION ALL
+			        SELECT TRADE_DATE, '98', CNT, TO_CHAR(TO_DATE(TRADE_DATE,'yyyymmdd'), 'd') AS TRADE_DAY
+			        FROM   TBRC_T_TRADE_MSR_SUM
+			        WHERE  TRADE_DATE BETWEEN ? AND ?
+			        AND    'N' = ?    
+			      ) X
+			      ,( 
+                        SELECT RACE_DAY
+                              ,C.CD AS BRNC_CD
+                              ,C.CD_NM AS COMM_NM
+                              ,S.MEET_CD
+                              ,S.TMS
+                        FROM  VW_SDL_INFO S,
+                              TBRK_SPEC_CD C
+                        WHERE 1=1
+                        AND   S.MEET_CD IN ('001','003')
+                        AND   C.GRP_CD = '018'
+                        AND   C.DEL_YN = 'N'
+                        AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+                        AND   S.MEET_CD LIKE ?||'%' 
+                        AND   S.RACE_DAY BETWEEN ? AND ?
+                    ) S
+			WHERE 1=1
+			AND   X.TRADE_DATE = S.RACE_DAY
+			AND   S.MEET_CD IN ('001','003')
+			AND   X.COMM_NO    = S.BRNC_CD
+			AND   S.MEET_CD LIKE ?||'%'
+			GROUP BY TMS
+			ORDER BY 1          
+        ]]>
+    </query> 
+    
+</queryMap>

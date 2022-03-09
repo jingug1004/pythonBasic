@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="(총괄평가표)"> 
+
+    <query id="tbdn_total_d06000021_fn002" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			   
+			   SELECT  CD  RACER_PERIO_NO
+				 FROM  TBDM_SPEC_CD
+				 WHERE GRP_CD  = 'D10000'
+				 ORDER BY CD DESC
+		]]>
+    </query>
+    
+    <query id="tbdn_total_d06000021_fn001" desc="총괄평가표 조회" fetchSize="10">
+		<![CDATA[
+              SELECT	
+				 RACER_PERIO_NO	
+				,ROUND          	
+				,CAND_NO		
+				,FC_CAND_NM_003(CAND_NO) NM_KOR
+				,(SELECT SEX FROM TBDN_CAND_IDENT WHERE CAND_NO = TBDN_ESTM_ITEM_TOT.CAND_NO) GENDER
+				,(SELECT (TO_CHAR(SYSDATE,'YYYY') -SUBSTR(BIRTH, 1, 4) +1) FROM TBDN_CAND_IDENT WHERE CAND_NO = TBDN_ESTM_ITEM_TOT.CAND_NO) AGE
+				,TOT_AVG_SCR			
+				,TOT_RSLT		
+				,TOT_RANK				
+				,WRTN_SCR01		
+				,WRTN_SCR03		
+				,WRTN_SCR04
+				,WRTN_TOT_SCR		
+				,WRTN_AVG_SCR		
+				,WRTN_CHG_SCR		
+				,WRTN_WORN_CNT		
+				,WRTN_RANK
+				,DECODE(WRTN_WORN_CNT,0,'001',1,'002','003') WRTN_RSLT				
+				,STRT_SCR_001		
+				,STRT_SCR_002		
+				,STRT_SCR_003		
+				,STRT_SCR_004		
+				,STRT_SCR_005		
+				,STRT_SCR_006		
+				,STRT_SCR_007		
+				,STRT_SCR_008		
+				,STRT_TOT_SCR		
+				,STRT_AVG_SCR		
+				,STRT_CHG_SCR		
+				,STRT_WORN_CNT		
+				,STRT_RANK				
+				,DECODE(STRT_WORN_CNT,0,'001',1,'002','003') STRT_RSLT
+				,PILOT_SCR_1			
+				,PILOT_SCR_2			
+				,PILOT_SCR_3			
+				,PILOT_TOT_SCR		
+				,PILOT_AVG_SCR		
+				,PILOT_CHG_SCR		
+				,PILOT_WORN_CNT	
+				,PILOT_RANK			
+				,DECODE(PILOT_WORN_CNT,0,'001',1,'002','003') PILOT_RSLT
+				,MOTOR_SCR_1			
+				,MOTOR_SCR_2			
+				,MOTOR_SCR_3			
+				,MOTOR_TOT_SCR		
+				,MOTOR_AVG_SCR		
+				,MOTOR_CHG_SCR		
+				,MOTOR_WORN_CNT	
+				,MOTOR_RANK	
+				,DECODE(MOTOR_WORN_CNT,0,'001',1,'002','003') MOTOR_RSLT		
+				,BINSP_ECG				
+				,BINSP_WGHT			
+				,BINSP_HGHT			
+				,BINSP_BLOD_PRES	
+				,BINSP_WORN_CNT	
+				,DECODE(BINSP_WORN_CNT,0,'001',1,'002','003') BINSP_RSLT
+				,PILOT_PASS
+				,MOTOR_PASS
+				,STRT_PASS
+			FROM TBDN_ESTM_ITEM_TOT	
+			WHERE 1=1
+			AND RACER_PERIO_NO = ?
+			AND ROUND          = ?
+			ORDER BY CAND_NO
+	    ]]>
+	    
+    </query>
+    
+	<query id="tbdn_total_d06000021_dn001" desc="총괄평가표 삭제" fetchSize="10">
+		<![CDATA[
+            DELETE FROM TBDN_ESTM_ITEM_TOT	
+			WHERE 1=1
+			AND RACER_PERIO_NO = ?
+			AND ROUND          = ?
+	    ]]>
+    </query>
+
+	<query id="tbdn_total_d06000021_in001" desc="총괄평가표 입력" fetchSize="10">
+		<![CDATA[
+		INSERT INTO TBDN_ESTM_ITEM_TOT (
+			SELECT
+			     A.RACER_PERIO_NO
+				,A.ROUND
+				,A.CAND_NO
+				,(A.CHG_SCR + B.CHG_SCR + C.CHG_SCR + D.CHG_SCR)  AS TOT_AVG_SCR
+				,CASE WHEN A.WORN_CNT+B.WORN_CNT+C.WORN_CNT+D.WORN_CNT+E.WORN_CNT = 0  THEN '001' --합격
+				      WHEN A.WORN_CNT+B.WORN_CNT+C.WORN_CNT+D.WORN_CNT+E.WORN_CNT < 1  THEN '002' --경고
+				      WHEN A.WORN_CNT+B.WORN_CNT+C.WORN_CNT+D.WORN_CNT+E.WORN_CNT >= 1 THEN '003' --불합격
+				      ELSE '009'
+				 END AS TOT_RSLT
+				--,RANK() OVER(ORDER BY (CASE WHEN A.WORN_CNT+B.WORN_CNT+C.WORN_CNT+D.WORN_CNT+E.WORN_CNT > 1 THEN 0 ELSE 1 END)*(A.TOT_SCR+B.TOT_SCR+C.TOT_SCR+D.TOT_SCR) DESC ) TOT_RANK
+				,RANK() OVER(ORDER BY (CASE WHEN A.WORN_CNT+B.WORN_CNT+C.WORN_CNT+D.WORN_CNT+E.WORN_CNT > 1 THEN 0 ELSE 1 END)*(A.CHG_SCR + B.CHG_SCR + C.CHG_SCR + D.CHG_SCR) DESC ) TOT_RANK
+				,'N' AS CFM_YN
+				,A.SCR01   AS  WRTN_SCR01
+				,''		   AS  WRTN_SCR02
+				,A.SCR03   AS  WRTN_SCR03
+				,A.SCR04   AS  WRTN_SCR04
+				,A.TOT_SCR   AS  WRTN_TOT_SCR
+				,A.AVG_SCR   AS  WRTN_AVG_SCR
+				,A.CHG_SCR   AS  WRTN_CHG_SCR
+				,A.WORN_CNT  AS  WRTN_WORN_CNT
+				,A.RANK      AS  WRTN_RANK
+				,B.SCR_001   AS  STRT_SCR_001
+				,B.SCR_002   AS  STRT_SCR_002
+				,B.SCR_003   AS  STRT_SCR_003
+				,B.SCR_004   AS  STRT_SCR_004
+				,B.SCR_005   AS  STRT_SCR_005
+				,B.SCR_006   AS  STRT_SCR_006
+				,B.SCR_007   AS  STRT_SCR_007
+				,B.SCR_008   AS  STRT_SCR_008
+				,B.TOT_SCR   AS  STRT_TOT_SCR
+				,B.AVG_SCR   AS  STRT_AVG_SCR
+				,B.CHG_SCR   AS  STRT_CHG_SCR
+				,B.WORN_CNT  AS  STRT_WORN_CNT
+				,B.RANK      AS  STRT_RANK
+				,C.SCR_1     AS  PILOT_SCR_1
+				,C.SCR_2     AS  PILOT_SCR_2
+				,C.SCR_3     AS  PILOT_SCR_3
+				,C.TOT_SCR   AS  PILOT_TOT_SCR
+				,C.AVG_SCR   AS  PILOT_AVG_SCR
+				,C.CHG_SCR   AS  PILOT_CHG_SCR
+				,C.WORN_CNT  AS  PILOT_WORN_CNT
+				,C.RANK 	 AS  PILOT_RANK
+				,D.SCR_1     AS  MOTOR_SCR_1
+				,D.SCR_2     AS  MOTOR_SCR_2
+				,D.SCR_3     AS  MOTOR_SCR_3
+				,D.TOT_SCR   AS  MOTOR_TOT_SCR
+				,D.AVG_SCR   AS  MOTOR_AVG_SCR
+				,D.CHG_SCR   AS  MOTOR_CHG_SCR
+				,D.WORN_CNT  AS  MOTOR_WORN_CNT
+				,D.RANK      AS  MOTOR_RANK
+				,E.ECG       AS  BINSP_ECG
+				,E.WGHT      AS  BINSP_WGHT
+				,E.HGHT      AS  BINSP_HGHT
+				,E.BLOD_PRES AS  BINSP_BLOD_PRES
+				,E.WORN_CNT  AS  BINSP_WORN_CNT
+				,? AS INST_ID
+				,SYSDATE AS INST_DTM
+				,'' AS UPDT_ID
+				,'' AS INST_DTM
+                ,CASE WHEN NVL(C.WORN_CNT, 0) >= 1 THEN '불합격' ELSE '합격' END PILOT_PASS
+                ,CASE WHEN NVL(D.WORN_CNT, 0) >= 1 THEN '불합격' ELSE '합격' END MOTOR_PASS
+                ,CASE WHEN NVL(B.WORN_CNT, 0) = 0  THEN '합격' 
+                      WHEN NVL(B.WORN_CNT, 0) < 0  THEN '경고'
+                      WHEN NVL(B.WORN_CNT, 0) >=1  THEN '불합격' END STRT_PASS
+			FROM
+			(
+                --학과 평가(001)
+                -- 60점미만 1개만 있어도 불합격
+                SELECT A.RACER_PERIO_NO,
+                       A.ROUND,
+                       A.CAND_NO,
+                       NVL(SCR01, 0) AS SCR01,
+                       NVL(SCR03, 0) AS SCR03,
+                       NVL(SCR04, 0) AS SCR04,
+                       NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0) AS TOT_SCR,
+                       CASE WHEN (NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)) = 0 THEN 0
+                       ELSE ROUND((NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)) / 3, 1) END AS AVG_SCR,
+                       ROUND((CASE WHEN (NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)) = 0 THEN 0
+                                   ELSE (NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)) / 3 END) * ASSGN_SCR_RATE / 100, 1) AS CHG_SCR,
+                       ((CASE WHEN SCR01 < 60 THEN 1 ELSE 0 END) + (CASE WHEN SCR03 < 60 THEN 1 ELSE 0 END) + (CASE WHEN SCR04 < 60 THEN 1 ELSE 0 END)) AS WORN_CNT,
+                       DECODE((NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)), 0, 999, RANK() OVER (ORDER BY (NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)) DESC)) AS RANK       
+                FROM TBDN_DT_WRTN_ESTM_NEW A, TBDN_MESUR_ITEM B
+                WHERE 1=1
+                      AND A.RACER_PERIO_NO = B.RACER_PERIO_NO
+                      AND A.ROUND = B.ROUND
+                      AND A.RACER_PERIO_NO = ?
+                      AND A.ROUND =  ?
+                      AND B.ITEM = '001') A,
+			(
+				--체력측정(002)
+				-- 60점미만  2개 발생 시 경고
+				-- 60점미만  3개이상 발생시 불합격
+				SELECT
+				RACER_PERIO_NO
+					,ROUND
+					,CAND_NO
+					,SCR_001, SCR_002, SCR_003,SCR_004, SCR_005, SCR_006, SCR_007, SCR_008
+					,(SCR_001+SCR_002+SCR_003+SCR_004+SCR_005+SCR_006+SCR_007+SCR_008) TOT_SCR
+					,ROUND((TOT_SCR)/ITEM_CNT,1) AVG_SCR
+					,ROUND((TOT_SCR)/ITEM_CNT*ASSGN_SCR_RATE/100,1) CHG_SCR
+				    ,ROUND(WORN_001+WORN_002+WORN_003+WORN_004+WORN_005+WORN_006+WORN_007+WORN_008,0) WORN_CNT
+					,RANK() OVER (ORDER BY TOT_SCR DESC ) AS RANK
+				FROM (
+					SELECT
+					 RACER_PERIO_NO
+					,ROUND
+					,CAND_NO
+					,SCR_001, SCR_002, SCR_003,SCR_004, SCR_005, SCR_006, SCR_007, SCR_008
+					,ITEM_CNT, ASSGN_SCR_RATE
+					,(SCR_001+SCR_002+SCR_003+SCR_004+SCR_005+SCR_006+SCR_007+SCR_008) TOT_SCR
+					,(CASE WHEN SCR_001 < 60 THEN 0.4 ELSE 0 END) WORN_001
+					,(CASE WHEN SCR_002 < 60 THEN 0.4 ELSE 0 END) WORN_002
+					,(CASE WHEN SCR_003 < 60 THEN 0.4 ELSE 0 END) WORN_003
+					,(CASE WHEN SCR_004 < 60 THEN 0.4 ELSE 0 END) WORN_004
+					,(CASE WHEN SCR_005 < 60 THEN 0.4 ELSE 0 END) WORN_005
+					,(CASE WHEN SCR_006 < 60 THEN 0.4 ELSE 0 END) WORN_006
+					,(CASE WHEN SCR_007 < 60 THEN 0.4 ELSE 0 END) WORN_007
+					,(CASE WHEN SCR_008 < 60 THEN 0.4 ELSE 0 END) WORN_008
+					FROM
+					(
+						SELECT
+						 RACER_PERIO_NO
+						,ROUND
+						,CAND_NO
+						,MAX(DECODE(ITEM_CD,'001',SCR,0)) SCR_001
+						,MAX(DECODE(ITEM_CD,'002',SCR,0)) SCR_002
+						,MAX(DECODE(ITEM_CD,'003',SCR,0)) SCR_003
+						,MAX(DECODE(ITEM_CD,'004',SCR,0)) SCR_004
+						,MAX(DECODE(ITEM_CD,'005',SCR,0)) SCR_005
+						,MAX(DECODE(ITEM_CD,'006',SCR,0)) SCR_006
+						,MAX(DECODE(ITEM_CD,'007',SCR,0)) SCR_007
+						,MAX(DECODE(ITEM_CD,'008',SCR,0)) SCR_008
+						,MAX(ID) ITEM_CNT
+						,MAX(ASSGN_SCR_RATE) ASSGN_SCR_RATE
+						FROM
+						(
+							SELECT A.RACER_PERIO_NO, A.ROUND, A.CAND_NO, A.ITEM_CD, B.ID, A.SCR, C.ASSGN_SCR_RATE
+							FROM TBDN_ROUND_STRT_MESUR A,
+							(
+								SELECT ROWNUM AS ID, ITEM_CD
+								FROM (
+									SELECT DISTINCT ITEM_CD	FROM TBDN_ROUND_STRT_MESUR
+									WHERE RACER_PERIO_NO = ? AND ROUND = ?
+									ORDER BY ITEM_CD
+								)
+							) B,
+							TBDN_MESUR_ITEM C,
+							TBDN_CAND_IDENT D
+							WHERE 1=1
+							AND A.ITEM_CD = B.ITEM_CD
+							AND A.RACER_PERIO_NO = ?
+							AND A.ROUND = ?
+							AND A.RACER_PERIO_NO = C.RACER_PERIO_NO
+							AND A.ROUND = C.ROUND
+							AND C.ITEM = '002'	--학과평가
+							AND NVL(D.DEL_YN,'N') = 'N'
+							AND A.RACER_PERIO_NO  = D.RACER_PERIO_NO
+							AND A.CAND_NO         = D.CAND_NO
+						 )
+						GROUP BY RACER_PERIO_NO, ROUND, CAND_NO
+					)
+				)
+			) B,
+			(
+               --조종실기(003)
+               -- 60점미만 1개만 있어도 불합격                
+                  SELECT   RACER_PERIO_NO
+                           ,ROUND
+                           ,CAND_NO
+                           ,NVL(SCR_1, 0) AS SCR_1
+                           ,NVL(SCR_2, 0) AS SCR_2
+                           ,NVL(SCR_3, 0) AS SCR_3
+                           ,(NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) TOT_SCR
+                           , CASE WHEN (NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) = 0 THEN 0
+                                     ELSE ROUND((NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) / ESTM_CNT, 1) END AS AVG_SCR
+                           ,ROUND((NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) / ESTM_CNT * ASSGN_SCR_RATE / 100, 1) CHG_SCR
+                           ,(CASE WHEN SCR_1 < 60 THEN 1 ELSE 0 END) + (CASE WHEN SCR_2 < 60 THEN 1 ELSE 0 END) + (CASE WHEN SCR_3 < 60 THEN 1 ELSE 0 END) AS WORN_CNT
+                           ,RANK() OVER (ORDER BY (NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) DESC ) AS RANK
+                  FROM   ( SELECT  RACER_PERIO_NO
+                                   ,ROUND
+                                   ,CAND_NO
+                                   ,MAX(DECODE(ID,'1',ASSIGN_SCR,0)) SCR_1
+                                   ,MAX(DECODE(ID,'2',ASSIGN_SCR,0)) SCR_2
+                                   ,MAX(DECODE(ID,'3',ASSIGN_SCR,0)) SCR_3
+                                   ,MAX(ID) ESTM_CNT
+                                   ,MAX(ASSGN_SCR_RATE) ASSGN_SCR_RATE
+                              FROM ( SELECT A.RACER_PERIO_NO, A.ROUND, A.CAND_NO, B.ID, A.ASSIGN_SCR, C.ASSGN_SCR_RATE
+                                     FROM TBDN_PILOT_ESTM_ITEM A,
+                                          ( SELECT ROWNUM AS ID, ESTM_ID
+                                            FROM ( SELECT DISTINCT ESTM_ID    FROM TBDN_PILOT_ESTM_ITEM
+                                                   WHERE RACER_PERIO_NO =  ? AND ROUND =  ?
+                                                   ORDER BY ESTM_ID )) B,
+                                           TBDN_MESUR_ITEM C,
+                                           TBDN_CAND_IDENT D
+                                       WHERE   1=1
+                                               AND A.ESTM_ID = B.ESTM_ID
+                                               AND A.RACER_PERIO_NO = ?
+                                               AND A.ROUND = ?
+                                               AND A.RACER_PERIO_NO = C.RACER_PERIO_NO
+                                               AND A.ROUND = C.ROUND
+                                               AND C.ITEM = '003'    --조종실기평가
+                                               AND NVL(D.DEL_YN,'N') = 'N'
+                                               AND A.RACER_PERIO_NO = D.RACER_PERIO_NO
+                                               AND A.CAND_NO = D.CAND_NO )
+                              GROUP BY RACER_PERIO_NO, ROUND, CAND_NO )) C,
+			(
+				--모터정비실기평가(004)
+                  SELECT   RACER_PERIO_NO
+                               ,ROUND
+                               ,CAND_NO
+                               ,NVL(SCR_1, 0) AS SCR_1
+                               ,NVL(SCR_2, 0) AS SCR_2
+                               ,NVL(SCR_3, 0) AS SCR_3
+                               ,(NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) TOT_SCR
+                               , CASE WHEN (NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) = 0 THEN 0
+                                         ELSE ROUND((NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) / ESTM_CNT, 1) END AS AVG_SCR
+                               ,ROUND((NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) / ESTM_CNT * ASSGN_SCR_RATE / 100, 1) CHG_SCR
+                               ,(CASE WHEN SCR_1 < 60 THEN 1 ELSE 0 END) + (CASE WHEN SCR_2 < 60 THEN 1 ELSE 0 END) + (CASE WHEN SCR_3 < 60 THEN 1 ELSE 0 END) AS WORN_CNT
+                               ,RANK() OVER (ORDER BY (NVL(SCR_1, 0) + NVL(SCR_2, 0) + NVL(SCR_3, 0)) DESC ) AS RANK                    
+                    FROM
+                    (
+                        SELECT
+                         RACER_PERIO_NO
+                        ,ROUND
+                        ,CAND_NO
+                        ,MAX(DECODE(ID,'1',ASSIGN_SCR,0)) SCR_1
+                        ,MAX(DECODE(ID,'2',ASSIGN_SCR,0)) SCR_2
+                        ,MAX(DECODE(ID,'3',ASSIGN_SCR,0)) SCR_3
+                        ,MAX(ID) ESTM_CNT
+                        ,MAX(ASSGN_SCR_RATE) ASSGN_SCR_RATE
+                        FROM ( SELECT A.RACER_PERIO_NO, A.ROUND, A.CAND_NO, B.ID, A.ASSIGN_SCR, C.ASSGN_SCR_RATE
+                                   FROM TBDN_MOTOR_ASSEM_ESTM A,
+                                           ( SELECT ROWNUM AS ID, ESTM_ID
+                                             FROM ( SELECT DISTINCT ESTM_ID    FROM TBDN_MOTOR_ASSEM_ESTM
+                                                        WHERE RACER_PERIO_NO = ? AND ROUND = ?
+                                                        ORDER BY ESTM_ID )) B,
+                                            TBDN_MESUR_ITEM C,
+                                            TBDN_CAND_IDENT D
+                                WHERE   1=1
+                                            AND A.ESTM_ID = B.ESTM_ID
+                                            AND A.RACER_PERIO_NO =  ?
+                                            AND A.ROUND =  ?
+                                            AND A.RACER_PERIO_NO = C.RACER_PERIO_NO
+                                            AND A.ROUND = C.ROUND
+                                            AND C.ITEM = '004'    --모터모트정비실기
+                                            AND NVL(D.DEL_YN,'N') = 'N'
+                                            AND A.RACER_PERIO_NO = D.RACER_PERIO_NO
+                                            AND A.CAND_NO = D.CAND_NO
+                         )
+                        GROUP BY RACER_PERIO_NO, ROUND, CAND_NO
+                    )) D,
+			(
+				--신체검사
+				SELECT
+				A.RACER_PERIO_NO, A.ROUND, A.CAND_NO,
+				A.ECG, A.WGHT, A.HGHT, A.BLOD_PRES,
+				(CASE WHEN NVL(A.RSLT, '003') = '001' THEN 0 ELSE 1 END) WORN_CNT
+				FROM TBDN_MESUR_BODY_INSP A, TBDN_CAND_IDENT D
+				WHERE 1=1
+				AND A.RACER_PERIO_NO = ?
+				AND A.ROUND = ?
+				AND NVL(D.DEL_YN,'N') = 'N'
+				AND A.RACER_PERIO_NO  = D.RACER_PERIO_NO
+				AND A.CAND_NO         = D.CAND_NO
+			) E
+			WHERE 1=1
+			AND A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+			AND A.ROUND = B.ROUND(+)
+			AND A.CAND_NO = B.CAND_NO(+)
+			AND A.RACER_PERIO_NO = C.RACER_PERIO_NO(+)
+			AND A.ROUND = C.ROUND(+)
+			AND A.CAND_NO = C.CAND_NO(+)
+			AND A.RACER_PERIO_NO = D.RACER_PERIO_NO(+)
+			AND A.ROUND = D.ROUND(+)
+			AND A.CAND_NO = D.CAND_NO(+)
+			AND A.RACER_PERIO_NO = E.RACER_PERIO_NO(+)
+			AND A.ROUND = E.ROUND(+)
+			AND A.CAND_NO = E.CAND_NO(+)
+		)
+
+	    ]]>
+    </query>
+    
+    <query id="tbdn_total_d06000021_fn003" desc="확정 조회" fetchSize="10">
+        <![CDATA[
+		    SELECT 	 RACER_PERIO_NO
+		    		,ROUND
+		    		,MAX(CFM_YN) CFM_YN 
+		    FROM  TBDN_ESTM_ITEM_TOT
+			WHERE RACER_PERIO_NO = ?
+			AND   ROUND = ?
+			GROUP BY RACER_PERIO_NO, ROUND
+        ]]>
+    </query>  
+       
+    <query id="tbdn_total_d06000021_un001" desc="확정 입력" fetchSize="10">
+        <![CDATA[
+ 			UPDATE TBDN_ESTM_ITEM_TOT
+ 	   		   SET CFM_YN 	= ?
+			 WHERE RACER_PERIO_NO = ?
+			  AND  ROUND = ?
+		]]>
+    </query>
+    
+</queryMap>

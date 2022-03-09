@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_propeller 프로펠러사용등록">
+    <query id="tbef_propeller_ff001" desc="회차별 프로펠러 사용 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* tbef_propeller_ff001 */
+                     DISTINCT TOR.STND_YEAR
+                   , TOR.MBR_CD
+                   , TOR.TMS
+                   , TOR.RACER_NO
+                   , TRM.NM_KOR RACER_NM
+                   , TRP.PROPELLER1 RACER_PELLER1
+                   , TRP.PROPELLER2 RACER_PELLER2
+                   , TRP.PROPELLER3 RACER_PELLER3
+                   , TRP.PROPELLER4 RACER_PELLER4
+                   , TRP.PROPELLER5 RACER_PELLER5
+                   , CASE WHEN TRP.PROPELLER1 IN (TP.PROPELLER1, TP.PROPELLER2, TP.PROPELLER3) THEN '1' ELSE '0' END  CHKPELLER1
+                   , CASE WHEN TRP.PROPELLER2 IN (TP.PROPELLER1, TP.PROPELLER2, TP.PROPELLER3) THEN '1' ELSE '0' END  CHKPELLER2
+                   , CASE WHEN TRP.PROPELLER3 IN (TP.PROPELLER1, TP.PROPELLER2, TP.PROPELLER3) THEN '1' ELSE '0' END  CHKPELLER3
+                   , CASE WHEN TRP.PROPELLER4 IN (TP.PROPELLER1, TP.PROPELLER2, TP.PROPELLER3) THEN '1' ELSE '0' END  CHKPELLER4
+                   , CASE WHEN TRP.PROPELLER5 IN (TP.PROPELLER1, TP.PROPELLER2, TP.PROPELLER3) THEN '1' ELSE '0' END  CHKPELLER5
+                   , TP.PROPELLER1
+                   , TP.PROPELLER2
+                   , TP.PROPELLER3
+                   , TP.RMK
+            FROM     TBEB_ORGAN TOR
+                   , TBEC_RACER_MASTER TRM
+                --   , TBEF_RACER_PROPELLER TRP
+                   , VWEF_RACER_PROPELLER TRP
+                   , TBEF_PROPELLER TP
+            WHERE    TOR.STND_YEAR = TP.STND_YEAR(+)
+            AND      TOR.MBR_CD    = TP.MBR_CD(+)
+            AND      TOR.TMS       = TP.TMS(+)
+            AND      TOR.RACER_NO  = TP.RACER_NO(+)
+            AND      TOR.RACER_NO  = TRP.RACER_NO(+)
+            AND      TOR.RACER_NO  = TRM.RACER_NO
+            AND      TOR.STND_YEAR = ?
+            AND      TOR.MBR_CD    = ?
+            AND      TOR.TMS       = ?
+            ORDER BY TOR.RACER_NO
+        ]]>
+    </query> 
+
+    <query id="tbef_propeller_ff002" desc="선수별 프로펠러 사용 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* tbef_propeller_ff002 */
+                     TRM.RACER_NO                   , TRM.NM_KOR RACER_NM                   , TP.PROPELLER1                   , TP.PROPELLER2                   , TP.PROPELLER3                   , TP.PROPELLER4                   , TP.PROPELLER5                   , TP.RMK            FROM  --   TBEF_RACER_PROPELLER TP   
+                     VWEF_RACER_PROPELLER TP   
+                   , TBEC_RACER_MASTER TRM            WHERE    TRM.RACER_NO  = TP.RACER_NO(+)            AND      TRM.NM_KOR LIKE ?||'%'            AND      TRM.RACER_GRD_CD = NVL(?, RACER_GRD_CD)            AND      TRM.RACER_STAT_CD = NVL(?, RACER_STAT_CD)            AND		 TRM.RACER_STAT_CD <> '003'            ORDER BY TRM.RACER_NO        ]]>
+    </query> 
+
+    <query id="tbef_propeller_mf001" desc="회차별 프로펠러 사용 저장" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBEF_PROPELLER TP
+            USING (
+                    SELECT
+                              ? STND_YEAR       -- 기준년도                               , ? MBR_CD          -- 경정장코드                            , ? TMS             -- 회차                                    , ? RACER_NO        -- 선수번호                                    , ? PROPELLER1      -- 프로펠러1                            , ? PROPELLER2      -- 프로펠러2                            , ? PROPELLER3      -- 프로펠러3                            , ? RMK          	-- 비고 			                , ? INST_ID         -- 작성자ID    			                , SYSDATE INST_DTM  -- 작성일시    			                , ? UPDT_ID         -- 수정자ID    			                , SYSDATE UPDT_DTM  -- 수정일시                        FROM    DUAL                  ) TMP            ON (    TP.STND_YEAR = TMP.STND_YEAR                AND TP.MBR_CD    = TMP.MBR_CD                AND TP.TMS       = TMP.TMS                AND TP.RACER_NO  = TMP.RACER_NO                )            WHEN MATCHED THEN                              --데이터 중복건이 있는경우 Update			           UPDATE SET                                     TP.PROPELLER1      = TMP.PROPELLER1                                  , TP.PROPELLER2      = TMP.PROPELLER2                                                             , TP.PROPELLER3      = TMP.PROPELLER3                                                             , TP.RMK             = TMP.RMK                           			                      , TP.UPDT_ID         = TMP.UPDT_ID                               			                      , TP.UPDT_DTM        = TMP.UPDT_DTM                                          WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert			           INSERT (			                        TP.STND_YEAR                                         , TP.MBR_CD                                                            , TP.TMS                                                               , TP.RACER_NO                                                           , TP.PROPELLER1                                                           , TP.PROPELLER2                                      , TP.PROPELLER3                                                              , TP.RMK                            			                      , TP.INST_ID                               			                      , TP.INST_DTM                              			                      , TP.UPDT_ID                               			                      , TP.UPDT_DTM     			                  ) VALUES (			                        TMP.STND_YEAR                                         , TMP.MBR_CD                                                            , TMP.TMS                                                               , TMP.RACER_NO                                                           , TMP.PROPELLER1                                                           , TMP.PROPELLER2                                      , TMP.PROPELLER3                                                              , TMP.RMK                            			                      , TMP.INST_ID                               			                      , TMP.INST_DTM                              			                      , TMP.UPDT_ID                               			                      , TMP.UPDT_DTM     			                  )                         
+        ]]>
+    </query> 
+
+    <query id="tbef_propeller_mf002" desc="선수별 프로펠러 사용 저장" fetchSize="10">
+        <![CDATA[            MERGE INTO TBEF_RACER_PROPELLER TP            USING (                    SELECT                              ? RACER_NO        -- 선수번호                                    , ? PROPELLER1      -- 프로펠러1                            , ? PROPELLER2      -- 프로펠러2                            , ? PROPELLER3      -- 프로펠러3                            , ? PROPELLER4      -- 프로펠러4                            , ? PROPELLER5      -- 프로펠러5                            , ? RMK          	-- 비고 			                , ? INST_ID         -- 작성자ID    			                , SYSDATE INST_DTM  -- 작성일시    			                , ? UPDT_ID         -- 수정자ID    			                , SYSDATE UPDT_DTM  -- 수정일시                        FROM    DUAL                  ) TMP            ON (    TP.RACER_NO  = TMP.RACER_NO                )            WHEN MATCHED THEN                              --데이터 중복건이 있는경우 Update			           UPDATE SET                                     TP.PROPELLER1      = TMP.PROPELLER1                                  , TP.PROPELLER2      = TMP.PROPELLER2                                                             , TP.PROPELLER3      = TMP.PROPELLER3                                                             , TP.PROPELLER4      = TMP.PROPELLER4                                                             , TP.PROPELLER5      = TMP.PROPELLER5                                                             , TP.RMK             = TMP.RMK                           			                      , TP.UPDT_ID         = TMP.UPDT_ID                               			                      , TP.UPDT_DTM        = TMP.UPDT_DTM                                          WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert			           INSERT (			                        TP.RACER_NO                                                           , TP.PROPELLER1                                                           , TP.PROPELLER2                                      , TP.PROPELLER3                                                              , TP.PROPELLER4                                                              , TP.PROPELLER5                                                              , TP.RMK                        			                      , TP.INST_ID                     			                      , TP.INST_DTM                              			                      , TP.UPDT_ID                               			                      , TP.UPDT_DTM     			                  ) VALUES (			                        TMP.RACER_NO                                                           , TMP.PROPELLER1                                                           , TMP.PROPELLER2                                      , TMP.PROPELLER3                                                              , TMP.PROPELLER4                                  , TMP.PROPELLER5                                                              , TMP.RMK                       			                      , TMP.INST_ID                               			                      , TMP.INST_DTM                              			                      , TMP.UPDT_ID                               			                      , TMP.UPDT_DTM     			                  )                                 ]]>
+    </query> 
+</queryMap>

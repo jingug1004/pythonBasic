@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_uncollected 미수금내역등록 ">
+	<query id="tbeg_tax_month_ff001" desc="원천징수영수증 징수의무자 조회 " fetchSize="50">
+        <![CDATA[
+			-- 원천징수영수증 징수의무자 조회  	
+			SELECT /* tbeg_tax_month_ff001 */
+			       COM_REG_NO,         -- 사업자등록번호
+			       COM_NM,			   -- 상호				   
+			       COM_OWNER_NM,   	   -- 대표자
+			       CORP_REG_NO,		   -- 법인등록번호
+			       COM_LOC_ADDR,	   -- 사업장 소재지?
+			       COM_ADDR,		   -- 주소
+			       JOB_TPE,			   -- 업태
+			       JOB_KINDS		   -- 업종
+			FROM   TBEG_COM_INFO
+        ]]>
+    </query>    
+
+	<query id="tbeg_tax_month_ff002" desc="원천징수영수증 소득자 조회 " fetchSize="50">
+        <![CDATA[
+			-- 원천징수영수증 소득자 조회  	
+			SELECT /* tbeg_tax_month_ff002 */
+			       A.RACER_NO,   	   -- 선수번호
+			       B.NM_KOR,			   -- 선수명
+			       GET_DEC(A.COM_REG_NO) COM_REG_NO,		   -- 사업자등록번호	  
+			       A.COM_NM,			   -- 상호
+			       GET_DEC(C.RES_NO) RES_NO,  -- 주민등록번호
+			       A.COM_LOC_ADDR,	   -- 사업장 소재지
+			       C.ADD1_HOME,		   -- 주소
+			       C.ADD2_HOME,		   -- 상세주소			   
+			       A.JOB_TPE,		   -- 업태
+			       A.JOB_KINDS 		   -- 업종	  
+			FROM   tbeg_racer_com_info A,
+			       TBEC_RACER_MASTER B,
+			       TBEC_RACER_DETAIL C
+			WHERE  A.RACER_NO = B.RACER_NO(+)
+			AND    A.RACER_NO = C.RACER_NO(+)
+			AND    A.RACER_NO LIKE ?||'%'   
+			AND    B.NM_KOR LIKE ?||'%'   
+        ]]>
+    </query>    
+    <query id="tbeg_tax_month_ff003" desc="원천징수영수증 조회" fetchSize="50">
+        <![CDATA[
+            -- 원천징수영수증 조회  
+			SELECT /* tbeg_tax_month_ff003 */
+			       A.STND_YEAR AS AID_YEAR,
+				   --LPAD(A.PAY_MONTH,2,0) AS AID_MONTH,
+				   LPAD(B.PMT_DT,5,2) AS AID_MONTH,
+				   B.PMT_DT,	   
+				   SUBSTR(B.PMT_DT,1,4) AS PMT_YEAR,
+				   --DECODE(SUBSTR(B.PMT_DT,5,1),0,'',SUBSTR(B.PMT_DT,5,1)) || SUBSTR(B.PMT_DT,6,1) AS PMT_MONTH,
+				   SUBSTR(B.PMT_DT,5,2) AS PMT_MONTH,
+				   DECODE(SUBSTR(B.PMT_DT,7,1),0,'',SUBSTR(B.PMT_DT,7,1)) || SUBSTR(B.PMT_DT,8,1) AS PMT_DAY,
+				   SUM(A.SUPP_AMT_30) AS SUPP_AMT,
+				   MIN(INCE_TAX_RATE)||'%' AS AID_RATE,
+				   SUM(A.AID_AMT_01) AS INCOME_TAX,
+				   SUM(A.AID_AMT_02) AS INHAB_TAX,
+				   SUM(A.AID_AMT_01) + SUM(A.AID_AMT_02) AS TAX_SUM   	   	     
+			FROM   TBEG_MONTH_PAY A, 
+				   (SELECT STND_YEAR, PAY_MONTH, INCE_TAX_RATE,
+					       CASE WHEN PAY_MONTH IS NOT NULL AND PMT_DT IS NULL THEN 
+					           (CASE WHEN PAY_MONTH=12 THEN STND_YEAR||PAY_MONTH||'20'
+					            ELSE STND_YEAR||LPAD(PAY_MONTH+1,2,'0')||'10'
+					            END)
+					       ELSE PMT_DT 
+					       END AS PMT_DT
+					FROM   TBEG_MONTH_PAY_BAC) B, 
+				   TBEC_RACER_MASTER C
+			WHERE  A.STND_YEAR = B.STND_YEAR
+			AND    A.PAY_MONTH = B.PAY_MONTH
+			AND    A.RACER_NO = C.RACER_NO(+)
+			AND    A.STND_YEAR =?
+			AND    A.RACER_NO LIKE ?||'%'
+			AND    C.NM_KOR LIKE ?||'%'
+			AND    B.PMT_DT LIKE ?||'%'
+			GROUP BY A.STND_YEAR, A.PAY_MONTH,B.PMT_DT
+			-- IFIS에 직접 입력된 기타소득(세율22%) 내역도 원천징수에 포함
+            UNION ALL
+			SELECT 
+			       SUBSTR(REVERT_YM,1,4),
+                   SUBSTR(REVERT_YM,5,2),  
+                   REVERT_YM,       
+                   SUBSTR(REVERT_YM,1,4),
+                   SUBSTR(REVERT_YM,5,2),
+                   '',
+                   PAY_TAMT,
+                   CASE WHEN TAX_TAMT=0 THEN '-' ELSE '20%' END,
+                   TAX_INCOME_AMT,
+                   TAX_JUMIN_AMT,
+                   TAX_TAMT
+			FROM   ACCT2007.VWAZ_ETC_INCOME_BOAT@FNC_LINK FNC,
+                   TBEC_RACER_DETAIL TRD
+			WHERE  REPLACE(FNC.JUMIN_NO,'-') = GET_DEC(TRD.RES_NO)
+			AND    FNC.REVERT_YM LIKE ?||'%'
+            AND    TRD.RACER_NO LIKE ?||'%'
+            AND    FNC.INDIV_NAME LIKE ?||'%'
+			AND    FNC.TAX_TAMT > 0
+            AND    FNC.REVERT_YM LIKE NVL2(?,SUBSTR(?,1,6),?)||'%'
+            ORDER BY 1,2, 3
+        ]]>
+    </query>   
+    
+    <query id="tbeg_tax_month_ff004" desc="개인 월별출력 조회" fetchSize="50">
+        <![CDATA[
+            -- 개인 월별출력 조회  
+			SELECT /* tbeg_tax_month_ff004 */
+			       T1.*, ROWNUM AS NUM 
+			FROM (
+				    SELECT TMP.*, TRM.NM_KOR 
+				    FROM (
+					       SELECT
+					              RACER_NO,
+					              SUM(DECODE(PAY_MONTH, 1, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH01,    
+					              SUM(DECODE(PAY_MONTH, 2, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH02,
+					              SUM(DECODE(PAY_MONTH, 3, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH03,
+					              SUM(DECODE(PAY_MONTH, 4, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH04,
+					              SUM(DECODE(PAY_MONTH, 5, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH05,
+					              SUM(DECODE(PAY_MONTH, 6, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH06,
+					              SUM(DECODE(PAY_MONTH, 7, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH07,
+					              SUM(DECODE(PAY_MONTH, 8, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH08,
+					              SUM(DECODE(PAY_MONTH, 9, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH09,
+					              SUM(DECODE(PAY_MONTH, 10, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH10,
+					              SUM(DECODE(PAY_MONTH, 11, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH11,
+					              SUM(DECODE(PAY_MONTH, 12, SUPP_AMT+SUPP_AMT_10+AWARD_AMT)) MONTH12,
+					              SUM(SUPP_AMT+SUPP_AMT_10+AWARD_AMT) MONTH_SUM
+					        FROM (  
+					              -- 성적상금, 식대     
+						          SELECT  CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+			                                         ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END AS PAY_MONTH, 
+			                              RACER_NO,
+						                  SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05 + SUPP_AMT_06 + SUPP_AMT_07 AS SUPP_AMT, -- 성적상금 
+						                  DECODE(?,'0',0,SUPP_AMT_10) AS SUPP_AMT_10, -- 식대 
+						                  0 AS AWARD_AMT                  
+						          FROM    TBEG_MONTH_PAY
+						          WHERE   STND_YEAR = ?    
+						          --포상금                 
+						          UNION ALL                  
+						          SELECT  TO_NUMBER(SUBSTR(AWARD_DT,5,2)) AS PAY_MONTH,                      
+						                  RACER_NO, 0 AS SUPP_AMT_30, 0 AS SUPP_AMT_10,             
+						                  DECODE(?,'0',0,NVL(AWARD_AMT,0)) AS AWARD_AMT        -- 상금    
+						          FROM    TBEG_RACER_AWARD_HIS
+						          WHERE   AWARD_DT like ?||'%'    
+						         )
+					        GROUP BY RACER_NO
+					     ) TMP, TBEC_RACER_MASTER TRM
+			    WHERE TMP.RACER_NO = TRM.RACER_NO    
+			    AND   TRM.NM_KOR LIKE '%'||?||'%'
+			    ORDER BY TMP.RACER_NO
+			)T1
+        
+        ]]>
+    </query>   
+</queryMap>

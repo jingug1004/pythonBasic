@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM1140(이벤트 당첨내역)">
+    <query id="rsm1140_s01" desc="이벤트 당첨내역" fetchSize="10">
+        <![CDATA[    
+			WITH V_EVENT AS  /* rsm1140_s01 */ 
+			(    
+            SELECT A.*, 
+                   HIT_CNT_01||HIT_CNT_02||HIT_CNT_03||HIT_CNT_04||HIT_CNT_05||HIT_CNT_06||HIT_CNT_07 AS HIT_RSLT
+            FROM (   			
+                    SELECT EVENT_DT, MIN_SLIP_SEQ,  
+                           SUM(BUY_AMT) AS BUY_AMT,
+                           MAX(CASE WHEN RACE_NO = MIN_RACE_NO THEN EX END) AS EX_01,
+                           MAX(CASE WHEN RACE_NO = (MIN_RACE_NO + 1) THEN EX END) AS EX_02,
+                           MAX(CASE WHEN RACE_NO = (MIN_RACE_NO + 2) THEN EX END) AS EX_03,
+                           MAX(CASE WHEN RACE_NO = (MIN_RACE_NO + 3) THEN EX END) AS EX_04,
+                           MAX(CASE WHEN RACE_NO = (MIN_RACE_NO + 4) THEN EX END) AS EX_05,
+                           MAX(CASE WHEN RACE_NO = (MIN_RACE_NO + 5) THEN EX END) AS EX_06,
+                           MAX(CASE WHEN RACE_NO = (MIN_RACE_NO + 6) THEN EX END) AS EX_07,
+                           SUM(CASE WHEN RACE_NO = MIN_RACE_NO THEN HIT_CNT END) AS HIT_CNT_01,
+                           SUM(CASE WHEN RACE_NO = (MIN_RACE_NO + 1) THEN HIT_CNT END) AS HIT_CNT_02,
+                           SUM(CASE WHEN RACE_NO = (MIN_RACE_NO + 2) THEN HIT_CNT END) AS HIT_CNT_03,
+                           SUM(CASE WHEN RACE_NO = (MIN_RACE_NO + 3) THEN HIT_CNT END) AS HIT_CNT_04,
+                           SUM(CASE WHEN RACE_NO = (MIN_RACE_NO + 4) THEN HIT_CNT END) AS HIT_CNT_05,
+                           SUM(CASE WHEN RACE_NO = (MIN_RACE_NO + 5) THEN HIT_CNT END) AS HIT_CNT_06,
+                           SUM(CASE WHEN RACE_NO = (MIN_RACE_NO + 6) THEN HIT_CNT END) AS HIT_CNT_07,
+                           COMM_NO, B.CD_NM AS COMM_NM, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                    FROM (                   
+                            SELECT B.EVENT_DT, B.MIN_SLIP_SEQ, B.BUY_AMT, B.RACE_NO,  B.EX, A.RACE_RSLT, 
+                                       CASE WHEN B.EX = A.RACE_RSLT THEN 1 ELSE 0 END AS HIT_CNT, COMM_NO, 
+                                       PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                            FROM (
+                                        SELECT  A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.RACE_NO,
+                                                RUNNER_1ST ||'/'|| RUNNER_2ND AS RACE_RSLT,
+                                                B.RACE_DAY
+                                        FROM TBES_SDL_RS A, VW_SDL_INFO B
+                                        WHERE   A.MEET_CD = '001'
+                                        AND     A.POOL_CD = '004'
+                                        AND     A.MEET_CD = B.MEET_CD
+                                        AND     A.STND_YEAR  = B.STND_YEAR
+                                        AND     A.TMS     = B.TMS
+                                        AND     A.DAY_ORD = B.DAY_ORD
+                                        ) A, 
+                                        (
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, BUY_AMT, MIN_RACE_NO AS RACE_NO, EX1 AS EX, COMM_NO, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+1,'00')), EX2, COMM_NO, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+2,'00')), EX3, COMM_NO, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+3,'00')), EX4, COMM_NO, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+4,'00')), EX5, COMM_NO, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+5,'00')), EX6, COMM_NO, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+6,'00')), EX7, COMM_NO, PLACE_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO
+                                        FROM TBRD_EVENT_7EX
+                                        ) B
+                            WHERE   A.RACE_DAY(+) = B.EVENT_DT
+                            AND     A.RACE_NO(+)  = B.RACE_NO
+                            AND     B.EVENT_DT BETWEEN ? AND ?   
+                            ) A, TBRK_SPEC_CD B
+                    WHERE A.COMM_NO = B.CD(+)
+                    AND   B.GRP_CD(+) = '060'
+                    GROUP BY EVENT_DT, MIN_SLIP_SEQ, COMM_NO, PLACE_NM, B.CD_NM, SLIP_STATUS, MIN_RACE_NO, CARD_NO  
+                  ) A
+            )            
+			SELECT CASE WHEN HIT_RSLT LIKE '1111111' THEN 7 
+	                    WHEN HIT_RSLT LIKE '%111111%' THEN 6
+	                    WHEN HIT_RSLT LIKE '%11111%' THEN 5
+	                    WHEN HIT_RSLT LIKE '%1111%' THEN 4
+	                    WHEN HIT_RSLT LIKE '%111%' THEN 3
+	                    WHEN HIT_RSLT LIKE '%11%' THEN 2
+	                    WHEN HIT_RSLT LIKE '%1%' THEN 1 
+	                    ELSE 0 END HIT_CNT
+	                ,A.*     
+			FROM  V_EVENT A
+			WHERE HIT_RSLT LIKE '%11%'
+            ORDER BY 1 DESC, 2 DESC                              
+        ]]>
+    </query>
+
+    <query id="rsm1140_s02" desc="이벤트 당첨내역" fetchSize="10">
+        <![CDATA[             
+			SELECT /* rsm1140_s02 */
+			       A.*, 
+                   HIT_CNT_05||HIT_CNT_06||HIT_CNT_07||HIT_CNT_08||HIT_CNT_09||HIT_CNT_10||HIT_CNT_11 HIT_RSLT,
+                   '' AS CARD_PWD
+            FROM (               
+                    SELECT EVENT_DT, MIN_SLIP_SEQ, 
+                           TRIM(TO_CHAR(SUM(BUY_AMT),'999,999,999')) AS BUY_AMT,
+                           MAX(CASE WHEN RACE_NO = '05' THEN EX END) AS EX_05,
+                           MAX(CASE WHEN RACE_NO = '06' THEN EX END) AS EX_06,
+                           MAX(CASE WHEN RACE_NO = '07' THEN EX END) AS EX_07,
+                           MAX(CASE WHEN RACE_NO = '08' THEN EX END) AS EX_08,
+                           MAX(CASE WHEN RACE_NO = '09' THEN EX END) AS EX_09,
+                           MAX(CASE WHEN RACE_NO = '10' THEN EX END) AS EX_10,
+                           MAX(CASE WHEN RACE_NO = '11' THEN EX END) AS EX_11,
+                           MAX(CASE WHEN RACE_NO = '12' THEN EX END) AS EX_12,
+                           SUM(CASE WHEN RACE_NO = '05' THEN HIT_CNT END) AS HIT_CNT_05,
+                           SUM(CASE WHEN RACE_NO = '06' THEN HIT_CNT END) AS HIT_CNT_06,
+                           SUM(CASE WHEN RACE_NO = '07' THEN HIT_CNT END) AS HIT_CNT_07,
+                           SUM(CASE WHEN RACE_NO = '08' THEN HIT_CNT END) AS HIT_CNT_08,
+                           SUM(CASE WHEN RACE_NO = '09' THEN HIT_CNT END) AS HIT_CNT_09,
+                           SUM(CASE WHEN RACE_NO = '10' THEN HIT_CNT END) AS HIT_CNT_10,
+                           SUM(CASE WHEN RACE_NO = '11' THEN HIT_CNT END) AS HIT_CNT_11,
+                           SUM(CASE WHEN RACE_NO = '12' THEN HIT_CNT END) AS HIT_CNT_12,
+                           COMM_NO, B.CD_NM AS COMM_NM, PLACE_NM, A.CARD_NO, CARD_SEQ, 
+                           MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, A.RMK, 
+                           TO_CHAR(LAST_PRT_DT,'HH24:MI') AS LAST_PRT_DT
+                    FROM (                   
+                            SELECT B.EVENT_DT, B.MIN_SLIP_SEQ, B.BUY_AMT, B.RACE_NO,  B.EX, A.RACE_RSLT, 
+                                       CASE WHEN B.EX = A.RACE_RSLT THEN 1 ELSE 0 END AS HIT_CNT, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                            FROM  (
+                                        SELECT  A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.RACE_NO,
+                                                RUNNER_1ST ||'/'|| RUNNER_2ND AS RACE_RSLT,
+                                                B.RACE_DAY
+                                        FROM TBES_SDL_RS A, VW_SDL_INFO B
+                                        WHERE   A.MEET_CD = '001'
+                                        AND     A.POOL_CD = '004'
+                                        AND     A.MEET_CD = B.MEET_CD
+                                        AND     A.STND_YEAR  = B.STND_YEAR
+                                        AND     A.TMS     = B.TMS
+                                        AND     A.DAY_ORD = B.DAY_ORD
+                                    ) A, 
+                                    (
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, BUY_AMT, MIN_RACE_NO AS RACE_NO, EX1 AS EX, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+1,'00')), EX2, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+2,'00')), EX3, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+3,'00')), EX4, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+4,'00')), EX5, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+5,'00')), EX6, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                                        FROM TBRD_EVENT_7EX
+                                        UNION ALL
+                                        SELECT EVENT_DT, MIN_SLIP_SEQ, 0, TRIM(TO_CHAR(MIN_RACE_NO+6,'00')), EX7, COMM_NO, PLACE_NM, CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, RMK, LAST_PRT_DT
+                                        FROM TBRD_EVENT_7EX
+                                    ) B
+                            WHERE   A.RACE_DAY(+)  = B.EVENT_DT
+                            AND     A.RACE_NO(+)   = B.RACE_NO
+                            AND     B.EVENT_DT     = ?
+                            AND     B.MIN_SLIP_SEQ = ?   
+                            ) A, TBRK_SPEC_CD B
+                    WHERE A.COMM_NO = B.CD(+)
+                    AND   B.GRP_CD(+) = '060'
+                    GROUP BY EVENT_DT, MIN_SLIP_SEQ, COMM_NO, PLACE_NM, B.CD_NM, A.CARD_NO, CARD_SEQ, MIN_RACE_NO, EVENT_TM, PRT_CNT, SLIP_STATUS, A.RMK, LAST_PRT_DT 
+                  ) A
+			ORDER BY MIN_SLIP_SEQ                           
+        ]]>
+    </query>
+    
+    <query id="rsm1140_s03" desc="당첨자 카드암호 일치 여부 조회" fetchSize="10">
+        <![CDATA[             
+			SELECT /* rsm1140_s03 */
+			       COUNT(*) AS CNT
+			FROM   TBRD_EVENT_7EX A
+			      ,EXA7_PWD@IBETLINK B
+			WHERE  A.CARD_NO      = B.C_CARD_NO
+			AND    A.CARD_SEQ     = B.N_CARD_SEQ
+			AND    A.EVENT_DT     = ?
+			AND    A.MIN_SLIP_SEQ = ?
+			AND    A.CARD_NO      = ?
+			AND    A.CARD_SEQ     = ?
+			AND    CRYPTO.HASH(6, ?) = B.S_PASSWD			                       
+        ]]>
+    </query>
+    
+    <query id="rsm1140_u01" desc="당첨자 당첨확인 Update" fetchSize="10">
+        <![CDATA[             
+			UPDATE /* rsm1140_u01 */
+			       TBRD_EVENT_7EX
+			SET    SLIP_STATUS = '005'
+			      ,RMK         = ?
+			      ,UPDT_ID     = ?
+			      ,UPDT_DT     = SYSDATE
+			WHERE  EVENT_DT     = ?
+			AND    MIN_SLIP_SEQ = ?
+			AND    CARD_NO      = ?
+			AND    CARD_SEQ     = ?			                       
+        ]]>
+    </query>
+</queryMap>

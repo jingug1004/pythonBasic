@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem4010(일자별 입장현황 조회 )">
+  
+    <query id="rem4010_s01" desc="일자별 지점별 입장현황 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem4010_s01 */
+ 			        TRADE_DATE
+		           ,COMM_NO
+		           ,COMM_NM
+		           ,SUM(REQUEST_FEE_1+REQUEST_FEE_4+REQUEST_FEE_5) AS REQUEST_FEE_SUM
+		           ,SUM(REQUEST_CNT_1+REQUEST_CNT_4+REQUEST_CNT_5) AS REQUEST_CNT_SUM
+		           ,SUM(REQUEST_FEE_1) AS REQUEST_FEE_1
+		           ,SUM(REQUEST_CNT_1) AS REQUEST_CNT_1
+		           ,SUM(REQUEST_FEE_4) AS REQUEST_FEE_4
+		           ,SUM(REQUEST_CNT_4) AS REQUEST_CNT_4
+		           ,SUM(REQUEST_FEE_5) AS REQUEST_FEE_5
+		           ,SUM(REQUEST_CNT_5) AS REQUEST_CNT_5
+			FROM (           
+		            SELECT TRADE_DATE
+	                       ,COMM_NO
+	                       ,COMM_NM
+	                       ,SUM(DECODE(CARD_USER_TYPE, '1', FEE, 0)) AS REQUEST_FEE_1
+	                       ,SUM(DECODE(CARD_USER_TYPE, '1', CNT, 0)) AS REQUEST_CNT_1
+	                       ,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS REQUEST_FEE_4
+	                       ,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS REQUEST_CNT_4
+	                       ,SUM(DECODE(CARD_USER_TYPE, '5', FEE, 0)) AS REQUEST_FEE_5
+	                       ,SUM(DECODE(CARD_USER_TYPE, '5', CNT, 0)) AS REQUEST_CNT_5
+		            FROM (
+		                    SELECT TRADE_DATE
+		                          ,COMM_NO
+		                          ,CARD_USER_TYPE
+		                          ,FEE
+		                          ,CNT
+		                    FROM   TBRC_T_TRADE_SUM
+		                    UNION ALL
+		                    SELECT TRADE_DATE
+		                          ,'00'
+		                          ,'4'
+		                          ,FEE
+		                          ,CNT
+		                    FROM  TBRC_T_TRADE_KM_SUM
+		                    WHERE 'N' = ?
+		                 ) T,         
+                         (
+	                        SELECT RACE_DAY
+	                              ,C.CD AS BRNC_CD
+	                              ,C.CD_NM AS COMM_NM
+	                              ,S.MEET_CD
+	                        FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+	                               FROM   VW_SDL_INFO
+	                               GROUP BY RACE_DAY) S,
+	                              TBRK_SPEC_CD C
+	                        WHERE 1=1
+	                        --AND   S.MEET_CD IN ('001','003')
+	                        AND   C.GRP_CD = '018'
+	                        AND   C.DEL_YN = 'N'
+	                        AND   C.CD_TERM4 LIKE DECODE(S.MEET_CD, '001','1','%')||DECODE(S.MEET_CD, '003','1','%')
+	                        AND   S.MEET_CD LIKE ?||'%' 
+	                        AND   S.RACE_DAY BETWEEN ? AND ?
+                         ) S		            
+					WHERE S.RACE_DAY = T.TRADE_DATE
+                      AND S.BRNC_CD  = T.COMM_NO
+                      AND COMM_NO LIKE ?||'%'                      
+                      AND T.COMM_NO  <> DECODE(?,'1', decode(s.meet_cd,'001','00','98') ,'-') --경륜이면 00, 경정이면 98 제외  20150115 김수정 요청
+		            GROUP BY TRADE_DATE, COMM_NO, COMM_NM, CARD_USER_TYPE
+		           ) A
+			GROUP BY TRADE_DATE, COMM_NO, COMM_NM
+			ORDER BY TRADE_DATE, COMM_NO            
+        ]]>
+    </query> 
+    
+</queryMap>

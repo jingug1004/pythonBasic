@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbtq_ctl_cnt(TQC건수입력)">
+ <query id="tbtq_ctl_fa001" desc="입력여부리스트" fetchSize="10">
+   <![CDATA[
+	 	SELECT 
+	 		A.STND_YEAR
+	 	   ,A.TMS
+	       ,CASE WHEN ( C.GBN = 'Y' ) THEN 'Y'
+		         WHEN ( B.CNT IS NOT NULL OR C.GBN = 'I' ) THEN 'I' 
+				 WHEN ( B.CNT IS NULL AND (C.GBN IS NULL OR C.GBN = 'N') ) THEN 'N'
+				 END AS IST_YN
+	       ,A.SEASON
+		   ,CNT
+		   ,GBN
+	 	   FROM VWET_SEASON A,
+		 	(SELECT STND_YEAR,TMS,COUNT(TMS) AS CNT 
+			 FROM TBTQ_CTL
+		     GROUP BY STND_YEAR,TMS) B,
+			 TBTQ_CTL_MST C
+		   WHERE A.STND_YEAR = B.STND_YEAR(+)
+			   AND A.TMS = B.TMS(+)
+			   AND A.STND_YEAR = C.STND_YEAR(+)
+			   AND A.TMS = C.TMS(+)
+			   AND A.STND_YEAR =  ?
+		   ORDER BY A.TMS DESC
+     ]]>
+    </query> 
+  <query id="tbtq_ctl_fa002" desc="입력리스트" fetchSize="10">
+   <![CDATA[
+	  	  SELECT 
+			 NVL(B.STND_YEAR,?) STND_YEAR
+			,? TMS
+			,A.CD
+			,A.CD_NM
+			,A.RMK
+			,C.PART_CD
+			,C.PART_NM
+			,B.CNT
+			,B.CHK
+			,A.BRANCH
+			,A.ORD_NO 
+			,A.CONTENTS
+			,B.TOTALCNT 
+			FROM TBTQ_SPEC_CD A
+			,(	
+			  SELECT STND_YEAR,TMS, CD,CNT,TOTALCNT,CHK FROM (
+			     SELECT STND_YEAR,TMS, CD,CNT, TOTALCNT, 0 CHK FROM TBTQ_CTL WHERE CD IN('P01','P04','P05','P10','P11','P12')
+			     UNION
+			     SELECT A.STND_YEAR,A.TMS,'P03' CD ,CNT,TOTALCNT, 0 CHK FROM
+				 VWET_SEASON A,
+				 (
+				 SELECT STND_YEAR,TMS, CD,CNT, TOTALCNT FROM TBTQ_CTL 
+				 WHERE CD IN('P03')
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'P06' CD ,CNT,TOTALCNT, 2 CHK FROM
+				 VWET_SEASON A,
+				 (
+				 SELECT STND_YEAR,TMS, CD,CNT, TOTALCNT FROM TBTQ_CTL 
+				 WHERE CD IN('P06')
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'P07' CD ,CNT,TOTALCNT, 0 CHK FROM
+				 VWET_SEASON A,
+				 (
+				 SELECT STND_YEAR,TMS, CD,CNT, TOTALCNT FROM TBTQ_CTL 
+				 WHERE CD IN('P07')
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'P08' CD ,CNT,TOTALCNT, 0 CHK FROM
+				 VWET_SEASON A,
+				 (
+				 SELECT STND_YEAR,TMS, CD,CNT, TOTALCNT FROM TBTQ_CTL 
+				 WHERE CD IN('P08')
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'P09' CD ,CNT,TOTALCNT, 0 CHK FROM
+				 VWET_SEASON A,
+				 (
+				 SELECT STND_YEAR,TMS, CD,CNT, TOTALCNT FROM TBTQ_CTL 
+				 WHERE CD IN('P09')
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 -----------------------------------------------------경주편성의 적정도(P02)
+			     UNION
+				 SELECT A.STND_YEAR,A.TMS, 'P02' CD ,COUNT(*) CNT,0 TOTALCNT,1 CHK 
+				 FROM USRBM.TBES_SDL_RS A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				   AND A.TMS = B.TMS
+				   AND A.DAY_ORD = B.DAY_ORD
+				   AND A.RACE_NO = B.RACE_NO
+				   AND A.POOL_CD = '004'
+				   AND A.PAYOFF < 10
+				   AND B.RACE_STTS_CD = '001'
+				 GROUP BY A.STND_YEAR,A.TMS
+				 -----------------------------------------------------모터보트정비프로세스(P13)
+				 UNION
+				 SELECT STND_YEAR,TMS,'P13' CD,ROUND(SUM(CNT)/ COUNT(*),2) CNT,0 TOTALCNT ,1 CHK FROM (	
+				 SELECT A.STND_YEAR,A.TMS,A.MOT_NO,MAX(A.INTRO_RUN_TM)- MIN(A.INTRO_RUN_TM) AS CNT 
+				 FROM TBEB_ORGAN A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND B.RACE_STTS_CD = '001'
+				 GROUP BY A.STND_YEAR,A.TMS,A.MOT_NO
+				 )	
+				 GROUP BY STND_YEAR,TMS
+				 -----------------------------------------------------정상경주 진행실적(Q01)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'Q01' CD,NVL(B.CNT,0) CNT,0 TOTALCNT, 1 CHK FROM
+				 VWET_SEASON A,
+				 (
+					 SELECT STND_YEAR,TMS, COUNT(TMS) CNT, 1 CHK FROM TBEB_RACE
+					 WHERE RACE_STTS_CD IN('002', '003')
+					 GROUP BY STND_YEAR,TMS 
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 -----------------------------------------------------출발위반율(Q02)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'Q02' CD,NVL(B.CNT,0) CNT,0 TOTALCNT, 1 CHK FROM
+				 VWET_SEASON A,
+				 (
+					 SELECT STND_YEAR,TMS,COUNT(TMS) CNT,1 CHK FROM TBED_RACE_VOIL_ACT 
+					 WHERE ACDNT_TPE_CD = '003'
+					 AND VOIL_CD IN('110','120')
+					 GROUP BY STND_YEAR,TMS
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 -----------------------------------------------------출주제외건수(Q03)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'Q03' CD,NVL(B.CNT,0) CNT,0 TOTALCNT, 1 CHK FROM
+				 VWET_SEASON A,
+				 (
+	 				 SELECT STND_YEAR,TMS,COUNT(TMS) CNT ,1 CHK FROM TBED_RACE_VOIL_ACT
+					 WHERE ACDNT_TPE_CD = '003'
+					 AND VOIL_CD IN('995','996','997')
+					 GROUP BY STND_YEAR,TMS
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 -----------------------------------------------------경주사고건수(Q04)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'Q04' CD,NVL(B.CNT,0) CNT,0 TOTALCNT, 1 CHK FROM
+				 VWET_SEASON A,
+				 (
+					 SELECT STND_YEAR,TMS,COUNT(TMS) CNT,1 CHK FROM TBED_RACE_VOIL_ACT
+					 WHERE ACDNT_TPE_CD IN('001','002','004','007','008','010')
+					 GROUP BY STND_YEAR,TMS
+				 )B
+				 WHERE A.STND_YEAR = B.STND_YEAR(+)
+				 AND A.TMS = B.TMS(+)
+				 -----------------------------------------------------스타트타임(Q05)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'Q05' CD,ROUND(SUM(A.STAR_TM)/COUNT(A.STAR_TM),2) AS CNT,0 TOTALCNT,1 CHK 
+				 FROM TBEB_ORGAN A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND A.DAY_ORD = B.DAY_ORD
+				 AND A.RACE_NO = B.RACE_NO
+				 AND B.RACE_STTS_CD = '001' 
+				 GROUP BY A.STND_YEAR,A.TMS
+				 -----------------------------------------------------소개항주(Q06)
+				 UNION
+				 SELECT A.STND_YEAR,A.TMS,'Q06' CD,ROUND(SUM(A.INTRO_RUN_TM)/COUNT(A.INTRO_RUN_TM),2) AS CNT,0 TOTALCNT,1 CHK  
+				 FROM TBEB_ORGAN A,TBEB_RACE B
+				 WHERE A.STND_YEAR = B.STND_YEAR
+				 AND A.TMS = B.TMS
+				 AND A.DAY_ORD = B.DAY_ORD
+				 AND A.RACE_NO = B.RACE_NO
+				 AND B.RACE_STTS_CD = '001' 
+				 GROUP BY A.STND_YEAR,A.TMS
+				 -----------------------------------------------------주회타임(Q07)
+				 UNION
+				 SELECT STND_YEAR,TMS,'Q07' CD,ROUND(SUM(CNT)/ COUNT(*),3) CNT,0 TOTALCNT ,1 CHK FROM (	
+					 SELECT A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO,SUM(A.TIME_DIFF)/2000 AS CNT
+					 FROM TBEB_ORGAN A,TBEB_RACE B
+					 WHERE A.STND_YEAR = B.STND_YEAR
+					 AND A.TMS = B.TMS
+					 AND A.DAY_ORD = B.DAY_ORD
+					 AND A.RACE_NO = B.RACE_NO
+					 AND B.RACE_STTS_CD = '001' 
+					 AND A.RANK IN( 2,3)
+					 GROUP BY A.STND_YEAR,A.TMS,A.DAY_ORD,A.RACE_NO
+				 )	
+				 GROUP BY STND_YEAR,TMS
+				 -----------------------------------------------------경주규칙위반율(Q08)
+				 UNION	 
+				 SELECT STND_YEAR,TMS,'Q08' CD,COUNT(TMS) CNT,0 TOTALCNT,1 CHK FROM TBED_RACE_VOIL_ACT 
+				 WHERE VOIL_CD IN('125','140','150','210','220','999')
+				 GROUP BY STND_YEAR,TMS
+			 ) WHERE STND_YEAR = ? 
+			   AND TMS = ?
+			) B 
+			,TBTQ_PART_CD C
+			WHERE A.CD = B.CD(+)	
+			AND   A.PART_CD = C.PART_CD
+			AND   A.USE_YN = 'Y'
+			ORDER BY ORD_NO
+	     ]]>
+   </query> 
+   <query id="tbtq_ctl_mst_ia001" desc="MST저장" fetchSize="10">
+   <![CDATA[
+    	MERGE INTO TBTQ_CTL_MST TCM
+    		 		   USING   DUAL
+					   ON	   (    TCM.STND_YEAR	= ?
+					            AND TCM.TMS			= ?
+								)
+					   WHEN MATCHED THEN
+					    UPDATE SET
+						  GBN   	  		  = ?
+						, UPDT_ID             = ?
+						, UPDT_DTM            = SYSDATE
+					   WHEN NOT MATCHED THEN
+						INSERT (
+							   	  STND_YEAR
+								, TMS
+								, GBN   
+							    , INST_ID
+							    , INST_DTM
+								)VALUES (
+											 ?
+											,?
+											,?
+											,?
+											,SYSDATE								
+										)
+	     ]]>
+   </query> 
+  <query id="tbtq_ctl_ia001" desc="건수저장" fetchSize="10">
+   <![CDATA[
+     		MERGE INTO TBTQ_CTL TC
+    		 		   USING   DUAL
+					   ON	   (    TC.STND_YEAR	= ?
+					            AND TC.TMS			= ?
+					   		   	AND TC.CD 			= ?
+								)
+					   WHEN MATCHED THEN
+					    UPDATE SET
+						  CNT   	  		  = ?
+						, TOTALCNT			  = ?
+						, UPDT_ID             = ?
+						, UPDT_DTM            = SYSDATE
+					   WHEN NOT MATCHED THEN
+						INSERT (
+							   	  STND_YEAR
+								, TMS
+								, CD
+								, CNT 
+								, TOTALCNT  
+							    , INST_ID
+							    , INST_DTM
+								)VALUES (
+											 ?
+											,?
+											,?
+											,?
+											,?
+											,?
+											,SYSDATE								
+										)
+	     ]]>
+   </query> 										
+</queryMap>

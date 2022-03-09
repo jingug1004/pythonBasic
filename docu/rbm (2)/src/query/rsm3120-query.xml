@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3120(개인별 발매)">
+	<query id="rsm3120_select01" desc="개인별 발매 (SELECT)" fetchSize="10">
+        <![CDATA[        
+         SELECT /* rsm3120_select01 */
+		]]>
+    </query>
+    
+    <query id="rsm3120_select02" desc="개인별 발매 (SELECT 발매원별)" fetchSize="10">
+        <![CDATA[
+        /* rsm3120_select02 */        
+        -- DECODE(T.TELLER_ID,NULL,'TOTAL',T.TELLER_ID) TELLER_ID,	-- 발매원 아이디
+         T.TELLER_ID,	-- 발매원 아이디
+         MAX(T.WIN_NO) AS WIN_NO,
+         NVL(M.EMP_NO, (SELECT MAX(EMP_NO) FROM TBJI_TELLER_MANA B WHERE B.TELLER_ID = T.TELLER_ID)) AS EMP_NO,		-- 사원 번호(발매번호)
+         NVL(M.TELLER_NM, (SELECT MAX(TELLER_NM) FROM TBJI_TELLER_MANA B WHERE B.TELLER_ID = T.TELLER_ID)) AS TELLER,					-- 발매원 성명
+		]]>
+    </query>
+    
+    <query id="rsm3120_select03" desc="개인별 발매 (SELECT 창구별)" fetchSize="10">
+        <![CDATA[
+        /* rsm3120_select03 */        
+         --DECODE(T.WIN_NO,NULL,'TOTAL',T.WIN_NO) TELLER_ID,	-- 발매원 번호
+         T.WIN_NO TELLER_ID,	-- 창구번호 (발매원 번호)
+		]]>
+    </query>
+    
+    
+    <query id="rsm3120_select04" desc="개인별 발매 (SELECT)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_select04 */
+		    SUM(T.SOLD_NUM) SOLD_NUM,		-- 발매 건수                              
+		    --SUM(T.CASH_NUM) CASH_NUM,       -- 환급 건수                       
+		    SUM(T.CNCL_NUM) CNCL_NUM,       -- 취소 건수                       
+		    SUM(T.SOLD_AMT) SOLD_AMT,       -- 발매 금액          
+		    --SUM(T.CASH_AMT) CASH_AMT,       -- 환급 금액              
+		    SUM(T.CNCL_AMT) CNCL_AMT,        -- 취소 금액
+		    --COUNT(DISTINCT V.RACE_DAY) AS DAY_CNT,	-- 경주일 카운트
+		    COUNT(DISTINCT(CASE WHEN T.SOLD_NUM > 1 THEN V.RACE_DAY END)) AS DAY_CNT,	-- 경주일 카운트
+		    --(SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '060' AND CD=(CASE WHEN T.COMM_NO  = '06' THEN T.COMM_NO WHEN T.COMM_NO  < '11' THEN '01' ELSE T.COMM_NO END)) AS BRNC_NM 
+		    MIN(T.BRNC_NM) AS BRNC_NM 
+		]]>
+    </query>
+    
+    
+    <query id="rsm3120_from01" desc="개인별 발매 (FROM 경주권)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_from01 */        
+	         FROM VW_SDL_INFO V, 
+	              --VW_PC_TELMP T,               -- 경주권
+                  (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, 
+                          SELL_CD, 
+                          COMM_NO,
+                          (SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '060' AND CD=(CASE WHEN COMM_NO  = '06' THEN COMM_NO WHEN COMM_NO  < '11' THEN '01' ELSE COMM_NO END)) AS BRNC_NM,
+                          TELLER_ID, 
+                          WIN_NO, 
+                          --TELLER_TYPE, PERF_NO, SESSION_NO, 
+                          SOLD_NUM, CASH_NUM, CNCL_NUM, SOLD_AMT, CASH_AMT, CNCL_AMT 
+                   FROM VW_PC_TELMP) T,               -- 경주권
+	              TBJI_TELLER_MANA M -- TBJI_PC_TELLER M      
+		]]>
+    </query>
+    
+    <query id="rsm3120_from02" desc="개인별 발매 (FROM 구매권)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_from02 */        
+	         FROM VW_SDL_INFO V, 
+	              --VW_PC_WINNMP T,               -- 구매권
+                  (SELECT STND_YEAR, MEET_CD, SELL_CD, TMS, DAY_ORD, 
+                          COMM_NO, WIN_NO, TELLER_ID, 
+                          SOLD_NUM, CNCL_NUM, --CASH_NUM, 
+                          SOLD_AMT, CNCL_AMT, --CASH_AMT, 
+                          (SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '060' AND CD=(CASE WHEN COMM_NO  = '06' THEN COMM_NO WHEN COMM_NO  < '11' THEN '01' ELSE COMM_NO END)) AS BRNC_NM  
+                     FROM VW_PC_WINNMP ) T,	              
+	              TBJI_TELLER_MANA M -- TBJI_PC_TELLER M      
+		]]>
+    </query>
+    
+    <query id="rsm3120_where01" desc="개인별 발매 (WHERE)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_where01 */
+	        WHERE 1=1
+			AND T.MEET_CD=V.MEET_CD                              
+			AND T.STND_YEAR=V.STND_YEAR                          
+			AND T.TMS=V.TMS                                      
+			AND T.DAY_ORD=V.DAY_ORD
+			AND T.TELLER_ID=M.TELLER_ID(+)   
+			AND T.COMM_NO=M.COMM_NO(+) 							-- 신재선추가(2012.7.26)
+--			AND T.MEET_CD=M.MEET_CD(+)   
+			AND (   V.MEET_CD = DECODE(?, 'Y', '001', '-')		-- 광명경륜
+			     OR V.MEET_CD = DECODE(?, 'Y', '002', '-')		-- 창원경륜
+			     OR V.MEET_CD = DECODE(?, 'Y', '003', '-')	    -- 경정
+			     OR V.MEET_CD = DECODE(?, 'Y', '004', '-'))		-- 부산경륜
+			AND V.RACE_DAY >= ?   -- 검색 시작일                   
+			AND V.RACE_DAY <= ?   -- 검색 종료일
+		]]>
+    </query>
+    
+    <query id="rsm3120_where02" desc="개인별 발매 (WHERE 본장)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_where02 */
+	        -- 조건추가
+		  AND (   T.SELL_CD	= DECODE(?,'Y','01','-')    -- MEET_CD_001
+		       OR T.SELL_CD	= DECODE(?,'Y','01','-')    -- MEET_CD_002
+		       OR T.SELL_CD	= DECODE(?,'Y','03','-')    -- MEET_CD_003
+		       OR T.SELL_CD = DECODE(?,'Y','01','-'))	-- MEET_CD_004
+		  AND T.COMM_NO IN ('01','02','03','04','08')   -- 광명  
+		]]>
+    </query>
+    
+    <query id="rsm3120_where03" desc="개인별 발매 (WHERE 교차)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_where03 */
+	          
+		]]>
+    </query>
+    
+    <query id="rsm3120_where04" desc="개인별 발매 (WHERE 마이켓,지점)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_where03 */
+	        AND T.COMM_NO = ? 	-- COMM_NO 투표소 코드	          
+		]]>
+    </query>
+    
+    <query id="rsm3120_where05" desc="개인별 발매 (WHERE 미사리)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_where05 */
+	        AND T.SELL_CD = '03'	          			  -- 미사리
+	        AND T.COMM_NO IN ('01','02','03','04','08')    	          
+		]]>
+    </query>
+    
+    <query id="rsm3120_where06" desc="개인별 발매 (WHERE 광명)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_where06 */
+	        AND T.SELL_CD = '01'	          			  -- 광명
+	        AND T.COMM_NO IN ('01','02','03','04','08')  	          
+		]]>
+    </query>
+    
+    <query id="rsm3120_groupby01" desc="개인별 발매 (GROUP BY 발매원별)" fetchSize="10">
+        <![CDATA[
+	         /* rsm3120_groupby01 */
+	         GROUP BY --T.COMM_NO,
+	                  T.TELLER_ID,M.EMP_NO,M.TELLER_NM                                                  
+			         -- ROLLUP(T.TELLER_ID)  -- 최종 레코드의  TOTAL, SUM 생성용                                           
+			 ORDER BY 1            
+		]]>
+    </query>
+    <query id="rsm3120_groupby02" desc="개인별 발매 (GROUP BY 창구별)" fetchSize="10">
+        <![CDATA[
+	        /* rsm3120_groupby02 */
+	          GROUP BY --T.COMM_NO,
+	                   T.WIN_NO                                                  
+			 -- ROLLUP(T.WIN_NO)  -- 최종 레코드의  TOTAL, SUM 생성용                                           
+			 ORDER BY 1                                                                             
+			              
+		]]>
+    </query>
+    
+    
+    
+        
+    <!-- 개인별 발매  View -->
+    
+    <query id="rsm3120_select25" desc="개인별 발매 View (SELECT 경주권, 발매원별)" fetchSize="10">
+        <![CDATA[        
+         		/* rsm3120_select25 */
+			    -- DECODE(V.RACE_DAY,NULL,'TOTAL',V.RACE_DAY) RACE_DAY,
+			    V.RACE_DAY,
+        ]]>
+    </query>
+    
+    
+    <query id="rsm3120_select26" desc="개인별 발매 View (SELECT 경주권, 창구별)" fetchSize="10">
+        <![CDATA[        
+         		/* rsm3120_select26 */
+			    V.RACE_DAY RACE_DAY,
+        ]]>
+    </query>
+    
+    
+    <query id="rsm3120_select27" desc="개인별 발매 View (SELECT)" fetchSize="10">
+        <![CDATA[        
+         		/* rsm3120_select27 */   
+			    T.TELLER_ID,
+			    NVL(M.EMP_NO, (SELECT MAX(EMP_NO) FROM TBJI_TELLER_MANA B WHERE B.TELLER_ID=T.TELLER_ID)) AS EMP_NO,                                          
+			    (                                                     
+			    SELECT                                                
+			        M.TELLER_NM                                       
+			    FROM TBJI_PC_TELLER M                                 
+			    WHERE                                                 
+			        M.TELLER_ID=T.TELLER_ID                           
+			        AND ROWNUM=1                                      
+			    ) TELLER,  
+			    MAX(T.WIN_NO) AS WIN_NO,                                           
+			    SUM(T.SOLD_NUM) SOLD_NUM,                              
+			    --SUM(T.CASH_NUM) CASH_NUM,                              
+			    SUM(T.CNCL_NUM) CNCL_NUM,                              
+			    SUM(T.SOLD_AMT) SOLD_AMT,                              
+			    --SUM(T.CASH_AMT) CASH_AMT,                              
+			    SUM(T.CNCL_AMT) CNCL_AMT,
+			    (SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '060' AND CD=(CASE WHEN T.COMM_NO  = '06' THEN T.COMM_NO WHEN T.COMM_NO  < '11' THEN '01' ELSE T.COMM_NO END)) AS BRNC_NM,
+			    '' AS DAY_CNT	-- 경주일 카운트                               
+			 
+        ]]>
+    </query>
+    
+    
+    <query id="rsm3120_where25" desc="개인별 발매 View (WHERE 발매원별)" fetchSize="10">
+        <![CDATA[        
+         	 /* rsm3120_where25 */   
+			  AND T.TELLER_ID = NVL(?, T.TELLER_ID)		-- 발매원 번호
+			 
+			 GROUP BY T.COMM_NO,T.TELLER_ID,  M.EMP_NO,      
+			        V.RACE_DAY                                             	
+		--	        ROLLUP(V.RACE_DAY) 	-- 최종 레코드의  TOTAL, SUM 생성용                                   
+			 ORDER BY 1                                                 
+        ]]>
+    </query>
+    
+    <query id="rsm3120_where26" desc="개인별 발매 View (WHERE 창구별)" fetchSize="10">
+        <![CDATA[        
+         	 /* rsm3120_where26 */   
+			  AND T.WIN_NO = NVL(?, T.WIN_NO)    -- 발매원 번호                     
+		     GROUP BY  T.COMM_NO,                                           
+		        T.TELLER_ID,M.EMP_NO,V.RACE_DAY                              
+		     ORDER BY 1,2                                      
+        ]]>
+    </query>
+    
+</queryMap>

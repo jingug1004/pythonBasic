@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs6020(지원신청 관리 )">
+    <query id="rbs6020_s01" desc="지원신청내역 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs6020_s01 */
+                    '1' AS CHK                   
+			       ,SEQ_NO                    --요청번호
+			       ,STR_DT                    --시작일자
+			       ,TO_CHAR(TO_DATE(STR_DT,'YYYYMMDD'),'DY') AS STR_DT_DY            --시작일자  요일
+			       ,TO_CHAR(TO_DATE(STR_DT,'YYYYMMDD'),'MM-DD') AS STR_DT_MMDD       --시작일자  월일
+			       ,END_DT                    --종료일자
+			       ,'('||TO_CHAR(TO_DATE(END_DT,'YYYYMMDD'),'DY')||')' AS END_DT_DY            --시작일자  요일
+			       ,TO_CHAR(TO_DATE(END_DT,'YYYYMMDD'),'MM-DD') AS END_DT_MMDD       --시작일자  월일
+			       ,REQ_AREA                  --요청분야
+			       ,REQ_RSN                   --요청사유
+			       ,SUPTR_ID                  --기동요원 사번
+			       ,B.USER_NM AS SUPTR_NM    --기동요원 이름
+			       ,DECODE(CNCL_STAT_CD, '001','031', STAT_CD) AS STAT_CD                   --상태코드
+			       ,REQ_TEAM_CD               --요청부서코드
+			       ,C.GROUP_NAME AS REQ_TEAM_NM --요청부서명
+			       ,REQ_ID                    --요청자 사번
+			       ,D.USER_NM AS REQ_NM       --요청자 이름
+			       ,BRNC_APRV_ID              --요청부서 승인자 사번
+			       ,BRNC_APRV_DT              --지점 승인일시
+			       ,MNGR_APRV_ID              --관리부서 결재자 사번
+			       ,MNGR_APRV_DT              --관리부서 최종 승인일시
+			       ,CNCL_RSN                  --취소시 사유
+			       ,CONDUCT                   --근태사항
+			       ,SUPRT_CONT                --지원내용
+			       ,BRNC_OPINN                --부서 의견
+			       ,RSLT_REPTR_ID             --결과보고서 작성자
+			       ,RSLT_APRV_ID              --보고서 최종 결재자 사번
+			       ,RSLT_REPTR_DT             -- 보고서 작성일시
+			       ,A.INPT_ID                   --입력자 사번
+			       ,A.INPT_DT                   --입력일시
+			       ,A.UPDT_ID                   --수정자 사번
+			       ,A.UPDT_DT                   --수정일시
+			       ,CASE STAT_CD WHEN '002' THEN 1 WHEN '012' THEN 1 WHEN '022' THEN 1 ELSE 0 END AS SORT_ODR
+			       ,A.CNCL_STAT_CD
+			 FROM  TBRS_SUPRT A, TBRS_SUPTR B, V_GROUP C, VW_USER D
+			 WHERE A.SUPTR_ID = B.USER_ID(+)
+			   AND A.REQ_TEAM_CD = C.GROUP_ID			   
+			   AND A.REQ_ID = D.USER_ID
+			   AND END_DT >= ?
+			   AND STR_DT <= ? 
+			   AND A.STAT_CD != '032'   
+			   AND A.REQ_TEAM_CD LIKE ?||'%'		-- 요청지점코드
+			   AND A.STAT_CD LIKE ?||'%'    						-- 상태코드
+			   AND NVL(A.SUPTR_ID,'%') LIKE ?||'%'    				-- 기동요원 사번
+			 ORDER BY A.STR_DT DESC, A.SUPTR_ID
+        ]]>
+    </query>       
+    
+    <query id="rbs6020_s02" desc="중복자료 존재 여부 체크 " fetchSize="10">
+      <![CDATA[
+			WITH X AS /* rbs6020_s02 */ 
+			       (
+			        SELECT TO_CHAR(TO_DATE(?, 'YYYYMMDD')+LEVEL-1, 'YYYYMMDD') AS DAY
+			        FROM DUAL 
+			        CONNECT BY LEVEL <= (TO_DATE(?, 'YYYYMMDD')-TO_DATE(?, 'YYYYMMDD')+1)
+			        )
+			SELECT DAY, COUNT(*)
+			FROM  X, TBRS_SUPRT B
+			WHERE X.DAY BETWEEN B.STR_DT AND B.END_DT
+			AND   X.DAY BETWEEN ? AND ?
+			AND   B.SEQ_NO <> NVL(?,0)
+		    AND   B.STAT_CD != '032'   
+			GROUP BY X.DAY
+			HAVING COUNT(*) > 2
+			ORDER BY 1         
+        ]]>
+    </query>       
+    
+    <query id="rbs6020_s03" desc="부서장 사번 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs6020_s03 */
+			       SABUNCD AS CAPTAIN_ID
+			FROM   MYROLE.VIWDEPTC@VENUSLINK
+			WHERE  BONBUCD||DEPTCD = ?     
+        ]]>
+    </query>       
+    
+    
+    <query id="rbs6020_s04" desc="알림 대상자 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs6020_s04 */
+			       ALARM_GBN, RECV_ID 
+			FROM TBRK_ALARM 
+			WHERE ALARM_CD = '018'  
+        ]]>
+    </query>       
+    
+
+    <query id="rbs6020_s05" desc="중복부서 존재 여부 체크 " fetchSize="10">
+      <![CDATA[
+			WITH X AS /* rbs6020_s05 */ 
+			       (
+			        SELECT TO_CHAR(TO_DATE(?, 'YYYYMMDD')+LEVEL-1, 'YYYYMMDD') AS DAY
+			        FROM DUAL 
+			        CONNECT BY LEVEL <= (TO_DATE(?, 'YYYYMMDD')-TO_DATE(?, 'YYYYMMDD')+1)
+			        )
+			SELECT DAY
+			FROM  X, TBRS_SUPRT B
+			WHERE X.DAY BETWEEN B.STR_DT AND B.END_DT
+			AND   X.DAY BETWEEN ? AND ?
+			AND   B.REQ_TEAM_CD = ?
+			AND   B.STAT_CD != '032'   
+			AND   B.SEQ_NO <> NVL(?,0)
+			ORDER BY 1         
+        ]]>
+    </query>       
+    
+    
+
+    <query id="rbs6020_s06" desc="해당 월의 기동요원의 근태사항 조회 " fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs6020_s06 */
+			        EMP_NO AS USER_ID
+			       ,EMP_NM AS USER_NM
+			       ,ATT_DT
+			       ,ATT_CD
+			       ,ATT_NM
+			       ,RQST_RSN
+			FROM  USHUM.VW_DAILY_ATT_D12@VENUSLINK
+			WHERE EMP_NO IN (SELECT USER_ID FROM TBRS_SUPTR)
+			AND   ATT_CD BETWEEN 'A25' AND 'A43'
+			AND   ATT_DT LIKE ?||'%'
+			ORDER BY ATT_DT, EMP_NO      
+        ]]>
+    </query>       
+    
+
+
+    <query id="rbs6020_s07" desc="미처리 자료 조회 " fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs6020_s07 */
+                   STR_DT
+                  ,END_DT
+                  ,REQ_RSN
+                  ,C.CD_NM AS STAT_NM
+            FROM   TBRS_SUPRT S
+                  ,TBRK_SPEC_CD C
+            WHERE  REQ_TEAM_CD = ?
+            AND    STAT_CD IN ('001','002','003','021','022')
+            AND    C.GRP_CD  = '153'
+            AND    S.STAT_CD = C.CD    
+        ]]>
+    </query>       
+    
+
+    <query id="rbs6020_m01" desc="기동요원 신청내역 저장 " fetchSize="10">
+      <![CDATA[
+           MERGE INTO /* rbs6020_m01 */
+                  TBRS_SUPRT DST
+           USING (
+                    SELECT  ? AS SEQ_NO                    --요청번호
+					       ,? AS STR_DT                    --시작일자
+					       ,? AS END_DT                    --종료일자
+					       ,? AS REQ_AREA                  --요청분야
+					       ,? AS REQ_RSN                   --요청사유
+					       ,? AS SUPTR_ID                  --기동요원 사번
+					       ,? AS STAT_CD                   --상태코드
+					       ,? AS REQ_TEAM_CD               --요청부서코드
+					       ,? AS REQ_ID                    --요청자 사번
+					       ,? AS BRNC_APRV_ID              --요청부서 승인자 사번
+					       ,? AS BRNC_APRV_DT              --지점 승인일시
+					       ,? AS MNGR_APRV_ID              --관리부서 결재자 사번
+					       ,? AS MNGR_APRV_DT              --관리부서 최종 승인일시
+					       ,? AS CNCL_RSN                  --취소시 사유
+					       ,? AS CONDUCT                   --근태사항
+					       ,? AS SUPRT_CONT                --지원내용
+					       ,? AS BRNC_OPINN                --부서 의견
+					       ,? AS RSLT_REPTR_ID             --결과보고서 작성자
+					       ,? AS RSLT_APRV_ID              --보고서 최종 결재자 사번
+					       ,? AS RSLT_REPTR_DT             --보고서 작성일자
+					       ,? AS USER_ID                   --입력자 사번
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.SEQ_NO = SRC.SEQ_NO
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.STR_DT  		= SRC.STR_DT
+                        ,DST.END_DT   		= SRC.END_DT
+                        ,DST.REQ_AREA 		= SRC.REQ_AREA
+                        ,DST.REQ_RSN 		= SRC.REQ_RSN
+                        ,DST.SUPTR_ID 		= SRC.SUPTR_ID
+                        ,DST.STAT_CD 		= SRC.STAT_CD
+                        ,DST.REQ_TEAM_CD 	= SRC.REQ_TEAM_CD
+                        ,DST.REQ_ID 		= SRC.REQ_ID
+                        ,DST.BRNC_APRV_ID 	= SRC.BRNC_APRV_ID
+                        ,DST.CONDUCT 		= SRC.CONDUCT
+                        ,DST.SUPRT_CONT 	= SRC.SUPRT_CONT
+                        ,DST.BRNC_OPINN 	= SRC.BRNC_OPINN
+                        ,DST.RSLT_REPTR_ID 	= SRC.RSLT_REPTR_ID
+                        ,DST.RSLT_APRV_ID 	= SRC.RSLT_APRV_ID
+                        ,DST.RSLT_REPTR_DT 	= SRC.RSLT_REPTR_DT
+                        ,DST.UPDT_ID 		= SRC.USER_ID                        
+                        ,DST.UPDT_DT 		= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                    SEQ_NO                    --요청번호
+			       ,STR_DT                    --시작일자
+			       ,END_DT                    --종료일자
+			       ,REQ_AREA                  --요청분야
+			       ,REQ_RSN                   --요청사유
+			       ,SUPTR_ID                  --기동요원 사번
+			       ,STAT_CD                   --상태코드
+			       ,CNCL_STAT_CD              --취소요청상태
+			       ,REQ_TEAM_CD               --요청지점코드
+			       ,REQ_ID                    --요청자 사번
+			       ,BRNC_APRV_ID              --요청부서
+			       ,CNCL_RSN                  --취소시 사유
+			       ,INPT_ID                   --입력자 사번
+			       ,INPT_DT                   --입력일시
+               ) VALUES (
+                    (SELECT NVL(MAX(SEQ_NO),0)+1 FROM TBRS_SUPRT)  --최종요청번호+1
+			       ,SRC.STR_DT                    --시작일자
+			       ,SRC.END_DT                    --종료일자
+			       ,SRC.REQ_AREA                  --요청분야
+			       ,SRC.REQ_RSN                   --요청사유
+			       ,SRC.SUPTR_ID                  --기동요원 사번
+			       ,SRC.STAT_CD                   --상태코드
+			       ,'000'						  --취소요청상태 기본값
+			       ,SRC.REQ_TEAM_CD               --요청지점코드
+			       ,SRC.REQ_ID                    --요청자 사번
+			       ,SRC.BRNC_APRV_ID              --요청부서 승인자 사번
+			       ,SRC.CNCL_RSN                  --취소시 사유
+			       ,SRC.USER_ID                   --입력자 사번
+                   ,SYSDATE  
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs6020_u01" desc="기동요원 지원신청상태 변경 " fetchSize="10">
+      <![CDATA[           
+           UPDATE /* rbs6020_u01 */
+                  TBRS_SUPRT
+             SET  STAT_CD = ?
+                 ,BRNC_APRV_ID = NVL(?, BRNC_APRV_ID)
+                 ,MNGR_APRV_ID = NVL(?, MNGR_APRV_ID)  
+                 ,RSLT_APRV_ID = NVL(?, RSLT_APRV_ID)
+                 ,BRNC_APRV_DT = DECODE(?, '004', SYSDATE, BRNC_APRV_DT) 
+                 ,MNGR_APRV_DT = DECODE(?, '013', SYSDATE, MNGR_APRV_DT) 
+                 ,RSLT_APRV_DT = DECODE(?, '023', SYSDATE, RSLT_APRV_DT) 
+                 ,UPDT_ID = ?
+                 ,UPDT_DT = SYSDATE  
+           WHERE SEQ_NO = ? 
+        ]]>
+    </query>    
+    
+    <query id="rbs6020_u02" desc="기동요원 지원신청  취소 요청 " fetchSize="10">
+      <![CDATA[           
+           UPDATE /* rbs6020_u02 */
+                  TBRS_SUPRT
+             SET  CNCL_STAT_CD = ?
+                 ,STAT_CD = NVL(?, STAT_CD)
+                 ,CNCL_RSN = NVL(?, CNCL_RSN)
+                 ,UPDT_ID = ?
+                 ,UPDT_DT = SYSDATE  
+           WHERE SEQ_NO = ? 
+        ]]>
+    </query>    
+    
+    <query id="rbs6020_u03" desc="기동요원 지원실적 입력 " fetchSize="10">
+      <![CDATA[           
+           UPDATE /* rbs6020_u03 */
+                  TBRS_SUPRT
+             SET  STAT_CD = NVL(?, STAT_CD)
+                 ,CONDUCT = ?
+                 ,SUPRT_CONT = ?
+                 ,BRNC_OPINN = ?
+                 ,RSLT_REPTR_ID = ?
+                 ,RSLT_APRV_ID = NVL(?, RSLT_APRV_ID)
+                 ,RSLT_REPTR_DT = ?
+                 ,UPDT_ID = ?
+                 ,UPDT_DT = SYSDATE  
+           WHERE SEQ_NO = ? 
+        ]]>
+    </query>    
+    
+    <query id="rbs6020_d01" desc="기동요원 지원신청내역 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs6020_d01 */
+                  FROM TBRS_SUPRT
+           WHERE SEQ_NO = ? 
+        ]]>
+    </query>    
+    
+    
+</queryMap>

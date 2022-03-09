@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4021(경주,승식별실적)">
+	<query id="rsm4021_s01" desc="경주일 정보" fetchSize="10">
+        <![CDATA[        
+			 SELECT /* rsm4021_s01 */
+			 		MEET_CD,
+				   TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') RACE_DAY,
+				   RACE_YOIL,
+				   DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') AS RACE_YOIL_KOR,
+		           TMS||'회차 '||DAY_ORD||'일차' AS RACE_DAY_INFO
+		      FROM VW_SDL_INFO A
+		      WHERE 1=1
+		        AND MEET_CD		= ?
+		        AND RACE_DAY	= ?                                                                                                     
+        ]]>
+    </query>
+
+
+	<query id="rsm4021_s02" desc="제세금" fetchSize="10">
+        <![CDATA[        
+			 SELECT  /* rsm4021_s02 */                                                     
+			    P.MEET_CD,                                               
+			    CASE                                                                    
+			        WHEN P.SELL_CD='01' THEN '경륜'                         
+			        WHEN P.SELL_CD='02' THEN '창원'                         
+			        WHEN P.SELL_CD='03' THEN '경정'                         
+			        WHEN P.SELL_CD='04' THEN '부산'                   
+			   END MEET_NM,                                                         	    
+			    DECODE(P.SELL_CD,NULL,'TOTAL',P.SELL_CD) SELL_CD,        
+			    SUM(COMMI_1+COMMI_2+COMMI_3+COMMI_4+COMMI_5+COMMI_6) TOT,
+			    SUM(NET_AMT) NET_AMT,                                    
+			    SUM(COMMI_1) COMMI_1,                                    
+			    SUM(COMMI_2) COMMI_2,                                    
+			    SUM(COMMI_3) COMMI_3,                                    
+			    SUM(COMMI_4) COMMI_4,                                    
+			    SUM(POSI_BREAK-NEGA_BREAK) POSI_BREAK,                   
+			    SUM(COMMI_5) COMMI_5,                                    
+			    SUM(COMMI_6) COMMI_6                                     
+			 FROM                                                          
+			     VW_SDL_INFO V,		-- 경주일 정보                                            
+			     VW_PC_PAYOFFS P 	-- 세금관련내역                                                   
+			 WHERE 1=1                                                         
+			     AND V.RACE_DAY		= ?	-- 0:RACE_DAY 경주일                                    
+			     AND V.MEET_CD		= ? -- 1:MEET_CD 경륜 구분 코드                              
+			     AND P.MEET_CD=V.MEET_CD                                   
+			     AND P.STND_YEAR=V.STND_YEAR                               
+			     AND P.TMS=V.TMS                                           
+			     AND P.DAY_ORD=V.DAY_ORD                                 
+			 GROUP BY                                                      
+			     P.MEET_CD,P.SELL_CD                                              
+			     -- ROLLUP(P.SELL_CD)                                       
+			 ORDER BY SELL_CD                                                                                                     
+        ]]>
+    </query>
+    
+
+	<query id="rsm4021_s03" desc="경주별/승식별 매출액" fetchSize="10">
+        <![CDATA[        
+			  SELECT	/* rsm4021_s03 */                                                                          
+				   P.MEET_CD,                                                                    
+				   DECODE(P.RACE_NO,NULL,0,P.RACE_NO) RACE_NO,                                   
+				   DECODE(P.RACE_NO,NULL,'TOTAL',P.RACE_NO) RACE,	-- 경주                                
+				
+				   SUM(CASE WHEN POOL_CD='001' THEN P.NET_AMT END) TOT_001,	-- 전체 단승
+				   SUM(CASE WHEN POOL_CD='002' THEN P.NET_AMT END) TOT_002,	-- 전체 연승
+				   SUM(CASE WHEN POOL_CD='004' THEN P.NET_AMT END) TOT_004,	-- 전체 쌍승
+				   SUM(CASE WHEN POOL_CD='005' THEN P.NET_AMT END) TOT_005, -- 전체 복승
+				   SUM(CASE WHEN POOL_CD='006' THEN P.NET_AMT END) TOT_006, -- 전체 삼복승
+				   SUM(CASE WHEN POOL_CD='007' THEN P.NET_AMT END) TOT_007, -- 전체 삼쌍승
+				   --SUM(CASE WHEN POOL_CD='008' THEN P.NET_AMT END) TOT_008, -- 전체 쌍복승
+				
+				   SUM(CASE WHEN P.SELL_CD='01' AND POOL_CD='001' THEN P.NET_AMT END) TOT_01_001,	-- 광명 단승
+				   SUM(CASE WHEN P.SELL_CD='01' AND POOL_CD='002' THEN P.NET_AMT END) TOT_01_002,	-- 광명 연승
+				   SUM(CASE WHEN P.SELL_CD='01' AND POOL_CD='004' THEN P.NET_AMT END) TOT_01_004,	-- 광명 쌍승
+				   SUM(CASE WHEN P.SELL_CD='01' AND POOL_CD='005' THEN P.NET_AMT END) TOT_01_005,	-- 광명 복승
+				   SUM(CASE WHEN P.SELL_CD='01' AND POOL_CD='006' THEN P.NET_AMT END) TOT_01_006,	-- 광명 삼복승
+				   SUM(CASE WHEN P.SELL_CD='01' AND POOL_CD='007' THEN P.NET_AMT END) TOT_01_007,	-- 광명 삼쌍승
+				   --SUM(CASE WHEN P.SELL_CD='01' AND POOL_CD='008' THEN P.NET_AMT END) TOT_01_008,	-- 광명 쌍복승
+				   
+				   SUM(CASE WHEN P.SELL_CD='02' AND POOL_CD='001' THEN P.NET_AMT END) TOT_02_001,	-- 창원 단승
+				   SUM(CASE WHEN P.SELL_CD='02' AND POOL_CD='002' THEN P.NET_AMT END) TOT_02_002,	-- 창원 연승
+				   SUM(CASE WHEN P.SELL_CD='02' AND POOL_CD='004' THEN P.NET_AMT END) TOT_02_004,	-- 창원 쌍승
+				   SUM(CASE WHEN P.SELL_CD='02' AND POOL_CD='005' THEN P.NET_AMT END) TOT_02_005,	-- 창원 복승
+				   SUM(CASE WHEN P.SELL_CD='02' AND POOL_CD='006' THEN P.NET_AMT END) TOT_02_006, 	-- 창원 삼복승
+				   SUM(CASE WHEN P.SELL_CD='02' AND POOL_CD='007' THEN P.NET_AMT END) TOT_02_007, 	-- 창원 삼쌍승
+				   --SUM(CASE WHEN P.SELL_CD='02' AND POOL_CD='008' THEN P.NET_AMT END) TOT_02_008, 	-- 창원 쌍복승
+				   
+				   SUM(CASE WHEN P.SELL_CD='03' AND POOL_CD='001' THEN P.NET_AMT END) TOT_03_001,	-- 경정 단승
+				   SUM(CASE WHEN P.SELL_CD='03' AND POOL_CD='002' THEN P.NET_AMT END) TOT_03_002,	-- 경정 연승
+				   SUM(CASE WHEN P.SELL_CD='03' AND POOL_CD='004' THEN P.NET_AMT END) TOT_03_004,	-- 경정 쌍승
+				   SUM(CASE WHEN P.SELL_CD='03' AND POOL_CD='005' THEN P.NET_AMT END) TOT_03_005,	-- 경정 복승
+				   SUM(CASE WHEN P.SELL_CD='03' AND POOL_CD='006' THEN P.NET_AMT END) TOT_03_006, 	-- 경정 삼복승
+				   SUM(CASE WHEN P.SELL_CD='03' AND POOL_CD='007' THEN P.NET_AMT END) TOT_03_007, 	-- 경정 삼쌍승
+				   --SUM(CASE WHEN P.SELL_CD='03' AND POOL_CD='008' THEN P.NET_AMT END) TOT_03_008, 	-- 경정 쌍복승
+				   
+				   SUM(CASE WHEN P.SELL_CD='04' AND POOL_CD='001' THEN P.NET_AMT END) TOT_04_001,	-- 부산 단승
+				   SUM(CASE WHEN P.SELL_CD='04' AND POOL_CD='002' THEN P.NET_AMT END) TOT_04_002,	-- 부산 연승
+				   SUM(CASE WHEN P.SELL_CD='04' AND POOL_CD='004' THEN P.NET_AMT END) TOT_04_004,	-- 부산 쌍승
+				   SUM(CASE WHEN P.SELL_CD='04' AND POOL_CD='005' THEN P.NET_AMT END) TOT_04_005,	-- 부산 복승
+				   SUM(CASE WHEN P.SELL_CD='04' AND POOL_CD='006' THEN P.NET_AMT END) TOT_04_006,   -- 부산 삼복승
+				   SUM(CASE WHEN P.SELL_CD='04' AND POOL_CD='007' THEN P.NET_AMT END) TOT_04_007   -- 부산 삼쌍승
+				   --SUM(CASE WHEN P.SELL_CD='04' AND POOL_CD='008' THEN P.NET_AMT END) TOT_04_008    -- 부산 쌍복승                              
+				 FROM                                                                            
+				     VW_SDL_INFO V,                                                              
+				     VW_PC_PAYOFFS P                                                           
+				 WHERE 1=1                                                                            
+				     AND V.RACE_DAY	= ? -- 0:RACE_DAY 경주일                                                        
+				     AND V.MEET_CD	= ? -- 1:MEET_CD 경륜 경정 구분 코드                                                      
+				     AND P.MEET_CD=V.MEET_CD                                                     
+				     AND P.STND_YEAR=V.STND_YEAR                                                 
+				     AND P.TMS=V.TMS                                                             
+				     AND P.DAY_ORD=V.DAY_ORD                                                     
+				 GROUP BY                                                                        
+				     P.MEET_CD,P.RACE_NO                                                                  
+--				     ROLLUP(P.RACE_NO)                                                           
+				 ORDER BY 2                                                                                                                                                                                                                                    
+        ]]>
+    </query>
+    
+    
+    <query id="rsm4021_s04" desc="교차 경주 승식별 매출액" fetchSize="10">
+        <![CDATA[        
+			 SELECT /* rsm4021_s04 */                                                                           
+			   P.MEET_CD,	-- 구분 코드                                                                     
+			   CASE                                                                                          
+			        WHEN P.MEET_CD='002' THEN '창원교차'                                              
+			        WHEN P.MEET_CD='004' THEN '부산교차'                        
+			   END MEET_NM,									-- 구분                                                        
+			   DECODE(P.RACE_NO,NULL,0,P.RACE_NO) RACE_NO,  -- 경주번호                            
+			   DECODE(P.RACE_NO,NULL,'TOTAL',P.RACE_NO) RACE,	-- 경주                        
+			   SUM(CASE WHEN POOL_CD='001' THEN P.NET_AMT END) TOT_01_001,	-- 단승 
+			   SUM(CASE WHEN POOL_CD='002' THEN P.NET_AMT END) TOT_01_002,	-- 연승
+			   SUM(CASE WHEN POOL_CD='004' THEN P.NET_AMT END) TOT_01_004,	-- 쌍승
+			   SUM(CASE WHEN POOL_CD='005' THEN P.NET_AMT END) TOT_01_005,	-- 복승
+			   SUM(CASE WHEN POOL_CD='006' THEN P.NET_AMT END) TOT_01_006,  -- 삼복승
+			   SUM(CASE WHEN POOL_CD='007' THEN P.NET_AMT END) TOT_01_007  -- 삼쌍승
+			   --SUM(CASE WHEN POOL_CD='008' THEN P.NET_AMT END) TOT_01_008   -- 쌍복승                            
+			 FROM                                                                             
+			     VW_SDL_INFO V,         -- 경주일 정보                                                      
+			     VW_PC_PAYOFFS P     	-- 세금관련내역                                                            
+			 WHERE 1=1                                                                           
+			     AND V.RACE_DAY	= ? -- 0:RACE_DAY                                                         
+			     AND V.MEET_CD NOT IN ('001','003')                                           
+			     AND P.MEET_CD=V.MEET_CD                                                      
+			     AND P.STND_YEAR=V.STND_YEAR                                                  
+			     AND P.TMS=V.TMS                                                              
+			     AND P.DAY_ORD=V.DAY_ORD                                                      
+			 GROUP BY                                                                         
+			     P.MEET_CD,P.RACE_NO                                                                   
+			     -- ROLLUP(P.RACE_NO)                                                            
+			 ORDER BY MEET_CD,RACE_NO                                                                                                                                                              
+        ]]>
+    </query>
+</queryMap>

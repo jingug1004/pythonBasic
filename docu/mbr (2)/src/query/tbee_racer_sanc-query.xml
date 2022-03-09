@@ -1,0 +1,1394 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbee_racer_sanc(제재처분등록)">
+    <query id="tbee_racer_sanc_fe001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	'0'	AS chk, /*tbee_racer_sanc_fe001*/
+					'E05040010'	AS MENUID,
+                    A.MBR_CD,
+                    A.TMS,
+                    A.DAY_ORD,
+                    A.RACE_NO,
+					A.RACER_NO, 		--선수등록번호
+					A.SEQ, 				--일련번호
+					A.STND_YEAR, 		--기준년도
+					A.SANC_ISSUE_NO,	--발급번호 
+					A.CFM,			    -- 확정여부
+					A.SANC_BASIS_CD,	--양정코드
+					A.SANC_TERM, 		--제재처분기간
+					A.SANC_RSN_CD,		--사유코드
+					A.SANC_RSN, 		--사유내역
+					A.HOMEPAGE_SANC_RSN,--홈페이지용사유 
+					A.SMRY,				--관련근거
+					A.SANC_ACT_DT, 		--처분일자
+					CASE 
+						WHEN ARRANGE_ESC_USE_CD = '001' AND SANC_DEPT = 'W' 
+							THEN TO_CHAR(ADD_MONTHS(TO_DATE(A.SANC_ACT_DT,'YYYYMMDD'),24),'YYYYMMDD')
+						WHEN ARRANGE_ESC_USE_DT IS NOT NULL AND ARRANGE_ESC_USE_CD != '001' AND SANC_DEPT = 'W'	
+							THEN TO_CHAR(ARRANGE_ESC_USE_DT,'YYYYMMDD') 
+						ELSE NULL
+					END SANC_END_DT, --소멸일자(2년)
+					CASE 
+						WHEN SANC_RSN_CD IN ('001', '002') AND SANC_DEPT = 'W' 
+							THEN  ARRANGE_ESC_USE_CD
+						ELSE NULL
+					END ARRANGE_ESC_USE_CD, --주선보류 사용구분
+					A.HOMEPAGE_NOTI_SDT,--공지시작일자
+					A.HOMEPAGE_NOTI_EDT,--공지종료일자
+					A.SANC_DEPT,		--제재입력부서(공정팀=G,경정심판팀=S)
+					A.INST_ID,			--입력자
+					B.RACER_GRD_CD,		--등급
+					B.NM_KOR,			--선수성명
+					A.UNIT, 			--단위
+					D.CD_NM	AS UNIT_NM,	--단위이름
+					A.READYN,		    --선수의 조회여부
+					TO_CHAR(A.READYN_DT,'YYYY-MM-DD HH24:MI') AS READYN_DT,         --선수 조회일시
+					C.CELPON_NO AS HP_NO  --선수 휴대폰 번호
+			FROM    TBEE_RACER_SANC A
+				  , TBEC_RACER_MASTER B
+				  , TBEC_RACER_DETAIL C
+				  , TBEA_SPEC_CD D
+			WHERE	A.RACER_NO = B.RACER_NO
+			AND     A.RACER_NO = C.RACER_NO
+			AND		A.UNIT = D.CD(+)
+			AND 	'E00116' = D.GRP_CD(+)
+			AND		A.STND_YEAR = ?
+			AND		A.SANC_DEPT = NVL(?, A.SANC_DEPT)
+			ORDER BY A.SANC_ISSUE_NO DESC
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe002" desc="조회" fetchSize="10">
+        <![CDATA[
+        	SELECT	A.RACER_NO, 		--선수등록번호
+					A.SEQ, 				--일련번호
+					A.STND_YEAR, 		--기준년도
+					A.SANC_ISSUE_NO,	--발급번호 
+					A.SANC_BASIS_CD,	--양정코드
+					A.SANC_TERM, 		--제재처분기간
+					A.SANC_RSN_CD,		--사유코드
+					A.SANC_RSN, 		--사유내역
+					A.SANC_ACT_DT, 		--처분일자
+					A.INST_ID,			--입력자
+					B.RACER_GRD_CD,		--등급
+					B.NM_KOR,			--선수성명
+					A.SMRY,				--관련근거
+					A.UNIT, 			--단위
+					D.CD_NM	AS UNIT_NM	--단위이름
+			FROM    TBEE_RACER_SANC A
+				  , TBEC_RACER_MASTER B
+				  , TBEE_SANC_BASIS C
+				  , TBEA_SPEC_CD D
+			WHERE	A.RACER_NO = B.RACER_NO
+			AND		A.SANC_BASIS_CD = C.SANC_BASIS_CD
+			AND		A.UNIT = D.CD(+)
+			AND 	'E00116' = D.GRP_CD(+)
+			AND		A.STND_YEAR = ?
+			AND		A.RACER_NO LIKE '%' || NVL(?, A.RACER_NO) || '%'
+			AND		A.SANC_RSN_CD = NVL(?, A.SANC_RSN_CD)
+			AND		(A.SANC_TERM = ? OR ? IS NULL)
+			AND		(A.UNIT = ? OR ? IS NULL)
+			ORDER BY A.SANC_ISSUE_NO DESC
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe005" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT  LPAD(TRM.RACER_PERIO_NO, 2, '0')				  AS RACER_PERIO_NO,--기수
+			        COUNT(CASE TRS.SANC_RSN_CD WHEN '001' THEN 1 END) AS START_F,   	--스타트위반(F)
+			        COUNT(CASE TRS.SANC_RSN_CD WHEN '002' THEN 1 END) AS START_L,   	--스타트위반(L)
+			        COUNT(CASE TRS.SANC_RSN_CD WHEN '091' THEN 1 END) AS WARNING,   	--경고누적
+			        COUNT(CASE TRS.SANC_RSN_CD WHEN '092' THEN 1 END) AS FOUL_OUT,  	--반칙실격누적
+			        COUNT(CASE TRS.SANC_RSN_CD WHEN '093' THEN 1 END) AS OUT_EXCEPTION,	--실격,출주제외 누적
+			        COUNT(CASE TRS.SANC_RSN_CD WHEN '094' THEN 1 END) AS FOUL_WARNING,  --반칙경고누적
+			        COUNT(CASE TRS.SANC_RSN_CD WHEN '099' THEN 1 END) AS ETC			--기타
+			FROM    TBEC_RACER_MASTER   TRM
+				  , TBEE_RACER_SANC     TRS
+			WHERE	TRM.RACER_NO = TRS.RACER_NO
+			AND		TRS.STND_YEAR = ?
+			GROUP BY TRM.RACER_PERIO_NO
+			ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO)
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe006" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT  LPAD(TRM.RACER_PERIO_NO, 2, '0')				                                AS RACER_PERIO_NO,  --기수
+                    COUNT(CASE TRS.UNIT WHEN '001' THEN CASE TRS.SANC_TERM WHEN 1 THEN 1 END END)   AS ROUND_1,         --1회 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '001' THEN CASE TRS.SANC_TERM WHEN 2 THEN 1 END END)   AS ROUND_2,         --2회 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '001' THEN CASE TRS.SANC_TERM WHEN 3 THEN 1 END END)   AS ROUND_3,         --3회 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '001' THEN CASE TRS.SANC_TERM WHEN 4 THEN 1 END END)   AS ROUND_4,         --4회 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '001' THEN CASE TRS.SANC_TERM WHEN 5 THEN 1 END END)   AS ROUND_5,         --5회 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '001' THEN CASE TRS.SANC_TERM WHEN 6 THEN 1 END END)   AS ROUND_6,         --6회 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '002' THEN CASE TRS.SANC_TERM WHEN 20 THEN 1 END END)  AS DAY_20,          --20일 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '002' THEN CASE TRS.SANC_TERM WHEN 30 THEN 1 END END)  AS DAY_30,          --30일 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '002' THEN CASE TRS.SANC_TERM WHEN 40 THEN 1 END END)  AS DAY_40,          --40일 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '002' THEN CASE TRS.SANC_TERM WHEN 50 THEN 1 END END)  AS DAY_50,          --50일 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '002' THEN CASE TRS.SANC_TERM WHEN 60 THEN 1 END END)  AS DAY_60,          --60일 출전정지  F/L 60일로 변경 2012.6.7
+                    COUNT(CASE TRS.UNIT WHEN '002' THEN CASE TRS.SANC_TERM WHEN 90 THEN 1 END END)  AS DAY_90,          --90일 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '003' THEN CASE TRS.SANC_TERM WHEN 1 THEN 1 END END)   AS YEAR_1,          --1년 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '003' THEN CASE TRS.SANC_TERM WHEN 2 THEN 1 END END)   AS YEAR_2,          --2년 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '003' THEN CASE TRS.SANC_TERM WHEN 3 THEN 1 END END)   AS YEAR_3,          --3년 출전정지
+                    COUNT(CASE TRS.UNIT WHEN '003' THEN CASE TRS.SANC_TERM WHEN 4 THEN 1 END END)   AS YEAR_4           --4년 출전정지                    
+			FROM    TBEE_SANC_BASIS		TSB
+				  , TBEE_RACER_SANC     TRS
+				  , TBEC_RACER_MASTER   TRM
+			WHERE	TRS.SANC_BASIS_CD = TSB.SANC_BASIS_CD
+			AND     TRM.RACER_NO = TRS.RACER_NO(+)
+			AND	    TRS.STND_YEAR = ?
+			GROUP BY TRM.RACER_PERIO_NO
+			ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO)
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe007" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT  LPAD(TRM.RACER_PERIO_NO, 2, '0')                            		AS RACER_PERIO_NO,  --기수
+                    NVL(SUM(CASE TRS.UNIT WHEN '001' THEN TRS.SANC_TERM END), 0)    	AS SUSPENDED_ROUND, --정지회수
+                    NVL(SUM(CASE TRS.UNIT WHEN '002' THEN TRS.SANC_TERM
+                                      	  WHEN '003' THEN TRS.SANC_TERM * 365 END), 0)  AS SUSPENDED_DATE   --정지일수
+			FROM    TBEE_SANC_BASIS		TSB
+				  , TBEE_RACER_SANC     TRS
+				  , TBEC_RACER_MASTER   TRM
+			WHERE	TRS.SANC_BASIS_CD = TSB.SANC_BASIS_CD
+			AND		TRM.RACER_NO = TRS.RACER_NO(+)
+			AND		TRS.STND_YEAR = ?
+			GROUP BY TRM.RACER_PERIO_NO
+			ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO)
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe008" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT  TRM.RACER_NO,                                                                       	--등록번호
+                    TRM.NM_KOR,                                                                         	--성명
+                    NVL(SUM(CASE TRS.UNIT WHEN '001' THEN TRS.SANC_TERM END), 0)    	AS SUSPENDED_ROUND, --정지회수
+                    NVL(SUM(CASE TRS.UNIT WHEN '002' THEN TRS.SANC_TERM
+                                      	  WHEN '003' THEN TRS.SANC_TERM * 365 END), 0)	AS SUSPENDED_DATE   --정지일수
+			FROM    TBEE_SANC_BASIS		TSB
+				  , TBEE_RACER_SANC     TRS
+				  , TBEC_RACER_MASTER   TRM
+			WHERE	TRS.SANC_BASIS_CD = TSB.SANC_BASIS_CD
+			AND		TRM.RACER_NO = TRS.RACER_NO(+)
+			AND		TRS.STND_YEAR = ?
+			GROUP BY TRM.RACER_NO, TRM.NM_KOR
+			ORDER BY TRM.RACER_NO, TRM.NM_KOR
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe009" desc="조회" fetchSize="10">
+        <![CDATA[
+        	SELECT    A.*, 
+                    GET_SUSPENSION_TMS(A.QURT_CD, 
+                                       A.FIRST_125, A.FIRST_130, A.FIRST_140, A.FIRST_150, A.FIRST_210, A.FIRST_220, A.FIRST_997,
+                                       A.SECOND_125,A.SECOND_130,A.SECOND_140,A.SECOND_150,A.SECOND_210,A.SECOND_220,A.SECOND_997, 
+                                       A.CURR_125,  A.CURR_130,  A.CURR_140,  A.CURR_150,  A.CURR_210,  A.CURR_220,  A.CURR_997,
+                                       A.CURR_65JO) AS SUSPD_TMS,    --출전정지회수
+                    GET_SUSPENSION_DAY(A.CURR_110, A.CURR_120, A.CURR_995)                                   AS SUSPD_DAY    --출전정지일수
+            FROM    (
+                SELECT    ?                                                                                            AS STND_YEAR,
+                        ?                                                                                            AS FROM_TMS,
+                        ?                                                                                            AS TO_TMS,
+                        ?                                                                                            AS MBR_CD,
+                        TRVA.RACER_NO,
+                        TRM.NM_KOR,
+                        TRM.RACER_GRD_CD,
+                        MAX(TRT.QURT_CD) QURT_CD,        --분기코드
+                        COUNT(CASE WHEN TRVA.TMS < ? AND TRVA.VOIL_CD = '110' THEN 1 END)                            AS PREV_110,    --이전회차 F
+                        COUNT(CASE WHEN TRVA.TMS < ? AND TRVA.VOIL_CD = '120' THEN 1 END)                            AS PREV_120,    --이전회차 L
+                        COUNT(CASE WHEN TRST.QURT_CD = '001' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '125' THEN 1 END)    AS FIRST_125,    --전반기 반칙실격
+                        COUNT(CASE WHEN TRST.QURT_CD = '002' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '125' THEN 1 END)    AS SECOND_125,    --후반기 반칙실격
+                        COUNT(CASE WHEN TRST.QURT_CD = '001' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '130' THEN 1 END)    AS FIRST_130,    --전반기 결장
+                        COUNT(CASE WHEN TRST.QURT_CD = '002' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '130' THEN 1 END)    AS SECOND_130,    --후반기 결장
+                        COUNT(CASE WHEN TRST.QURT_CD = '001' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '140' THEN 1 END)    AS FIRST_140,    --전반기 실격
+                        COUNT(CASE WHEN TRST.QURT_CD = '002' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '140' THEN 1 END)    AS SECOND_140,    --후반기 실격
+                        COUNT(CASE WHEN TRST.QURT_CD = '001' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '150' THEN 1 END)    AS FIRST_150,    --전반기 반칙경고
+                        COUNT(CASE WHEN TRST.QURT_CD = '002' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '150' THEN 1 END)    AS SECOND_150,    --후반기 반칙경고
+                        COUNT(CASE WHEN TRST.QURT_CD = '001' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '997' THEN 1 END)    AS FIRST_997,    --전반기 출주제외(2)
+                        COUNT(CASE WHEN TRST.QURT_CD = '002' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '997' THEN 1 END)    AS SECOND_997,    --후반기 출주제외(2)
+                        COUNT(CASE WHEN TRST.QURT_CD = '001' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '210' THEN 1 END)    AS FIRST_210,    --전반기 경고
+                        COUNT(CASE WHEN TRST.QURT_CD = '002' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '210' THEN 1 END)    AS SECOND_210,    --후반기 경고
+                        COUNT(CASE WHEN TRST.QURT_CD = '001' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '220' THEN 1 END)    AS FIRST_220,    --전반기 주의
+                        COUNT(CASE WHEN TRST.QURT_CD = '002' AND TRVA.TMS < ? AND TRVA.VOIL_CD = '220' THEN 1 END)    AS SECOND_220,    --후반기 주의
+                        COUNT(CASE WHEN TRVA.TMS < ? AND TRVA.VOIL_CD = '995' THEN 1 END)                            AS PREV_995,    --이전회차 출주제외(1)
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '110' THEN 1 END)                            AS CURR_110,    --현재회차 F
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '120' THEN 1 END)                            AS CURR_120,    --현재회차 L
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '125' THEN 1 END)                            AS CURR_125,    --현재회차 반칙실격
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '130' THEN 1 END)                            AS CURR_130,    --현재회차 결장
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '140' THEN 1 END)                            AS CURR_140,    --현재회차 실격
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '150' THEN 1 END)                            AS CURR_150,    --현재회차 반칙경고
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '210' THEN 1 END)                            AS CURR_210,    --현재회차 경고
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '220' THEN 1 END)                            AS CURR_220,    --현재회차 주의
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '995' THEN 1 END)                            AS CURR_995,    --현재회차 출주제외(1)
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '997' THEN 1 END)                            AS CURR_997,    --현재회차 출주제외(2)
+                        COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_JO = '653' THEN 1 END)                           AS CURR_65JO,   --현재회차 65조3항
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '110' THEN 1 END)                                            AS TOTAL_110,    --F
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '120' THEN 1 END)                                            AS TOTAL_120,    --L
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '125' THEN 1 END)                                            AS TOTAL_125,    --반칙실격
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '130' THEN 1 END)                                            AS TOTAL_130,    --결장
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '140' THEN 1 END)                                            AS TOTAL_140,    --실격
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '150' THEN 1 END)                                            AS TOTAL_150,    --반칙경고
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '210' THEN 1 END)                                            AS TOTAL_210,    --경고
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '220' THEN 1 END)                                            AS TOTAL_220,    --주의
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '995' THEN 1 END)                                            AS TOTAL_995,    --출주제외(1)
+                        COUNT(CASE WHEN TRVA.VOIL_CD = '997' THEN 1 END)                                            AS TOTAL_997    --출주제외(2)
+                FROM    TBED_RACE_VOIL_ACT    TRVA
+                      , TBEC_RACER_MASTER   TRM
+                      , TBEB_RACE_TMS        TRT
+                      , TBEB_RECD_STND_TERM TRST        -- 성적반영 반기 구분
+                WHERE    TRVA.RACER_NO     = TRM.RACER_NO
+                AND        TRVA.STND_YEAR     = TRT.STND_YEAR
+                AND        TRVA.TMS         = TRT.TMS
+                AND        TRVA.MBR_CD     = TRT.MBR_CD
+                AND      TRT.STR_DT >= TRST.STR_DT
+                AND     TRT.END_DT <= TRST.END_DT
+                AND        TRVA.VOIL_CD IN ('110', '120', '125', '130', '140', '150', '210', '220', '995', '997')
+                AND        TRVA.STND_YEAR     =    ?
+                AND        TRVA.TMS         <=    ?
+                AND        TRVA.TMS         >=    ?
+                AND        TRVA.MBR_CD     =    ?
+                GROUP BY TRVA.RACER_NO, TRM.NM_KOR, TRM.RACER_GRD_CD)    A
+            WHERE    A.CURR_110 > 0    --현재회차 F
+            OR      A.CURR_120 > 0    --현재회차 L
+            OR      A.CURR_125 > 0    --현재회차 반칙실격
+            OR      A.CURR_130 > 0    --현재회차 결장
+            OR      A.CURR_140 > 0    --현재회차 실격
+            OR      A.CURR_150 > 0    --현재회차 반칙경고
+            OR      A.CURR_210 > 0    --현재회차 경고
+            OR      A.CURR_220 > 0    --현재회차 주의
+            OR      A.CURR_995 > 0    --현재회차 출주제외(1)
+            OR      A.CURR_997 > 0    --현재회차 출주제외(2)
+            ORDER BY 
+                    GET_SUSPENSION_TMS(A.QURT_CD, 
+                                       A.FIRST_125, A.FIRST_130, A.FIRST_140, A.FIRST_150, A.FIRST_210, A.FIRST_220, A.FIRST_997,
+                                       A.SECOND_125,A.SECOND_130,A.SECOND_140,A.SECOND_150,A.SECOND_210,A.SECOND_220,A.SECOND_997, 
+                                       A.CURR_125,  A.CURR_130,  A.CURR_140,  A.CURR_150,  A.CURR_210,  A.CURR_220,  A.CURR_997,
+                                       A.CURR_65JO) +
+                    GET_SUSPENSION_DAY(A.CURR_110, A.CURR_120, A.CURR_995) DESC, 
+                    A.RACER_NO ASC
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe010" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT  TRVA.STND_YEAR,
+					TRVA.TMS,
+					TRVA.DAY_ORD,
+					TRVA.RACE_NO,
+					TRVA.RACE_DAY,
+					TRVA.RACE_REG_NO,
+					TRVA.CIRCUIT_CNT_CD,
+					TRVA.ACDNT_LOC_CD,
+					TRVA.VOIL_JO,
+					TRVA.VOIL_CD,
+					TRVA.VOIL_DESC,
+					TRVA.RMK,
+					TOR.BOAT_NO,
+					TOR.MOT_NO,
+					TRAS.ACDNT_TPE_CD,
+					TRAS.ACDNT_DESC
+			FROM    TBED_RACE_VOIL_ACT		TRVA
+				  , TBEB_ORGAN				TOR
+				  , TBED_RACE_ACDNT_STTS	TRAS
+			WHERE	TRVA.STND_YEAR 		= TOR.STND_YEAR
+			AND		TRVA.MBR_CD 		= TOR.MBR_CD
+			AND		TRVA.TMS			= TOR.TMS
+			AND		TRVA.DAY_ORD		= TOR.DAY_ORD
+			AND		TRVA.RACE_NO		= TOR.RACE_NO
+			AND		TRVA.RACE_REG_NO 	= TOR.RACE_REG_NO
+			AND		TOR.STND_YEAR 		= TRAS.STND_YEAR(+)
+			AND		TOR.MBR_CD 			= TRAS.MBR_CD(+)
+			AND		TOR.TMS				= TRAS.TMS(+)
+			AND		TOR.DAY_ORD			= TRAS.DAY_ORD(+)
+			AND		TOR.RACE_NO			= TRAS.RACE_NO(+)
+			AND		TOR.RACE_REG_NO 	= TRAS.RACE_REG_NO(+)
+            AND		TRVA.VOIL_CD IN ('110', '120', '125', '130', '140', '150', '210', '220', '995', '997')
+			AND		TRVA.STND_YEAR 		=	?
+			AND		TRVA.TMS 			<=	?
+			AND		TRVA.TMS 			>=	?
+			AND		TRVA.MBR_CD 		=	?
+			AND		TRVA.RACER_NO		=	?
+			ORDER BY TRVA.STND_YEAR, TRVA.TMS, TRVA.DAY_ORD, TRVA.RACE_NO
+        ]]>
+    </query>
+    
+    <query id="tbee_racer_sanc_fe011" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	CASE 
+			        	WHEN TRSC.RACER_NO IS NULL THEN '0'
+			        	WHEN TRSC.RACER_NO IS NOT NULL THEN '1'
+			        END	AS CHK,
+			        'E05040080'								AS MENUID,
+			        A.STND_YEAR,
+			        A.TMS,
+			        A.MBR_CD,
+					A.RACER_NO,
+					A.VOIL_CD,
+					TRM.NM_KOR,
+			        TRM.RACER_GRD_CD,
+					TRSC.SANC_BASIS_CD, 
+					NVL(TRSC.SANC_TERM, A.SANC_TERM)		AS SANC_TERM,
+					NVL(TRSC.SANC_RSN_CD, A.SANC_RSN_CD)	AS SANC_RSN_CD, 
+					TRSC.SANC_RSN, 
+					TRSC.SANC_ACT_DT, 
+					TRSC.HOMEPAGE_NOTI_SDT,
+					TRSC.HOMEPAGE_NOTI_EDT,
+					TRSC.SMRY,
+					TRSC.HOMEPAGE_SANC_RSN, 
+					TRSC.CONFIRM_YN,
+					NVL(TRSC.UNIT, A.UNIT)					AS UNIT,
+					'G'										AS SANC_DEPT		-- 제재부서관련 - 임시
+			FROM	(
+			        SELECT	?						AS STND_YEAR,
+			        		?						AS TMS,
+			                ?						AS MBR_CD,
+			        		TRVA.RACER_NO,
+			                TRVA.VOIL_CD,
+			                CASE TRVA.VOIL_CD
+								WHEN '110' THEN '001'						--F
+								WHEN '120' THEN '002'						--L
+								WHEN '995' THEN '093'						--출주제외(I)
+			                END						AS SANC_RSN_CD,		--사유코드
+			                CASE TRVA.VOIL_CD
+								WHEN '110' THEN 60 * COUNT(TRVA.VOIL_CD)	--F
+								WHEN '120' THEN 60 * COUNT(TRVA.VOIL_CD)	--L
+								WHEN '995' THEN 50 * COUNT(TRVA.VOIL_CD)	--출주제외(I)
+			                END						AS SANC_TERM,		--제재처분기간
+			                '002'					AS UNIT				--제재처분단위(일)
+			        FROM	TBED_RACE_VOIL_ACT	TRVA
+			        WHERE	TRVA.VOIL_CD IN ('110', '120', '995')
+			        AND		TRVA.STND_YEAR 	=	?
+			        AND		TRVA.TMS 		=	?
+			        AND		TRVA.MBR_CD 	=	?
+			        AND		TRVA.RACER_NO 	= 	?
+			        GROUP BY TRVA.RACER_NO, TRVA.VOIL_CD
+			        UNION
+			        SELECT	?						AS STND_YEAR,
+			        		?						AS TMS,
+			                ?						AS MBR_CD,
+			        		TRVA.RACER_NO,
+			                TRVA.VOIL_CD,
+			                CASE TRVA.VOIL_CD
+								WHEN '125' THEN '092'						--반칙실격
+								WHEN '130' THEN '099'						--결장
+								WHEN '140' THEN '093'						--실격, 출주제외(II)
+								WHEN '150' THEN '094'						--반칙경고
+			                END						AS SANC_RSN_CD,		--사유코드
+			                CASE TRVA.VOIL_CD
+								WHEN '125' THEN COUNT(CASE WHEN TRVA.VOIL_CD = '125' THEN 1 END)		--반칙실격
+								WHEN '130' THEN 1														--결장
+								WHEN '140' THEN 1 -- COUNT(CASE WHEN TRVA.VOIL_CD = '140' THEN 1 END)      --실격, 출주제외(II)
+								WHEN '150' THEN COUNT(CASE WHEN TRVA.VOIL_CD = '150' THEN 1 END) - 1	--반칙경고
+			                END						AS SANC_TERM,		--제재처분기간
+			                '001'					AS UNIT				--제재처분단위(회차)
+			        FROM	(
+							SELECT	T1.RACER_NO, T1.STND_YEAR
+									, T1.TMS, T1.MBR_CD
+									, DECODE(T1.VOIL_CD,'997','140',T1.VOIL_CD) VOIL_CD				--출주제외(II)를 실격으로 처리
+							FROM	TBED_RACE_VOIL_ACT T1 
+								  , TBEB_RACE_TMS T2
+								  , TBEB_RECD_STND_TERM TRST        -- 성적반영 반기 구분
+        					WHERE	T1.STND_YEAR = T2.STND_YEAR 
+        					AND		T1.TMS = T2.TMS
+        					AND		T1.MBR_CD = T2.MBR_CD
+							AND     T2.STR_DT >= TRST.STR_DT
+							AND     T2.END_DT <= TRST.END_DT
+      						AND		T1.STND_YEAR = ?
+							AND		T1.TMS BETWEEN ? AND ?
+							AND		T1.MBR_CD = ?
+							AND		T1.RACER_NO = ?
+							AND		T1.VOIL_CD  IN ('125', '130', '140', '150', '997')
+						--	AND		T2.QURT_CD =  
+        					) TRVA
+			        GROUP BY TRVA.RACER_NO, TRVA.VOIL_CD
+			        HAVING	COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '125' THEN 1 END) > 0	--현재회차 반칙실격
+			        OR      (
+			        		COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '130' THEN 1 END) > 0	--현재회차 결장
+			                AND
+			                COUNT(CASE WHEN TRVA.VOIL_CD = '130' THEN 1 END) >= 2					--결장
+			                )
+			        OR      (
+			        		COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '140' THEN 1 END) > 0	--현재회차 실격
+			                AND
+			                COUNT(CASE WHEN TRVA.VOIL_CD = '140' THEN 1 END) >= 2					--실격
+			                )
+			        OR      (
+			        		COUNT(CASE WHEN TRVA.TMS = ? AND TRVA.VOIL_CD = '150' THEN 1 END) > 0	--현재회차 반칙경고
+			                AND
+			                COUNT(CASE WHEN TRVA.VOIL_CD = '150' THEN 1 END) >= 2					--반칙경고
+			                )
+			        UNION
+			        SELECT	?						AS STND_YEAR,
+			        		?						AS TMS,
+			                ?						AS MBR_CD,
+			        		TRVA.RACER_NO,
+			                '220'					AS VOIL_CD,
+			                '091'					AS SANC_RSN_CD,		--사유코드(경고누적)
+			                FLOOR((FLOOR(COUNT(CASE WHEN TRVA.VOIL_CD = '220' THEN 1 END) / 3) 
+			                + COUNT(CASE WHEN TRVA.VOIL_CD = '210' THEN 1 END)) / 9)
+			                -FLOOR((FLOOR(COUNT(CASE WHEN TRVA.TMS < ? AND TRVA.VOIL_CD = '220' THEN 1 END) / 3) 
+			                + COUNT(CASE WHEN TRVA.TMS < ? AND TRVA.VOIL_CD = '210' THEN 1 END)) / 9),
+			                '001'					AS UNIT				----제재처분단위(회차)
+			        FROM	TBED_RACE_VOIL_ACT	TRVA
+			        	  , TBEB_RACE_TMS TRT
+			        	  , TBEB_RECD_STND_TERM TRST        -- 성적반영 반기 구분
+			        WHERE	TRVA.STND_YEAR = TRT.STND_YEAR 
+					AND		TRVA.TMS = TRT.TMS
+					AND		TRVA.MBR_CD = TRT.MBR_CD
+					AND     TRT.STR_DT >= TRST.STR_DT
+					AND     TRT.END_DT <= TRST.END_DT
+			        AND		TRVA.VOIL_CD IN ('210', '220')
+			        AND		TRVA.STND_YEAR 	=	?
+			        AND		TRVA.TMS BETWEEN ? AND ?
+			        AND		TRVA.MBR_CD 	=	?
+			        AND		TRVA.RACER_NO 	= 	?
+					-- AND		TRT.QURT_CD 	= 	 
+			        GROUP BY TRVA.RACER_NO
+			        HAVING	FLOOR((FLOOR(COUNT(CASE WHEN TRVA.VOIL_CD = '220' THEN 1 END) / 3) 
+			        		+ COUNT(CASE WHEN TRVA.VOIL_CD = '210' THEN 1 END)) / 9)
+			                >
+			                FLOOR((FLOOR(COUNT(CASE WHEN TRVA.TMS < ? AND TRVA.VOIL_CD = '220' THEN 1 END) / 3) 
+			                + COUNT(CASE WHEN TRVA.TMS < ? AND TRVA.VOIL_CD = '210' THEN 1 END)) / 9)
+					UNION -- 65조3항 추가(2011.12.9)
+					SELECT  ?						AS STND_YEAR,
+			        		?						AS TMS,
+			                ?						AS MBR_CD,
+			        		TRVA.RACER_NO,
+			                '150'					AS VOIL_CD,		-- 위반행위(반칙실격)
+                            '099'					AS SANC_RSN_CD,	--사유코드(기타)
+                            2						AS SANC_TERM,	--제재처분기간
+                            '001'					AS UNIT			----제재처분단위(회차)
+					FROM    TBED_RACE_VOIL_ACT    TRVA
+					WHERE   TRVA.VOIL_JO   = '653'
+					AND     TRVA.STND_YEAR = ?
+					AND     TRVA.TMS       = ?
+					AND     TRVA.MBR_CD    = ?
+					AND     TRVA.RACER_NO  = ?
+			        )	A
+					, TBEC_RACER_MASTER   	TRM
+					, TBEE_RACER_SANC_CONFIRM	TRSC
+			WHERE	A.RACER_NO 	= TRM.RACER_NO
+			AND		A.STND_YEAR	= TRSC.STND_YEAR(+)
+			AND		A.TMS		= TRSC.TMS(+)
+			AND		A.MBR_CD	= TRSC.MBR_CD(+)
+			AND		A.RACER_NO	= TRSC.RACER_NO(+)
+			AND		A.VOIL_CD	= TRSC.VOIL_CD(+)
+        ]]>
+    </query>
+    
+    <query id="tbee_racer_sanc_fe031" desc="소멸처리 내역 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* tbee_racer_sanc_fe031 */
+				TO_CHAR(ARRANGE_ESC_USE_DT,'YYYYMMDD') ESC_USE_DT, 
+				ARRANGE_ESC_USE_ID, 
+				COUNT(TO_CHAR(ARRANGE_ESC_USE_DT,'YYYYMMDD')) CNT 
+			FROM TBEE_RACER_SANC
+			WHERE 1=1
+			AND ARRANGE_ESC_USE_CD = '202' 		--2년 연속 정상출발 소멸
+			AND SANC_RSN_CD IN ('001', '002') 	-- 출발위반
+			AND SANC_DEPT = 'W' 				-- 운영팀
+			GROUP BY TO_CHAR(ARRANGE_ESC_USE_DT,'YYYYMMDD'), ARRANGE_ESC_USE_ID
+        ]]>
+    </query>
+    
+    <query id="tbee_racer_sanc_fe032" desc="소멸처리 대상자 조회" fetchSize="10">
+        <![CDATA[
+			WITH FL_DEL_RACER AS ( /*tbee_racer_sanc_fe032*/
+				SELECT
+					RACER_NO,
+					CASE WHEN SANC_ACT_DT >= ADD_DAY THEN 'Y' ELSE 'N' END EXTI_YN,
+					PRE_DAY, --> 소멸대상 날짜
+					ADD_DAY,
+					SANC_ACT_DT
+				FROM (
+					SELECT
+						RACER_NO,
+						PRE_DAY,
+						TO_CHAR(ADD_MONTHS(TO_DATE(NVL(PRE_DAY,SANC_ACT_DT),'YYYYMMDD'),24),'YYYYMMDD') ADD_DAY, /*P 2년간 24*/
+						SANC_ACT_DT
+					FROM (
+						SELECT
+							RACER_NO,
+							CASE WHEN PRE_RACER_NO != RACER_NO THEN SANC_ACT_DT
+							     WHEN PRE_DAY = NULL THEN SANC_ACT_DT
+							     ELSE PRE_DAY
+							END PRE_DAY,
+							SANC_ACT_DT
+						FROM (
+							SELECT
+								T1.RACER_NO,
+								LAG(T1.RACER_NO) OVER (ORDER BY T1.RACER_NO, T1.SANC_ACT_DT ASC) PRE_RACER_NO,
+								T1.SANC_ACT_DT,
+								LAG(T1.SANC_ACT_DT) OVER (ORDER BY T1.RACER_NO, T1.SANC_ACT_DT ASC) PRE_DAY
+							FROM TBEE_RACER_SANC T1, TBEC_RACER_MASTER T2
+							WHERE 1=1
+							AND T1.RACER_NO = T2.RACER_NO
+							AND T2.RACER_STAT_CD IN ('001', '002')
+							AND T1.ARRANGE_ESC_USE_CD = '001'
+							AND T1.SANC_RSN_CD IN ('001', '002') 	-- 출발위반
+							AND T1.SANC_DEPT = 'W' 					-- 운영팀
+						)
+					)
+				)
+				ORDER BY RACER_NO, SANC_ACT_DT
+			)
+			SELECT RACER_NO, FC_GET_RACERNAME(RACER_NO) RACER_NM FROM FL_DEL_RACER
+			WHERE EXTI_YN = 'Y'
+        ]]>
+    </query>
+    
+    <query id="tbee_racer_sanc_fe033" desc="출발위반 세부내역 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/*tbee_racer_sanc_fe033*/
+				RACER_NO,
+				FC_GET_RACERNAME(RACER_NO) RACER_NM,
+				SANC_RSN,
+				SANC_ACT_DT
+			FROM TBEE_RACER_SANC
+			WHERE 1=1
+			AND ARRANGE_ESC_USE_CD = '001'
+			AND RACER_NO = ?
+			AND SANC_RSN_CD IN ('001', '002') 	-- 출발위반
+			AND SANC_DEPT = 'W' 				-- 운영팀
+			ORDER BY SANC_ACT_DT DESC
+        ]]>
+    </query>
+    
+    <query id="tbee_racer_sanc_fe034" desc="선수별 출발위반 정보 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/*tbee_racer_sanc_fe034*/
+				T1.RACER_NO,
+				FC_GET_RACERNAME(T1.RACER_NO) RACER_NM,
+				SUM(CASE WHEN T1.ARRANGE_ESC_USE_CD = '001' THEN 1 ELSE 0 END) ESC_CAND_CNT, --주선보류대상
+				SUM(CASE WHEN T1.ARRANGE_ESC_USE_CD = '201' THEN 1 ELSE 0 END) PRE_2017_EXTI_CNT, --2017년 이전기록 일괄소멸
+				SUM(CASE WHEN T1.ARRANGE_ESC_USE_CD = '202' THEN 1 ELSE 0 END) SUCV_NOM_START_EXTI_CNT, --2년연속 정상출발 소멸
+				SUM(CASE WHEN T1.ARRANGE_ESC_USE_CD = '203' THEN 1 ELSE 0 END) ESC_EXTI_CNT --주선보류 산정 소멸
+			FROM TBEE_RACER_SANC T1, TBEC_RACER_MASTER T2
+			WHERE 1=1
+			AND T1.RACER_NO = T2.RACER_NO
+			AND T2.RACER_STAT_CD IN ('001', '002')
+			AND T1.SANC_RSN_CD IN ('001', '002') 	-- 출발위반
+			AND T1.SANC_DEPT = 'W' 					-- 운영팀
+			GROUP BY T1.RACER_NO
+        ]]>
+    </query>
+    
+    <query id="tbee_racer_sanc_fe035" desc="선수별 출발위반 세부정보 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/*tbee_racer_sanc_fe035*/
+				RACER_NO,
+				FC_GET_RACERNAME(RACER_NO) RACER_NM,
+				SANC_RSN,
+				SANC_ACT_DT,
+				ARRANGE_ESC_USE_CD,
+				TO_CHAR(ARRANGE_ESC_USE_DT, 'YYYYMMDD') ARRANGE_ESC_USE_DT
+			FROM TBEE_RACER_SANC
+			WHERE 1=1
+			AND SANC_RSN_CD IN ('001', '002') 	-- 출발위반
+			AND SANC_DEPT = 'W' 				-- 운영팀
+			AND RACER_NO = ?
+			ORDER BY SANC_ACT_DT DESC
+		]]>
+    </query>
+    
+    <query id="tbee_racer_sanc_ue031" desc="소멸되지않은 출반위반으로 부터 2년간 출발위반이 없을 경우 가장 오래된 출발위반 1회 소멸" fetchSize="10">
+        <![CDATA[
+        	UPDATE TBEE_RACER_SANC /*tbee_racer_sanc_ue031*/
+				SET ARRANGE_ESC_USE_CD = '202',
+					ARRANGE_ESC_USE_DT = SYSDATE,
+					ARRANGE_ESC_USE_ID= ?
+			WHERE 1=1
+			AND (RACER_NO, SANC_ACT_DT) IN (
+				WITH FL_DEL_RACER AS (
+					SELECT
+						RACER_NO,
+						CASE WHEN SANC_ACT_DT >= ADD_DAY THEN 'Y' ELSE 'N' END CNCL_YN,
+						PRE_DAY, --> 소멸대상 날짜
+						ADD_DAY,
+						SANC_ACT_DT
+					FROM (
+						SELECT
+							RACER_NO,
+							PRE_DAY,
+							TO_CHAR(ADD_MONTHS(TO_DATE(NVL(PRE_DAY,SANC_ACT_DT),'YYYYMMDD'),24),'YYYYMMDD') ADD_DAY, /*P 2년간 24*/
+							SANC_ACT_DT
+						FROM (
+							SELECT
+								RACER_NO,
+								CASE WHEN PRE_DAY = NULL THEN SANC_ACT_DT
+								     ELSE PRE_DAY
+								END PRE_DAY,
+								SANC_ACT_DT
+							FROM (
+								SELECT
+									RACER_NO,
+									SANC_ACT_DT,
+									LAG(SANC_ACT_DT) OVER (ORDER BY RACER_NO, SANC_ACT_DT ASC) PRE_DAY
+								FROM TBEE_RACER_SANC
+								WHERE 1=1
+								AND ARRANGE_ESC_USE_CD = '001'
+								AND RACER_NO = ?
+								AND SANC_RSN_CD IN ('001', '002') 	-- 출발위반
+								AND SANC_DEPT = 'W' 				-- 운영팀
+							)
+						)
+					)
+					ORDER BY RACER_NO, SANC_ACT_DT
+				)
+				SELECT RACER_NO, PRE_DAY
+				FROM FL_DEL_RACER
+				WHERE 1=1
+				AND CNCL_YN = 'Y'
+			)	
+        ]]>
+    </query> 
+    
+    <query id="tbee_racer_sanc_ie001" desc="저장" fetchSize="10">
+        <![CDATA[
+        	BEGIN /*tbee_racer_sanc_ie001*/
+	        	INSERT ALL
+					INTO TBEE_RACER_SANC
+					(	 
+				        RACER_NO, 			--선수등록번호
+						SEQ, 				--일련번호
+						STND_YEAR, 			--기준년도
+						MBR_CD, 			--경기장코드
+						TMS, 				--회차
+						DAY_ORD, 			--일차
+						RACE_NO, 			--경주번호
+						CFM,				--확정						
+						SANC_ISSUE_NO,		--발급번호 
+						SANC_BASIS_CD,		--양정코드
+						SMRY,				--관련근거
+						SANC_TERM, 			--제재처분기간
+						UNIT,				--제재처분단위
+						SANC_RSN_CD,		--사유코드
+						SANC_RSN, 			--사유내역
+						HOMEPAGE_SANC_RSN, 	--홈페이지용사유내역
+						SANC_ACT_DT, 		--처분일자
+						HOMEPAGE_NOTI_SDT,	--공지시작일
+						HOMEPAGE_NOTI_EDT,	--공지종료일
+						INST_ID,			--입력자   
+				        INST_DTM,			--작성일시
+				        SANC_DEPT,			--제재입력부서(공정팀=G,경정심판팀=S,경정운영팀=W)
+				        ARRANGE_ESC_USE_CD  --주선보류 사용구분
+					)
+					VALUES
+					(
+						RACER_NO, 			--선수등록번호
+						RACER_SANC_SEQ, 	--일련번호
+						STND_YEAR, 			--기준년도
+						MBR_CD, 			--경기장코드
+						TMS, 				--회차
+						DAY_ORD, 			--일차
+						RACE_NO, 			--경주번호
+						'N',						
+						SANC_ISSUE_NO,		--발급번호 
+						SANC_BASIS_CD,		--양정코드
+						SMRY,				--관련근거
+						SANC_TERM, 			--제재처분기간
+						UNIT,				--제재처분단위
+						SANC_RSN_CD,		--사유코드
+						SANC_RSN, 			--사유내역
+						HOMEPAGE_SANC_RSN, 	--홈페이지용사유내역
+						SANC_ACT_DT, 		--처분일자
+						HOMEPAGE_NOTI_SDT,	--공지시작일
+						HOMEPAGE_NOTI_EDT,	--공지종료일
+						INST_ID,			--입력자   
+				        INST_DTM,			--작성일시
+				        SANC_DEPT,			--제재입력부서(공정팀=G,경정심판팀=S,경정운영팀=W)
+				        ARRANGE_ESC_USE_CD  --주선보류 사용구분
+					)
+					INTO TBEC_ARRANGE_ESC
+					(
+						SEQ,			-- 일련번호    
+						RACER_NO,       -- 등록번호
+						SANC_ISSUE_NO,	-- 발급번호 
+						STR_DT,         -- 주선제외시작일
+						END_DT,         -- 주선제외종료일
+						RSN_CD,         -- 주선보류분류코드
+						INST_ID,        -- 작성자ID    
+						INST_DTM,       -- 작성일시
+						UPDT_ID,		-- 수정자
+						UPDT_DTM   		-- 수정일시
+					)
+					VALUES
+					(
+						ARRANGE_ESC_SEQ,	-- 일련번호
+						RACER_NO,       	-- 등록번호
+						SANC_ISSUE_NO,		-- 발급번호
+						HOMEPAGE_NOTI_SDT,  -- 주선제외시작일
+						HOMEPAGE_NOTI_EDT,	-- 주선제외종료일
+						'001',          	-- 주선보류분류코드
+						INST_ID,        	-- 작성자ID    
+						INST_DTM,       	-- 작성일시
+						INST_ID,        	-- 수정자    
+						INST_DTM        	-- 수정일시
+					)
+				SELECT
+				        ?							AS RACER_NO,			--선수등록번호
+				        ?							AS MBR_CD,
+				        ?							AS TMS,
+				        ?							AS DAY_ORD,
+				        ?							AS RACE_NO,				        
+						(
+						SELECT	NVL(MAX(SEQ), 0) + 1 
+						FROM	TBEE_RACER_SANC 
+						WHERE	STND_YEAR = ?)		AS RACER_SANC_SEQ,		--일련번호(제재처분등록)
+						(
+						SELECT	NVL(MAX(SEQ), 0) + 1 
+						FROM	TBEC_ARRANGE_ESC)	AS ARRANGE_ESC_SEQ,		--일련번호(주전선수제외)
+						?							AS STND_YEAR,			--기준년도
+						SUBSTR(?, 3, 2) 
+						|| '-' || 
+						LPAD(TO_CHAR(
+						(
+						SELECT	NVL(MAX(SEQ), 0) + 1 
+						FROM	TBEE_RACER_SANC 
+						WHERE	STND_YEAR = ?))
+						, 3, '0')					AS SANC_ISSUE_NO,		--발급번호  
+						?							AS SANC_BASIS_CD,		--양정코드
+						?							AS SMRY,				--관련근거
+						?							AS SANC_TERM,			--제재처분기간
+						?							AS UNIT,				--단위
+						CASE ?												--단위
+							WHEN '002'	THEN TO_CHAR(TO_DATE(?) + ?, 'YYYYMMDD')				--주선제외시작일, 제재처분기간
+							WHEN '001'	THEN TO_CHAR(TO_DATE(?) + 7 * ?, 'YYYYMMDD')
+							WHEN '003'	THEN TO_CHAR(ADD_MONTHS(TO_DATE(?), 12 * ?), 'YYYYMMDD')
+						END							AS END_DT,				--주선제외종료일
+						?							AS SANC_RSN_CD,			--사유코드
+						?							AS SANC_RSN,			--사유내역
+						?							AS HOMEPAGE_SANC_RSN, 	--홈페이지용사유내역
+						?							AS SANC_ACT_DT,			--처분일자
+						?							AS HOMEPAGE_NOTI_SDT,	--공지시작일
+						?							AS HOMEPAGE_NOTI_EDT,	--공지종료일 
+						?							AS INST_ID,				--입력자   
+				        SYSDATE						AS INST_DTM,			--작성일시
+				        ?							AS SANC_DEPT,			--제재입력부서
+				        CASE WHEN ? IN ('001','002') --출발위반 
+				                AND ? = 'W' --경정운영팀
+				                THEN '001'
+				             ELSE NULL
+				        END ARRANGE_ESC_USE_CD
+				FROM	DUAL;
+				--선수별기본출주배정. TBEB_RACER_BAC_RACE_ALLOC
+				--a1, a2 는 1회차당 -3
+				--b1, b2 는 1회차당 -2
+				UPDATE	TBEB_RACER_BAC_RACE_ALLOC
+				SET		RACE_ALLOC_CNT	=	RACE_ALLOC_CNT -
+											CASE (SUBSTR(?, 1, 1)) 
+				  								WHEN 'A' THEN	CASE ?								--단위
+				                            						WHEN '001'	THEN ?				--회차
+				                            					END * 3
+				                                WHEN 'B' THEN	CASE ?								--단위
+				                            						WHEN '001'	THEN ?				--회차
+				                            					END * 2
+				                          	END,
+						UPDT_ID			= ?,
+						UPDT_DTM		= SYSDATE
+				WHERE	STND_YEAR	= ?
+				AND		QURT_CD 	= (SELECT	QURT_CD 
+				                      FROM		TBEB_RACE_TMS 
+				                      WHERE		END_DT = (
+				                                        SELECT	MAX(END_DT)
+				                                        FROM		TBEB_RACE_TMS 
+				                                        WHERE		END_DT 		<= ?
+				                                        AND			STND_YEAR	=  ?)
+				                      AND		ROWNUM = 1)
+				AND		RACER_NO 	= ?;
+			END;
+        ]]>
+    </query> 
+    <query id="tbee_racer_sanc_ie002" desc="수정" fetchSize="10">
+        <![CDATA[
+        	MERGE INTO TBEE_RACER_SANC_CONFIRM TRSC
+            USING   DUAL
+            ON		(
+            		STND_YEAR 			= ?			--기준년도
+            AND		TMS 				= ?  		--회차
+            AND		MBR_CD 				= ?			--경정장코드  
+            AND		RACER_NO			= ? 		--선수등록번호
+            AND		VOIL_CD				= ?			--위반코드
+                    )
+            WHEN MATCHED THEN
+	            UPDATE	SET
+	            		SANC_BASIS_CD		= ?, 	--양정코드
+	            		SMRY				= ?,	--관련근거
+						SANC_TERM			= ?,	--제재기간
+						UNIT				= ?, 	--제재기간단위
+						SANC_RSN_CD			= ?, 	--사유코드
+						SANC_RSN			= ?, 	--사유
+						HOMEPAGE_SANC_RSN	= ?, 	--홈페이지용사유내역
+						SANC_ACT_DT			= ?, 	--처분일자
+						SANC_OBJECTION		= ?,	--이의신청
+						HOMEPAGE_NOTI_SDT	= ?, 	--공지시작일
+						HOMEPAGE_NOTI_EDT	= ?, 	--공지종료일
+						UPDT_ID				= ?, 
+						UPDT_DTM			= SYSDATE 
+            WHEN NOT MATCHED THEN
+				INSERT
+					(	 
+				        SANC_BASIS_CD, 				--양정코드
+				        SMRY,						--관련근거
+						SANC_TERM,					--제재기간
+						UNIT, 						--제재기간단위
+						SANC_RSN_CD, 				--사유코드
+						SANC_RSN, 					--사유
+						HOMEPAGE_SANC_RSN,			--홈페이지용사유내역
+						SANC_ACT_DT, 				--처분일자
+						SANC_OBJECTION,				--이의신청
+						HOMEPAGE_NOTI_SDT, 			--공지시작일
+						HOMEPAGE_NOTI_EDT, 			--공지종료일
+						INST_ID, 					--입력자
+						INST_DTM,					--입력시
+						STND_YEAR, 					--기준년도
+						TMS,						--회차
+						MBR_CD, 					--경정장코드
+						RACER_NO, 					--선수번호
+						VOIL_CD,					--위반코드
+						CONFIRM_YN
+					)
+					VALUES
+					(
+						?, 
+						?,
+						?,
+						?,
+						?, 
+						?, 
+						?, 
+						?, 
+						?,
+						?, 
+						?, 
+						?, 
+						SYSDATE,
+						?, 
+						?, 
+						?, 
+						?,
+						?,
+						'0'
+					)
+        ]]>
+    </query> 
+    <query id="tbee_racer_sanc_ue001" desc="수정" fetchSize="10">
+        <![CDATA[
+        	BEGIN
+        		--선수별기본출주배정. TBEB_RACER_BAC_RACE_ALLOC
+				--a1, a2 는 1회차당 -3
+				--b1, b2 는 1회차당 -2
+				--원래값 복원 -> 수정된값 빼기.
+				UPDATE	TBEB_RACER_BAC_RACE_ALLOC
+				SET		RACE_ALLOC_CNT	=	RACE_ALLOC_CNT + (
+				                            SELECT	CASE TRS.UNIT
+				                                      	WHEN '001'	THEN TRS.SANC_TERM				--회차
+				                                    END
+				                                    *
+				                                    CASE SUBSTR(TRM.RACER_GRD_CD, 1, 1)
+				                                    	WHEN 'A'	THEN 3
+				                                        WHEN 'B'	THEN 2
+				                                    END
+				                            FROM	TBEE_RACER_SANC		TRS
+				                            INNER JOIN
+				                            		TBEC_RACER_MASTER	TRM
+				                            ON		TRS.RACER_NO = TRM.RACER_NO
+				                            WHERE	TRS.RACER_NO	= ?
+				                            AND		TRS.SEQ			= ?
+				                            AND		TRS.STND_YEAR	= ?)
+				WHERE	STND_YEAR	= ?
+				AND		QURT_CD 	= (SELECT	QURT_CD 
+				                      FROM		TBEB_RACE_TMS 
+				                      WHERE		END_DT = (
+				                                        SELECT	MAX(END_DT)
+				                                        FROM		TBEB_RACE_TMS 
+				                                        WHERE		END_DT <= ?)
+				                      AND		ROWNUM = 1)
+				AND		RACER_NO 	= ?;
+				
+				UPDATE	TBEE_RACER_SANC SET
+						MBR_CD 			= ?,		--경기장코드
+						TMS				= ?,		--회차
+						DAY_ORD			= ?,		--일차
+						RACE_NO			= ?,		--경주번호
+						SANC_BASIS_CD	= ?,		--양정코드
+						SMRY			= ?,		--관련근거
+						SANC_TERM 		= ?,		--제재처분기간
+						UNIT			= ?,		--제재처분단위
+						SANC_RSN_CD		= ?,		--사유코드
+						SANC_RSN 		= ?,		--사유내역
+						HOMEPAGE_SANC_RSN = ?,		--홈페이지용사유내역 
+						SANC_ACT_DT 	= ?,		--처분일자
+						HOMEPAGE_NOTI_SDT= ?,		--공지시작일
+						HOMEPAGE_NOTI_EDT= ?,		--공지종료일
+						CFM				= ?,		--확정여부
+						READYN          = DECODE(?, 'N', null, READYN),
+						READYN_DT       = DECODE(?, 'N', null, READYN_DT),						
+				      	UPDT_ID			= ?,		--수정자ID    
+				      	UPDT_DTM		= SYSDATE,	--수정일시
+				      	SANC_DEPT		= ?			--제재입력부서(공정=G,심판=S) 
+				WHERE	RACER_NO 		= ?			--선수등록번호
+				AND		SEQ 			= ?			--일련번호
+				AND		STND_YEAR 		= ?;		--기준년도
+				
+				UPDATE	TBEC_ARRANGE_ESC SET
+						STR_DT			= ?,		--주선제외시작일
+						END_DT			= ?, 		--주선제외종료일
+				      	UPDT_ID			= ?,		--수정자ID    
+				      	UPDT_DTM		= SYSDATE	--수정일시 
+				WHERE	SANC_ISSUE_NO	= ?;		--발급번호  
+				
+				UPDATE	TBEB_RACER_BAC_RACE_ALLOC
+				SET		RACE_ALLOC_CNT	=	RACE_ALLOC_CNT -
+											CASE (SUBSTR(?, 1, 1)) 
+				  								WHEN 'A' THEN	CASE ?								--단위
+				                            						WHEN '001'	THEN ?				--회차
+				                            					END * 3
+				                                WHEN 'B' THEN	CASE ?								--단위
+				                            						WHEN '001'	THEN ?				--회차
+				                            					END * 2
+				                          	END,
+						UPDT_ID			= ?,
+						UPDT_DTM		= SYSDATE
+				WHERE	STND_YEAR	= ?
+				AND		QURT_CD 	= (SELECT	QURT_CD 
+				                      FROM		TBEB_RACE_TMS 
+				                      WHERE		END_DT = (
+				                                        SELECT	MAX(END_DT)
+				                                        FROM		TBEB_RACE_TMS 
+				                                        WHERE		END_DT 		<= ?
+				                                        AND			STND_YEAR	=  ?)
+				                      AND		ROWNUM = 1)
+				AND		RACER_NO 	= ?;
+			END;
+        ]]>
+    </query> 
+    <query id="tbee_racer_sanc_de001" desc="삭제" fetchSize="10">
+        <![CDATA[
+        	BEGIN
+        		--선수별기본출주배정. TBEB_RACER_BAC_RACE_ALLOC
+				--a1, a2 는 1회차당 -3
+				--b1, b2 는 1회차당 -2
+				UPDATE	TBEB_RACER_BAC_RACE_ALLOC
+				SET		RACE_ALLOC_CNT	=	RACE_ALLOC_CNT + (
+				                            SELECT	CASE TRS.UNIT
+				                                      	WHEN '001'	THEN TRS.SANC_TERM				--회차
+				                                    END
+				                                    *
+				                                    CASE SUBSTR(TRM.RACER_GRD_CD, 1, 1)
+				                                    	WHEN 'A'	THEN 3
+				                                        WHEN 'B'	THEN 2
+				                                    END
+				                            FROM	TBEE_RACER_SANC		TRS
+				                            INNER JOIN
+				                            		TBEC_RACER_MASTER	TRM
+				                            ON		TRS.RACER_NO = TRM.RACER_NO
+				                            WHERE	TRS.RACER_NO	= ?
+				                            AND		TRS.SEQ			= ?
+				                            AND		TRS.STND_YEAR	= ?)
+				WHERE	STND_YEAR	= ?
+				AND		QURT_CD 	= (SELECT	QURT_CD 
+				                      FROM		TBEB_RACE_TMS 
+				                      WHERE		END_DT = (
+				                                        SELECT	MAX(END_DT)
+				                                        FROM		TBEB_RACE_TMS 
+				                                        WHERE		END_DT <= ?)
+				                      AND		ROWNUM = 1)
+				AND		RACER_NO 	= ?;
+				DELETE
+				FROM 	TBEE_RACER_SANC
+				WHERE	RACER_NO 		= ?			--선수등록번호
+				AND		SEQ 			= ?			--일련번호
+				AND		STND_YEAR 		= ?;		--기준년도
+				DELETE
+				FROM 	TBEC_ARRANGE_ESC
+				WHERE	SANC_ISSUE_NO	= ?;		--발급번호  
+			END;
+        ]]>
+    </query>
+	<query id="tbee_racer_sanc_de002" desc="삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM 	TBEE_RACER_SANC_CONFIRM
+			WHERE	STND_YEAR 			= ?			--기준년도
+            AND		TMS 				= ?  		--회차
+            AND		MBR_CD 				= ?			--경정장코드  
+            AND		RACER_NO			= ? 		--선수등록번호
+            AND		VOIL_CD				= ?			--위반코드
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe020" desc="선수별 소극적 스타트 제재처분등록 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbee_racer_sanc_fe020 IWORK_SFR-008 3일차 까지... */
+					  T10.RACER_NO
+			        , T12.NM_KOR
+			        , T10.RACER_GRD_CD
+			        , T11.TOT_MIN_TM
+			        , T11.TOT_MAX_TM
+			        , T11.TOT_AVG_TM
+			        , T11.TOT_RACE_CNT
+			        , LPAD(AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,RACE_NO))), 2, '0') RACE_NO_1_1	-- 1일차 첫경주 경주번호
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,ENTRY_COURSE))) ENTRY_COURSE_1_1		-- 1일차 첫경주 코스
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,MIN_TM))) MIN_TM_1_1					-- 1일차 첫경주 코스 최소 스타트 타임
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,MAX_TM))) MAX_TM_1_1					-- 1일차 첫경주 코스 최대 스타트 타임
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,AVG_TM))) AVG_TM_1_1					-- 1일차 첫경주 코스 평균 스타트 타임
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,STAR_TM))) STAR_TM_1_1					-- 1일차 첫경주 스타트 타임
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,RACE_CNT))) RACE_CNT_1_1				-- 1일차 첫경주 코스 경주 횟수
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,1,DIFF_TM))) DIFF_TM_1_1					-- 1일차 첫경주 편차(평균 - 금회 스타트 타임)
+			        , LPAD(AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,RACE_NO))),2,'0') RACE_NO_1_2		-- 1일차 두번째경주 경주번호
+			        , AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,ENTRY_COURSE))) ENTRY_COURSE_1_2		-- 1일차 두번째경주 코스
+                    , AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,MIN_TM))) MIN_TM_1_2					-- 1일차 두번째경주 코스 최소 스타트 타임
+                    , AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,MAX_TM))) MAX_TM_1_2					-- 1일차 두번째경주 코스 최대 스타트 타임
+                    , AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,AVG_TM))) AVG_TM_1_2					-- 1일차 두번째경주 코스 평균 스타트 타임
+                    , AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,STAR_TM))) STAR_TM_1_2					-- 1일차 두번째경주 스타트 타임
+                    , AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,RACE_CNT))) RACE_CNT_1_2				-- 1일차 두번째경주 코스 경주 횟수
+                    , AVG(DECODE(DAY_ORD,1,DECODE(DIV,2,DIFF_TM))) DIFF_TM_1_2					-- 1일차 두번째경주 경주번호
+			        , LPAD(AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,RACE_NO))),2,'0') RACE_NO_2_1		-- 2일차 첫경주 경주번호
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,ENTRY_COURSE))) ENTRY_COURSE_2_1		-- 2일차 첫경주 코스
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,MIN_TM))) MIN_TM_2_1					-- 2일차 첫경주 코스 최소 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,MAX_TM))) MAX_TM_2_1					-- 2일차 첫경주 코스 최대 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,AVG_TM))) AVG_TM_2_1					-- 2일차 첫경주 코스 평균 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,STAR_TM))) STAR_TM_2_1					-- 2일차 첫경주 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,RACE_CNT))) RACE_CNT_2_1				-- 2일차 첫경주 코스 경주 횟수
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,1,DIFF_TM))) DIFF_TM_2_1					-- 2일차 첫경주 편차(평균 - 금회 스타트 타임)
+			        , LPAD(AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,RACE_NO))),2,'0') RACE_NO_2_2		-- 2일차 두번째경주 경주번호
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,ENTRY_COURSE))) ENTRY_COURSE_2_2		-- 2일차 두번째경주 코스
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,MIN_TM))) MIN_TM_2_2					-- 2일차 두번째경주 코스 최소 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,MAX_TM))) MAX_TM_2_2					-- 2일차 두번째경주 코스 최대 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,AVG_TM))) AVG_TM_2_2					-- 2일차 두번째경주 코스 평균 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,STAR_TM))) STAR_TM_2_2					-- 2일차 두번째경주 스타트 타임
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,RACE_CNT))) RACE_CNT_2_2				-- 2일차 두번째경주 코스 경주 횟수
+                    , AVG(DECODE(DAY_ORD,2,DECODE(DIV,2,DIFF_TM))) DIFF_TM_2_2					-- 2일차 두번째경주 편차(평균 - 금회 스타트 타임)
+                    
+                    , LPAD(AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,RACE_NO))),2,'0') RACE_NO_3_1		-- 3일차 첫경주 경주번호
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,ENTRY_COURSE))) ENTRY_COURSE_3_1		-- 3일차 첫경주 코스
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,MIN_TM))) MIN_TM_3_1					-- 3일차 첫경주 코스 최소 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,MAX_TM))) MAX_TM_3_1					-- 3일차 첫경주 코스 최대 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,AVG_TM))) AVG_TM_3_1					-- 3일차 첫경주 코스 평균 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,STAR_TM))) STAR_TM_3_1					-- 3일차 첫경주 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,RACE_CNT))) RACE_CNT_3_1				-- 3일차 첫경주 코스 경주 횟수
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,1,DIFF_TM))) DIFF_TM_3_1					-- 3일차 첫경주 편차(평균 - 금회 스타트 타임)
+			        , LPAD(AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,RACE_NO))),2,'0') RACE_NO_3_2		-- 3일차 두번째경주 경주번호
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,ENTRY_COURSE))) ENTRY_COURSE_3_2		-- 3일차 두번째경주 코스
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,MIN_TM))) MIN_TM_3_2					-- 3일차 두번째경주 코스 최소 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,MAX_TM))) MAX_TM_3_2					-- 3일차 두번째경주 코스 최대 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,AVG_TM))) AVG_TM_3_2					-- 3일차 두번째경주 코스 평균 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,STAR_TM))) STAR_TM_3_2					-- 3일차 두번째경주 스타트 타임
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,RACE_CNT))) RACE_CNT_3_2				-- 3일차 두번째경주 코스 경주 횟수
+                    , AVG(DECODE(DAY_ORD,3,DECODE(DIV,2,DIFF_TM))) DIFF_TM_3_2					-- 3일차 두번째경주 편차(평균 - 금회 스타트 타임)
+                    
+                    , SUM(SUSPD_TMS) SUSPD_TMS													-- 출전정지
+			FROM    (
+			        SELECT  T1.RACER_NO
+			                , T1.RACER_GRD_CD
+                            , T1.DAY_ORD
+                            , T1.RACE_NO
+			                , T1.ENTRY_COURSE
+			                , MIN_TM
+			                , MAX_TM
+			                , ROUND(AVG_TM,2) AVG_TM
+			                , STAR_TM
+			                , RACE_CNT
+			                , STAR_TM-ROUND(AVG_TM,2) DIFF_TM
+			                -- 편차가 입력값(기준값)이상(sign리턴이 0또는 1)이면 1 아니면 0, SIGN(값) -> 값이 양수면 1, 음수면 -1, 0이면 0 리턴
+			                , DECODE(SIGN(STAR_TM-ROUND(AVG_TM,2) - ? ), 0, 1,1,1,-1,0) SUSPD_TMS
+                            , RANK() OVER (PARTITION BY T1.RACER_NO, DAY_ORD ORDER BY T1.DAY_ORD, RACE_NO, ROWNUM) AS DIV
+			        FROM    TBEB_ORGAN T1
+			                , (
+			                SELECT  RACER_NO
+			                        , ENTRY_COURSE
+			                        , MIN(STAR_TM) MIN_TM				-- 코스 최소 스타트
+			                        , MAX(STAR_TM) MAX_TM				-- 코스 최대 스타트
+			                        , AVG(STAR_TM) AVG_TM				-- 코스 평균 스타트
+			                        , COUNT(STAR_TM) RACE_CNT			-- 코스 경수 수
+			                FROM    TBEB_ORGAN
+			                WHERE   STND_YEAR = ?
+			                        AND MBR_CD = ?
+			                        AND TMS <= ?
+			                        AND ST_MTHD_CD = '002'	--플라잉스타트만
+			                GROUP BY RACER_NO, ENTRY_COURSE
+			                ) T2
+			        WHERE   T1.STND_YEAR = ?
+			                AND T1.MBR_CD = ?
+			                AND T1.TMS = ?
+			                AND T1.STAR_TM IS NOT NULL
+			                AND T1.RACER_NO = T2.RACER_NO(+)
+			                AND T1.ENTRY_COURSE = T2.ENTRY_COURSE(+)
+			                AND T1.ST_MTHD_CD = '002'	--플라잉스타트만
+			        ORDER BY RACER_NO, ENTRY_COURSE       
+			        ) T10
+			        , (
+			        SELECT  RACER_NO
+			                , MIN(STAR_TM) TOT_MIN_TM					-- 전체 최소 스타트
+			                , MAX(STAR_TM) TOT_MAX_TM					-- 전체 최대 스타트
+			                , ROUND(AVG(STAR_TM), 2) TOT_AVG_TM			-- 전체 평균 스타트
+			                , COUNT(STAR_TM) TOT_RACE_CNT				-- 전체 경주 수
+			        FROM    TBEB_ORGAN
+			        WHERE   STND_YEAR = ?
+			                AND MBR_CD = ?
+			                AND TMS <= ?
+			                AND ST_MTHD_CD = '002'	--플라잉스타트만
+			        GROUP BY RACER_NO
+			        ) T11
+			        , TBEC_RACER_MASTER T12
+			WHERE   T10.RACER_NO = T12.RACER_NO
+			        AND T10.RACER_NO = T11.RACER_NO(+)
+			GROUP BY
+			        T10.RACER_NO
+			        , T12.NM_KOR
+			        , T10.RACER_GRD_CD
+			        , T11.TOT_MIN_TM
+			        , T11.TOT_MAX_TM
+			        , T11.TOT_AVG_TM
+			        , T11.TOT_RACE_CNT
+			ORDER BY
+			        SUSPD_TMS DESC, T10.RACER_NO
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe021" desc="소극적 스타트 제재처분 등록할 내용 조회" fetchSize="10">
+        <![CDATA[
+            SELECT	CASE /*tbee_racer_sanc_fe021*/
+                    	WHEN TRSC.RACER_NO IS NULL THEN '0'
+                        WHEN TRSC.RACER_NO IS NOT NULL THEN '1'
+                    END    AS CHK,
+                    'E05040082'                                AS MENUID,
+                    A.STND_YEAR,
+                    A.TMS,
+                    A.MBR_CD,
+                    A.RACER_NO,
+                    A.VOIL_CD,
+                    TRM.NM_KOR,
+                    TRM.RACER_GRD_CD,
+                    TRSC.SANC_BASIS_CD, 
+                    NVL(TRSC.SANC_TERM, A.SANC_TERM)        AS SANC_TERM,
+                    NVL(TRSC.SANC_RSN_CD, A.SANC_RSN_CD)    AS SANC_RSN_CD, 
+                    TRSC.SANC_RSN, 
+                    TRSC.SANC_ACT_DT, 
+                    TRSC.HOMEPAGE_NOTI_SDT,
+                    TRSC.HOMEPAGE_NOTI_EDT,
+                    TRSC.SMRY,
+                    TRSC.HOMEPAGE_SANC_RSN, 
+                    TRSC.CONFIRM_YN,
+                    NVL(TRSC.UNIT, A.UNIT)                    AS UNIT 
+            FROM    (
+                    SELECT 
+                            RACER_NO
+                            , MBR_CD
+                            , '999' VOIL_CD		-- 위반코드가 필수이므로 999로 Setting
+                            , ? STND_YEAR
+                            , ? TMS
+                            , SUM(SUSPD_TMS) SANC_TERM
+                            , '001' UNIT		-- 출전정지 단위(회차)
+                            , '012' SANC_RSN_CD -- 제재사유, 연속 성적 하위자
+                    FROM    (     
+                            SELECT  T1.RACER_NO
+                                    , T1.MBR_CD
+                                    -- 편차가 입력값(기준값)이상(sign리턴이 0또는 1)이면 1 아니면 0, SIGN(값) -> 값이 양수면 1, 음수면 -1, 0이면 0 리턴
+                                    , DECODE(SIGN(STAR_TM-ROUND(AVG_TM,2) - ? ), 0, 1,1,1,-1,0,0) SUSPD_TMS
+                            FROM    TBEB_ORGAN T1
+                                    , (
+                                    SELECT  ENTRY_COURSE
+                                            , MBR_CD
+                                            , AVG(STAR_TM) AVG_TM
+                                    FROM    TBEB_ORGAN
+                                    WHERE   STND_YEAR = ?
+                                            AND MBR_CD = ?
+                                            AND TMS <= ?
+                                            AND RACER_NO = ?
+                                            AND ST_MTHD_CD = '002'	--플라잉스타트만
+                                    GROUP BY ENTRY_COURSE, MBR_CD
+                                    ) T2
+                            WHERE   T1.STND_YEAR = ?
+                                    AND T1.MBR_CD = ?
+                                    AND T1.TMS = ?
+                                    AND T1.STAR_TM IS NOT NULL
+                                    AND T1.RACER_NO = ?
+                                    AND T1.ENTRY_COURSE = T2.ENTRY_COURSE(+)
+                                    AND T1.MBR_CD = T2.MBR_CD(+)       
+                                    AND T1.ST_MTHD_CD = '002' --플라잉만
+                            )
+                    GROUP BY RACER_NO, MBR_CD
+                    HAVING SUM(SUSPD_TMS) > 0                
+            		) A
+            		, TBEC_RACER_MASTER       TRM
+            		, TBEE_RACER_SANC_CONFIRM    TRSC
+			WHERE
+        			A.RACER_NO     = TRM.RACER_NO
+        			AND  A.STND_YEAR    = TRSC.STND_YEAR(+)
+            		AND        A.TMS        = TRSC.TMS(+)
+            		AND        A.MBR_CD    = TRSC.MBR_CD(+)
+            		AND        A.RACER_NO    = TRSC.RACER_NO(+)
+            		AND        A.VOIL_CD    = TRSC.VOIL_CD(+)            
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe022" desc="성적하위자 제재처분 등록 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /*tbee_racer_sanc_fe022*/
+                    TRM.RACER_NO
+                   , TRM.NM_KOR
+                   , TRM.RACER_GRD_CD
+                   , 0 SUSPD_TMS    
+                   , TRRAS.TMS_6_AMU_RANK_SCR        -- 6회누적착순점 
+                   , TRRAS.TMS_6_AVG_RANK_SCR        -- 6회평균착순점 
+                   , TRRAS.TMS_6_AMU_ACDNT_SCR       -- 6회누적사고점 
+                   , TRRAS.TMS_6_AVG_ACDNT_SCR       -- 6회평균사고순점 
+                   , TRRAS.TMS_6_AVG_SCR             -- 6회평균득점   
+                   , TRRAS.TMS_6_WIN_RATIO           -- 6회승률       
+                   , TRRAS.TMS_6_HIGH_RANK_RATIO     -- 6회연대율     
+                   , TRRAS.TMS_6_HIGH_3_RANK_RATIO   -- 6회3연대율    
+                   , TRRAS.TMS_6_AVG_STRT_TM         -- 6회평균ST     
+                   , TRRAS.TMS_8_RANK_ORD            -- 8경주 착순
+            FROM     TBEC_RACER_MASTER TRM
+                    ,(
+					    SELECT  *
+						FROM    (
+						            SELECT  RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                    , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <= (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+						       )
+						WHERE  RANK = 1
+			         ) TRRAS  -- 선수최근성적
+                    ,(
+                        SELECT  DISTINCT RACER_NO 
+                        FROM    TBEB_ORGAN 
+                        WHERE   STND_YEAR = ? 
+                                AND MBR_CD = ? 
+                                AND TMS = ? 
+                                AND RANK = 6   -- 당회차에 6착이 있는 선수만 조회
+                    )TORGAN
+            WHERE	TORGAN.RACER_NO = TRM.RACER_NO
+			AND		TORGAN.RACER_NO = TRRAS.RACER_NO
+            ORDER BY RACER_NO
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe023" desc="하위성적 출전정지 조회" fetchSize="10">
+        <![CDATA[
+			-- 출전정지 수를 구하기 위해 연속 성적 조회
+			SELECT  T1.RACER_NO /*tbee_racer_sanc_fe023*/
+			        , T1.TMS
+			        , T1.DAY_ORD
+			        , T1.RACE_DAY
+			        , T1.RACE_NO
+			        , T1.RANK
+			        , '' SEQ
+			        , '' DIV
+            FROM    TBEB_ORGAN T1
+                    ,(
+                    SELECT DISTINCT RACER_NO
+                    FROM TBEB_ORGAN
+                    WHERE   STND_YEAR = ?
+                            AND MBR_CD = ?
+                            AND TMS = ?
+                            AND RANK = 6
+                    ) T2
+            WHERE   T1.STND_YEAR = ?
+                    AND T1.MBR_CD = ?
+                    AND T1.TMS <= ?
+                    AND T1.RANK > 0  -- 레이스 완료 못한 경우 무시.
+                    AND T1.RACER_NO = T2.RACER_NO
+            ORDER BY
+                    T1.RACER_NO, T1.RACE_DAY, T1.RACE_NO         
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe024" desc="하위성적자 성적 조회" fetchSize="10">
+        <![CDATA[
+            SELECT	/*tbee_racer_sanc_fe024*/
+                   TOR .RACER_NO
+                   , TRM .NM_KOR
+                   , TOR .STND_YEAR
+                   , TOR .MBR_CD
+                   , TOR .TMS
+                   , TOR .DAY_ORD
+                   , TOR .RACE_NO
+                   , TOR .RACE_DAY
+                   , DECODE(TOR.ABSE_CD, '002', '결장', '003', '면책결장', '001', DECODE(TR.RACE_STTS_CD, '002', '불성립', '003', '불성립','001', DECODE(TOR.IMMT_CLS_CD, '003', (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00113' AND CD = TOR.IMMT_CLS_CD), TO_CHAR(TOR.RANK)), (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00110' AND CD = TOR.ABSE_CD))) RANK
+            FROM     TBEB_ORGAN         TOR
+                   , TBEB_RACE          TR
+                   , TBEB_RACE_DAY_ORD  TRDO
+                   , TBEC_RACER_MASTER	TRM
+                   , (
+                        SELECT DISTINCT RACER_NO
+                        FROM    TBEB_ORGAN
+                        WHERE   STND_YEAR = ?
+                                AND MBR_CD = ?
+                                AND TMS = ?
+                                AND RANK = 6
+                     ) TOR2
+            WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+            AND    TOR .MBR_CD       = TR  .MBR_CD
+            AND    TOR .TMS          = TR  .TMS
+            AND    TOR .DAY_ORD      = TR  .DAY_ORD
+            AND    TOR .RACE_NO      = TR  .RACE_NO
+            AND    TOR .STND_YEAR    = TRDO.STND_YEAR
+            AND    TOR .MBR_CD       = TRDO.MBR_CD
+            AND    TOR .TMS          = TRDO.TMS
+            AND    TOR .DAY_ORD      = TRDO.DAY_ORD
+            AND    TRDO.ORGAN_STAT_CD = '002' 
+            AND    TOR .STND_YEAR   = ?
+            AND    TOR .RACE_DAY    <= (
+                                            SELECT
+                                                   MAX(TRDO.RACE_DAY) RACE_DAY
+                                            FROM   TBEB_RACE_DAY_ORD TRDO
+                                            WHERE  TRDO.STND_YEAR = ?
+                                            AND    TRDO.MBR_CD    = ?
+                                            AND    TRDO.TMS       = ?
+                                       )
+            AND    TOR.RACER_NO      = TOR2.RACER_NO
+            AND	   TRM.RACER_NO      = TOR2.RACER_NO
+            ORDER BY   TOR.RACER_NO
+                     , TOR.RACE_DAY  DESC
+                     , TOR.RACE_NO   DESC
+        ]]>
+    </query>
+    <query id="tbee_racer_sanc_fe025" desc="성적하위자 제재처분 등록할 내용 조회" fetchSize="10">
+        <![CDATA[
+            SELECT    CASE  /*tbee_racer_sanc_fe025*/
+                        WHEN TRSC.RACER_NO IS NULL THEN '0'
+                        WHEN TRSC.RACER_NO IS NOT NULL THEN '1'
+                    END    AS CHK,
+                    'E05040081'                                AS MENUID,
+                    A.STND_YEAR,
+                    A.TMS,
+                    A.MBR_CD,
+                    A.RACER_NO,
+                    A.VOIL_CD,
+                    TRM.NM_KOR,
+                    TRM.RACER_GRD_CD,
+                    TRSC.SANC_BASIS_CD, 
+                    NVL(TRSC.SANC_TERM, A.SANC_TERM)        AS SANC_TERM,
+                    NVL(TRSC.SANC_RSN_CD, A.SANC_RSN_CD)    AS SANC_RSN_CD, 
+                    TRSC.SANC_RSN, 
+                    TRSC.SANC_ACT_DT, 
+                    TRSC.HOMEPAGE_NOTI_SDT,
+                    TRSC.HOMEPAGE_NOTI_EDT,
+                    TRSC.SMRY,
+                    TRSC.HOMEPAGE_SANC_RSN, 
+                    TRSC.CONFIRM_YN,
+                    NVL(TRSC.UNIT, A.UNIT)                    AS UNIT 
+            FROM    (
+                    SELECT 
+                            ? RACER_NO
+                            , ? MBR_CD
+                            , '999' VOIL_CD     -- 위판 코드 필수 이므로 999로 Setting
+                            , ? STND_YEAR
+                            , ? TMS
+                            , ? SANC_TERM
+                            , '001' UNIT        -- 출전정지 단위(회차)
+                            , '011' SANC_RSN_CD	-- 제재처분코드(소극적 스타트)
+                    FROM    DUAL                
+                    ) A
+                    , TBEC_RACER_MASTER       TRM
+                    , TBEE_RACER_SANC_CONFIRM    TRSC
+            WHERE
+                    A.RACER_NO     = TRM.RACER_NO
+                    AND  A.STND_YEAR    = TRSC.STND_YEAR(+)
+                    AND        A.TMS        = TRSC.TMS(+)
+                    AND        A.MBR_CD    = TRSC.MBR_CD(+)
+                    AND        A.RACER_NO    = TRSC.RACER_NO(+)
+                    AND        A.VOIL_CD    = TRSC.VOIL_CD(+)     
+        ]]>
+    </query>
+</queryMap>

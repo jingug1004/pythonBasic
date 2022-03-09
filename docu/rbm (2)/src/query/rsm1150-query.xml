@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM1150(이벤트 응모현황)">
+    <query id="rsm1150_s01" desc="기간별 이벤트 응모현황" fetchSize="10">
+        <![CDATA[           
+			SELECT  /* rsm1150_s01 */
+			        TO_CHAR(D_ATL_DATE,'YYYY-MM-DD HH24:MI:SS') AS BUY_DT,
+			        TO_CHAR(D_ATL_DATE,'HH24:MI:SS') AS BUY_TM,
+			        C_CARD_NO AS CARD_NO,
+			        N_CARD_SEQ AS CARD_SEQ,
+			        C_MAIN_CODE AS PLACE_CD,
+			        S_DESC AS PLACE_NM,
+			        C_MEET_NO AS MEET_CD,
+			        C_RACE_NO AS RACE_NO,
+			        S_SLIP_INFO AS SLIP_INFO,
+			        N_STAKE AS BUY_AMT,
+			        N_PAYOFF_AMT AS PAYOFF_AMT,
+			        N_RETURN_AMT AS RETURN_AMT,
+			        N_WINNING_AMT AS WINNING_AMT,
+			        C_SLIP_STATUS AS SLIP_STATUS,
+			        B.SLIP_INFO AS IMP_SLIP_INFO,
+			        NVL2 (B.SLIP_SEQ, '-', 'NOT YET') AS IMP_STAT,
+                    DECODE(C_RACE_NO,'05',SLIP_INFO) AS RACE_NO_05,
+                    DECODE(C_RACE_NO,'06',SLIP_INFO) AS RACE_NO_06,
+                    DECODE(C_RACE_NO,'07',SLIP_INFO) AS RACE_NO_07,
+                    DECODE(C_RACE_NO,'08',SLIP_INFO) AS RACE_NO_08,
+                    DECODE(C_RACE_NO,'09',SLIP_INFO) AS RACE_NO_09,
+                    DECODE(C_RACE_NO,'10',SLIP_INFO) AS RACE_NO_10,
+                    DECODE(C_RACE_NO,'11',SLIP_INFO) AS RACE_NO_11,
+                    DECODE(C_RACE_NO,'12',SLIP_INFO) AS RACE_NO_12,
+                    B.EVENT_SLIP_SEQ,
+                    SUBSTR(EVENT_SLIP_SEQ,10) AS EVENT_SLIP_SEQ_SHORT,
+                    NVL(C.EVENT_NUM,0) AS EVENT_SEQ,
+                    C.EVENT_NUM
+			FROM    EXA7@IBETLINK A LEFT OUTER JOIN TBRD_EVENT_7EX_DETL B
+                  ON A.C_SLIP_SEQ = B.SLIP_SEQ
+                       LEFT OUTER JOIN 
+                       (SELECT CARD_NO, MIN_SLIP_SEQ,
+                               ROW_NUMBER() OVER (PARTITION BY EVENT_DT 
+                                     ORDER BY MIN_SLIP_SEQ) AS EVENT_NUM
+                        FROM   TBRD_EVENT_7EX A
+                        WHERE  EVENT_DT = ?
+                        AND    CARD_NO LIKE '%'||?
+                       ) C
+                  ON B.EVENT_SLIP_SEQ = C.MIN_SLIP_SEQ
+			WHERE   TO_CHAR (D_ATL_DATE, 'YYYYMMDD') = ?
+			AND     C_RACE_NO BETWEEN '05' AND '12'
+			AND     D_ATL_DATE <
+			                (SELECT NVL (
+			                           D_CCSB_DATE,
+			                           TO_DATE (
+			                                 ?
+			                              || SUBSTR (C_START_TIME, 1, 2)
+			                              || SUBSTR (C_START_TIME, 4, 2)
+			                              || '59',
+			                              'YYYYMMDDHH24MISS'))
+			                   FROM    T_RACE_INFO@CYBETLINK
+			                   --FROM    VW_GRN_TAX_GITA
+			                  WHERE   C_RACE_DATE = ?
+			                        AND C_MEET_NO = '001'
+			                        AND C_RACE_NO = '06')
+			AND     C_CARD_NO LIKE '%'||?
+			AND     A.C_SLIP_SEQ = B.SLIP_SEQ
+			ORDER BY A.C_CARD_NO, A.C_SLIP_SEQ        
+        ]]>
+    </query>
+            
+</queryMap>

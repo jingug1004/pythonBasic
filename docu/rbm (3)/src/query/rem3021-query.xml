@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem3021(체류인원  경주별 현황)">
+    <query id="rem3021_s01" desc="체류인원  경주별 현황  조회" fetchSize="10">
+      <![CDATA[
+			WITH STAY_MANA AS( /*rem3021_s01*/
+			 SELECT A.MEET_CD
+			             ,B.TMS - (? -3) AS TMS_SEQ
+			             ,RACE_DT
+			             ,TO_CHAR(TO_DATE(A.RACE_DT,'YYYYMMDD'),'D') DNUM
+			             --,DECODE(RACE_NO,0,1,A.RACE_NO) RACE_NO
+			             ,CASE WHEN RACE_DT >='20130607' AND RACE_DT <='20130714' THEN
+			                        DECODE(A.RACE_NO,0,1,A.RACE_NO) + 1
+			                   ELSE  DECODE(RACE_NO,0,1,A.RACE_NO)
+			                   END RACE_NO
+			             ,BRNC_CD
+			             ,ENT_PRSN_NUM 
+			             ,LEAV_PRSN_NUM 
+			--             ,SUM(ENT_PRSN_NUM) OVER (PARTITION BY A.MEET_CD, BRNC_CD, RACE_DT ORDER BY  RACE_NO RANGE UNBOUNDED PRECEDING) AS CUM1  
+			--             ,SUM(LEAV_PRSN_NUM) OVER (PARTITION BY A.MEET_CD, BRNC_CD, RACE_DT ORDER BY  RACE_NO RANGE UNBOUNDED PRECEDING) AS CUM2  
+			             ,SUM(ENT_PRSN_NUM) OVER (PARTITION BY A.MEET_CD, BRNC_CD, RACE_DT ORDER BY  RACE_NO RANGE UNBOUNDED PRECEDING) -  
+			              SUM(LEAV_PRSN_NUM) OVER (PARTITION BY A.MEET_CD, BRNC_CD, RACE_DT ORDER BY  RACE_NO RANGE UNBOUNDED PRECEDING) AS CUM_DIFF  
+			 FROM TBRC_STAY_MANA A
+			          ,VW_SDL_INFO B
+			 WHERE B.TMS BETWEEN ? -2 AND ?
+			 AND     A.RACE_DT = B.RACE_DAY
+			 AND     B.MEET_CD = ?
+			 AND     B.STND_YEAR = ?
+			 )
+			 SELECT RACE_NO
+			            ,SUM(CUM14) AS CUM14
+			            ,SUM(CUM24) AS CUM24
+			            ,SUM(CUM34) AS CUM34
+			            ,SUM(CUM15) AS CUM15
+			            ,SUM(CUM25) AS CUM25
+			            ,SUM(CUM35) AS CUM35
+			            ,SUM(CUM16) AS CUM16
+			            ,SUM(CUM26) AS CUM26
+			            ,SUM(CUM36) AS CUM36
+			            ,SUM(CUM17) AS CUM17
+			            ,SUM(CUM27) AS CUM27
+			            ,SUM(CUM37) AS CUM37
+			            ,SUM(CUM11) AS CUM11
+			            ,SUM(CUM21) AS CUM21
+			            ,SUM(CUM31) AS CUM31
+			FROM (            
+			             SELECT RACE_NO  
+			                        ,CASE WHEN TMS_SEQ = 1 AND DNUM = 4 THEN CUM_DIFF END CUM14  
+			                        ,CASE WHEN TMS_SEQ = 2 AND DNUM = 4 THEN CUM_DIFF END CUM24  
+			                        ,CASE WHEN TMS_SEQ = 3 AND DNUM = 4 THEN CUM_DIFF END CUM34  
+			                        ,CASE WHEN TMS_SEQ = 1 AND DNUM = 5 THEN CUM_DIFF END CUM15  
+			                        ,CASE WHEN TMS_SEQ = 2 AND DNUM = 5 THEN CUM_DIFF END CUM25  
+			                        ,CASE WHEN TMS_SEQ = 3 AND DNUM = 5 THEN CUM_DIFF END CUM35  
+			                        ,CASE WHEN TMS_SEQ = 1 AND DNUM = 6 THEN CUM_DIFF END CUM16  
+			                        ,CASE WHEN TMS_SEQ = 2 AND DNUM = 6 THEN CUM_DIFF END CUM26  
+			                        ,CASE WHEN TMS_SEQ = 3 AND DNUM = 6 THEN CUM_DIFF END CUM36  
+			                        ,CASE WHEN TMS_SEQ = 1 AND DNUM = 7 THEN CUM_DIFF END CUM17  
+			                        ,CASE WHEN TMS_SEQ = 2 AND DNUM = 7 THEN CUM_DIFF END CUM27  
+			                        ,CASE WHEN TMS_SEQ = 3 AND DNUM = 7 THEN CUM_DIFF END CUM37  
+			                        ,CASE WHEN TMS_SEQ = 1 AND DNUM = 1 THEN CUM_DIFF END CUM11  
+			                        ,CASE WHEN TMS_SEQ = 2 AND DNUM = 1 THEN CUM_DIFF END CUM21  
+			                        ,CASE WHEN TMS_SEQ = 3 AND DNUM = 1 THEN CUM_DIFF END CUM31  
+			             FROM STAY_MANA
+			             WHERE BRNC_CD LIKE ?||'%'
+			          )
+			GROUP BY RACE_NO          
+			ORDER BY 1
+        ]]>
+    </query> 
+   
+   <query id="rem3021_s02" desc="체류인원  경주별 현황  조회" fetchSize="10">
+      <![CDATA[
+			SELECT /*rem3021_s02*/
+			       MEET_CD
+			      ,STND_YEAR
+			      ,TMS
+			      ,DAY_ORD
+			      ,RACE_DAY
+			FROM VW_SDL_INFO
+			WHERE MEET_CD IN ('001','003')
+			AND RACE_DAY = ?
+        ]]>
+    </query> 
+   
+</queryMap>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs4030(보고서제출현황 )">
+  <query id="rbs4030_s01" desc="보고서  조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs4030_s01 */
+                 '0' AS CHK
+                ,A.DEPT_CD         --부서코드
+                ,A.STND_YEAR       --년도
+                ,A.SEQ             --순번
+                ,A.REQ_DT          --요청일자
+                ,A.SUBM_LIMIT_DT   --제출기한일자
+                
+                ,A.REPORT_NM       --보고서명칭
+                ,A.INST_GUIDE      --작성지침
+                ,A.SAMP_YN         --양식여부
+                ,A.ATT_FILE_KEY    --첨부파일키
+                ,A.RMK             --비고
+                
+                
+                ,A.INST_ID         --작성자
+                ,A.INST_DT         --작성일시
+                ,A.UPDT_ID         --수정자
+                ,A.UPDT_DT         --수정일시
+
+            FROM  TBRE_REPORT_MANA   A   --보고서  
+
+            WHERE 1 = 1
+                AND A.DEL_YN = 'N'
+                AND A.DEPT_CD = ?                                         --부서코드
+                AND A.SUBM_LIMIT_DT >= NVL(? , '19000101')                --제출기한 (시작)
+                AND A.SUBM_LIMIT_DT <= NVL(? , '99991231')                --제출기한 (종료)
+                AND A.REPORT_NM LIKE  '%' || NVL(? , REPORT_NM) || '%'    --보고서명
+                
+                AND EXISTS(
+                            SELECT 1 FROM TBRE_REPORT_MNG B     -- 보고서담당자
+                                         ,TBRK_USER C             -- 사용자
+                              WHERE  B. MNG_ID = C.USER_ID
+                                  AND NVL(LENGTH(B.SUBM_DT),0) =  NVL(DECODE(?,'Y',8,'N',0) , NVL(LENGTH(B.SUBM_DT),0)) --제출여부
+                                  AND C.USER_NM LIKE  '%' || NVL(? , USER_NM) || '%'                                    --담당자
+                                  AND B.DEPT_CD = A.DEPT_CD
+                                  AND B.STND_YEAR = A.STND_YEAR
+                                  AND B.SEQ = A.SEQ
+                    )
+           ORDER BY A.SUBM_LIMIT_DT DESC
+        ]]>
+    </query>       
+    
+    <query id="rbs4030_s02" desc="보고서제출내역  조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs4030_s02 */
+                 '0' AS CHK
+                 
+                ,A.DEPT_CD                  --부서코드
+                ,A.STND_YEAR                --년도
+                ,A.SEQ                      --순번
+                
+                ,A.MNG_ID                   --담당자ID
+                ,C.USER_NM MNG_NM           --담당자명
+                ,A.MNG_DEPT_CD              --담당자부서코드
+                ,C.TEAM_NM MNG_DEPT_NM      --담당자부서명
+                ,C.HP_NO                    --담당자 이동전화번호
+                
+                ,A.SUBM_DT                  --제출일자
+                ,A.ATT_FILE_KEY             --첨부파일키
+                ,A.REPORT_CONT              --보고내용
+                ,A.UPDT_ID                  --수정자
+                ,A.UPDT_DT                  --수정일시               
+
+                ,B.REQ_DT                               --요청일자
+                ,B.SUBM_LIMIT_DT                        --제출기한일자
+                
+                ,B.REPORT_NM                            --보고서명칭
+                ,B.INST_GUIDE                           --작성지침
+                ,B.SAMP_YN                              --양식여부
+                ,B.RMK                                  --비고
+
+
+            FROM  TBRE_REPORT_MNG A      --보고서담당자
+                ,TBRE_REPORT_MANA B
+                ,TBRK_USER C
+
+            WHERE 1 = 1
+                AND A.DEPT_CD = B.DEPT_CD
+                AND A.STND_YEAR = B.STND_YEAR
+                AND A.SEQ = B.SEQ
+                AND A.MNG_ID =  C.USER_ID
+                AND A.DEL_YN = 'N'
+                AND B.DEL_YN = 'N'
+                AND A.DEPT_CD = ?        --부서코드
+                AND A.STND_YEAR = ?      --년도
+                AND A.SEQ = ?            --순번
+                AND NVL(LENGTH(A.SUBM_DT),0) =  NVL(DECODE(?,'Y',8,'N',0) , NVL(LENGTH(A.SUBM_DT),0))  -- 제출여부
+                AND C.USER_NM LIKE  '%' || NVL(? , C.USER_NM) || '%'    -- 담당자
+        ]]>
+    </query>    
+</queryMap>

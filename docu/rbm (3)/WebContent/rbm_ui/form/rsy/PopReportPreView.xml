@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form BorderColor="ACTIVECAPTION" Height="544" Id="PopReportPreView" Left="8" OnLoadCompleted="PopReportPreView_OnLoadCompleted" OnSize="PopReportPreView_OnSize" PidAttrib="7" Title="인쇄&#32;미리보기1" Top="8" Ver="1.0" Width="884" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_paramPop"></Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_dsLSTPop"></Dataset>
+		</Datasets>
+	</Form>
+	<Script><![CDATA[#include "lib::genie_common.js";
+
+var sRptFile;
+var sDirNm;
+
+function Button0_OnClick(obj)
+{
+//    UbiReport0.setPageScale(100);
+//    trace(UbiReport0.getMargin());
+    UbiReport0.setMargin("true");
+/*
+UbiReport0.firstPage()
+UbiReport0.lastPage()
+UbiReport0.nextPage()
+UbiReport0.previousPage()
+UbiReport0.setPage()
+UbiReport0.zoomIn()
+UbiReport0.zoomOut()
+UbiReport0.print()
+UbiReport0.exportset()
+UbiReport0.refresh();
+    UbiReport0.setPage(1);
+    trace(UbiReport0.getTotalPage());
+    trace(UbiReport0.getPageScale());
+*/
+
+}
+
+function PopReportPreView_OnLoadCompleted(obj)
+{
+//UbiReport0.AboutBox();
+	var iZoomInCnt;
+    sScale = "100%";
+    if(isExistVar("rptFile")) {
+        sRptFile = rptFile;
+    }
+
+    if(isExistVar("paramDsId")) {
+        ds_paramPop.Copy(parent.Object(paramDsId));
+    } else {
+        ds_paramPop.Copy(parent.Object("ds_reportParam"));
+    }
+
+	if (!fSQLCallFlag) ds_dsLstPop.Copy(parent.Object(pDataSetListId));
+
+    //trace(ds_paramPop.SaveXML());
+    sDirNm = mid(sRptFile,0,3);
+
+	SetWaitCursor(true);
+
+    fcOpenReportPreView(fSQLCallFlag);
+
+	iZoomInCnt = parseInt(ds_paramPop.GetColumn(ds_paramPop.SearchRow("PARAM_NM=='DEFAULT_SCALE'"), "PARAM_VAL"));
+
+	if (iZoomInCnt > 0) for (var i = 0;i < iZoomInCnt;i++) UbiReport0.zoomIn();
+   	if (UbiReport0.getTotalPage() > 0) UbiReport0.visible = true;
+	SetWaitCursor(false);
+}
+
+function fcOpenReportPreView(SQLCallFlag)
+{
+    var sServer;
+    var sServerDir;
+//alert("VVVV");
+	if (G_serverGbn == "GENIE") {
+        sServer = "8091";
+        sServerDir = "genie";
+    } else {
+        sServer = "8891";
+        sServerDir = "genie_test";
+    }
+        sServer = "8091";
+        sServerDir = "genie";
+
+//alert("G_serverGbn : " + G_serverGbn + ", sServer : " + sServer + ", sServerDir : " + sServerDir);
+	if (SQLCallFlag) {
+        // SQL 방식
+		//UbiReport0.ServletURL1="http://140.101.1.11:" + sServer + "/genie/Form";
+		//UbiReport0.ServletURL2="http://140.101.1.11:" + sServer + "/genie/Result";
+		
+		UbiReport0.ServletURL2="http://160.100.1.54:80/can/Form";
+		UbiReport0.ServletURL2="http://160.100.1.54:80/can/Result";
+
+		UbiReport0.setJrfFileDir("/webapp/" + sServerDir + "/genieweb/report/" + sDirNm + "/"); // 절대 경로 주의!
+        UbiReport0.datasource = "genie#jdbc/genie"; // 공단
+
+	} else {
+        // XML DataSet 방식
+		UbiReport0.ServletURL1="";
+		UbiReport0.ServletURL2="";
+
+		// 절대 경로 주의! (운영 Server)
+		UbiReport0.setFileURL("http://140.101.1.11:" + sServer + "/" + sServerDir + "/genieweb/report/");
+		UbiReport0.setJrfFileDir("http://140.101.1.11:" + sServer + "/" + sServerDir + "/genieweb/report/" + sDirNm + "/");
+
+		for(var j=0;j<ds_dsLstPop.RowCount();j++) {
+			UbiReport0.SetDataset(ds_dsLstPop.GetColumn(j, "UBISQLID"), ds_dsLstPop.GetColumn(j, "DataSetId"));
+		}
+	}
+	
+	//alert("UbiReport0.ServletURL1"+UbiReport0.ServletURL1);
+
+	UbiReport0.setJrfFileName(sRptFile + ".jrf");
+    UbiReport0.FontRevision = true;
+
+	for(var i=0; i<ds_paramPop.RowCount(); i++) {
+		UbiReport0.SetArgument(trim(ds_paramPop.GetColumn(i, "PARAM_NM")), trim(ds_paramPop.GetColumn(i, "PARAM_VAL")));
+	}
+
+	UbiReport0.Retrieve();
+}
+
+function PopReportPreView_OnSize(obj,nCx,nCy,nState)
+{
+	UbiReport0.Width = PopReportPreView.Width;
+	UbiReport0.Height = PopReportPreView.Height;
+}]]></Script>
+</Window>

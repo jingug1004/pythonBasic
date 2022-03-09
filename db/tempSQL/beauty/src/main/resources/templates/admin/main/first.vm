@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!-- Meta, title, CSS, favicons, etc. -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	
+	<title>발그레 | 관리자페이지</title>
+	
+   	#parse ("/admin/layout/common_css.vm")	
+   	
+   	<link href="https://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/buttons/1.2.4/css/buttons.dataTables.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/buttons/1.2.4/css/buttons.bootstrap.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/select/1.2.1/css/select.dataTables.min.css" rel="stylesheet">
+	<link href="https://cdn.datatables.net/responsive/2.0.2/css/responsive.dataTables.min.css" rel="stylesheet" />
+	
+</head>
+
+<body class="nav-md footer_fixed">
+	<div class="container body">
+		<div class="main_container">
+			#parse ("/admin/layout/header.vm")
+			<!-- page content -->
+			<div class="right_col" role="main">
+				<div class="col-md-12 col-sm-12 col-xs-12">
+                <div class="x_panel">
+                  <div class="x_title">
+                    <h2>
+           	         	#if($!{showType} == 1)메인
+           	         	#elseif($!{showType} == 2)베스트
+           	         	#elseif($!{showType} == 3)NEW
+           	         	#end
+                    	상단 배너 <small>목록</small></h2>
+                    <ul class="nav navbar-right">
+                    </ul>
+                    <div class="clearfix"></div>
+                  </div>
+                  <div class="x_content">
+                    <table id="datatables" class="table table-striped table-bordered dt-responsive nowrap" cellspacing="0" width="100%">
+                      <thead>
+                        <tr>
+                        	<th>no.</th>
+                        	<th>이미지</th>
+                        	<th>상품명</th>
+            			    <th>보기</th>
+            			    <th>등록일</th>
+                        </tr>
+                      </thead>
+                      <tbody>	
+                      	<tr>
+                      		<td></td>
+            			    <td></td>
+            			    <td></td>
+            			    <td></td>
+            			    <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+              </div>
+			</div>
+			</div>
+			#parse ("/admin/main/first_modal.vm")
+		</div>
+		<!-- page content end-->
+		#parse ("/admin/layout/footer.vm")
+	</div>
+</div>
+		#parse ("/admin/layout/common_js.vm")
+	<script src="https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js"></script>
+	<script src="https://cdn.datatables.net/buttons/1.2.4/js/dataTables.buttons.min.js"></script>
+	<script src="https://cdn.datatables.net/select/1.2.1/js/dataTables.select.min.js"></script>
+	<script src="https://cdn.datatables.net/responsive/2.0.2/js/dataTables.responsive.min.js"></script>
+	
+    <script>
+    Dropzone.autoDiscover = false;
+    var myTable;
+    $(document).ready(function() {
+    	$('div#thumb-image').dropzone({
+			url: "upload", // 드롭다운 시 업로드 되는 URL
+		    maxFiles: 1,
+		    maxFilesize: 10,
+		    acceptedFiles: "image/*",
+		    maxfilesexceeded: function(file) {
+		        this.removeAllFiles();
+		        this.addFile(file);
+		    },
+		    init: function() {
+		    	this.on('success', function(file, json) {
+		    		if(json.resultCode == 200) {
+		    			// 성공
+		    			$("#thumb_path").val(json.message);
+		    		} else {
+		    			//실패
+		    			this.removeFile(file); 
+		    		}
+		    	});
+		    	detail_this = this;
+		    	this.on("error", function(file, message) { 
+	                this.removeFile(file); 
+	    		});
+		    }
+		});
+    	$(".select2").select2();
+    	getData($("#sbtype").val());
+    	$("#sbtype").change(function() {
+			sbtype = $("#sbtype").val();
+			getData(sbtype);
+		});
+        myTable = $('#datatables').DataTable({
+        	 dom: 'Bfrtip',
+			stateSave: true,	
+          	"processing": true,
+          	"serverSide": true,
+          	"searching": false,
+          	"order": [],
+          	"ajax": {
+          		"url": "first_processing?showType=$!{showType}",
+          		"data": function(data) {
+          			planify(data);
+                }
+          	},
+          	select:true,
+          	columns: [
+					{"data": "fbId", "name": "fbId"},
+					{"data": "thumbnail", "name": "thumbnail"},
+					{"data": "sbType", "name": "sbType", "orderable": false},
+					{"data": "tid", "name": "tid", "orderable": false},
+					{"data": "regDate", "name": "regDate"}
+				],
+				"columnDefs": [
+								{
+			   						"targets": 1,//index of column starting from 0	
+			    					"data": "thumbnail", //this name should exist in your JSON response
+			    					"render": function ( data, type, full, meta ) {
+			    						return '<img src="' + "${image_url}" + data + '" height="70" />';	
+			    					}
+								},
+								{
+									//0: 출석체크 1: 브랜드 2: 상품 3: 기획전, 4: 쿠폰, 5공지
+			   						"targets": 2,//index of column starting from 0	
+			    					"data": "sbType", //this name should exist in your JSON response
+			    					"render": function ( data, type, full, meta ) {
+			    						if(data == 0) {
+			    							return "출석체크";
+			    						} else if(data == 1) {
+			    							return "브랜드";
+			    						} else if(data == 2) {
+			    							return "상품";
+			    						} else if(data == 3) {
+			    							return "기획전";
+			    						} else if(data == 4) {
+			    							return "쿠폰";
+			    						} else if(data == 5) {
+			    							return "공지";
+			    						}
+			    					}
+								},
+								{
+			   						"targets": 3,//index of column starting from 0	
+			    					"data": "tid", //this name should exist in your JSON response
+			    					"render": function ( data, type, full, meta ) {
+			    						console.log(full.sbType);
+			    						if(full.sbType == 0) {
+			    							return "";
+			    						} else if(full.sbType == 1) {
+			    							return '<a href= "#" class="btn btn-xs btn-info" target="_blank">보기</a>';
+			    						} else if(full.sbType == 2) {
+			    							return '<a href= "http://jamestomato.cafe24.com/eventdetail.php?product_id=' + data + '" class="btn btn-xs btn-info" target="_blank">보기</a>';
+			    						} else if(full.sbType == 3) {
+			    							return '<a href= "#" class="btn btn-xs btn-info" target="_blank">보기</a>';
+			    						} else {
+			    							return "";
+			    						} 
+			    						
+			    					}
+								},
+								{
+				  				   "targets": 4,//index of column starting from 0
+				  				    "data": "regDate", //this name should exist in your JSON response
+				  				    "render": function ( data, type, full, meta ) {
+				  				    	e();
+				  				    	return new Date(data).format("yyyy-MM-dd HH:mm:ss");		
+				  			   		}
+					  			}
+							],
+			buttons: [
+				        {
+				              text: '등록',
+				              action: function ( e, dt, button, config ) {
+				            	  itemModal('add', '');
+				              }
+				          },
+				          {
+				              text: '수정',
+				              enabled: false,
+				              action: function ( e, dt, button, config ) {
+				            	  var rowData = myTable.rows( '.selected' ).data().toArray();
+				            	  itemModal('upd', rowData);
+				              }
+				          },
+				          {
+				              text: '삭제',
+				              enabled: false,
+				              action: function ( e, dt, button, config ) {
+				            	  var rowData = myTable.rows( '.selected' ).data().toArray();
+				            	  deleteItem(rowData);
+				              }
+				          }
+				      ],
+			responsive: true
+        });
+        
+        myTable.on( 'select', function () {
+            var selectedRows = myTable.rows( { selected: true } ).count();
+            myTable.button( 2 ).enable( selectedRows > 0 );
+            myTable.button( 1 ).enable( selectedRows == 1 );
+        } );
+        
+        myTable.on( 'deselect', function () {
+            var selectedRows = myTable.rows( { selected: true } ).count();
+            if(selectedRows == 0) {
+            	myTable.button( 2 ).disable();
+            }
+            
+            if(selectedRows == 1) {
+            	myTable.button( 1 ).enable();
+            }
+        } );
+        
+        $('#item_form').submit(function(e) {
+ 			e.preventDefault();
+ 			var submit = true;
+
+  	        // evaluate the form using generic validaing
+	  	    if (!validator.checkAll($(this))) {
+				submit = false;
+			}
+	  	        
+			if (submit) 
+				insertData();
+	
+			return false;
+		});
+    } );
+    
+    function planify(data) {
+        for (var i = 0; i < data.columns.length; i++) {
+            column = data.columns[i];
+            column.searchRegex = column.search.regex;
+            column.searchValue = column.search.value;
+            delete(column.search);
+        }
+    }
+   
+    function getData(sbtype) {
+    	if(sbtype == 0 || sbtype ==5) {
+    		$("#prod").css("display","none"); 
+    	} else {
+    		$.ajax({
+	  	        url : "getData?sbType=" + sbtype,
+	  	        type : "GET",
+	  	        cache : false,
+	  	        contentType : false,
+	  	        processData : false,
+	  	        success : function(data) {
+	  	        	$("#prod").html(''); 
+	  	        	if(sbtype == 0 || sbtype == 4) {
+	  	        		for(i=0; i<data.length; i++) {
+	  	        			var img = "${image_url}" + "/" + data[i].thumbnail;
+	  	        			console.log(img);
+	  	        			$("#prod").append($("<option></option>").attr("value", data[i].eid ).text(data[i].eid));
+	  	        		}
+	  	        	} else if(sbtype == 1) {
+	  	        		for(i=0; i<data.length; i++) {
+	  	        			$("#prod").append($("<option></option>").attr("value", data[i].brandId ).text(data[i].brandName ));
+	  	        		}
+	  	        	} else if(sbtype == 2) {
+	  	        		for(i=0; i<data.length; i++) {
+	  	        			$("#prod").append($("<option></option>").attr("value", data[i].productId ).text(data[i].prodName ));
+	  	        		}
+	  	        	} else if(sbtype == 3) {
+	  	        		for(i=0; i<data.length; i++) {
+	  	        			$("#prod").append($("<option></option>").attr("value", data[i].pid ).text(data[i].title ));
+	  	        		}
+					}
+				}
+	  	   });
+    		$("#prod").css("display","block");
+    	}
+      }
+    
+    function itemModal(action, rowData) {
+      	$('#item_form').each(function(){
+      	     this.reset();
+      	});
+      	
+      	if(action == "add") {
+      		$("#dId").val("");
+      		$("#action").val("write");
+      		$("#itemSubmit").text("등록");
+      		$('#data_modal').modal();
+      	} else {
+      		$("#dId").val(rowData[0].fbId);
+      		//$("#prod").val(rowData[0].product.productId).trigger("change"); 
+      		$("#sbtype").val(rowData[0].sbType).trigger("change");
+      		$("#action").val("update");
+      		$("#itemSubmit").text("수정");
+      		$('#data_modal').modal();
+      	}
+	}
+    
+    function deleteItem(rowData) {
+    	var message = "선택한 항목을 삭제 하시겠습니까?";
+    	bootbox.confirm({
+    	    message: message,
+    	    buttons: {
+    	        confirm: {
+    	            label: 'Yes',
+    	            className: 'btn-success'
+    	        },
+    	        cancel: {
+    	            label: 'No',
+    	            className: 'btn-danger'
+    	        }
+    	    },
+    	    callback: function (result) {
+    	    	if(result) {
+    	    		$.ajax({
+        				url: "firstDelete",
+        				contentType: 'application/json',
+        			    mimeType: 'application/json',
+        			    dataType: 'json', 
+        			    data: JSON.stringify(rowData), 
+        				type: 'POST',
+        				success: function(result){
+        					if(result.resultCode == 200) {
+        						bootbox.alert(result.message, function() {
+        							myTable.ajax.reload();
+        						});
+        					} else {
+        						bootbox.alert(result.message, function() {});
+        					}
+        				},
+        				error: function(){
+        					bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+        				}
+        			});
+    	    	}
+    	    }
+    	});
+    }
+    
+    function insertData() {
+    	var params = $("#item_form").serializeObject();
+		
+    	$.ajax({
+			url: "firstSave",
+			contentType: 'application/json',
+		    mimeType: 'application/json',
+		    dataType: 'json', 
+		    data: JSON.stringify(params),
+			type: 'POST',
+			success: function(result){
+				if(result.resultCode == 200) {
+					bootbox.alert(result.message, function() {
+						$('#data_modal').modal('hide');
+						myTable.ajax.reload();
+					});
+				} else {
+					bootbox.alert(result.message, function() {});
+				}
+			},
+			error: function(){
+				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+			}
+		});
+    }
+    </script>
+    <!-- /Datatables -->
+</body>
+</html>

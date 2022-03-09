@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs8010(하계휴양소 관리 )">
+  <query id="rbs8010_s01" desc="하계휴양소 기본정보 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs8010_s01 */
+                   '0' AS CHK
+			      ,RSV_YEAR
+			      ,RSV_TMS
+			      ,USE_STR_DT
+			      ,USE_END_DT
+			      ,ASK_STR_DT
+			      ,ASK_END_DT
+			      ,RMK
+			      ,DAY_NUM
+			      ,ATT_FILE_KEY
+			FROM  TBRF_APP_RST_INFO
+			ORDER BY RSV_YEAR, RSV_TMS                   
+        ]]>
+    </query>       
+    
+    <query id="rbs8010_s02" desc="하계휴양소별 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs8010_s02 */                   
+			        '0' AS CHK
+			       ,RSV_YEAR                         --년도
+			       ,RSV_TMS                         --회차
+			       ,RST_ID                          --휴양소아이디
+			       ,MIN(RST_NAME)    AS RST_NAME    --휴양소명
+			       ,MAX(RSV_MAX_NUM) AS RSV_MAX_NUM --예약가능인원
+			       ,MIN(USE_STR_DT)  AS USE_STR_DT  --사용시작일
+			       ,MAX(USE_END_DT)  AS USE_END_DT  --사용종료일
+			       ,MAX(DAY_NUM)     AS DAY_NUM     --숙박일수
+			 FROM TBRF_APP_RST_MASTER
+			 WHERE RSV_YEAR = ?
+			   AND RSV_TMS  = ?
+			 GROUP BY RSV_YEAR, RSV_TMS, RST_ID
+        ]]>
+    </query>       
+    
+    <query id="rbs8010_s03" desc="하계휴양소 기간별 내역 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs8010_s03 */                   
+			        '0' AS CHK
+		           ,RSV_YEAR                  --년도
+			       ,RSV_TMS                   --회차
+			       ,RST_ID                    --휴양소아이디
+			       ,RST_SEQ                   --휴양소일련번호
+			       ,RST_NAME                  --휴양소명
+			       ,RSV_MAX_NUM               --예약가능인원
+			       ,USE_STR_DT                --사용시작일
+			       ,USE_END_DT                --사용종료일
+			       ,DAY_NUM                   --숙박일수
+			 FROM TBRF_APP_RST_MASTER
+			 WHERE RSV_YEAR = ?
+			   AND RSV_TMS  = ?
+			 ORDER BY RSV_YEAR, RSV_TMS, RST_ID, RST_SEQ
+        ]]>
+    </query>    
+    
+    
+    <query id="rbs8010_m01" desc="하계휴양소 신청정보 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs8010_m01 */
+                  TBRF_APP_RST_INFO DST
+           USING (
+					SELECT  ? AS RSV_YEAR                  --년도
+					       ,? AS RSV_TMS                   --회차
+					       ,? AS USE_STR_DT                --사용시작일
+					       ,? AS USE_END_DT                --사용종료일
+					       ,? AS ASK_STR_DT                --신청시작일
+					       ,? AS ASK_END_DT                --신청종료일
+					       ,? AS RMK                	   --신청종료일
+					       ,? AS DAY_NUM
+					       ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.RSV_YEAR = SRC.RSV_YEAR
+                     AND DST.RSV_TMS  = SRC.RSV_TMS
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.USE_STR_DT  = SRC.USE_STR_DT
+                        ,DST.USE_END_DT  = SRC.USE_END_DT
+                        ,DST.ASK_STR_DT  = SRC.ASK_STR_DT
+                        ,DST.ASK_END_DT  = SRC.ASK_END_DT
+                        ,DST.RMK         = SRC.RMK
+                        ,DST.DAY_NUM     = SRC.DAY_NUM
+                        ,DST.UPDT_DT     = SYSDATE 
+                        ,DST.UPDT_ID     = SRC.USER_ID 
+            WHEN NOT MATCHED THEN
+                INSERT (
+                    RSV_YEAR                  --년도
+			       ,RSV_TMS                   --회차
+			       ,USE_STR_DT                --사용시작일
+			       ,USE_END_DT                --사용종료일
+			       ,ASK_STR_DT                --사용시작일
+			       ,ASK_END_DT                --사용종료일
+			       ,RMK
+			       ,DAY_NUM
+			       ,INST_ID                   --등록자
+			       ,INST_DT                   --등록일
+               ) VALUES (
+                    SRC.RSV_YEAR                  --년도
+			       ,SRC.RSV_TMS                   --회차
+			       ,SRC.USE_STR_DT                --사용시작일
+			       ,SRC.USE_END_DT                --사용종료일
+			       ,SRC.ASK_STR_DT                --사용시작일
+			       ,SRC.ASK_END_DT                --사용종료일
+			       ,SRC.RMK
+			       ,SRC.DAY_NUM
+			       ,SRC.USER_ID                   --등록자
+			       ,SYSDATE                       --등록일
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs8010_m02" desc="하계휴양소 정보 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs8010_m02 */
+                  TBRF_APP_RST_MASTER DST
+           USING (
+					SELECT  ? AS RSV_YEAR                  --년도
+					       ,? AS RSV_TMS                   --회차
+					       ,? AS RST_ID                    --휴양소아이디
+					       ,? AS RST_SEQ                   --휴양소일련번호
+					       ,? AS RST_NAME                  --휴양소명
+					       ,? AS RSV_MAX_NUM               --예약가능인원
+					       ,? AS USE_STR_DT                --사용시작일
+					       ,? AS USE_END_DT                --사용종료일
+					       ,? AS DAY_NUM                   --숙박일수
+					       ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.RSV_YEAR = SRC.RSV_YEAR
+                     AND DST.RSV_TMS  = SRC.RSV_TMS
+                     AND DST.RST_ID   = SRC.RST_ID
+                     AND DST.RST_SEQ  = SRC.RST_SEQ
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.RST_NAME    = SRC.RST_NAME
+                        ,DST.RSV_MAX_NUM = SRC.RSV_MAX_NUM
+                        ,DST.USE_STR_DT  = SRC.USE_STR_DT
+                        ,DST.USE_END_DT  = SRC.USE_END_DT
+                        ,DST.DAY_NUM     = SRC.DAY_NUM
+                        ,DST.REG_DT      = SYSDATE 
+                        ,DST.REG_USER    = SRC.USER_ID
+            WHEN NOT MATCHED THEN
+                INSERT (
+                    RSV_YEAR                  --년도
+			       ,RSV_TMS                   --회차
+			       ,RST_ID                    --휴양소아이디
+			       ,RST_SEQ                   --휴양소일련번호
+			       ,RST_NAME                  --휴양소명
+			       ,RSV_MAX_NUM               --예약가능인원
+			       ,USE_STR_DT                --사용시작일
+			       ,USE_END_DT                --사용종료일
+			       ,DAY_NUM                   --숙박일수
+			       ,REG_DT                    --등록일
+			       ,REG_USER                  --등록자
+               ) VALUES (
+                    SRC.RSV_YEAR                  --년도
+			       ,SRC.RSV_TMS                   --회차
+			       ,SRC.RST_ID                    --휴양소아이디
+			       ,SRC.RST_SEQ                   --휴양소일련번호
+			       ,SRC.RST_NAME                  --휴양소명
+			       ,SRC.RSV_MAX_NUM               --예약가능인원
+			       ,SRC.USE_STR_DT                --사용시작일
+			       ,SRC.USE_END_DT                --사용종료일
+			       ,SRC.DAY_NUM                   --숙박일수
+			       ,SYSDATE                       --등록일
+			       ,SRC.USER_ID                   --등록자
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs8010_d01" desc="하계휴양소 기본정보 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs8010_d01 */
+                  FROM TBRF_APP_RST_INFO
+           WHERE RSV_YEAR = ?
+			 AND RSV_TMS  = ?
+        ]]>
+    </query>    
+    
+    <query id="rbs8010_d02" desc="하계휴양소 기본정보 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs8010_d02 */
+                  FROM TBRF_APP_RST_MASTER
+           WHERE RSV_YEAR = ?
+			 AND RSV_TMS  = ?
+			 AND RST_ID   = ?
+			 AND RST_SEQ  = ?
+        ]]>
+    </query>   
+     
+    <query id="rbs8010_u01" desc="평가 첨부파일  정보 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE  TBRF_APP_RST_INFO   /* rbs8010_u01 */
+			   SET  ATT_FILE_KEY = ?				
+				   ,UPDT_ID      = ?				
+				   ,UPDT_DT      = SYSDATE
+			 WHERE  RSV_YEAR  = ?
+			   AND  RSV_TMS   = ?
+        ]]>
+    </query> 
+
+    
+</queryMap>

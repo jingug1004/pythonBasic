@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3200(금액구간별 발매)">
+	<query id="rsm3200_s01" desc="금액구간별 (SELECT)" fetchSize="10">
+        <![CDATA[        
+			SELECT /* rsm3200_select01 */     
+					AA.MEET_CD,
+					AA.SELL_CD,
+					CASE WHEN AA.SELL_CD = '01' AND AA.DIV_NO = 'GC' THEN '0100'
+					     ELSE AA.SELL_CD||AA.COMM_NO END AS COMM_NO,
+			        AA.DIV_NO,
+			        AA.DIV_TOTAL + DECODE(?, '1', REFUND, 0) AS DIV_TOTAL,
+			        CASE WHEN AA.DIV_NO='GC' THEN '그린카드'
+			             ELSE NVL(C.CD_NM,AA.DIV_NO) END AS DIV_NM
+			FROM (    
+				    SELECT D.MEET_CD,
+				           D.SELL_CD,
+				           DECODE(D.COMM_NO, '06', C1.CD_NM2, D.COMM_NO) AS COMM_NO,
+				           DECODE(D.COMM_NO, '06','GC',DIV_NO) AS DIV_NO,
+				           SUM(DIV_TOTAL) AS DIV_TOTAL,
+				           SUM(REFUND) AS REFUND
+				    FROM   VW_SDL_DT D, 
+				           TBRK_SPEC_CD C1,
+				           VW_SDL_INFO V
+				    WHERE 1=1
+						  AND D.MEET_CD = V.MEET_CD
+						  AND D.STND_YEAR = V.STND_YEAR
+						  AND D.TMS = V.TMS
+						  AND D.DAY_ORD = V.DAY_ORD    
+						  AND C1.GRP_CD(+) = '127'
+						  AND C1.CD(+) = D.DIV_NO
+						  AND ( V.MEET_CD = DECODE(?, 'Y', '001', '-')		-- 광명경륜
+						     OR V.MEET_CD = DECODE(?, 'Y', '002', '-')		-- 창원경륜
+						     OR V.MEET_CD = DECODE(?, 'Y', '003', '-')	    -- 경정
+						     OR V.MEET_CD = DECODE(?, 'Y', '004', '-'))		-- 부산경륜						  
+						  AND V.RACE_DAY BETWEEN ? AND ?
+						  AND D.COMM_NO != DECODE(?, '1', '999','06')
+					GROUP BY D.MEET_CD,
+					         D.SELL_CD, 
+				             DECODE(D.COMM_NO, '06', C1.CD_NM2, D.COMM_NO), 
+				             DECODE(D.COMM_NO, '06','GC',DIV_NO) 
+			     ) AA, TBRK_SPEC_CD C 
+			WHERE   GRP_CD(+) = '145' 
+			    AND AA.SELL_CD = CD_TERM1(+)  
+			    AND AA.COMM_NO = CD_TERM2(+)  
+			    AND AA.DIV_NO  = CD_TERM3(+)
+			    AND AA.DIV_TOTAL > 0
+			    AND AA.SELL_CD IN ('01','03')
+			    AND CASE WHEN AA.COMM_NO < '10' THEN '01' ELSE AA.COMM_NO END LIKE DECODE(?,'00','%',?)
+			    AND ((AA.SELL_CD IN ('01','03') AND ? <> '00') OR (? = '00'))			    
+			ORDER BY AA.MEET_CD, AA.SELL_CD, AA.COMM_NO, DECODE(AA.DIV_NO,'GC','00',AA.DIV_NO)     
+		]]>
+    </query>
+    
+	<query id="rsm3200_s02" desc="금액구간별 (투표소재정의, 미사용 by chojob 2017.03.25)" fetchSize="10">
+        <![CDATA[    
+        SELECT *
+        FROM (    
+			SELECT /* rsm3200_select02 */     
+			       T.MEET_CD, T.SELL_CD, 
+			       CASE WHEN T.SELL_CD = '01' AND T.DIV_NO = 'GC' THEN '0100'
+					     ELSE T.SELL_CD||T.COMM_NO END AS COMM_NO,
+				   T.DIV_NO, 
+			       T.WIN_TYPE, 
+			       SUM(SOLD_AMT) -SUM(CNCL_AMT) DIV_TOTAL 
+			FROM  VW_PC_TELMP T INNER JOIN VW_SDL_INFO I
+			      ON   T.MEET_CD = I.MEET_CD
+			       AND T.STND_YEAR = I.STND_YEAR
+			       AND T.TMS = I.TMS
+			       AND T.DAY_ORD = I.DAY_ORD
+                   /*
+                   LEFT OUTER JOIN (
+                        SELECT M.COMM_NO, M.WIN_NO, G.GRN_ZN_NO, G.GRN_ZN_NM, G.STR_DY, G.END_DY
+                        FROM   TBRA_WIN_NO_MAPP M INNER JOIN TBRA_GREEN_ZONE G
+                        ON   M.GRN_ZN_NO = G.GRN_ZN_NO
+                        AND M.COMM_NO   = G.COMM_NO) M
+                   ON   T.COMM_NO = M.COMM_NO
+                   AND T.WIN_NO = M.WIN_NO                 
+                   AND I.RACE_DAY BETWEEN M.STR_DY AND M.END_DY
+                   */   
+			WHERE 1=1
+		    AND (   T.MEET_CD = DECODE(?, 'Y', '001', '-')		-- 광명경륜
+			     OR T.MEET_CD = DECODE(?, 'Y', '002', '-')		-- 창원경륜
+			     OR T.MEET_CD = DECODE(?, 'Y', '003', '-')	    -- 경정
+			     OR T.MEET_CD = DECODE(?, 'Y', '004', '-'))		-- 부산경륜						  
+			AND I.RACE_DAY BETWEEN ? AND ?
+		    AND T.SELL_CD IN ('01','03')
+		    AND CASE WHEN T.COMM_NO < '10' THEN '01' ELSE T.COMM_NO END LIKE DECODE(?,'00','%',?)
+		    AND (T.SELL_CD IN ('01','03') AND ? <> '00' OR ? = '00')
+			AND (T.COMM_NO != DECODE(?, '1', '999','06'))
+			GROUP BY T.MEET_CD, SELL_CD, 
+			         CASE WHEN T.SELL_CD = '01' AND T.DIV_NO = 'GC' THEN '0100'
+					     ELSE T.SELL_CD||T.COMM_NO END, 
+			         T.DIV_NO, 
+			         T.WIN_TYPE
+			ORDER BY 1,2,3,4
+			)
+			WHERE DIV_TOTAL != 0 
+		]]>
+    </query>
+    
+	<query id="rsm3200_s03" desc="창구별 매출액" fetchSize="10">
+        <![CDATA[
+        SELECT *
+        FROM (        
+			SELECT /* rsm3200_select03 */     
+			       T.MEET_CD, T.SELL_CD, 
+			       CASE WHEN T.SELL_CD = '01' AND T.DIV_NO = 'GC' THEN '0100'
+					     ELSE T.SELL_CD||T.COMM_NO END AS COMM_NO,
+				   T.DIV_NO, T.WIN_NO, 
+			       T.WIN_TYPE, 
+			       SUM(SOLD_AMT) -SUM(CNCL_AMT) DIV_TOTAL  
+			FROM  VW_PC_TELMP T INNER JOIN VW_SDL_INFO I
+			      ON   T.MEET_CD = I.MEET_CD
+			       AND T.STND_YEAR = I.STND_YEAR
+			       AND T.TMS = I.TMS
+			       AND T.DAY_ORD = I.DAY_ORD
+			WHERE 1=1
+		    AND (   T.MEET_CD = DECODE(?, 'Y', '001', '-')		-- 광명경륜
+			     OR T.MEET_CD = DECODE(?, 'Y', '002', '-')		-- 창원경륜
+			     OR T.MEET_CD = DECODE(?, 'Y', '003', '-')	    -- 경정
+			     OR T.MEET_CD = DECODE(?, 'Y', '004', '-'))		-- 부산경륜						  
+			AND I.RACE_DAY BETWEEN ? AND ?
+		    AND T.SELL_CD IN ('01','03')
+		    AND CASE WHEN T.COMM_NO < '10' THEN '01' ELSE T.COMM_NO END LIKE DECODE(?,'00','%',?)
+		    AND ((T.SELL_CD IN ('01','03') AND ? <> '00') OR (? = '00'))
+		    AND (T.COMM_NO != DECODE(?, '1', '999','06'))
+			GROUP BY T.MEET_CD, SELL_CD, 
+			         CASE WHEN T.SELL_CD = '01' AND T.DIV_NO = 'GC' THEN '0100'
+					     ELSE T.SELL_CD||T.COMM_NO END, 
+			         T.DIV_NO, T.WIN_NO, 
+			         T.WIN_TYPE
+			ORDER BY 1,2,3,4,6,5 
+		    )
+		    WHERE DIV_TOTAL != 0
+		]]>
+    </query>
+    
+	<query id="rsm3200_s04" desc="그린존별 발매건수(매출액이 아닌 발매금액임)" fetchSize="10">
+        <![CDATA[
+        WITH X AS ( /* rsm3200_s04 */
+		SELECT ROW_NUMBER() OVER(PARTITION BY DIV_NO ORDER BY WIN_NO, TELLER_ID) AS RN
+		      ,A.TELLER_NM
+		      ,A.SOLD_NUM
+		      ,A.SOLD_AMT
+		      ,A.DAY_CNT
+		      ,ROUND(A.SOLD_NUM/A.DAY_CNT) AS SOLD_AVG
+		      ,A.TELLER_ID
+              ,A.WIN_NO
+              ,A.DIV_NO
+		FROM  (
+		            SELECT 
+		                   T.TELLER_ID,
+		                   T.COMM_NO||'-'||T.DIV_NO DIV_NO,
+		                   NVL((SELECT MAX(TELLER_NM) FROM TBJI_TELLER_MANA B WHERE B.TELLER_ID = T.TELLER_ID),T.TELLER_ID) AS TELLER_NM,                    -- 발매원 성명
+		                   SUM(SOLD_NUM) AS SOLD_NUM,  
+		                   SUM(SOLD_AMT) AS SOLD_AMT,
+		                   COUNT(DISTINCT RACE_DT) AS DAY_CNT,
+		                   MAX(T.WIN_NO) AS WIN_NO
+		            FROM  VW_PC_TELMP T INNER JOIN VW_SDL_INFO I
+		                  ON   T.MEET_CD = I.MEET_CD
+		                   AND T.STND_YEAR = I.STND_YEAR
+		                   AND T.TMS = I.TMS
+		                   AND T.DAY_ORD = I.DAY_ORD
+		                   AND T.WIN_TYPE = '1'	-- 유인창구만 조회
+		            WHERE 1=1
+		            AND (   T.MEET_CD = DECODE(?, 'Y', '001', '-')        -- 광명경륜
+		                 OR T.MEET_CD = DECODE(?, 'Y', '002', '-')        -- 창원경륜
+		                 OR T.MEET_CD = DECODE(?, 'Y', '003', '-')        -- 경정
+		                 OR T.MEET_CD = DECODE(?, 'Y', '004', '-'))        -- 부산경륜		                                           
+                    AND (   I.RACE_DAY IN (
+                                           SELECT RACE_DAY 
+                                           FROM   VW_SDL_INFO
+                                           WHERE  MEET_CD IN ('001','003')
+                         		           AND    ((NVL2(?, 'Y', 'N') = 'N' AND RACE_DAY BETWEEN  ? AND ? ) OR
+		                                           (NVL2(?, 'Y', 'N') = 'Y' AND MEET_CD LIKE DECODE(?,'003','003','%') AND STND_YEAR = ? AND TMS = ?) )
+		                                  )
+		                 )
+		            AND T.SELL_CD IN ('01','03')
+		            AND CASE WHEN T.COMM_NO < '10' THEN '01' ELSE T.COMM_NO END LIKE DECODE( ?,'00','%', ?)
+		            AND ((T.SELL_CD IN ('01','03') AND  ? <> '00') OR ( ? = '00'))
+		            AND (T.COMM_NO != DECODE( ?, '1', '999','06'))
+		            AND (DECODE(SIGN('10' - T.COMM_NO),1,'00',T.COMM_NO), T.TELLER_ID) NOT IN (
+							            SELECT A.COMM_NO, TELLER_ID
+										FROM TBRK_USER_TEMP A, TBJI_TELLER_MANA B
+										WHERE A.EMP_NO = B.EMP_NO
+										AND   A.WK_JOB_CD = '1006'
+		                                   )		                                   
+		            GROUP BY T.COMM_NO||'-'||T.DIV_NO, T.TELLER_ID
+		            ORDER BY 1, 2, 3, 4 
+		      ) A
+		)
+		SELECT X1.*, X2.DIV_NUM_AVG, X2.RNK
+		FROM X X1, (SELECT DIV_NO, 
+		                ROUND(SUM(SOLD_NUM)/SUM(DAY_CNT)) AS DIV_NUM_AVG,
+                        RANK() OVER (ORDER BY ROUND(SUM(SOLD_NUM)/SUM(DAY_CNT)) DESC) AS RNK 
+		         FROM X      
+                 WHERE 1=1
+		         GROUP BY DIV_NO) X2
+		WHERE X1.DIV_NO = X2.DIV_NO(+)
+		AND   X1.DIV_NO IS NOT NULL     
+		ORDER BY X1.DIV_NO, X1.WIN_NO, X1.TELLER_ID    
+		]]>
+    </query>
+    
+	<query id="rsm3200_s05" desc="회차리스트 조회" fetchSize="10">
+        <![CDATA[
+        SELECT /* rsm3200_s05 */
+               '' AS TMS_NM, NULL TMS, '' AS MEET_CD, '' AS STND_YEAR
+        FROM DUAL
+        UNION ALL
+        SELECT STND_YEAR||'년 '||TMS||'회차' AS TMS_NM, TMS, MEET_CD, STND_YEAR 
+		FROM   VW_SDL_INFO
+		WHERE  MEET_CD   = ?
+		AND    STND_YEAR = ?
+		AND    DAY_ORD   = '1'
+		ORDER BY TMS
+		]]>
+    </query>
+    
+</queryMap>

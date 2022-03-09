@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_race_priz 편성에서보는 상금 관련 query">
+	
+    
+    <query id="tbeb_race_priz_fb001" desc="상금 lanking[편성]" fetchSize="50">
+        <![CDATA[
+            -- 회차 기준  년상금 총액 10위  
+            SELECT 
+                RANK,   -- 순위 
+                TOT_PRIZ_AMT,   -- 상금총액 (성적상금, 출전수당, 대기수당,안전수당, 출발무사고, 연승 수당, 기타수당 상금) 
+                TRP.RACER_NO,   -- 선수번호 
+                TRM.NM_KOR AS RACER_NM,     -- 선수명 
+                STND_YEAR 
+            FROM
+            (
+                SELECT  TRP.STND_YEAR, RACER_NO, SUM(RANK_AMT + RUN_AMT + WAIT_AMT + SAFY_AMT + STR_AMT+ WIN_AMT + ETC_AMT) AS TOT_PRIZ_AMT, 
+                RANK() OVER(ORDER BY SUM(RANK_AMT + RUN_AMT + WAIT_AMT + SAFY_AMT + STR_AMT+ WIN_AMT + ETC_AMT) DESC) AS RANK
+                FROM  TBEB_RACE_TMS TRT,  -- 경주 회차 TABLE
+                    TBEG_RACE_PRIZ TRP  -- 경주별 상금 TABLE
+                WHERE TRP.STND_YEAR = TRT.STND_YEAR
+                AND TRP.TMS = TRT.TMS
+                AND TRP.MBR_CD = TRT.MBR_CD
+                AND (TRT.STND_YEAR,TRP.MBR_CD, TRP.TMS) IN (SELECT STND_YEAR, MBR_CD, TMS FROM TBEB_RACE_DAY_ORD WHERE  RACE_DAY BETWEEN ? AND ?)    
+                AND TRT.TMS_PRIZ_FINISH_YN = 'Y'
+                GROUP BY TRP.STND_YEAR, TRP.RACER_NO
+            ) TRP, TBEC_RACER_MASTER TRM -- 선수 정보 TABLE 
+            WHERE  TRP.RACER_NO = TRM.RACER_NO
+            AND TRP.RANK<=?
+            ORDER BY TRP.RANK
+        ]]>
+    </query> 
+    
+    <query id="tbeb_race_priz_fb003" desc="등급별 성적 상금 [편성]" fetchSize="50">
+        <![CDATA[
+        	-- 등급별 성적 상금 
+           SELECT  
+			    TRP.STND_YEAR,  
+			    FLOOR(SUM(CASE WHEN TRP.RACER_GRD_CD = 'A1' THEN RANK_AMT + RUN_AMT + WAIT_AMT + SAFY_AMT + STR_AMT+ WIN_AMT + ETC_AMT ELSE 0 end)/CASE WHEN COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'A1' THEN TRP.RACER_NO ELSE NULL END)=0 THEN 1 ELSE COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'A1' THEN TRP.RACER_NO ELSE NULL END) END) AS PRIZ_AMT_A1,
+			    FLOOR(SUM(CASE WHEN TRP.RACER_GRD_CD = 'A2' THEN RANK_AMT + RUN_AMT + WAIT_AMT + SAFY_AMT + STR_AMT+ WIN_AMT + ETC_AMT ELSE 0 end)/CASE WHEN COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'A2' THEN TRP.RACER_NO ELSE NULL END)=0 THEN 1 ELSE COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'A2' THEN TRP.RACER_NO ELSE NULL END) END) AS PRIZ_AMT_A2,
+			    FLOOR(SUM(CASE WHEN TRP.RACER_GRD_CD = 'B1' THEN RANK_AMT + RUN_AMT + WAIT_AMT + SAFY_AMT + STR_AMT+ WIN_AMT + ETC_AMT ELSE 0 end)/CASE WHEN COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'B1' THEN TRP.RACER_NO ELSE NULL END)=0 THEN 1 ELSE COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'B1' THEN TRP.RACER_NO ELSE NULL END) END) AS PRIZ_AMT_B1,
+			    FLOOR(SUM(CASE WHEN TRP.RACER_GRD_CD = 'B2' THEN RANK_AMT + RUN_AMT + WAIT_AMT + SAFY_AMT + STR_AMT+ WIN_AMT + ETC_AMT ELSE 0 end)/CASE WHEN COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'B2' THEN TRP.RACER_NO ELSE NULL END)=0 THEN 1 ELSE COUNT(DISTINCT CASE WHEN TRP.RACER_GRD_CD = 'B2' THEN TRP.RACER_NO ELSE NULL END) END) AS PRIZ_AMT_B2,
+			    FLOOR(SUM(RANK_AMT + RUN_AMT + WAIT_AMT + SAFY_AMT + STR_AMT+ WIN_AMT + ETC_AMT)/count(distinct TRP.RACER_NO)) AS PRIZ_AMT_AVG
+			FROM  TBEB_RACE_TMS TRT,  -- 경주 회차 TABLE
+			    TBEG_RACE_PRIZ TRP,   -- 경주별 상금 TABLE
+			    TBEC_RACER_MASTER TRM   -- 선수 MASTER
+			WHERE TRP.STND_YEAR = TRT.STND_YEAR
+			AND TRP.TMS = TRT.TMS
+			AND TRP.RACER_NO = TRM.RACER_NO
+			AND TRP.MBR_CD = TRT.MBR_CD
+			AND TRT.TMS_PRIZ_FINISH_YN = 'Y'
+			AND (TRT.STND_YEAR,TRP.MBR_CD, TRP.TMS) IN (SELECT STND_YEAR, MBR_CD, TMS FROM TBEB_RACE_DAY_ORD WHERE  RACE_DAY BETWEEN ? AND ?)    
+			GROUP BY TRP.STND_YEAR 
+			ORDER BY TRP.STND_YEAR DESC
+
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeb_race_priz_fb101" desc="기수 MAX값 " fetchSize="50">
+        <![CDATA[
+        	-- 기수 MAX값 
+           SELECT
+			       MAX(TRPN.RACER_PERIO_NO) AS MAX_RACER_PERIO_NO
+			FROM   TBEB_RACER_PERIO_NO TRPN
+        ]]>
+    </query>
+    
+    
+   
+</queryMap>

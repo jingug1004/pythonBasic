@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem3030(체류인원  요일별 현황)">
+      <query id="rem3030_s01" desc="체류인원  요일별 현황  조회" fetchSize="10">
+      <![CDATA[
+			WITH STAY_MANA AS (
+			                    SELECT RACE_DT,
+			                           MEET_CD,
+			                           TO_CHAR(TO_DATE(RACE_DT),'D') DNUM,         
+			                           SUM(DECODE(BRNC_CD,?, ENT_PRSN_NUM,0)) ENT_PRSN_NUM,
+			                           
+			                           SUM(CASE WHEN     BRNC_CD <> ? 
+			                                     AND BRNC_CD =  '27' 
+			                                     AND OUT_ENT_PRSN_NUM > 0 THEN OUT_ENT_PRSN_NUM
+			                                WHEN BRNC_CD <> ? THEN ENT_PRSN_NUM
+			                                ELSE 0
+			                           END) J_ENT_PRSN_NUM
+			                           
+			                    FROM TBRC_STAY_MANA
+			                    WHERE
+			                         RACE_DT>= ?
+			                     AND RACE_DT<= ?
+			                     AND MEET_CD = ?
+			                     AND DECODE(?,'',1,BRNC_CD)  = DECODE(?,'',1,?) 
+			                     AND OUT_ENT_PRSN_NUM + ENT_PRSN_NUM > 0
+			                    GROUP BY RACE_DT, MEET_CD, TO_CHAR(TO_DATE(RACE_DT),'D')
+			                    ) ,
+			           GUBUN AS (
+			                       SELECT ? VAL FROM DUAL -- 회차, 월별
+			                    )
+			SELECT TMS,
+			       TOT,
+			       ROUND(DECODE(DAYCNT,0,0, TOT/DAYCNT)) DAVG,
+			       INWON_MON,
+			       INWON_TUE,
+			       INWON_WED,
+			       INWON_THU,
+			       INWON_FRI,
+			       INWON_SAT,
+			       INWON_SUN,
+			       J_INWON_MON,
+			       J_INWON_TUE,
+			       J_INWON_WED,
+			       J_INWON_THU,
+			       J_INWON_FRI,
+			       J_INWON_SAT,
+			       J_INWON_SUN  
+			 FROM (                    
+			        --회차별                
+			        SELECT V.TMS TMS,
+			               SUM(ENT_PRSN_NUM + J_ENT_PRSN_NUM)  TOT,
+			               COUNT(DISTINCT DNUM) DAYCNT,
+			               SUM(DECODE(DNUM,'2',ENT_PRSN_NUM,0)) INWON_MON,
+			               SUM(DECODE(DNUM,'3',ENT_PRSN_NUM,0)) INWON_TUE,
+			               SUM(DECODE(DNUM,'4',ENT_PRSN_NUM,0)) INWON_WED,
+			               SUM(DECODE(DNUM,'5',ENT_PRSN_NUM,0)) INWON_THU,
+			               SUM(DECODE(DNUM,'6',ENT_PRSN_NUM,0)) INWON_FRI,
+			               SUM(DECODE(DNUM,'7',ENT_PRSN_NUM,0)) INWON_SAT,
+			               SUM(DECODE(DNUM,'1',ENT_PRSN_NUM,0)) INWON_SUN,
+			               SUM(DECODE(DNUM,'2',J_ENT_PRSN_NUM,0)) J_INWON_MON,
+			               SUM(DECODE(DNUM,'3',J_ENT_PRSN_NUM,0)) J_INWON_TUE,
+			               SUM(DECODE(DNUM,'4',J_ENT_PRSN_NUM,0)) J_INWON_WED,
+			               SUM(DECODE(DNUM,'5',J_ENT_PRSN_NUM,0)) J_INWON_THU,
+			               SUM(DECODE(DNUM,'6',J_ENT_PRSN_NUM,0)) J_INWON_FRI,
+			               SUM(DECODE(DNUM,'7',J_ENT_PRSN_NUM,0)) J_INWON_SAT,
+			               SUM(DECODE(DNUM,'1',J_ENT_PRSN_NUM,0)) J_INWON_SUN  
+			          FROM STAY_MANA S,
+			               VW_SDL_INFO V
+			         WHERE V.MEET_CD=  S.MEET_CD
+			           AND V.RACE_DAY = S.RACE_DT       
+			           AND EXISTS (SELECT 1
+			                         FROM GUBUN
+			                        WHERE VAL = '01'  --회차별
+			                       )
+			         GROUP BY V.TMS 
+			         
+			         UNION ALL
+			         --월별
+			         SELECT  TO_NUMBER(SUBSTR(RACE_DT,5,2)) TMS,
+			               SUM(ENT_PRSN_NUM + J_ENT_PRSN_NUM)  TOT,
+			               COUNT(DISTINCT DNUM) DCNT,
+			               SUM(DECODE(DNUM,'2',ENT_PRSN_NUM,0)) INWON_MON,
+			               SUM(DECODE(DNUM,'3',ENT_PRSN_NUM,0)) INWON_TUE,
+			               SUM(DECODE(DNUM,'4',ENT_PRSN_NUM,0)) INWON_WED,
+			               SUM(DECODE(DNUM,'5',ENT_PRSN_NUM,0)) INWON_THU,
+			               SUM(DECODE(DNUM,'6',ENT_PRSN_NUM,0)) INWON_FRI,
+			               SUM(DECODE(DNUM,'7',ENT_PRSN_NUM,0)) INWON_SAT,
+			               SUM(DECODE(DNUM,'1',ENT_PRSN_NUM,0)) INWON_SUN,
+			               SUM(DECODE(DNUM,'2',J_ENT_PRSN_NUM,0)) J_INWON_MON,
+			               SUM(DECODE(DNUM,'3',J_ENT_PRSN_NUM,0)) J_INWON_TUE,
+			               SUM(DECODE(DNUM,'4',J_ENT_PRSN_NUM,0)) J_INWON_WED,
+			               SUM(DECODE(DNUM,'5',J_ENT_PRSN_NUM,0)) J_INWON_THU,
+			               SUM(DECODE(DNUM,'6',J_ENT_PRSN_NUM,0)) J_INWON_FRI,
+			               SUM(DECODE(DNUM,'7',J_ENT_PRSN_NUM,0)) J_INWON_SAT,
+			               SUM(DECODE(DNUM,'1',J_ENT_PRSN_NUM,0)) J_INWON_SUN  
+			              FROM STAY_MANA S
+			             WHERE 1 = 1
+			               AND EXISTS (SELECT 1
+			                             FROM GUBUN
+			                            WHERE VAL = '02' --월별
+			                          )
+			             GROUP BY SUBSTR(RACE_DT,5,2)
+			             ORDER BY TMS
+			       )
+
+
+        ]]>
+    </query> 
+</queryMap>

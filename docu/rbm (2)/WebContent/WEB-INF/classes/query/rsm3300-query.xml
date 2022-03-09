@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="rsm3300(지점 단말별 매출액)">    
+
+    <query id="rsm3300_s01" desc="지점 단말별 매출액" fetchSize="10">
+        <![CDATA[	
+		WITH MANNED AS ( /* rsm3300_s01 지점 단말별 매출액 */
+        SELECT ROWNUM R1, MN.*
+          FROM (SELECT TP.WIN_NO AS MANNED_WIN_NO,
+	                   SUM(TP.SOLD_AMT-TP.CNCL_AMT) AS MANNED_AMT,
+	                   SUM(TP.SOLD_NUM-TP.CNCL_NUM) AS MANNED_NUM
+	              FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+	             WHERE 1 = 1
+	               AND TP.STND_YEAR = VS.STND_YEAR
+	               AND TP.MEET_CD 	= VS.MEET_CD
+	               AND TP.TMS 		= VS.TMS
+	               AND TP.DAY_ORD 	= VS.DAY_ORD
+	               AND TP.WIN_TYPE = '1'
+	               --AND TP.SOLD_AMT > 0
+	               AND TP.SELL_CD IN ('01','03')
+	               AND TP.MEET_CD IN ('001', '003')
+	               AND VS.RACE_DAY BETWEEN ? AND ?
+	               AND TP.COMM_NO != '06'
+	               AND TP.COMM_NO = NVL(?, TP.COMM_NO)
+	               AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+	            GROUP BY TP.WIN_NO  
+	            ORDER BY TP.WIN_NO  
+              ) MN
+        ),
+        UNMANNED AS (
+        SELECT ROWNUM R2, UMN.*
+          FROM (
+                SELECT TP.WIN_NO AS UNMANNED_WIN_NO,
+	                   SUM(TP.SOLD_AMT-TP.CNCL_AMT) AS UNMANNED_AMT,
+	                   SUM(TP.SOLD_NUM-TP.CNCL_NUM) AS UNMANNED_NUM
+	              FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+	             WHERE 1 = 1
+	               AND TP.STND_YEAR = VS.STND_YEAR
+	               AND TP.MEET_CD 	= VS.MEET_CD
+	               AND TP.TMS 		= VS.TMS
+	               AND TP.DAY_ORD 	= VS.DAY_ORD
+	               AND TP.WIN_TYPE = '3'
+	               --AND TP.SOLD_AMT > 0
+	               AND TP.SELL_CD IN ('01','03')
+	               AND TP.MEET_CD IN ('001', '003')
+	               AND TP.COMM_NO != '06'
+	               AND VS.RACE_DAY BETWEEN ? AND ?
+	               AND TP.COMM_NO = NVL(?, TP.COMM_NO)
+	               AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+	            GROUP BY TP.WIN_NO  
+	            ORDER BY TP.WIN_NO     
+              )UMN
+        ),
+        GREENCARD AS (
+        SELECT ROWNUM R3, GC.*
+          FROM (
+                SELECT TM.DEV_NM AS GREENCARD_WIN_NO,
+		               SUM(TM.DEV_SALES_AMT) AS GREENCARD_AMT,
+		               SUM(TM.DEV_SALES_CNT) AS GREENCARD_NUM
+	              FROM TBRS_MYCAT_TELMP TM
+	             WHERE 1 = 1
+	               AND TM.CHNL_CD = '001'
+	               --AND TM.DEV_SALES_AMT > 0
+	               AND TM.MEET_CD IN ('001', '003')
+	               AND TM.RACE_DAY BETWEEN ? AND ?
+	               AND TM.COMM_NO = NVL(?, TM.COMM_NO)
+	               AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+	            GROUP BY TM.DEV_NM  
+	            ORDER BY TM.DEV_NM     
+              ) GC
+        ), 
+        GREENCARDAPP AS (
+        SELECT ROWNUM R4, GCA.*
+          FROM (
+              SELECT TM.DEV_NM AS GREENCARDAPP_WIN_NO,
+		             SUM(TM.DEV_SALES_AMT) AS GREENCARDAPP_AMT,
+		             SUM(TM.DEV_SALES_CNT) AS GREENCARDAPP_NUM
+                FROM TBRS_MYCAT_TELMP TM
+               WHERE 1 = 1
+                 AND TM.CHNL_CD = '002'
+                 --AND TM.DEV_SALES_AMT > 0
+                 AND TM.MEET_CD IN ('001', '003')
+                 AND TM.RACE_DAY BETWEEN ? AND ?
+                 AND TM.COMM_NO = NVL(?, TM.COMM_NO)
+                 AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+              GROUP BY TM.DEV_NM  
+              ORDER BY TM.DEV_NM     
+        	)GCA
+        )
+
+      SELECT MN.R1, UMN.R2, GC.R3, GCA.R4,
+             MN.MANNED_WIN_NO,
+             MN.MANNED_AMT,
+             MN.MANNED_NUM,
+
+             UMN.UNMANNED_WIN_NO,
+             UMN.UNMANNED_AMT,
+             UMN.UNMANNED_NUM,
+
+             GC.GREENCARD_WIN_NO,
+             GC.GREENCARD_AMT,
+             GC.GREENCARD_NUM,
+
+             GCA.GREENCARDAPP_WIN_NO,
+             GCA.GREENCARDAPP_AMT,
+             GCA.GREENCARDAPP_NUM
+        FROM MANNED MN FULL OUTER JOIN UNMANNED UMN ON MN.R1=UMN.R2 
+             FULL OUTER JOIN GREENCARD GC ON NVL(UMN.R2,MN.R1) = GC.R3
+             FULL OUTER JOIN GREENCARDAPP GCA ON NVL(NVL(GC.R3, UMN.R2), GC.R3) = GCA.R4
+       WHERE 1 = 1
+       ORDER BY R1, R2, R3, R4
+        ]]>
+    </query>
+    
+	<query id="rsm3300_s02" desc="지점 단말별 매출액(본장)" fetchSize="10">
+        <![CDATA[	
+		WITH MANNED AS ( /* rsm3300_s01 지점 단말별 매출액(본장) */
+        SELECT ROWNUM R1, MN.*
+          FROM (SELECT TP.WIN_NO AS MANNED_WIN_NO,
+	                   SUM(TP.SOLD_AMT-TP.CNCL_AMT) AS MANNED_AMT,
+	                   SUM(TP.SOLD_NUM-TP.CNCL_NUM) AS MANNED_NUM
+	              FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+	             WHERE 1 = 1
+	               AND TP.STND_YEAR = VS.STND_YEAR
+	               AND TP.MEET_CD 	= VS.MEET_CD
+	               AND TP.TMS 		= VS.TMS
+	               AND TP.DAY_ORD 	= VS.DAY_ORD
+	               AND TP.WIN_TYPE = '1'
+	               --AND TP.SOLD_AMT > 0
+	               AND TP.SELL_CD IN ('01','03')
+	               AND TP.MEET_CD IN ('001', '003')
+	               AND VS.RACE_DAY BETWEEN ? AND ?
+	               AND TP.COMM_NO != '06'
+	               AND TP.COMM_NO IN ('01','02','03','04','07','08')
+	               AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+	            GROUP BY TP.WIN_NO  
+	            ORDER BY TP.WIN_NO  
+              ) MN
+        ),
+        UNMANNED AS (
+        SELECT ROWNUM R2, UMN.*
+          FROM (
+                SELECT TP.WIN_NO AS UNMANNED_WIN_NO,
+	                   SUM(TP.SOLD_AMT-TP.CNCL_AMT) AS UNMANNED_AMT,
+	                   SUM(TP.SOLD_NUM-TP.CNCL_NUM) AS UNMANNED_NUM
+	              FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+	             WHERE 1 = 1
+	               AND TP.STND_YEAR = VS.STND_YEAR
+	               AND TP.MEET_CD 	= VS.MEET_CD
+	               AND TP.TMS 		= VS.TMS
+	               AND TP.DAY_ORD 	= VS.DAY_ORD
+	               AND TP.WIN_TYPE = '3'
+	               --AND TP.SOLD_AMT > 0
+	               AND TP.SELL_CD IN ('01','03')
+	               AND TP.MEET_CD IN ('001', '003')
+	               AND VS.RACE_DAY BETWEEN ? AND ?
+	               AND TP.COMM_NO != '06'
+	               AND TP.COMM_NO IN ('01','02','03','04','07','08')
+	               AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+	            GROUP BY TP.WIN_NO  
+	            ORDER BY TP.WIN_NO     
+              )UMN
+        ),
+        GREENCARD AS (
+        SELECT ROWNUM R3, GC.*
+          FROM (
+                SELECT TM.DEV_NM AS GREENCARD_WIN_NO,
+		               SUM(TM.DEV_SALES_AMT) AS GREENCARD_AMT,
+		               SUM(TM.DEV_SALES_CNT) AS GREENCARD_NUM
+	              FROM TBRS_MYCAT_TELMP TM
+	             WHERE 1 = 1
+	               AND TM.CHNL_CD = '001'
+	               --AND TM.DEV_SALES_AMT > 0
+	               AND TM.MEET_CD IN ('001', '003')
+	               AND TM.RACE_DAY BETWEEN ? AND ?
+	               AND TM.COMM_NO IN ('01', '04')
+	               AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+	            GROUP BY TM.DEV_NM  
+	            ORDER BY TM.DEV_NM     
+              ) GC
+        ), 
+        GREENCARDAPP AS (
+        SELECT ROWNUM R4, GCA.*
+          FROM (
+              SELECT TM.DEV_NM AS GREENCARDAPP_WIN_NO,
+		             SUM(TM.DEV_SALES_AMT) AS GREENCARDAPP_AMT,
+		             SUM(TM.DEV_SALES_CNT) AS GREENCARDAPP_NUM
+                FROM TBRS_MYCAT_TELMP TM
+               WHERE 1 = 1
+                 AND TM.CHNL_CD = '002'
+                 --AND TM.DEV_SALES_AMT > 0
+                 AND TM.MEET_CD IN ('001', '003')
+                 AND TM.RACE_DAY BETWEEN ? AND ?
+                 AND TM.COMM_NO = '01'
+                 AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+              GROUP BY TM.DEV_NM  
+              ORDER BY TM.DEV_NM     
+        	)GCA
+        )
+
+      SELECT MN.R1,UMN.R2, GC.R3, GCA.R4,
+             MN.MANNED_WIN_NO,
+             MN.MANNED_AMT,
+             MN.MANNED_NUM,
+
+             UMN.UNMANNED_WIN_NO,
+             UMN.UNMANNED_AMT,
+             UMN.UNMANNED_NUM,
+
+             GC.GREENCARD_WIN_NO,
+             GC.GREENCARD_AMT,
+             GC.GREENCARD_NUM,
+
+             GCA.GREENCARDAPP_WIN_NO,
+             GCA.GREENCARDAPP_AMT,
+             GCA.GREENCARDAPP_NUM
+        FROM MANNED MN FULL OUTER JOIN UNMANNED UMN ON MN.R1=UMN.R2 
+             FULL OUTER JOIN GREENCARD GC ON NVL(UMN.R2,MN.R1) = GC.R3
+             FULL OUTER JOIN GREENCARDAPP GCA ON NVL(NVL(GC.R3, UMN.R2), GC.R3) = GCA.R4
+       WHERE 1 = 1
+       ORDER BY R1, R2, R3, R4
+        ]]>
+    </query>
+        
+    <query id="common_brnc" desc="조회" fetchSize="10">
+
+		<![CDATA[
+			SELECT /* common_code */
+					TGC.GRP_CD      -- 그룹코드
+				  , TGC.GRP_NM      -- 그룹명
+				  , TSC.CD          -- 코드
+				  , TSC.CD_NM       -- 코드명
+				  , TSC.CD_NM2      -- 코드명
+				  , TSC.RMK         -- 비고
+				  , TSC.CD_TERM1
+				  , TSC.CD_TERM2
+				  , TSC.CD_TERM3
+				  , TSC.CD_TERM4
+				  , TSC.CD_TERM5
+			FROM    TBRK_GRP_CD  TGC
+				  , TBRK_SPEC_CD TSC
+			WHERE TGC.GRP_CD = TSC.GRP_CD
+			AND   TSC.DEL_YN = 'N'
+			AND   TGC.GRP_CD = '060'
+			AND   TSC.CD != '06'
+			AND   TSC.CD_TERM1 IS NOT NULL 
+		]]>
+
+	</query>
+	
+</queryMap>

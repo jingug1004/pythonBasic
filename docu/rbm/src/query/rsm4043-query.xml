@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4043(밸런스조회)">
+	<query id="rsm4043_s01" desc="경주일 정보" fetchSize="10">
+        <![CDATA[        
+			 SELECT /* rsm4043_s01 */
+			 		NVL(MAX(MEET_CD),'999') AS MEET_CD, 
+			       DECODE(NVL(MAX(MEET_CD),'999'),'003','경정','001','경륜') AS MEET_NM,
+			       NVL(MAX(RACE_DAY),?) AS RACE_DAY -- 0:RACE_DAY
+			FROM
+			(        
+			        SELECT DECODE( MEET_CD,'003','003','001') AS MEET_CD,
+		                 MAX(RACE_DAY) AS RACE_DAY
+		            FROM                                                        
+		                 VW_SDL_INFO                                        
+		            WHERE                                                       
+		                 RACE_DAY = ?				-- 1:RACE_DAY
+		            GROUP BY MEET_CD                
+			)
+		                                                                                                            
+        ]]>
+    </query>
+	<query id="rsm4043_s02" desc="일일 발매실적 밸런스 조회" fetchSize="10">
+        <![CDATA[        
+			 SELECT /* rsm4043_s02 */                                       
+			     TYPE_NO,                                  
+			     CASE                                      
+			         WHEN TYPE_NO='1' THEN '경주권'        
+			         WHEN TYPE_NO='2' THEN '구매권'        
+			         WHEN TYPE_NO='3' THEN 'IW구매권'      
+			     END TYPE_NM,                              
+			     SELL_CD,                                  
+			     CASE                                      
+			         WHEN SELL_CD='01' THEN '경륜'         
+			         WHEN SELL_CD='02' THEN '창원'         
+			         WHEN SELL_CD='03' THEN '경정 신시스템' 
+			         WHEN SELL_CD='04' THEN '부산'         
+			         WHEN SELL_CD='08' THEN '경정 구시스템' 
+			         WHEN SELL_CD='09' THEN '경정 장외지점' 
+			     END SELL_NM,	-- 경주권                              
+			     SUM(NOTYET_TOT_AMT) NOTYET_TOT_AMT,	-- 전회불 총액               
+			     SUM(CYCLE_AMT+BOAT_AMT) CRA_MRA,       -- 당일 지급액
+			     SUM(END_AMT) END_AMT,                  -- 시효만료
+			     SUM(NOTYET_AMT) NOTYET_AMT,            -- 당일 미지급액
+			     SUM(NOTYET_TOT_AMT-CYCLE_AMT-BOAT_AMT-END_AMT+NOTYET_AMT) NOTYET_SUB_AMT,	-- 이월 미지급액               
+			     SUM(IW_AMT) IW_AMT,                       
+			     SUM(CYCLE_AMT) CYCLE_AMT,                 -- 경륜지급
+			     SUM(BOAT_AMT) BOAT_AMT                    -- 경정지급
+			 FROM                                          
+			     TBJI_PC_BALANCE_FIX        -- 밸런스조회                   
+			 WHERE 1=1                                         
+			     AND RACE_DAY	= ?		-- 0:RACE_DAY 경주일                 
+			 GROUP BY                                      
+			     SELL_CD,                                  
+			     TYPE_NO                                   
+			 ORDER BY TYPE_NO,SELL_NM                                                                                                                                                                                                              
+        ]]>
+    </query>
+    
+    
+</queryMap>

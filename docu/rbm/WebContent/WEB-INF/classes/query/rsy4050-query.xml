@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsy4050(홈피 정보관리)">
+    <query id="rsy4050_s01" desc="홈피 정보(회원수, 방문자수) 날짜별 조회" fetchSize="10">
+      <![CDATA[
+ 			SELECT /* rsy4050_s01 */
+				   '0' AS CHK
+			 	  ,RACE_DAY				-- 경주일자
+				  ,MEMBER_CNT			-- 통합회원수
+				  ,CVISTR_CNT			-- 경륜홈페이지 방문자수
+				  ,CMOBILE_VISTR_CNT	-- 경륜 모바일홈페이지 방문자수				  
+				  ,MVISTR_CNT			-- 경정홈페이지 방문자수
+				  ,MMOBILE_VISTR_CNT	-- 경정 모바일홈페이지 방문자수
+				  ,RACE_VISTR_CNT		-- 사업본부 홈페이지 방문자수
+				  ,INST_ID				-- 입력자 사번
+				  ,INST_DT				-- 입력일시
+				  ,UPDT_ID				-- 수정자 사번
+				  ,UPDT_DT				-- 수정일시
+				  ,TO_CHAR(TO_DATE(RACE_DAY, 'YYYYMMDD'), 'YYYY.MM.DD') AS RACE_DAY_DOT
+			FROM TBRK_WEB_STAT
+			WHERE 1=1
+			    AND RACE_DAY BETWEEN ? AND ?
+		    ORDER BY RACE_DAY 
+			
+        ]]>
+    </query>       
+
+    <query id="rsy4050_s02" desc="홈피 정보(회원수, 방문자수) 회차별 조회" fetchSize="10">
+      <![CDATA[
+		    SELECT /* rsy4050_s02 */
+		           TMS
+		          ,TO_CHAR(TO_DATE(RACE_DAY_MIN, 'YYYYMMDD'),'MM/DD(')||
+		           TO_CHAR(TO_DATE(RACE_DAY_MIN,'YYYYMMDD'),'DY')||')~'||
+		           TO_CHAR(TO_DATE(RACE_DAY_MAX, 'YYYYMMDD'),'MM/DD(')||
+		           TO_CHAR(TO_DATE(RACE_DAY_MAX,'YYYYMMDD'),'DY)') AS RACE_TERM
+		          ,MEMBER_CNT      
+		          ,DECODE(MEMBER_CNT, 0, null, ROUND((MEMBER_CNT - LAG(MEMBER_CNT) OVER (ORDER BY TMS))/MEMBER_CNT*100,1)) AS MEMBER_RATE
+		          ,CVISTR_AVG
+		          ,DECODE(CVISTR_AVG, 0, null, ROUND((CVISTR_AVG - LAG(CVISTR_AVG) OVER (ORDER BY TMS))/CVISTR_AVG*100,1)) AS CVISTR_RATE
+		          ,CMOBILE_VISTR_AVG
+		          ,DECODE(CMOBILE_VISTR_AVG, 0, null, ROUND((CMOBILE_VISTR_AVG - LAG(CMOBILE_VISTR_AVG) OVER (ORDER BY TMS))/CMOBILE_VISTR_AVG*100,1)) AS CMOBILE_VISTR_RATE
+		          ,MVISTR_AVG
+		          ,DECODE(MVISTR_AVG, 0, null, ROUND((MVISTR_AVG - LAG(MVISTR_AVG) OVER (ORDER BY TMS))/MVISTR_AVG*100,1)) AS MVISTR_RATE
+		          ,MMOBILE_VISTR_AVG
+		          ,DECODE(MMOBILE_VISTR_AVG, 0, null, ROUND((MMOBILE_VISTR_AVG - LAG(MMOBILE_VISTR_AVG) OVER (ORDER BY TMS))/MMOBILE_VISTR_AVG*100,1)) AS MMOBILE_VISTR_RATE
+		          ,RACE_VISTR_AVG
+		          ,DECODE(RACE_VISTR_AVG, 0, null, ROUND((RACE_VISTR_AVG - LAG(RACE_VISTR_AVG) OVER (ORDER BY TMS))/RACE_VISTR_AVG*100,1)) AS RACE_VISTR_RATE
+		    FROM (          
+		            SELECT 
+		                   I.MEET_CD            -- 개최지 코드
+		                  ,I.TMS                -- 회차
+		                  ,MIN(S.RACE_DAY) AS RACE_DAY_MIN               -- 경주일자
+		                  ,MAX(S.RACE_DAY) AS RACE_DAY_MAX               -- 경주일자
+		                  ,MAX(MEMBER_CNT) AS MEMBER_CNT           -- 통합회원수
+		                  ,ROUND(AVG(CVISTR_CNT)) AS CVISTR_AVG           -- 경륜홈페이지 방문자수
+		                  ,ROUND(AVG(CMOBILE_VISTR_CNT)) AS CMOBILE_VISTR_AVG   -- 경륜 모바일홈페이지 방문자수                  
+		                  ,ROUND(AVG(MVISTR_CNT)) AS MVISTR_AVG           -- 경정홈페이지 방문자수
+		                  ,ROUND(AVG(MMOBILE_VISTR_CNT)) AS MMOBILE_VISTR_AVG   -- 경정 모바일홈페이지 방문자수
+		                  ,ROUND(AVG(RACE_VISTR_CNT)) AS RACE_VISTR_AVG       -- 사업본부 홈페이지 방문자수
+		            FROM TBRK_WEB_STAT S, VW_SDL_INFO I
+		            WHERE 1=1
+		                AND S.RACE_DAY BETWEEN ? AND ?
+		                AND S.RACE_DAY = I.RACE_DAY
+		                AND I.STND_YEAR = SUBSTR(?,1,4)
+		                AND I.MEET_CD = ?
+		            GROUP BY I.MEET_CD, I.TMS
+		            ORDER BY RACE_DAY_MIN
+		          )      
+        ]]>
+    </query>       
+
+    <query id="rsy4050_s03" desc="홈피 정보(회원수, 방문자수) 누계/연말추정치  조회" fetchSize="10">
+      <![CDATA[
+			WITH X AS /* rsy4050_s03 */
+			(
+			SELECT SUBSTR(MAX(RACE_DAY),5,4) AS MAX_DAY
+			FROM TBRK_WEB_STAT
+			WHERE CVISTR_CNT > 0
+			)
+			SELECT SUBSTR(RACE_DAY,1,4)||'년' AS STND_YEAR,
+			       '01/01 ~ '||(SELECT SUBSTR(MAX_DAY,1,2)||'/'||SUBSTR(MAX_DAY,3,2) FROM X) AS DAY_TERM,
+			       SUM(CVISTR_CNT) AS CVITR_CNT,
+			       SUM(CMOBILE_VISTR_CNT) AS CMOBILE_VISTR_CNT,
+			       SUM(MVISTR_CNT) AS MVISTR_CNT,
+			       SUM(MMOBILE_VISTR_CNT) AS MMOBILE_VISTR_CNT,
+			       SUM(RACE_VISTR_CNT) AS RACE_VISTR_CNT,
+			       SUM(CVISTR_CNT+CMOBILE_VISTR_CNT+MVISTR_CNT+MMOBILE_VISTR_CNT+RACE_VISTR_CNT) AS VISTR_SUM,
+			       ROUND(AVG(CVISTR_CNT+CMOBILE_VISTR_CNT+MVISTR_CNT+MMOBILE_VISTR_CNT+RACE_VISTR_CNT)) AS VISTR_AVG,
+			       ROUND(AVG(CVISTR_CNT+CMOBILE_VISTR_CNT+MVISTR_CNT+MMOBILE_VISTR_CNT+RACE_VISTR_CNT) * 365) AS VISTR_PRDT
+			FROM TBRK_WEB_STAT
+			WHERE SUBSTR(RACE_DAY,5,4) <= (SELECT MAX_DAY FROM X)
+			  AND SUBSTR(RACE_DAY,1,4) > '2010'  
+			GROUP BY SUBSTR(RACE_DAY,1,4)
+			ORDER BY SUBSTR(RACE_DAY,1,4) 
+        ]]>
+    </query>       
+
+   <query id="rsy4050_s04" desc="주별 방문자 증가 추세" fetchSize="10">
+
+        <![CDATA[
+
+				WITH x AS /* rsy4050_s04 */
+				(
+				SELECT TO_CHAR(TO_DATE(race_day,'YYYYMMDD'),'WW') AS race_wk 
+				      ,ROUND(AVG(CVISTR_CNT) + AVG(CMOBILE_VISTR_CNT)) AS CVISTR_AVG   -- 경륜 모바일홈페이지 방문자수                  
+				      ,ROUND(AVG(MVISTR_CNT) + AVG(MMOBILE_VISTR_CNT)) AS MVISTR_AVG   -- 경정 모바일홈페이지 방문자수
+				      ,ROUND(AVG(RACE_VISTR_CNT)) AS RACE_VISTR_AVG       -- 사업본부 홈페이지 방문자수
+				FROM TBRK_WEB_STAT A                  
+				WHERE RACE_DAY LIKE ? ||'%'    
+				AND   SUBSTR(RACE_DAY,1,4)||TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'WW') < TO_CHAR(SYSDATE,'YYYYWW')          
+				GROUP BY TO_CHAR(TO_DATE(race_day,'YYYYMMDD'),'WW')
+				ORDER BY 1
+				) 
+				SELECT RACE_WK,
+				       '경륜' AS SITE,
+				       CVISTR_AVG AS VISTR_AVG
+				FROM X
+				UNION ALL
+				SELECT RACE_WK,
+				       '경정',
+				       MVISTR_AVG
+				FROM X
+				UNION ALL
+				SELECT RACE_WK,
+				       '사업본부',
+				       RACE_VISTR_AVG
+				FROM X
+        ]]>
+    </query>    
+
+   <query id="rsy4050_u01" desc="홈피정보 입력/수정" fetchSize="10">
+
+        <![CDATA[
+        
+			 MERGE INTO TBRK_WEB_STAT A  /* rsy4050_u01 */
+			 USING   
+			         (SELECT
+			             ? AS RACE_DAY                -- 경주일자                                 				                                    
+	                    ,? AS MEMBER_CNT              -- 통합회원수                               
+	                    ,? AS CVISTR_CNT              -- 경륜홈페이지 방문자수                    
+	                    ,? AS CMOBILE_VISTR_CNT       -- 경륜 모바일홈페이지 방문자수		      
+	                    ,? AS MVISTR_CNT              -- 경정홈페이지 방문자수                    
+	                    ,? AS MMOBILE_VISTR_CNT       -- 경정 모바일홈페이지 방문자수             
+	                    ,? AS RACE_VISTR_CNT          -- 사업본부 홈페이지 방문자수               
+	                    ,? AS INST_ID                 -- 입력자 사번                              
+			            ,? AS UPDT_ID                 -- 수정자 사번                              
+			          FROM    DUAL ) B  
+			     
+			 ON (    
+			         A.RACE_DAY = B.RACE_DAY   
+			 )           
+			 
+			 WHEN MATCHED THEN
+			     UPDATE SET
+                     A.MEMBER_CNT           = B.MEMBER_CNT               
+			        ,A.CVISTR_CNT    		= B.CVISTR_CNT            --           
+                    ,A.CMOBILE_VISTR_CNT   	= B.CMOBILE_VISTR_CNT     -- 장비구분                 
+                    ,A.MVISTR_CNT       	= B.MVISTR_CNT            -- VLAN         
+                    ,A.MMOBILE_VISTR_CNT  	= B.MMOBILE_VISTR_CNT     -- 관리부서         
+                    ,A.RACE_VISTR_CNT     	= B.RACE_VISTR_CNT        -- 위치코드                    
+                    ,A.UPDT_ID    			= B.UPDT_ID            	  -- 수정일시     
+                    ,A.UPDT_DT    			= SYSDATE              	  -- 수정자                   
+			 WHEN NOT MATCHED THEN 
+			     
+			     INSERT (
+			 		   RACE_DAY				-- 경주일자                                   
+					  ,MEMBER_CNT			-- 통합회원수                                 
+					  ,CVISTR_CNT			-- 경륜홈페이지 방문자수                                     
+					  ,CMOBILE_VISTR_CNT	-- 경륜 모바일홈페이지 방문자수				         
+					  ,MVISTR_CNT			-- 경정홈페이지 방문자수                      
+					  ,MMOBILE_VISTR_CNT	-- 경정 모바일홈페이지 방문자수               
+					  ,RACE_VISTR_CNT		-- 사업본부 홈페이지 방문자수                 
+					  ,INST_ID				-- 입력자 사번                                
+					  ,INST_DT				-- 입력일시                                   
+				  ) VALUES (
+			              B.RACE_DAY                -- 경주일자                                 				                                    
+	                    , B.MEMBER_CNT              -- 통합회원수                               
+	                    , B.CVISTR_CNT              -- 경륜홈페이지 방문자수                    
+	                    , B.CMOBILE_VISTR_CNT       -- 경륜 모바일홈페이지 방문자수		      
+	                    , B.MVISTR_CNT              -- 경정홈페이지 방문자수                    
+	                    , B.MMOBILE_VISTR_CNT       -- 경정 모바일홈페이지 방문자수             
+	                    , B.RACE_VISTR_CNT          -- 사업본부 홈페이지 방문자수               
+	                    , B.INST_ID                 -- 입력자 사번                              
+			            , SYSDATE                 	-- 입력일시   
+			     )                
+		
+        ]]>
+
+    </query>    
+    
+    <query id="rsy4050_u02" desc="웹로그 정보  입력/수정" fetchSize="10">
+
+        <![CDATA[
+        
+			 MERGE INTO TBRK_WEB_STAT A  /* rsy4050_u02 */
+			 USING   
+			         (SELECT
+			             TO_CHAR(TO_DATE(?, 'YYYY.MM.DD'),'YYYYMMDD') AS RACE_DAY                -- 경주일자                                 				                                    
+	                    ,? AS CVISTR_CNT              -- 경륜홈페이지 방문자수                    
+	                    ,? AS CMOBILE_VISTR_CNT       -- 경륜 모바일홈페이지 방문자수		      
+	                    ,? AS MVISTR_CNT              -- 경정홈페이지 방문자수                    
+	                    ,? AS MMOBILE_VISTR_CNT       -- 경정 모바일홈페이지 방문자수             
+	                    ,? AS RACE_VISTR_CNT          -- 사업본부 홈페이지 방문자수               
+	                    ,? AS USER_ID                 -- 입력자 사번                               
+			          FROM    DUAL ) B  
+			     
+			 ON (    
+			         A.RACE_DAY = B.RACE_DAY   
+			 )           
+			 
+			 WHEN MATCHED THEN
+			     UPDATE SET
+                     A.CVISTR_CNT    		= B.CVISTR_CNT            -- 경륜 홈페이지 방문자수          
+                    ,A.CMOBILE_VISTR_CNT   	= B.CMOBILE_VISTR_CNT     -- 경륜 모바일
+                    ,A.MVISTR_CNT       	= B.MVISTR_CNT            -- 경정    
+                    ,A.MMOBILE_VISTR_CNT  	= B.MMOBILE_VISTR_CNT     -- 경정모바일         
+                    ,A.RACE_VISTR_CNT     	= B.RACE_VISTR_CNT        -- 사업본부                 
+                    ,A.UPDT_ID    			= B.USER_ID            	  -- 수정일시     
+                    ,A.UPDT_DT    			= SYSDATE              	  -- 수정자                   
+			 WHEN NOT MATCHED THEN 
+			     
+			     INSERT (
+			 		   RACE_DAY				-- 경주일자                                   
+					  ,MEMBER_CNT			-- 통합회원수                                 
+					  ,CVISTR_CNT			-- 경륜홈페이지 방문자수                                     
+					  ,CMOBILE_VISTR_CNT	-- 경륜 모바일홈페이지 방문자수				         
+					  ,MVISTR_CNT			-- 경정홈페이지 방문자수                      
+					  ,MMOBILE_VISTR_CNT	-- 경정 모바일홈페이지 방문자수               
+					  ,RACE_VISTR_CNT		-- 사업본부 홈페이지 방문자수                 
+					  ,INST_ID				-- 입력자 사번                                
+					  ,INST_DT				-- 입력일시                                   
+				  ) VALUES (
+			              B.RACE_DAY                -- 경주일자                                 				                                    
+	                    , 0                         -- 통합회원수                               
+	                    , B.CVISTR_CNT              -- 경륜홈페이지 방문자수                    
+	                    , B.CMOBILE_VISTR_CNT       -- 경륜 모바일홈페이지 방문자수		      
+	                    , B.MVISTR_CNT              -- 경정홈페이지 방문자수                    
+	                    , B.MMOBILE_VISTR_CNT       -- 경정 모바일홈페이지 방문자수             
+	                    , B.RACE_VISTR_CNT          -- 사업본부 홈페이지 방문자수               
+	                    , B.USER_ID                 -- 입력자 사번                              
+			            , SYSDATE                 	-- 입력일시   
+			     )                
+		
+        ]]>
+
+    </query>    
+    
+
+    <query id="rsy4050_d01" desc="홈피 정보삭제" fetchSize="10">
+
+        <![CDATA[
+
+			DELETE TBRK_WEB_STAT   /* rsy4050_d01 */	
+			WHERE RACE_DAY = ?
+
+        ]]>
+
+    </query>  
+
+</queryMap>

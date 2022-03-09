@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbo3010(용지재고관리)">
+    <query id="rbo3010_s01" desc="용지재고 조회" fetchSize="10">
+      <![CDATA[
+	         SELECT /* rbo3010_s01 */
+	                 '0' AS CHK
+	                 
+	                ,B.BRNC_CD BRNC_CD  -- 지점코드
+	                ,? STND_YEAR   -- 년도
+	                ,? TMS                -- 회차
+	                ,B.ROLL_GBN
+	                ,FC_GET_ROLLSTKCNT(?,?,B.BRNC_CD,B.ROLL_GBN,'01')  PRE_STK  -- 전재고
+	                
+	                
+	                ,0  STK_CNT   -- 재고수량
+	                ,NVL(A.MRA_USGE_CNT,0) MRA_USGE_CNT         -- 경정사용량
+	                ,NVL(A.CRA_USGE_CNT,0) CRA_USGE_CNT         -- 경륜사용량
+	                ,NVL(A.MAKE_STK_CNT,0) MAKE_STK_CNT         -- 제작입고
+	                ,A.RMK              -- 비고
+	                
+	                ,NVL((SELECT SUM(MOVE_CNT) FROM TBRB_ROLL_BRNC_MOVE C
+	                    WHERE C.TMS = ?
+	                            AND C.ROLL_GBN = B.ROLL_GBN
+	                            AND C.OUT_BRNC_CD = B.BRNC_CD
+	                            AND C.STND_YEAR = ? ),0)  OUT_CNT --점간출고수량
+	                            
+	                ,NVL((SELECT SUM(MOVE_CNT) FROM TBRB_ROLL_BRNC_MOVE D
+	                    WHERE D.TMS = ?
+	                            AND D.ROLL_GBN = B.ROLL_GBN
+	                            AND D.IN_BRNC_CD = B.BRNC_CD
+	                            AND D.STND_YEAR = ? ),0)  IN_CNT          --점간입고수량
+	                
+	                ,A.IP               -- IP
+	                ,A.INST_ID          -- 작성자
+	                ,A.INST_DT          -- 작성일시
+	                ,A.UPDT_ID          -- 수정자
+	                ,A.UPDT_DT          -- 수정일시
+	                
+	                ,(NVL(A.MRA_USGE_CNT,0)+ NVL(A.CRA_USGE_CNT,0))  TOT_USGE_CNT       -- 합계
+	                ,(SELECT  COUNT(STND_YEAR) FROM TBRB_ROLL_END C  
+	                        WHERE C.STND_YEAR = ?
+	                                AND C.BRNC_CD = B.BRNC_CD 
+	                                AND C.ROLL_GBN = B.ROLL_GBN )   END_YN
+	
+	            FROM (  SELECT
+	                        *
+	                     FROM TBRB_ROLL_MANA A 
+	                     WHERE 1 = 1
+	                        AND A.STND_YEAR = ?              
+	                        AND A.TMS =  ?
+	                        AND A.BRNC_CD LIKE  '%' || NVL(? , A.BRNC_CD) || '%'
+	                        AND A.ROLL_GBN LIKE  '%' || NVL(? , A.ROLL_GBN) || '%'
+	                   ) A
+	                  ,( SELECT
+	                      A.ROLL_GBN
+	                     ,C.BRNC_CD
+			            FROM
+			            ( 
+			                    SELECT CD ROLL_GBN
+			                    FROM TBRK_SPEC_CD 
+			                    WHERE GRP_CD ='020'
+			                        AND CD  LIKE  '%' || NVL(? , CD ) || '%' 
+			            )A,
+			             (
+			                        SELECT CD BRNC_CD
+			                        FROM TBRK_SPEC_CD 
+			                        WHERE GRP_CD ='018'
+			                        AND DEL_YN ='N'
+			                        AND CD  LIKE  '%' || NVL(? , CD ) || '%' 
+			             ) C
+	
+	                )B
+	
+	            WHERE A.ROLL_GBN(+) = B.ROLL_GBN
+	                AND A.BRNC_CD(+) = B.BRNC_CD
+                ORDER BY B.BRNC_CD,B.ROLL_GBN
+			
+        ]]>
+    </query>       
+
+   <query id="rbo3010_u01" desc="용지재고   입력/수정" fetchSize="10">
+
+        <![CDATA[
+        
+            MERGE INTO TBRB_ROLL_MANA  A /* rbo3010_u01 */
+            USING   
+                    (SELECT
+                          ? BRNC_CD
+	                    ,? STND_YEAR      -- 년도
+	                    ,? AS TMS          -- 회차
+	                    ,? AS ROLL_GBN     -- 용지구분
+	                    ,? AS MRA_USGE_CNT -- 경정사용량
+	                    
+	                    ,? AS CRA_USGE_CNT -- 경륜사용량
+	                    ,? AS MAKE_STK_CNT -- 제작입고
+	                    ,? AS RMK          -- 비고
+	                    ,? AS IP           -- IP       
+	                    ,? AS INST_ID      -- 작성자                    
+                        ,? AS UPDT_ID      -- 수정자   
+                    FROM    DUAL ) B  
+                
+            ON (    
+                         A.BRNC_CD = B.BRNC_CD     -- 지점코드
+                     AND A.STND_YEAR= B.STND_YEAR  -- 년도
+                     AND A.TMS      = B.TMS        -- 회차
+                     AND A.ROLL_GBN = B.ROLL_GBN   -- 용지구분   
+            )           
+            
+            WHEN MATCHED THEN
+                UPDATE SET
+
+                     A.MRA_USGE_CNT = B.MRA_USGE_CNT           -- 경정사용량            
+                    ,A.CRA_USGE_CNT = B.CRA_USGE_CNT           -- 경륜사용량                    
+                    ,A.MAKE_STK_CNT = B.MAKE_STK_CNT           -- 제작입고         
+                    ,A.RMK          = B.RMK                    -- 비고                   
+                    ,A.IP           = B.IP                     -- IP
+                                        
+                    ,A.UPDT_ID = B.UPDT_ID                  -- 수정자    
+                    ,A.UPDT_DT = SYSDATE                    -- 수정일시                   
+            WHEN NOT MATCHED THEN 
+                
+                INSERT (
+            
+                     A.BRNC_CD          -- 지점코드
+                    ,A.STND_YEAR      -- 년도
+                    ,A.TMS            -- 회차
+                    ,A.ROLL_GBN       -- 용지구분
+                    ,A.MRA_USGE_CNT   -- 경정사용량
+                    
+                    ,A.CRA_USGE_CNT   -- 경륜사용량
+                    ,A.MAKE_STK_CNT   -- 제작입고
+                    ,A.RMK            -- 비고
+                    ,A.IP             -- IP       
+                    ,A.INST_ID        --  작성일시                    
+                    ,A.INST_DT        --  작성자
+                    
+                ) VALUES (
+                     B.BRNC_CD        -- 지점코드
+                    ,B.STND_YEAR      -- 년도
+                    ,B.TMS            -- 회차
+                    ,B.ROLL_GBN       -- 용지구분
+                    ,B.MRA_USGE_CNT   -- 경정사용량
+                    
+                    ,B.CRA_USGE_CNT   -- 경륜사용량
+                    ,B.MAKE_STK_CNT   -- 제작입고
+                    ,B.RMK            -- 비고
+                    ,B.IP             -- IP       
+                    ,B.INST_ID        --  작성자                    
+                    ,SYSDATE        --  작성일시
+                )
+                
+		
+        ]]>
+
+    </query>    
+
+
+   
+
+    <query id="rbo3010_d01" desc="용지재고 삭제" fetchSize="10">
+
+        <![CDATA[
+
+			DELETE TBRB_ROLL_MANA   /* rbo3010_d01 */
+
+			WHERE STND_YEAR = ?   	--년도
+				AND TMS = ?			--회차
+				AND BRNC_CD = ?		--지점코드
+				AND ROLL_GBN = ?	--용지구분
+        ]]>
+
+    </query>
+    
+       <query id="rbo3010_s02" desc="용지재고 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbo3010_s02 */
+				MIN(STND_YEAR) STND_YEAR
+			FROM 		
+               TBRB_ROLL_MANA		
+        ]]>
+    </query>         
+
+</queryMap>

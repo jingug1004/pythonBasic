@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_uncollected 미수금내역등록 ">
+	<query id="tbeg_race_priz_rankamt_ff001" desc="월별예상상금 조회" fetchSize="50">
+        <![CDATA[
+        -- 월별예상상금 조회  	
+		SELECT
+			  RACE_KINDS_CD_NM || ' / ' || RACE_DGRE_CD_NM AS RACE_NAME,
+			  (RANK_AMT / COUNT) AS RACE_AMT,
+			  COUNT AS RACE_COUNT,
+			  RANK_AMT AS TOTAL_AMT,
+			  LTRIM(TO_CHAR((RANK_AMT / COUNT),'999,999,999,999')) ||'원 * ' || COUNT || '경주' AS RACE_AMT_COUNT
+		FROM(	  
+			 SELECT STND_YEAR,
+				   MBR_CD,
+				   RACE_KINDS_CD,
+				   RACE_KINDS_CD_NM,
+				   RACE_DGRE_CD,
+				   RACE_DGRE_CD_NM,
+				   NVL(SUM(RANK_AMT),0) AS RANK_AMT,
+				   COUNT(distinct stnd_year||mbr_cd||LPAD(tms,3,'0')||LPAD(day_ord,2,'0')||RACE_NO) AS COUNT		  
+			 FROM(  
+				SELECT A.STND_YEAR,
+					   A.PAY_MONTH,
+					   A.MBR_CD,
+					   A.TMS,
+					   A.DAY_ORD,
+					   A.RACE_NO,		   
+					   A.RACE_KINDS_CD,
+					   C.CD_NM AS RACE_KINDS_CD_NM,
+					   A.RACE_DGRE_CD,
+					   D.RMK AS RACE_DGRE_CD_NM,
+					   A.RACER_GRD_CD,
+					   A.RANK_AMT			   	   	   
+				FROM TBEG_RACE_PRIZ A,
+					 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+					   WHERE A.STND_YEAR = ?
+					   AND A.PAY_MONTH = ?
+					 ) B, (select CD, CD_NM from tbeA_SPEC_CD WHERE GRP_CD ='E00001') C
+					 , (select CD, RMK from tbeA_SPEC_CD WHERE GRP_CD ='E00005') D
+					 ,tbeg_allow_bac E
+				WHERE A.STND_YEAR =b.STND_YEAR
+				AND A.MBR_CD = B.MBR_CD
+				AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+				AND A.RACE_KINDS_CD = C.CD(+)
+				AND A.RACE_DGRE_CD = D.CD(+)
+				AND A.STND_YEAR = E.STND_YEAR
+				)
+			 GROUP BY STND_YEAR,MBR_CD, RACE_KINDS_CD, RACE_KINDS_CD_NM, RACE_DGRE_CD, RACE_DGRE_CD_NM
+			 ORDER BY 1,2,3,5
+			 )
+        ]]>
+    </query>    
+
+	<query id="tbeg_race_priz_rankamt_ff002" desc="월별예상상금 출전수당 조회 " fetchSize="50">
+        <![CDATA[
+        -- 월별예상상금 출전수당 조회  	
+		SELECT LTRIM(TO_CHAR(RUN_AMT,'999,999,999,999')) AS RUN_AMT,
+			   COUNT,
+			   LTRIM(TO_CHAR((RUN_AMT * COUNT),'999,999,999,999')) AS SUM,
+			   LTRIM(TO_CHAR(DECODE(R_RUN_AMT,0,(RUN_AMT*(70/100))),'999,999,999,999')) AS R_RUN_AMT,
+			   R_COUNT,
+			   LTRIM(TO_CHAR(DECODE(R_RUN_AMT,0,(RUN_AMT*(70/100))) * R_COUNT,'999,999,999,999')) AS R_SUM 
+		FROM( 
+			SELECT C.RUN_AMT,
+				   COUNT(*) AS COUNT,
+				   0 AS R_RUN_AMT,
+				   0 AS R_COUNT		   		    
+			FROM TBEG_RACE_PRIZ A,
+				 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+				   WHERE A.STND_YEAR = ?
+				   AND A.PAY_MONTH = ?
+				 ) B, tbeg_allow_bac C
+			WHERE A.STND_YEAR = B.STND_YEAR
+			AND A.MBR_CD = B.MBR_CD
+			AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+			AND A.STND_YEAR =C.STND_YEAR	
+			AND A.RUN_AMT =C.RUN_AMT	
+			GROUP BY C.RUN_AMT 
+			UNION ALL
+			SELECT 0 AS RUN_AMT,
+				   0 AS COUNT,
+				   C.RUN_AMT * (C.NEW_RACER_AMT_RATE/100) AS R_RUN_AMT,
+				   COUNT(*) AS R_COUNT		  		   		    
+			FROM TBEG_RACE_PRIZ A,
+				 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+				   WHERE A.STND_YEAR = ?
+				   AND A.PAY_MONTH = ?
+				 ) B, tbeg_allow_bac C
+			WHERE A.STND_YEAR = B.STND_YEAR
+			AND A.MBR_CD = B.MBR_CD
+			AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+			AND A.STND_YEAR =C.STND_YEAR	
+			AND A.RUN_AMT = C.RUN_AMT * (C.NEW_RACER_AMT_RATE/100)	
+			GROUP BY C.RUN_AMT,C.NEW_RACER_AMT_RATE
+			)
+        ]]>
+    </query>    
+    
+    <query id="tbeg_race_priz_event_rankamt_ff002" desc="월별예상상금 이벤트경주수당 조회 " fetchSize="50">
+        <![CDATA[
+        -- 월별예상상금 이벤트경주수당 조회  	
+		SELECT LTRIM(TO_CHAR(EVENT_AMT,'999,999,999,999')) AS EVENT_AMT,
+               EV_COUNT,
+               LTRIM(TO_CHAR((EVENT_AMT * EV_COUNT),'999,999,999,999')) AS EV_SUM
+        FROM( 
+            SELECT C.EVENT_AMT,
+                   COUNT(*) AS EV_COUNT      	   		    
+			FROM TBEG_RACE_PRIZ A,
+				 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+				   WHERE A.STND_YEAR = ?
+				   AND A.PAY_MONTH = ?
+				 ) B, tbeg_allow_bac C
+			WHERE A.STND_YEAR = B.STND_YEAR
+			AND A.MBR_CD = B.MBR_CD
+			AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+			AND A.STND_YEAR =C.STND_YEAR	
+			AND A.EVENT_AMT =C.EVENT_AMT    
+            GROUP BY C.EVENT_AMT 
+			)
+        ]]>
+    </query>    
+    
+    <query id="tbeg_race_priz_rankamt_ff003" desc="월별예상상금 무사고수당 조회 " fetchSize="50">
+        <![CDATA[
+        -- 월별예상상금 무사고수당 조회  	
+		SELECT SUM(SUM_COUNT) AS SUM_COUNT,
+  		 		SUM(CU_COUNT) AS CU_COUNT
+	  	FROM(	 	 SELECT 
+			   		COUNT(distinct stnd_year||mbr_cd||LPAD(tms,3,'0')||LPAD(day_ord,2,'0')||RACE_NO) AS SUM_COUNT,
+					0 AS CU_COUNT 
+			 FROM(  
+					SELECT A.STND_YEAR,
+						   A.MBR_CD,
+						   A.TMS,
+						   A.DAY_ORD,
+						   A.RACE_NO					   					   	   	   	   
+					FROM TBEG_RACE_PRIZ A,
+						 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+						   WHERE A.STND_YEAR = ?
+						   AND A.PAY_MONTH = ?
+						 ) B
+					WHERE A.STND_YEAR =b.STND_YEAR
+					AND A.MBR_CD = B.MBR_CD
+					AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS				
+					)
+			 GROUP BY STND_YEAR,MBR_CD
+			 UNION ALL
+			 SELECT 
+			   		0 AS SUM_COUNT,
+					COUNT(distinct stnd_year||mbr_cd||LPAD(tms,3,'0')||LPAD(day_ord,2,'0')||RACE_NO) AS CU_COUNT 
+			 FROM(  
+					SELECT A.STND_YEAR,
+						   A.MBR_CD,
+						   A.TMS,
+						   A.DAY_ORD,
+						   A.RACE_NO					   					   	   	   	   
+					FROM TBEG_RACE_PRIZ A,
+						 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+						   WHERE A.STND_YEAR = ?
+						   AND A.PAY_MONTH = ?
+						 ) B
+					WHERE A.STND_YEAR =b.STND_YEAR
+					AND A.MBR_CD = B.MBR_CD
+					AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS	
+					AND A.STR_AMT=0			
+					)
+			 GROUP BY STND_YEAR,MBR_CD
+			 )			  
+        ]]>
+    </query>    
+    
+    <query id="tbeg_race_priz_rankamt_ff004" desc="월별예상상금 안전수당 조회 " fetchSize="50">
+        <![CDATA[
+        -- 월별예상상금 안전수당 조회  	
+		SELECT LTRIM(TO_CHAR(SUM(SAFY_AMT),'999,999,999,999')) AS SAFY_AMT,
+			   SUM(COUNT) AS COUNT,
+			   LTRIM(TO_CHAR(SUM(SAFY_AMT) * SUM(COUNT),'999,999,999,999')) AS SUM,
+			   SUM(J_COUNT) AS J_COUNT,
+			   LTRIM(TO_CHAR(SUM(SAFY_AMT) * SUM(J_COUNT),'999,999,999,999')) AS J_SUM,
+			   LTRIM(TO_CHAR(DECODE(SUM(R_SAFY_AMT),0,(SUM(SAFY_AMT)*(70/100))),'999,999,999,999')) AS R_SAFY_AMT,
+			   SUM(R_COUNT) AS R_COUNT,
+			   LTRIM(TO_CHAR(DECODE(SUM(R_SAFY_AMT),0,(SUM(SAFY_AMT)*(70/100))) * SUM(R_COUNT),'999,999,999,999')) AS R_SUM,
+			   SUM(JR_COUNT) AS JR_COUNT,
+			   LTRIM(TO_CHAR(DECODE(SUM(R_SAFY_AMT),0,(SUM(SAFY_AMT)*(70/100))) * SUM(JR_COUNT),'999,999,999,999')) AS JR_SUM 
+			FROM( 
+		   		SELECT C.SAFY_AMT,
+					   COUNT(*) AS COUNT,			   
+					   0 AS J_COUNT,
+					   0 AS R_SAFY_AMT,
+					   0 AS R_COUNT,			   
+					   0 AS JR_COUNT					   		   		    
+				FROM TBEG_RACE_PRIZ A,
+					 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+					   WHERE A.STND_YEAR = ?
+					   AND A.PAY_MONTH = ?
+					 ) B, tbeg_allow_bac C
+				WHERE A.STND_YEAR = B.STND_YEAR
+				AND A.MBR_CD = B.MBR_CD
+				AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+				AND A.STND_YEAR =C.STND_YEAR	
+				--AND A.RUN_AMT =C.RUN_AMT	
+				GROUP BY C.SAFY_AMT
+				UNION ALL
+				SELECT 0 AS SAFY_AMT,
+					   0 AS COUNT,			   
+					   COUNT(*) AS J_COUNT,
+					   0 AS R_SAFY_AMT,
+					   0 AS R_COUNT,			   
+					   0 AS JR_COUNT			   		    
+				FROM TBEG_RACE_PRIZ A,
+					 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+					   WHERE A.STND_YEAR = ?
+					   AND A.PAY_MONTH = ?
+					 ) B, tbeg_allow_bac C
+				WHERE A.STND_YEAR = B.STND_YEAR
+				AND A.MBR_CD = B.MBR_CD
+				AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+				AND A.STND_YEAR =C.STND_YEAR	
+				AND A.SAFY_AMT = 0
+				GROUP BY C.SAFY_AMT
+				UNION ALL		
+				SELECT 0 AS SAFY_AMT,
+					   0 AS COUNT,			   
+					   0 AS J_COUNT,
+					   C.SAFY_AMT * (C.NEW_RACER_AMT_RATE/100) AS R_SAFY_AMT,
+					   COUNT(*) AS R_COUNT,			   
+					   0 AS JR_COUNT					   		   		    
+				FROM TBEG_RACE_PRIZ A,
+					 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+					   WHERE A.STND_YEAR = ?
+					   AND A.PAY_MONTH = ?
+					 ) B, tbeg_allow_bac C
+				WHERE A.STND_YEAR = B.STND_YEAR
+				AND A.MBR_CD = B.MBR_CD
+				AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+				AND A.STND_YEAR =C.STND_YEAR	
+				AND A.SAFY_AMT = C.SAFY_AMT * (C.NEW_RACER_AMT_RATE/100)	
+				GROUP BY C.SAFY_AMT,C.NEW_RACER_AMT_RATE
+				UNION ALL
+				SELECT 0 AS SAFY_AMT,
+					   0 AS COUNT,			   
+					   0 AS J_COUNT,
+					   0 AS R_SAFY_AMT,
+					   0 AS R_COUNT,			   
+					   COUNT(*) AS JR_COUNT			   		    
+				FROM TBEG_RACE_PRIZ A,
+					 (SELECT * FROM VWEG_MONTH_PAY_BAC A
+					   WHERE A.STND_YEAR = ?
+					   AND A.PAY_MONTH = ?
+					 ) B, tbeg_allow_bac C
+				WHERE A.STND_YEAR = B.STND_YEAR
+				AND A.MBR_CD = B.MBR_CD
+				AND A.TMS BETWEEN B.STR_TMS AND B.END_TMS  
+				AND A.STND_YEAR =C.STND_YEAR	
+				AND A.SAFY_AMT = 0
+				AND A.RUN_AMT = C.RUN_AMT * (C.NEW_RACER_AMT_RATE/100)	
+				GROUP BY C.SAFY_AMT,C.NEW_RACER_AMT_RATE
+				)
+		 
+        ]]>
+    </query>    
+    
+</queryMap>

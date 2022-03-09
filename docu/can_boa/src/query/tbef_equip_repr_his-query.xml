@@ -1,0 +1,615 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_equip_repr_his 장비 정비 이력 ">
+	<query id="tbef_equip_repr_his_ff001" desc="장비 조회 " fetchSize="50">
+        <![CDATA[
+            -- 장비 조회  
+			SELECT
+				DISTINCT
+				EQUIP_TPE_CD, 	-- 장비구분 
+				EQUIP_NO, 	-- 장비 번호 
+				--EQUIP_STAT_CD,	-- 장비 상태 
+				MBR_CD	--경정장 코드 
+			FROM TBEF_EQUIP
+			WHERE STND_YEAR BETWEEN SUBSTR(?,0,4) AND SUBSTR(?,0,4)
+			AND EQUIP_TPE_CD = ?
+			AND EQUIP_NO LIKE '%'||UPPER(?)||'%'
+			AND MBR_CD like ?||'%'
+			AND USE_YN = DECODE(?, NULL, USE_YN, ?)
+			ORDER BY  MBR_CD,  EQUIP_NO
+        ]]>
+    </query>
+    
+    <query id="tbef_equip_repr_his_ff020" desc="모터 성적 조회 " fetchSize="50">
+        <![CDATA[
+			-- 모터   성적 조회 
+			 SELECT TOR.STND_YEAR,     -- 기준년도 
+			 TOR.MBR_CD,    -- 경정장 구분 
+			 'M' AS EQUIP_TPE_CD,	-- 장비 구분 
+			 TOR.MOT_NO AS EQUIP_NO,	-- 장비번호 
+			 TOR.TMS,     -- 회차 
+			 TOR.DAY_ORD,     -- 일차 
+			 TOR.RACE_DAY,    -- 경주 일자 
+			 TOR.RACE_NO,    -- 경주 번호 
+			 TOR.RACE_REG_NO,    -- 정번 
+			 TOR.RACER_NO,    -- 선수 등록번호 
+			 (SELECT NM_KOR FROM TBEC_RACER_MASTER TBM WHERE TBM.RACER_NO = TOR.RACER_NO) AS RACER_NM,    -- 선수명 
+			 BOAT_NO,     -- 장착 보트 번호 
+			 RANK,    -- 순위 
+			 INTRO_RUN_TM,    -- 소개항주 타임 
+			 ( SELECT HIGH_RANK_RATIO FROM MRASYS.TBEB_MOT_RECD_ACCU_SUM TMRAS 
+			     WHERE TMRAS.STND_YEAR = TOR.STND_YEAR 
+			     AND TMRAS.TMS = TOR.TMS 
+			     AND TMRAS.MOT_NO = TOR.MOT_NO
+			 ) AS HIGH_RANK_RATIO -- 모터  연대율 
+			 FROM MRASYS.TBEB_ORGAN TOR
+			 WHERE TOR.MOT_NO = ?
+			 ORDER BY tor.STND_YEAR DESC, tor.TMS DESC, TOR.DAY_ORD, TOR.RACE_NO
+
+        ]]>
+    </query>
+    
+    <query id="tbef_equip_repr_his_ff021" desc="보트 성적   조회" fetchSize="50">
+        <![CDATA[
+            -- 보트  성적 조회 
+	  SELECT /* tbef_equip_repr_his_ff021 */
+	         TOR.STND_YEAR, 	-- 기준년도 
+			 TOR.MBR_CD,    -- 경정장 구분 
+			  'B' AS EQUIP_TPE_CD,
+			 TOR.BOAT_NO AS EQUIP_NO,
+			 TOR.TMS, 	-- 회차 
+			 TOR.DAY_ORD,     -- 일차 
+			 TOR.RACE_DAY,    -- 경주 일자 
+			 TOR.RACE_NO,    -- 경주 번호 
+			 TOR.RACE_REG_NO,    -- 정번 
+			 TOR.RACER_NO,    -- 선수 등록번호 
+			 (SELECT NM_KOR FROM MRASYS.TBEC_RACER_MASTER TBM WHERE TBM.RACER_NO = TOR.RACER_NO) AS RACER_NM,	-- 선수명 
+			 MOT_NO, 	-- 장착 모터  번호 
+			 RANK,	-- 순위 
+			 INTRO_RUN_TM,	-- 소개항주 타임 
+			 ( SELECT HIGH_RANK_RATIO FROM MRASYS.TBEB_BOAT_RECD_ACCU_SUM TMRAS 
+			 	WHERE TMRAS.STND_YEAR = TOR.STND_YEAR 
+			 	AND TMRAS.TMS = TOR.TMS 
+			 	AND TMRAS.BOAT_NO = TOR.BOAT_NO
+			 ) AS HIGH_RANK_RATIO -- 보트 연대율 
+			 FROM TBEB_ORGAN TOR
+			 WHERE TOR.BOAT_NO = ?
+			 ORDER BY tor.STND_YEAR DESC, tor.TMS DESC, TOR.DAY_ORD, TOR.RACE_NO
+        ]]>
+    </query>
+    
+    <query id="tbef_equip_repr_his_ff003" desc="장비 정비 이력  조회" fetchSize="50">
+        <![CDATA[
+            SELECT /* tbef_equip_repr_his_ff003 */
+		        0 AS CHK, -- 선택 체크 박스 
+		        'N' AS REPR_TPE_CHANGE_YN, -- 정비 유형 변경여부 
+		        HIS.STND_YEAR,    -- 기준년도 
+		        HIS.MBR_CD,    -- 경정장 구분 
+		        HIS.EQUIP_TPE_CD,     -- 장비구분 
+		        HIS.EQUIP_NO,     -- 장비 번호 
+		        HIS.REPR_SEQ,     -- 정비 일련 번호 
+		        REPR_DT,     -- 정비일자 
+		        REPR_TPE_CDS,     -- 정비 유형
+		        REPR_TPE_NMS,     -- 정비 유형명  
+		        MJR_PARTS,     -- 주요 부품 
+		        REPR_DESC,     -- 정비 내용 
+		        REPR_NM,     -- 정비사 명 
+		        DECODE(HOMEPAGE_YN, 'Y', '1', '0') AS HOMEPAGE_YN , -- 홈페이지 공지 여부 
+		        HOMEPAGE_DESC,     -- 홈페이지 공지 내용
+		        HIS.REL_STND_YEAR,  -- 관련 경주 기준년도 
+		        HIS.REL_MBR_CD, -- 관련 경주 경정장코드 
+		        HIS.REL_TMS,    -- 관련 경주 회차 
+		        HIS.REL_DAY_ORD,    -- 관련 경주 일차 
+		        HIS.REL_RACE_NO,    -- 관련 경주 번호 
+		        HIS.REL_RACE_REG_NO,    -- 관련 경주 정번 
+		        TOR.RACER_NO, -- 선수 등록번호 
+		        TOR.RACE_DAY, -- 경주일자 
+		        (SELECT NM_KOR FROM MRASYS.TBEC_RACER_MASTER TBM WHERE TBM.RACER_NO = TOR.RACER_NO) AS RACER_NM,     -- 선수명 
+		        DECODE(HIS.EQUIP_TPE_CD, 'M', TOR.BOAT_NO, TOR.MOT_NO) AS PAIR_EQUIP_NO,     -- 장착 보트 /보트 번호 
+		        TOR.RANK,    -- 순위 
+		        TOR.INTRO_RUN_TM,   -- 소개항주 타임
+		        ( SELECT HIGH_RANK_RATIO FROM MRASYS.TBEB_MOT_RECD_ACCU_SUM TMRAS 
+		            WHERE TMRAS.STND_YEAR = TOR.STND_YEAR 
+		            AND TMRAS.TMS = TOR.TMS 
+		            AND TMRAS.MOT_NO = TOR.MOT_NO
+		        ) AS HIGH_RANK_RATIO, -- 모터  연대율 
+		        '' AS MODIFY_IMG,
+		        DLV.DELV_SEQ,
+		        DLV.RECEPT_ID,
+		        DLV.OUT_ID 
+		    FROM TBEF_EQUIP_REPR_HIS HIS, MRASYS.TBEB_ORGAN TOR, TBEF_EQUIP TE, TBEF_DELV_REPR DLV
+		    WHERE HIS.REL_STND_YEAR = TOR.STND_YEAR(+)
+		    AND HIS.REL_MBR_CD = TOR.MBR_CD(+)
+		    AND HIS.REL_TMS = TOR.TMS(+)
+		    AND HIS.REL_DAY_ORD = TOR.DAY_ORD(+)
+		    AND HIS.REL_RACE_NO = TOR.RACE_NO(+)
+		    AND HIS.REL_RACE_REG_NO = TOR.RACE_REG_NO(+)
+		    AND HIS.STND_YEAR = TE.STND_YEAR
+		    AND HIS.MBR_CD = TE.MBR_CD
+		    AND HIS.EQUIP_TPE_CD = TE.EQUIP_TPE_CD
+		    AND HIS.EQUIP_NO = TE.EQUIP_NO
+		    AND HIS.STND_YEAR = DLV.STND_YEAR(+)
+		    AND HIS.REPR_SEQ = DLV.REPR_SEQ(+)
+		    AND HIS.REPR_DT BETWEEN ? AND ?
+		    AND HIS.EQUIP_TPE_CD = ?
+		    AND HIS.EQUIP_NO LIKE UPPER(?)||'%'
+		    AND HIS.REPR_TPE_CDS LIKE '%'||?||'%'
+		    AND HIS.MBR_CD LIKE ?||'%'
+		    AND NVL(HIS.MJR_PARTS, ' ') LIKE '%'||? ||'%'
+            AND TE.USE_YN = DECODE(?, NULL, USE_YN, ?)
+		    ORDER BY HIS.REPR_DT DESC, HIS.EQUIP_NO
+        ]]>
+    </query> 
+
+    <query id="tbef_equip_repr_his_ff004" desc="모터 정비 이력  조회" fetchSize="50">
+        <![CDATA[
+            SELECT 
+		        HIS.EQUIP_TPE_CD,     -- 장비구분 
+		        HIS.EQUIP_NO,     -- 장비 번호 
+		        REPR_DT,     -- 정비일자 
+		        REPR_TPE_NMS,     -- 정비 유형명  
+		        MJR_PARTS,     -- 주요 부품 
+		        REPR_DESC      -- 정비 내용 
+		    FROM TBEF_EQUIP_REPR_HIS HIS
+		    WHERE HIS.REPR_DT BETWEEN ? AND ?
+		    AND HIS.EQUIP_TPE_CD = ?
+		    AND HIS.MBR_CD LIKE ?||'%'
+		    ORDER BY HIS.EQUIP_NO, HIS.REPR_DT DESC
+        ]]>
+    </query> 
+
+    <query id="tbef_equip_repr_his_mf001" desc="정비 이력 등록 " fetchSize="10">
+        <![CDATA[
+        	-- 정비 이력 등록 /수정 
+        	/* tbef_equip_repr_his_mf001 */
+            MERGE INTO TBEF_EQUIP_REPR_HIS TERH
+            USING (
+            	SELECT
+               ? AS STND_YEAR,	-- 기준년도 
+               ? AS MBR_CD,	-- 경정장 코드  
+			   ? AS EQUIP_TPE_CD, 	-- 장비구분 
+			   UPPER(?) AS EQUIP_NO, 	-- 장비 번호 
+               ? AS REPR_DT,	-- 정비일자 
+			   ? AS REPR_SEQ, 	-- 정비 일련 번호 
+			   ? AS REPR_TPE_CDS, 	-- 정비 유형 
+			   ? AS REPR_TPE_NMS, 	-- 정비 유형명  
+			   ? AS MJR_PARTS, 	-- 주요 부품 
+			   ? AS REPR_DESC, 	-- 정비 내용 
+			   ? AS REPR_NM, 	-- 정비자명 
+			   ? AS HOMEPAGE_YN, 	-- 홈페이지 등록 여부 
+			   ? AS HOMEPAGE_DESC, 	-- 홈페이지 등록 내용
+			   ? AS REL_STND_YEAR,  -- 관련 경주 기준년도 
+		       ? AS REL_MBR_CD, -- 관련 경주 경정장코드 
+		       ? AS REL_TMS,    -- 관련 경주 회차 
+		       ? AS REL_DAY_ORD,    -- 관련 경주 일차 
+		       ? AS REL_RACE_NO,    -- 관련 경주 번호 
+		       ? AS REL_RACE_REG_NO,    -- 관련 경주 정번 
+			   ? AS USER_ID			-- 처리 담당자 
+			   FROM DUAL
+		) TP
+		ON (
+			TERH.STND_YEAR = TP.STND_YEAR
+			AND TERH.REPR_SEQ = TP.REPR_SEQ
+		    )
+		WHEN MATCHED THEN
+		UPDATE 
+			SET
+			   TERH.MBR_CD = TP.MBR_CD,	-- 경정장 코드  
+			   TERH.EQUIP_TPE_CD = TP.EQUIP_TPE_CD, 	-- 장비구분 
+			   TERH.EQUIP_NO = TP.EQUIP_NO, 	-- 장비 번호 
+               TERH.REPR_DT = TP.REPR_DT,	-- 정비일자 
+			   TERH.REPR_TPE_CDS = TP.REPR_TPE_CDS, 	-- 정비 유형 
+			   TERH.REPR_TPE_NMS = TP.REPR_TPE_NMS, 	-- 정비 유형 명 
+			   TERH.MJR_PARTS = TP.MJR_PARTS, 	-- 주요 부품 
+			   TERH.REPR_DESC = TP.REPR_DESC, 	-- 정비 내용 
+			   TERH.REPR_NM = TP.REPR_NM, 	-- 정비자명 
+			   TERH.HOMEPAGE_YN = TP.HOMEPAGE_YN, 	-- 홈페이지 등록 여부 
+			   TERH.HOMEPAGE_DESC = TP.HOMEPAGE_DESC, 	-- 홈페이지 등록 내용
+			   TERH.REL_STND_YEAR = TP.REL_STND_YEAR,  -- 관련 경주 기준년도 
+		       TERH.REL_MBR_CD = TP.REL_MBR_CD, -- 관련 경주 경정장코드 
+		       TERH.REL_TMS = TP.REL_TMS,    -- 관련 경주 회차 
+		       TERH.REL_DAY_ORD = TP.REL_DAY_ORD,    -- 관련 경주 일차 
+		       TERH.REL_RACE_NO = TP.REL_RACE_NO,    -- 관련 경주 번호 
+		       TERH.REL_RACE_REG_NO = TP.REL_RACE_REG_NO,    -- 관련 경주 정번 
+			   TERH.UPDT_ID = TP.USER_ID,	-- 처리 담당자 
+			   TERH.UPDT_DTM = SYSDATE
+		WHEN NOT MATCHED THEN
+			INSERT (
+			   TERH.STND_YEAR,	-- 기준년도 
+               TERH.MBR_CD,	-- 경정장 코드  
+			   TERH.EQUIP_TPE_CD, 	-- 장비구분 
+			   TERH.EQUIP_NO, 	-- 장비 번호 
+               TERH.REPR_DT,	-- 정비일자 
+			   TERH.REPR_SEQ, 	-- 정비 일련 번호 
+			   TERH.REPR_TPE_CDS, 	-- 정비 유형 
+			   TERH.REPR_TPE_NMS, 	-- 정비 유형 명 
+			   TERH.MJR_PARTS, 	-- 주요 부품 
+			   TERH.REPR_DESC, 	-- 정비 내용 
+			   TERH.REPR_NM, 	-- 정비자명 
+			   TERH.HOMEPAGE_YN, 	-- 홈페이지 등록 여부 
+			   TERH.HOMEPAGE_DESC, 	-- 홈페이지 등록 내용
+			   TERH.REL_STND_YEAR,  -- 관련 경주 기준년도 
+		       TERH.REL_MBR_CD, -- 관련 경주 경정장코드 
+		       TERH.REL_TMS,    -- 관련 경주 회차 
+		       TERH.REL_DAY_ORD,    -- 관련 경주 일차 
+		       TERH.REL_RACE_NO,    -- 관련 경주 번호 
+		       TERH.REL_RACE_REG_NO,    -- 관련 경주 정번 
+			   TERH.INST_ID,	-- 처리 담당자 
+			   TERH.INST_DTM 
+		)VALUES(
+				TP.STND_YEAR,	-- 기준년도 
+               TP.MBR_CD,	-- 경정장 코드  
+			   TP.EQUIP_TPE_CD, 	-- 장비구분 
+			   TP.EQUIP_NO, 	-- 장비 번호 
+               TP.REPR_DT,	-- 정비일자 
+			   TP.REPR_SEQ,	-- 일련번호 
+			   TP.REPR_TPE_CDS, 	-- 정비 유형 
+			   TP.REPR_TPE_NMS, 	-- 정비 유형 명 
+			   TP.MJR_PARTS, 	-- 주요 부품 
+			   TP.REPR_DESC, 	-- 정비 내용 
+			   TP.REPR_NM, 	-- 정비자명 
+			   TP.HOMEPAGE_YN, 	-- 홈페이지 등록 여부 
+			   TP.HOMEPAGE_DESC, 	-- 홈페이지 등록 내용
+			   TP.REL_STND_YEAR,  -- 관련 경주 기준년도 
+		       TP.REL_MBR_CD, -- 관련 경주 경정장코드 
+		       TP.REL_TMS,    -- 관련 경주 회차 
+		       TP.REL_DAY_ORD,    -- 관련 경주 일차 
+		       TP.REL_RACE_NO,    -- 관련 경주 번호 
+		       TP.REL_RACE_REG_NO,    -- 관련 경주 정번 
+			   TP.USER_ID,	-- 처리 담당자 
+			   SYSDATE
+		)
+			    
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_repr_his_df001" desc="정비이력 삭제 " fetchSize="10">
+        <![CDATA[
+           	-- 정비 이력 삭제 
+			DELETE 
+			FROM TBEF_EQUIP_REPR_HIS
+			WHERE  STND_YEAR     = ?	-- 기준년도 
+			AND    REPR_SEQ      = ?	-- 정비 일련 번호 
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_repr_his_ff101_bak" desc="모터 정비 유형 집계  " fetchSize="10">
+        <![CDATA[
+		-- 모터 정비  유형 집계      
+        SELECT 
+            CASE WHEN TE.EQUIP_NO IS NULL THEN '계 : ' ELSE TE.EQUIP_NO END AS EQUIP_NO,
+            CASE WHEN TE.EQUIP_NO IS NULL THEN 0 ELSE 1 END AS TPE,
+            SUM(NVL(REPR_CNT,0)) AS REPR_TOT_CNT, 
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='001' THEN REPR_CNT END),0) AS REPR_CNT_001,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='002' THEN REPR_CNT END),0) AS REPR_CNT_002,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='003' THEN REPR_CNT END),0) AS REPR_CNT_003,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='004' THEN REPR_CNT END),0) AS REPR_CNT_004,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='005' THEN REPR_CNT END),0) AS REPR_CNT_005,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='006' THEN REPR_CNT END),0) AS REPR_CNT_006,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='007' THEN REPR_CNT END),0) AS REPR_CNT_007,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='008' THEN REPR_CNT END),0) AS REPR_CNT_008,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='009' THEN REPR_CNT END),0) AS REPR_CNT_009,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='010' THEN REPR_CNT END),0) AS REPR_CNT_010,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='011' THEN REPR_CNT END),0) AS REPR_CNT_011,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='012' THEN REPR_CNT END),0) AS REPR_CNT_012,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='013' THEN REPR_CNT END),0) AS REPR_CNT_013,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='014' THEN REPR_CNT END),0) AS REPR_CNT_014,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='015' THEN REPR_CNT END),0) AS REPR_CNT_015,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='016' THEN REPR_CNT END),0) AS REPR_CNT_016,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='017' THEN REPR_CNT END),0) AS REPR_CNT_017,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='999' THEN REPR_CNT END),0) AS REPR_CNT_999
+        FROM (
+            SELECT TERH.EQUIP_NO, TERTH.REPR_TPE_CD, COUNT(*) REPR_CNT FROM TBEF_EQUIP_REPR_HIS TERH , TBEF_EQUIP_REPR_TPE_HIS TERTH
+            WHERE TERH.STND_YEAR = TERTH.STND_YEAR
+            AND TERH.REPR_SEQ = TERTH.REPR_SEQ
+            AND TERH.STND_YEAR =?
+            AND TERH.MBR_CD=?
+            AND TERH.EQUIP_TPE_CD='M'
+            GROUP BY TERH.EQUIP_NO, TERTH.REPR_TPE_CD
+         )TERH, 
+         (SELECT EQUIP_NO FROM TBEF_EQUIP 
+            WHERE STND_YEAR=?
+             AND MBR_CD = ?
+             AND EQUIP_TPE_CD = 'M'
+             AND USE_YN = DECODE(?,NULL,USE_YN, ?)
+         )TE
+         WHERE TE.EQUIP_NO = TERH.EQUIP_NO(+)
+         GROUP BY ROLLUP(TE.EQUIP_NO)
+         ORDER BY (CASE WHEN TE.EQUIP_NO IS NULL THEN 0 ELSE 1 END ), EQUIP_NO
+        ]]>
+    </query> 
+
+    <query id="tbef_equip_repr_his_ff101" desc="모터 정비 유형 집계  " fetchSize="10">
+        <![CDATA[
+		-- 모터정비 유형 집계      
+		SELECT  /* tbef_equip_repr_his_ff101 */
+                 TE.EQUIP_NO
+               , TERH.REPR_TPE_CD
+               , TSC.CD_NM REPR_TPE_NM
+               --, TSC.RMK REPR_TPE_NM
+               , NVL(SUM(TERH.REPR_CNT),0) REPR_CNT
+		FROM     (
+					SELECT   TERH.EQUIP_NO
+					       , TERTH.REPR_TPE_CD
+					       , COUNT(*) REPR_CNT
+					FROM     TBEF_EQUIP_REPR_HIS TERH
+					       , TBEF_EQUIP_REPR_TPE_HIS TERTH
+					WHERE    TERH.STND_YEAR    = TERTH.STND_YEAR
+					AND      TERH.REPR_SEQ     = TERTH.REPR_SEQ
+					AND      TERH.STND_YEAR    = ?
+					AND      TERH.MBR_CD       = ?
+					AND      TERH.EQUIP_TPE_CD = 'M'
+					GROUP BY TERH.EQUIP_NO
+					       , TERTH.REPR_TPE_CD
+			     )TERH
+			   , (
+					SELECT   EQUIP_NO
+					FROM     TBEF_EQUIP 
+					WHERE    STND_YEAR    = ?
+					AND      MBR_CD       = ?
+					AND      EQUIP_TPE_CD = 'M'
+					AND      USE_YN       = DECODE(?, NULL, USE_YN, ?)
+			     )TE
+			   , TBDM_SPEC_CD TSC
+		WHERE    TE.EQUIP_NO = TERH.EQUIP_NO(+)
+		AND      TERH.REPR_TPE_CD = TSC.CD
+		AND      TSC.GRP_CD = 'E00108'
+		GROUP BY TE.EQUIP_NO
+		       , TERH.REPR_TPE_CD
+		       , TSC.CD_NM
+		       , TSC.RMK
+		ORDER BY TE.EQUIP_NO, TSC.RMK
+        ]]>
+    </query> 
+    
+    
+    <query id="tbef_equip_repr_his_ff102" desc="보트 정비 유형 집계  " fetchSize="10">
+        <![CDATA[
+		-- 보트 정비  유형 집계      
+		SELECT  /* tbef_equip_repr_his_ff102 */
+                 TE.EQUIP_NO
+               , TERH.REPR_TPE_CD
+               , TSC.CD_NM REPR_TPE_NM
+               --, TSC.RMK REPR_TPE_NM
+               , NVL(SUM(TERH.REPR_CNT),0) REPR_CNT
+		FROM     (
+					SELECT   TERH.EQUIP_NO
+					       , TERTH.REPR_TPE_CD
+					       , COUNT(*) REPR_CNT
+					FROM     TBEF_EQUIP_REPR_HIS TERH
+					       , TBEF_EQUIP_REPR_TPE_HIS TERTH
+					WHERE    TERH.STND_YEAR    = TERTH.STND_YEAR
+					AND      TERH.REPR_SEQ     = TERTH.REPR_SEQ
+					AND      TERH.STND_YEAR    = ?
+					AND      TERH.MBR_CD       = ?
+					AND      TERH.EQUIP_TPE_CD = 'B'
+					GROUP BY TERH.EQUIP_NO
+					       , TERTH.REPR_TPE_CD
+			     )TERH
+			   , (
+					SELECT   EQUIP_NO
+					FROM     TBEF_EQUIP 
+					WHERE    STND_YEAR    = ?
+					AND      MBR_CD       = ?
+					AND      EQUIP_TPE_CD = 'B'
+					AND      USE_YN       = DECODE(?, NULL, USE_YN, ?)
+			     )TE
+			   , TBDM_SPEC_CD TSC
+		WHERE    TE.EQUIP_NO = TERH.EQUIP_NO(+)
+		AND      TERH.REPR_TPE_CD = TSC.CD
+		AND      TSC.GRP_CD = 'E00124'
+		GROUP BY TE.EQUIP_NO
+		       , TERH.REPR_TPE_CD
+		       , TSC.CD_NM
+		       , TSC.RMK
+		ORDER BY TE.EQUIP_NO, TSC.RMK
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_repr_his_ff102_bak" desc="보트 정비 유형 집계  " fetchSize="10">
+        <![CDATA[
+		-- 보트 정비  유형 집계      
+        SELECT /* tbef_equip_repr_his_ff102_bak */
+            CASE WHEN TE.EQUIP_NO IS NULL THEN '계 : ' ELSE TE.EQUIP_NO END AS EQUIP_NO,
+            CASE WHEN TE.EQUIP_NO IS NULL THEN 0 ELSE 1 END AS TPE,
+            SUM(NVL(REPR_CNT,0)) AS REPR_TOT_CNT, 
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='001' THEN REPR_CNT END),0) AS REPR_CNT_001,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='002' THEN REPR_CNT END),0) AS REPR_CNT_002,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='003' THEN REPR_CNT END),0) AS REPR_CNT_003,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='004' THEN REPR_CNT END),0) AS REPR_CNT_004,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='005' THEN REPR_CNT END),0) AS REPR_CNT_005,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='006' THEN REPR_CNT END),0) AS REPR_CNT_006,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='007' THEN REPR_CNT END),0) AS REPR_CNT_007,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='008' THEN REPR_CNT END),0) AS REPR_CNT_008,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='009' THEN REPR_CNT END),0) AS REPR_CNT_009,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='010' THEN REPR_CNT END),0) AS REPR_CNT_010,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='011' THEN REPR_CNT END),0) AS REPR_CNT_011,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='012' THEN REPR_CNT END),0) AS REPR_CNT_012,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='013' THEN REPR_CNT END),0) AS REPR_CNT_013,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='014' THEN REPR_CNT END),0) AS REPR_CNT_014,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='015' THEN REPR_CNT END),0) AS REPR_CNT_015,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='016' THEN REPR_CNT END),0) AS REPR_CNT_016,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='017' THEN REPR_CNT END),0) AS REPR_CNT_017,
+            NVL(SUM(CASE WHEN REPR_TPE_CD ='999' THEN REPR_CNT END),0) AS REPR_CNT_999
+        FROM (
+            SELECT TERH.EQUIP_NO, TERTH.REPR_TPE_CD, COUNT(*) REPR_CNT FROM TBEF_EQUIP_REPR_HIS TERH , TBEF_EQUIP_REPR_TPE_HIS TERTH
+            WHERE TERH.STND_YEAR = TERTH.STND_YEAR
+            AND TERH.REPR_SEQ = TERTH.REPR_SEQ
+            AND TERH.STND_YEAR =?
+            AND TERH.MBR_CD=?
+            AND TERH.EQUIP_TPE_CD='B'
+            GROUP BY TERH.EQUIP_NO, TERTH.REPR_TPE_CD
+         )TERH, 
+         (SELECT EQUIP_NO FROM TBEF_EQUIP 
+            WHERE STND_YEAR=?
+             AND MBR_CD = ?
+             AND EQUIP_TPE_CD = 'B'
+             AND USE_YN = DECODE(?,NULL,USE_YN, ?)
+         )TE
+         WHERE TE.EQUIP_NO = TERH.EQUIP_NO(+)
+         GROUP BY ROLLUP(TE.EQUIP_NO)
+         ORDER BY (CASE WHEN TE.EQUIP_NO IS NULL THEN 0 ELSE 1 END ), EQUIP_NO
+        ]]>
+    </query> 
+
+    <query id="tbef_equip_repr_his_ff200" desc="정비부품사용내역 조회" fetchSize="50">
+        <![CDATA[
+			-- 정비부품사용내역 조회 
+			SELECT /* tbef_equip_repr_his_ff200 */
+			       '0' AS CHK,
+			       H.STND_YEAR, 						-- 기준년도 
+			       H.REPR_SEQ,							-- 정비일련번호
+			       D.DELV_SEQ,							-- 출고번호
+			       DP.MBR_CD, 							-- 경정장코드
+			       DP.PARTS_CD, 						-- 부품코드
+			       DP.PARTS_YEAR,						-- 부품년식
+			       DP.DELV_CNT, 						-- 출고수량
+			       DP.DELV_CNT AS ORG_DELV_CNT,			-- 출고수량(원본 비교용)
+			       DP.IFIS_FLAG,						-- 재무연동 여부
+			       DP.RMK, 								-- 비고
+			       P.NOW_UNIT_CNT + DP.DELV_CNT AS NOW_UNIT_CNT,		-- 재고수량(출고수량 포함, 현재고수량 아님)
+			       M.PARTS_ITEM_CD_NM,					-- 부품명
+			       M.SPEC								-- 사양
+			FROM TBEF_EQUIP_REPR_HIS H
+			INNER JOIN TBEF_EQUIP E
+			  ON     H.STND_YEAR = E.STND_YEAR
+			     AND H.MBR_CD = E.MBR_CD
+			     AND H.EQUIP_TPE_CD = E.EQUIP_TPE_CD
+			     AND H.EQUIP_NO = E.EQUIP_NO
+			INNER JOIN TBEF_DELV_REPR D
+			  ON     H.STND_YEAR = D.STND_YEAR
+			     AND H.REPR_SEQ  = D.REPR_SEQ
+			INNER JOIN TBEF_DELV_PARTS_REPR DP
+			  ON     D.STND_YEAR = DP.STND_YEAR
+			     AND D.MBR_CD = DP.MBR_CD
+			     AND D.DELV_SEQ = DP.DELV_SEQ
+			INNER JOIN TBEF_PARTS P 
+			  ON     DP.STND_YEAR = P.STND_YEAR
+			     AND DP.MBR_CD = P.MBR_CD
+			     AND DP.PARTS_CD = P.PARTS_CD
+			     AND DP.PARTS_YEAR = P.PARTS_YEAR
+			INNER JOIN TBEF_PARTS_MASTER M
+			  ON     P.PARTS_CD = M.PARTS_CD
+			     AND P.PARTS_YEAR = M.PARTS_YEAR
+			 WHERE 1=1
+		       AND H.REPR_DT BETWEEN ? AND ?
+		       AND H.EQUIP_TPE_CD = ?
+		       AND H.EQUIP_NO LIKE UPPER(?)||'%'
+		       AND H.REPR_TPE_CDS LIKE '%'||?||'%'
+		       AND H.MBR_CD LIKE ?||'%'
+		       AND NVL(H.MJR_PARTS, ' ') LIKE '%'||? ||'%'
+               AND E.USE_YN = DECODE(?, NULL, E.USE_YN, ?)		       
+		    ORDER BY H.STND_YEAR, H.REPR_SEQ, H.EQUIP_NO
+ 
+        ]]>
+    </query>
+    
+    
+    <query id="tbef_equip_repr_his_max" desc="정비일련번호    조회" fetchSize="1">
+      <![CDATA[
+            SELECT /* tbef_equip_repr_his_max */
+                (NVL(MAX(REPR_SEQ),0) + 1) REPR_SEQ_MAX
+            FROM TBEF_EQUIP_REPR_HIS A
+            WHERE STND_YEAR = ?             
+        ]]>
+    </query>  
+    
+    
+    <query id="tbef_equip_repr_his_delv_max" desc="부품출고 일련번호    조회" fetchSize="1">
+      <![CDATA[
+            SELECT /* tbef_equip_repr_his_delv_max */
+                  SUM(CUR_SEQ) AS CUR_SEQ,
+                  NVL(SUM(MAX_SEQ),0)+1 AS NEW_SEQ
+            FROM  (
+	                  SELECT MAX(DELV_SEQ) CUR_SEQ, 0 AS MAX_SEQ      
+	                  FROM TBEF_DELV_REPR A
+	                  WHERE STND_YEAR = ?
+	                    AND REPR_SEQ  = ?
+	                  UNION ALL
+	                  SELECT 0, MAX(DELV_SEQ)
+	                  FROM   TBEF_DELV_REPR
+	                  WHERE STND_YEAR = ?  
+                  )
+        ]]>
+    </query>  
+    
+    <query id="tbef_equip_repr_his_delv_merg" desc="정비부품출고 입력/수정" fetchSize="1">
+      <![CDATA[
+            MERGE /* tbef_equip_repr_his_delv_merg */
+                  INTO TBEF_DELV_REPR T
+            USING (
+            	SELECT
+                      ?	AS STND_YEAR		-- 기준일자
+                    , ?	AS MBR_CD			-- 경정장코드
+                    , ? AS DELV_SEQ			-- 출고번호                     
+                    , ? AS DELV_DT          -- 출고일자
+                    , ? AS DELV_DESC        -- 출고내용
+                    , ? AS RECEPT_ID        -- 수령자
+                    , ? AS OUT_ID           -- 반출자
+                    , ?	AS USER_ID			-- 입력자사번
+                    , ?	AS REPR_SEQ			-- 정비일련번호
+			   FROM DUAL
+			) S
+			ON (
+				    T.STND_YEAR = S.STND_YEAR
+				AND T.REPR_SEQ = S.REPR_SEQ
+			    )
+			WHEN MATCHED THEN
+			UPDATE 
+				SET
+				    T.DELV_DT 		= S.DELV_DT
+				   ,T.DELV_DESC  	= S.DELV_DESC 
+				   ,T.RECEPT_ID 	= S.RECEPT_ID
+				   ,T.OUT_ID 		= S.OUT_ID
+				   ,T.UPDT_ID 		= S.USER_ID
+				   ,T.UPDT_DTM 		= SYSDATE
+			WHEN NOT MATCHED THEN
+				INSERT (
+				     STND_YEAR	
+	                ,MBR_CD
+	                ,DELV_SEQ
+	                ,DELV_DT
+	                ,DELV_DESC
+	                ,RECEPT_ID
+	                ,OUT_ID
+	                ,INST_ID
+	                ,INST_DTM 
+	                ,REPR_SEQ
+			)VALUES(
+					S.STND_YEAR,
+	               	S.MBR_CD,	
+				   	S.DELV_SEQ, 
+				   	S.DELV_DT, 	
+	               	S.DELV_DESC,
+				   	S.RECEPT_ID,
+				   	S.OUT_ID, 	
+				   	S.USER_ID, 	
+				   	SYSDATE, 	
+				   	S.REPR_SEQ
+			)
+		]]>
+    </query>  
+    
+    <query id="tbef_equip_repr_his_delv_parts_del" desc="장비부품내역 전체 삭제  " fetchSize="50">
+        <![CDATA[
+			 -- 장비정비부품 삭제  
+			  DELETE  /* tbef_equip_repr_his_delv_parts_del */
+			    FROM  TBEF_DELV_PARTS_REPR
+				WHERE (STND_YEAR, MBR_CD, DELV_SEQ) IN 
+				      (SELECT STND_YEAR, MBR_CD, DELV_SEQ
+				       FROM   TBEF_DELV
+				       WHERE  STND_YEAR = ?
+				         AND  REPR_SEQ = ?)
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_repr_his_delv_del" desc="장비출고 삭제  " fetchSize="50">
+        <![CDATA[
+			 -- 장비출고 삭제  
+			  DELETE /* tbef_equip_repr_his_delv_del */
+			    FROM TBEF_DELV
+				WHERE STND_YEAR = ?
+			      AND REPR_SEQ = ?
+        ]]>
+    </query> 
+    
+</queryMap>

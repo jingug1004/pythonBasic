@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbed_racer_rank(선수별성적현황)">
+	<query id="tbed_racer_rank_fd001" desc="선수별성적현황" fetchSize="10">
+		<![CDATA[
+         SELECT		/* tbed_racer_rank_fd001 IWORK_SFR-008 8위 까지... */
+                  TOR.RACER_NO  																				--등록번호
+                , TRM.RACER_GRD_CD																				--등급
+                , TRM.RACER_PERIO_NO																			--기수
+                , TRM.NM_KOR    																				--선수명
+                , MAX(TOR.RACE_REG_NO_CNT) OVER() MAX_RACE_REG_NO_CNT											--최고 정번수
+                , TOR.RACE_CNT																					--출전횟수
+                , TOR.RANK_1																					--1위
+                , TOR.RANK_2																					--2위
+                , TOR.RANK_3																					--3위
+                , TOR.RANK_4																					--4위
+                , TOR.RANK_5																					--5위
+                , TOR.RANK_6																					--6위
+                , TOR.RANK_7																					--7위
+                , TOR.RANK_8																					--8위
+                , ROUND(TOR.AMU_RANK_SCR  / DECODE(TOR.RACE_CNT,0,1,TOR.RACE_CNT), 2)                                AVG_RANK_SCR 		--착순점
+                , ROUND(TOR.AMU_ACDNT_SCR / DECODE(TOR.RACE_CNT,0,1,TOR.RACE_CNT), 2)                                AVG_ACDNT_SCR		--사고점
+                , ROUND((TOR.AMU_RANK_SCR - TOR.AMU_ACDNT_SCR) / DECODE(TOR.RACE_CNT,0,1,TOR.RACE_CNT), 2)           AVG_SCR				--평균득점
+                , ROUND((TOR.AMU_STAR_TM) / DECODE(TOR.AMU_STAR_CNT,0,1,TOR.AMU_STAR_CNT), 2)                            AVG_ST				--평균ST
+                , ROUND((TOR.AMU_OST_TM) / DECODE(TOR.AMU_OST_CNT,0,1,TOR.AMU_OST_CNT), 2)                            AVG_OST				--평균OST
+                , ROUND((TOR.RANK_1) / DECODE(TOR.RACE_CNT,0,1,TOR.RACE_CNT)*100, 1)                               WIN_RATIO			--승률
+                , ROUND((TOR.RANK_1 + TOR.RANK_2) / DECODE(TOR.RACE_CNT,0,1,TOR.RACE_CNT)*100, 1)                  HIGH_RANK_RATIO		--연대율
+                , ROUND((TOR.RANK_1 + TOR.RANK_2 + TOR.RANK_3) / DECODE(TOR.RACE_CNT,0,1,TOR.RACE_CNT) * 100, 1)     HIGH_3_RANK_RATIO	--삼연대율
+                , RANK() OVER (ORDER BY ROUND(TOR.AMU_RANK_SCR  / DECODE(TOR.RACE_CNT,0,1,TOR.RACE_CNT), 2) DESC)    RANK				--순위
+        FROM      TBEC_RACER_MASTER TRM
+                , (
+                     SELECT
+                              TOR.RACER_NO
+                            , MAX(TR.RACE_REG_NO_CNT) RACE_REG_NO_CNT
+                            , COUNT(*)                                                       RACE_CNT
+                            , NVL(SUM(DECODE(TOR.RANK, 1, 1, 0))                        , 0) RANK_1
+                            , NVL(SUM(DECODE(TOR.RANK, 2, 1, 0))                        , 0) RANK_2
+                            , NVL(SUM(DECODE(TOR.RANK, 3, 1, 0))                        , 0) RANK_3
+                            , NVL(SUM(DECODE(TOR.RANK, 4, 1, 0))                        , 0) RANK_4
+                            , NVL(SUM(DECODE(TOR.RANK, 5, 1, 0))                        , 0) RANK_5
+                            , NVL(SUM(DECODE(TOR.RANK, 6, 1, 0))                        , 0) RANK_6
+                            , NVL(SUM(DECODE(TOR.RANK, 7, 1, 0))                        , 0) RANK_7
+                            , NVL(SUM(DECODE(TOR.RANK, 8, 1, 0))                        , 0) RANK_8
+                            , NVL(SUM(TRS .RACE_SCR      )                              , 0) AMU_RANK_SCR
+                            , NVL(SUM(TRVA.ACDNT_SCR     )                              , 0) AMU_ACDNT_SCR
+                            , NVL(SUM(DECODE(TOR.ST_MTHD_CD, '001', 0,STAR_TM))         , 0) AMU_STAR_TM
+                            , NVL(SUM(DECODE(TOR.ST_MTHD_CD, '001', 0,1))               , 0) AMU_STAR_CNT
+                            , NVL(SUM(DECODE(TOR.ST_MTHD_CD, '002', 0,STAR_TM))         , 0) AMU_OST_TM
+                            , NVL(SUM(DECODE(TOR.ST_MTHD_CD, '002', 0,1))               , 0) AMU_OST_CNT
+                     FROM     TBEB_ORGAN         TOR 
+                            , TBEB_RACE          TR
+                            , TBEB_RANK_SCR      TRS
+                            , (
+                                 SELECT
+                                          TRVA.STND_YEAR
+                                        , TRVA.MBR_CD
+                                        , TRVA.TMS
+                                        , TRVA.DAY_ORD
+                                        , TRVA.RACE_NO
+                                        , TRVA.RACE_REG_NO
+                                        , NVL(TRVB.ACDNT_SCR, TRVA.ACDNT_SCR) ACDNT_SCR
+                                 FROM     (
+                                            SELECT
+                                                     TRVA.STND_YEAR
+                                                   , TRVA.MBR_CD
+                                                   , TRVA.TMS
+                                                   , TRVA.DAY_ORD
+                                                   , TRVA.RACE_NO
+                                                   , TRVA.RACE_REG_NO
+                                                   , SUM(ACDNT_SCR) ACDNT_SCR
+                                            FROM     TBED_RACE_VOIL_ACT TRVA
+                                                   , TBEB_ACDNT_SCR     TAS
+                                                   , TBEB_ORGAN         TOR
+                                            WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+                                            AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+                                            AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+                                            AND    TRVA.MBR_CD       = TOR.MBR_CD
+                                            AND    TRVA.TMS          = TOR.TMS
+                                            AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+                                            AND    TRVA.RACE_NO      = TOR.RACE_NO
+                                            AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+                                            AND    TOR .ABSE_CD     <> '003'
+                                            AND    TOR .IMMT_CLS_CD <> '003'
+                                            AND    TRVA.RACE_DAY      BETWEEN ?
+                                                                          AND ?
+                                            GROUP BY
+                                                     TRVA.STND_YEAR
+                                                   , TRVA.MBR_CD
+                                                   , TRVA.TMS
+                                                   , TRVA.DAY_ORD
+                                                   , TRVA.RACE_NO
+                                                   , TRVA.RACE_REG_NO
+                                         ) TRVA
+                                       , (
+                                            SELECT
+                                                     TRVA.STND_YEAR
+                                                   , TRVA.MBR_CD
+                                                   , TRVA.TMS
+                                                   , TRVA.DAY_ORD
+                                                   , TRVA.RACE_NO
+                                                   , TRVA.RACE_REG_NO
+                                                   , TAS .ACDNT_SCR
+                                            FROM     TBED_RACE_VOIL_ACT TRVA
+                                                   , TBEB_ACDNT_SCR     TAS
+                                                   , TBEB_ORGAN         TOR
+                                            WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+                                            AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+                                            AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+                                            AND    TRVA.MBR_CD       = TOR.MBR_CD
+                                            AND    TRVA.TMS          = TOR.TMS
+                                            AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+                                            AND    TRVA.RACE_NO      = TOR.RACE_NO
+                                            AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+                                            AND    TOR .ABSE_CD     <> '003'
+                                            AND    TOR .IMMT_CLS_CD <> '003'
+                                            AND    TRVA.RACE_DAY      BETWEEN ?
+                                                                          AND ?
+                                            AND    TRVA.VOIL_CD     IN ('110', '120')
+                                          ) TRVB
+                                WHERE  TRVA.STND_YEAR   = TRVB.STND_YEAR  (+)
+                                AND    TRVA.MBR_CD      = TRVB.MBR_CD     (+)
+                                AND    TRVA.TMS         = TRVB.TMS        (+)
+                                AND    TRVA.DAY_ORD     = TRVB.DAY_ORD    (+)
+                                AND    TRVA.RACE_NO     = TRVB.RACE_NO    (+)
+                                AND    TRVA.RACE_REG_NO = TRVB.RACE_REG_NO(+)
+                              ) TRVA
+                     WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+                     AND    TOR .MBR_CD       = TR  .MBR_CD
+                     AND    TOR .TMS          = TR  .TMS
+                     AND    TOR .DAY_ORD      = TR  .DAY_ORD
+                     AND    TOR .RACE_NO      = TR  .RACE_NO
+                     AND    TOR .STND_YEAR    = TRS .STND_YEAR
+                     AND    TR  .RACE_DGRE_CD = TRS .RACE_DGRE_CD
+                     AND    TOR .RANK         = TRS .RANK
+                     AND    TOR .STND_YEAR    = TRVA.STND_YEAR  (+)
+                     AND    TOR .MBR_CD       = TRVA.MBR_CD     (+)
+                     AND    TOR .TMS          = TRVA.TMS        (+)
+                     AND    TOR .DAY_ORD      = TRVA.DAY_ORD    (+)
+                     AND    TOR .RACE_NO      = TRVA.RACE_NO    (+)
+                     AND    TOR .RACE_REG_NO  = TRVA.RACE_REG_NO(+)
+                     AND    TOR .ABSE_CD     <> '003'
+                     AND    TOR .IMMT_CLS_CD <> '003'
+                     AND    TOR .RACE_DAY      BETWEEN ?
+                                                   AND ?
+                     GROUP BY TOR .RACER_NO
+                 ) TOR
+        WHERE  TRM.RACER_NO = TOR .RACER_NO
+		]]>
+	</query>     
+	<query id="tbed_racer_rank_fd002" desc="동시착현황" fetchSize="10">
+		<![CDATA[
+         SELECT
+                  TOR1.STND_YEAR  																				--등록번호
+                , TOR1.MBR_CD																				--등급
+                , TOR1.TMS																				--등급
+                , TOR1.DAY_ORD																				--등급
+                , TOR1.RACE_NO																				--등급
+                , TOR1.RANK																				--등급
+                , TOR1.RACE_REG_NO RACE_REG_NO1																				--등급
+                , TOR1.RACER_NO RACER_NO1																				--등급
+                , TRM1.NM_KOR NM_KOR1																				--등급
+                , TOR2.RACE_REG_NO RACE_REG_NO2																				--등급
+                , TOR2.RACER_NO RACER_NO2																				--등급
+                , TRM2.NM_KOR NM_KOR2																				--등급
+                , TOR1.RACE_TM																				--등급
+        FROM      TBEB_ORGAN TOR1
+                , TBEB_ORGAN TOR2
+                , TBEC_RACER_MASTER TRM1
+                , TBEC_RACER_MASTER TRM2
+        WHERE	TOR1.STND_YEAR		= TOR2.STND_YEAR
+		AND		TOR1.MBR_CD			= TOR2.MBR_CD
+		AND		TOR1.TMS			= TOR2.TMS
+		AND		TOR1.DAY_ORD		= TOR2.DAY_ORD
+		AND		TOR1.RACE_NO		= TOR2.RACE_NO
+		AND		TOR1.RANK			= TOR2.RANK
+		AND		TOR1.RACER_NO	   != TOR2.RACER_NO
+		AND		TOR1.RACE_REG_NO    < TOR2.RACE_REG_NO
+		AND		TOR1.RACER_NO		= TRM1.RACER_NO
+		AND		TOR2.RACER_NO		= TRM2.RACER_NO
+		AND		TOR1.RANK			IN ('01','02','03')
+		AND		TOR1.STND_YEAR		= ?
+		AND		TOR1.MBR_CD			= ?
+		ORDER BY TOR1.TMS DESC, TOR1.DAY_ORD DESC, TOR1.RACE_NO DESC
+        ]]>
+  </query>
+  </queryMap>

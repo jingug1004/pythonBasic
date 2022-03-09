@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="443" Id="E03050011" Left="8" OnLoadCompleted="fcFormLoadSetting" PidAttrib="7" Title="공통코드조회" Top="8" Ver="1.0" Width="334" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsCode">
+				<Contents>
+					<colinfo id="CD" size="256" type="STRING"/>
+					<colinfo id="CD_NM" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Image Height="32" Id="Image2" ImageID="pop_bg" LeftMargin="25" TabOrder="1" Width="334"></Image>
+		<Static Height="20" Id="Static9" Left="26" Style="snis_pop_title" TabOrder="2" Text="공통코드조회" Top="8" VAlign="Middle" Width="207"></Static>
+		<Grid AutoFit="TRUE" AutoFitEndLine="Hide" BindDataset="dsCode" BKColor="user15" BkColor2="user16" BkSelColor="user17" BoldHead="true" Border="Flat" BorderColor="user22" Bottom="433" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="345" Id="grdMaster" InputPanel="FALSE" Left="5" LineColor="user18" MinWidth="100" OnCellDBLClick="grdMaster_OnCellDblClick" OnHeadClick="fcGridSort" Right="327" SelColor="user19" Style="snis_grid" TabOrder="3" TabStop="true" Top="88" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="322">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="74"/>
+						<col width="220"/>
+					</columns>
+					<head>
+						<cell bkcolor="user20" col="0" color="user21" display="text" font="굴림,9" text="코드"/>
+						<cell bkcolor="user20" col="1" color="user21" display="text" font="굴림,9" text="코드명"/>
+					</head>
+					<body>
+						<cell col="0" colid="CD" display="text"/>
+						<cell col="1" colid="CD_NM" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Shape BKColor="user0" Bottom="86" Height="54" Id="Shape1" Left="2" LineColor="user1" LineKind="Vertical" Right="330" RoundHeight="8" RoundUnit="Pixel" RoundWidth="8" TabOrder="5" Top="32" Type="RoundRect" Width="328"></Shape>
+		<Edit AutoSelect="TRUE" Border="Flat" Height="22" Id="edNmkor" ImeMode="native" Left="100" LeftMargin="5" OnKeyDown="edsearch_OnKeyDown" Style="snis_if_input01" TabOrder="4" Top="45" Width="147"></Edit>
+		<Static Align="Right" Border="None" Height="22" Id="Static3" Left="3" Style="snis_if_lable" TabOrder="6" Text="조회조건" Top="45" VAlign="Middle" Width="95"></Static>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/************************
+*  공통 Script Include  *
+************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+
+/*********************
+*  화면 변수 선언부  *
+*********************/
+var sSearchKind  = "";                                 //본 화면에선 사용하지않음
+var sInputValue  = "";                                 //기본 검색 조건
+var sCommonGubn  = "";                                 //본 화면에선 사용하지않음 
+
+var sDivCodeType = "";
+var sDivCodeGubun = "";
+/*-----------------------------------+
+|  최초 화면 Load時 처리 할 사항     |
++------------------------------------*/
+function fcFormLoadSetting(obj){
+
+    if ( IsExistVar("CODE_TYPE") ) sDivCodeType = CODE_TYPE;
+    if ( IsExistVar("CODE_GUBUN") ) sDivCodeGubun = CODE_GUBUN;
+    if ( IsExistVar("SEARCH_VALUE") ) edNmkor.Text = SEARCH_VALUE;
+
+	gdsPopup.ClearData();
+
+    fcSearch();
+}
+
+/*-----------------------+
+|  조회 실행 !  |
++------------------------*/
+function fcSearch(obj) {	
+	//필수 조회 조건 체크
+	
+	var sServiceName = "common-service:searchDivCode";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsCode=dsCode ";
+    	
+	fcd_AddParam("CODE_TYPE", sDivCodeType); 
+	fcd_AddParam("CODE_GUBUN", sDivCodeGubun);
+	fcd_AddParam("SEARCH_VALUE", edNmkor.Text);
+	fcd_AddParam("DS_OUT", "dsCode");
+	
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+
+	
+	grdMaster.SetFocus();
+}
+/*------------------------------------+
+|  Transaction 후 처리 해야 할 내용!  |
++-------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+}
+
+/*--------------+
+|  확인 처리 !  |
++---------------*/
+function fcChoice(obj) {
+	fnc_SetReturnDs(dsCode, dsCode.GetCurrow(), gdsPopup);
+    Close(true);                                                  //반환 후 조회
+}
+
+/*--------------+
+|  취소 처리 !  |
++---------------*/
+function fcClose(obj) {
+	Close(false);     //Null 반환 후 종료
+}
+
+/*---------------------------------+
+|  Enter Key Press 시 조회 실행 !  |
++----------------------------------*/
+function edSearch_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam){
+
+	if (nChar==13) fcSearch();
+
+}
+
+/*-----------------------------------------------+
+|  그리드에서 더블 클릭 시 선택과 동일한 작업 !  |
++------------------------------------------------*/
+function grdMaster_OnCellDblClick(obj,nRow,nCell,nX,nY) {
+
+	// 배열에 해당 값을 반환 하고 종료
+	fcChoice();
+
+}
+
+/*-----------------------------------------------+
+|  그리드에서 Enter Key 시 선택과 동일한 작업 !  |
++------------------------------------------------*/
+function grdMaster_OnKeyDown(obj,nChar,bShift,bCtrl,bAlt,nLLParam,nHLParam) {
+	
+	// 엔터키 입력 시 배열에 해당 값을 반환 하고 종료
+	if (nChar==13) fcChoice();
+
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);
+}
+
+]]></Script>
+</Window>

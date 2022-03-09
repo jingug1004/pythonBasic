@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="580" Id="comSdiMain" Left="8" OnLoadCompleted="comSdiMain_OnLoadCompleted" OnSize="comSdiMain_OnSize" PidAttrib="7" Title="웹임베디드메인" Top="8" Ver="1.0" Width="1000" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsMnu">
+				<Contents>
+					<colinfo id="MNUID" size="256" summ="default" type="STRING"/>
+					<colinfo id="MNUNM" size="256" summ="default" type="STRING"/>
+					<colinfo id="LVL" size="256" summ="default" type="STRING"/>
+					<colinfo id="MNU_URL" size="256" summ="default" type="STRING"/>
+					<record>
+						<LVL>0</LVL>
+						<MNU_URL></MNU_URL>
+						<MNUID></MNUID>
+						<MNUNM>지불정지</MNUNM>
+					</record>
+					<record>
+						<LVL>1</LVL>
+						<MNU_URL>frm_rsm::RSM6010.xml</MNU_URL>
+						<MNUID>RSM6010</MNUID>
+						<MNUNM>TF조회</MNUNM>
+					</record>
+					<record>
+						<LVL>1</LVL>
+						<MNU_URL>frm_rsm::RSM6020.xml</MNU_URL>
+						<MNUID>RSM6020</MNUID>
+						<MNUNM>지불정지&#32;및해지</MNUNM>
+					</record>
+					<record>
+						<LVL>1</LVL>
+						<MNU_URL>frm_rsm::RSM6030.xml</MNU_URL>
+						<MNUID>RSM6030</MNUID>
+						<MNUNM>지불정지&#32;검증</MNUNM>
+					</record>
+					<record>
+						<LVL>1</LVL>
+						<MNU_URL>frm_rsm::RSM6040.xml</MNU_URL>
+						<MNUID>RSM6040</MNUID>
+						<MNUNM>지불정지&#32;온라인접수</MNUNM>
+					</record>
+					<record>
+						<LVL>1</LVL>
+						<MNU_URL>frm_rsm::RSM1091.xml</MNU_URL>
+						<MNUID>RSM1091</MNUID>
+						<MNUNM>그린카드암호조회</MNUNM>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsDbStatus"></Dataset>
+		</Datasets>
+		<Div Height="576" Id="divMain" Left="182" TabOrder="1" Text="Div0" Top="2" Width="816">
+			<Contents></Contents>
+		</Div>
+		<TreeView BindDataset="dsMnu" Border="Flat" BorderColor="user3" Height="347" Id="TreeView0" Left="2" LevelColumn="LVL" OnDblClick="TreeView0_OnDblClick" TabOrder="2" TEXTColumn="MNUNM" Top="2" Width="177"></TreeView>
+	</Form>
+	<Script><![CDATA[#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+var sIsView ="F"; 	// 조회버튼권한
+var sInpt = "F";	// 저장버튼권한
+
+// 트리메뉴에서 해당 메뉴 실행시
+function TreeView0_OnDblClick(obj,nRow)
+{
+	var strMnuID = dsMnu.GetColumn(nRow,"MNUID");
+	var strUrl   = dsMnu.GetColumn(nRow,"MNU_URL");
+	var nFRow 	 = gdsMenu.SearchRow("MN_ID="+quote(strMnuID));
+	if( nFRow > -1 ){
+		sIsView = gdsMenu.GetColumn(nFRow,"SRCH_YN");
+		sInpt 	= gdsMenu.GetColumn(nFRow,"INPT_YN");
+	}
+	if(  fnc_IsNull(sIsView) ) 	sIsView = "F";
+	if(  fnc_IsNull(sInpt) ) 	sInpt 	= "F";
+	
+	if(length(strUrl) > 0)	divMain.Url = strUrl;
+}
+
+
+//최초 로드시
+function comSdiMain_OnLoadCompleted(obj)
+{
+	//GBL_WEB_ID			= "74221";
+	fcSSOProcess();		// 사용자정보	
+}
+
+
+//SSO처리
+function fcSSOProcess()
+{	
+
+//Trace("GBL_PWD="+GBL_PWD);		
+//Trace("GBL_WEB_ID="+GBL_WEB_ID);		
+//Trace("GBL_CALL_ID="+GBL_CALL_ID);		
+	if( (fnc_IsNull(GBL_PWD) || fnc_IsNull(GBL_WEB_ID)) && fnc_IsNull(GBL_CALL_ID) ){			
+		fnc_Message(SNIS_CRA_B999, "N","정상적인 접근이 아닙니다. 확인 바랍니다!\n\n(인증키 또는 사번정보 부족)");
+		UserNotify(100,"");
+	}else{
+		// var sServiceName = "common_login-service:searchUserAuto";
+		// var sInDataSet   = "";
+		// var sOutDataSet  = "gdsUser=dsOutUser";
+		
+		var sUserId = "";
+		if(Length(GBL_CALL_ID) >0){
+			sUserId = GBL_CALL_ID;
+		} else {
+			sUserId = GBL_WEB_ID;
+		}
+		var sOSVer = GetDeviceInfo("OSVERSION");
+		fcd_AddParam("USER_ID", sUserId);  
+		
+		var sPassWd = GBL_PWD;
+		fcd_AddParam("PSWD",     sPassWd);
+		fcd_AddParam("USER_IP",  GBL_LOCAL_IP);
+		fcd_AddParam("PSWD_ENC", GBL_PWD_ENC);	
+		fcd_AddParam("OS_VERSION", sOSVer);
+    
+		var sServiceName = "common_login-service:searchUser";
+		var sInDataSet   = "";
+		var sOutDataSet  = "gdsUser=dsOutUser dsDbStatus=dsDbStatus";
+//Trace("sUserIp="+GBL_LOCAL_IP);		
+//Trace("sPassWd="+sPassWd);		
+//Trace("GBL_PWD_ENC="+GBL_PWD_ENC);
+                
+		fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false); 		
+	}
+}
+
+// 메뉴정보를 가져온다.
+function fcGetMenuinfo()
+{
+	var sServiceName = "common_login-service:searchUserMn";
+    var sInDataSet   = "";
+    var sOutDataSet  = "gdsMenu=dsOutUserMn";
+  
+    fcd_AddParam("USER_ID", gdsUser.getColumn(0, "USER_ID"));
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+
+}
+
+//transaction callback
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+
+	//if( sServiceName == "common_login-service:searchUserAuto" ) {
+	if( sServiceName == "common_login-service:searchUser" ) {
+Trace(gdsUser.savexml());
+		if ( gdsUser.GetRowCount() == 0 ) {
+		   	fnc_Message(SNIS_CRA_B999, "N","인증을 실패하였습니다. 확인 바랍니다!\n\n(사번정보 부정확)");
+			UserNotify(100,"");	
+		}else{
+			if ( gdsUser.GetColumn(gdsUser.currow, "ISVALID") != "T" ) {
+				fnc_Message(SNIS_CRA_B999, "N","인증을 실패하였습니다. 확인 바랍니다!\n\n(암호 부정확)");
+				UserNotify(100,"");	
+			} else {
+				fcGetMenuinfo();	// 메뉴정보		
+			}
+			
+		}
+	}
+	if( sServiceName == "common_login-service:searchUserMn" ) {
+		
+		// 메뉴권한처리
+		var nRow;
+		for(var i=dsMnu.GetRowCount()-1;i>=0;i--){
+			if( fnc_IsNull(dsMnu.GetColumn(i,"MNUID")) ) continue;
+			nRow = gdsMenu.SearchRow("MN_ID=="+quote(dsMnu.GetColumn(i,"MNUID")) );			
+			if( nRow < 0){			
+				dsMnu.DeleteRow(i);
+			}
+		}
+	}
+}	
+
+]]></Script>
+</Window>

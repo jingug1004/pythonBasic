@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="e06050060 이월등록 ">
+	<query id="e06050060_s01" desc="이월 리스트 조회 " fetchSize="50">
+        <![CDATA[
+			SELECT  /* e06050060_s01 */
+			        SUBSTR(IO_DT, 1, 4) AS BF_YEAR
+			FROM    TBEF_SUPP_IO
+			WHERE   IO_TYPE = '1'
+			GROUP BY SUBSTR(IO_DT, 1, 4)
+			ORDER BY 1 DESC            
+        ]]>
+    </query>         
+    <query id="e06050060_s02" desc="이월 상세 내역 조회 " fetchSize="50">
+        <![CDATA[
+            -- 재고가 존재하는 소모품 조회(무조건 현시점 기준. 현재년도에 이월이 안되어 있으면 조회 안됨)
+			SELECT  A.SUPP_CD
+			       ,B.SUPP_NM
+			       ,B.SPEC
+			       ,A.BF_QTY
+			       ,A.IN_QTY
+			       ,A.OUT_QTY
+			       ,A.BALC_QTY
+			       ,B.DANGA
+			       ,A.BALC_QTY * B.DANGA AS AMOUNT
+			FROM (          
+			        SELECT SUPP_CD
+			              ,SUM(DECODE(IO_TYPE, '1',QTY, '3',QTY,'4',QTY*-1))  AS BALC_QTY
+			              ,SUM(DECODE(IO_TYPE,'1',QTY,0)) AS BF_QTY
+			              ,SUM(DECODE(IO_TYPE,'3',QTY,0)) AS IN_QTY
+			              ,SUM(DECODE(IO_TYPE,'4',QTY,0)) AS OUT_QTY
+			        FROM   TBEF_SUPP_IO
+			        WHERE  IO_TYPE IN ('1','3','4')
+			        AND    IO_DT LIKE ?||'%'
+			        GROUP BY SUPP_CD
+			      ) A
+			      , TBEF_SUPP_CD B
+			WHERE A.SUPP_CD = B.SUPP_CD
+			ORDER BY SUPP_CD
+        ]]>
+    </query>
+        <query id="e06050060_i01" desc="이월 처리  " fetchSize="10">        <![CDATA[            INSERT /* e06050060_m01 */
+			       INTO TBEF_SUPP_IO(
+			       		IO_DT, IO_TYPE, SUPP_CD, 
+			       		SEQ,  QTY, AMOUNT, 
+			       		INST_ID, INST_DT)
+			SELECT (?+1)||'00' IO_DT, '1' AS IO_TYPE, A.SUPP_CD, 
+			       '0' AS SEQ, A.BALC_QTY AS QTY, A.BALC_QTY * B.DANGA AMOUNT, 
+			       ? AS INST_ID, SYSDATE AS INST_DT
+			FROM (          
+			        SELECT SUPP_CD
+			              ,SUM(DECODE(IO_TYPE, '1',QTY, '3',QTY,'4',QTY*-1))  AS BALC_QTY
+			        FROM   TBEF_SUPP_IO
+			        WHERE  IO_TYPE IN ('1','3','4')
+			        AND    IO_DT LIKE ?||'%'
+			        GROUP BY SUPP_CD
+			      ) A
+			      , TBEF_SUPP_CD B
+			WHERE A.SUPP_CD = B.SUPP_CD
+			ORDER BY SUPP_CD
+        ]]>
+    </query>
+     
+    <query id="e06050060_d01" desc="이월내역 삭제  " fetchSize="10">
+        <![CDATA[
+            DELETE /* e06050060_d01 */
+                  FROM TBEF_SUPP_IO 
+            WHERE 1=1
+            AND   IO_DT   = (?+1)||'00'
+            AND   IO_TYPE = '1'		--이월
+        ]]>
+    </query>
+         </queryMap>

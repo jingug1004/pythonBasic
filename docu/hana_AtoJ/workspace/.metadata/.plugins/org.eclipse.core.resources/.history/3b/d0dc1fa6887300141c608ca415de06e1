@@ -1,0 +1,172 @@
+package com.hanaph.saleon.business.controller;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.hanaph.saleon.business.service.CompanyCardMgmtService;
+import com.hanaph.saleon.business.vo.CompanyCardMgmtVO;
+import com.hanaph.saleon.common.utils.StringUtil;
+import com.hanaph.saleon.member.vo.LoginUserVO;
+
+/**
+ * <pre>
+ * Class Name : CompanyCardMgmtController.java
+ * 설명 : 
+ * 
+ * Modification Information
+ *    수정일      수정자              수정 내용
+ *  ------------ -------------- --------------------------------
+ *  2014. 11. 24.      Beomjin          
+ * </pre>
+ * 
+ * @version : 
+ * @author  : Beomjin(@irush.co.kr)
+ * @since   : 2014. 11. 24.
+ */
+@Controller
+public class CompanyCardMgmtController {
+	
+	@Autowired
+	private CompanyCardMgmtService companyCardMgmtService;
+	
+	/**
+	 * <pre>
+	 * 1. 개요     : 
+	 * 2. 처리내용 :
+	 * </pre>
+	 * @Method Name : companyCardMgmtList
+	 * @param request
+	 * @return
+	 */		
+	@RequestMapping("/business/companyCardMgmtList.do")
+	public ModelAndView companyCardMgmtList(HttpServletRequest request){
+		
+		ModelAndView mav = new ModelAndView("business/companyCardMgmtList");
+		Map<String, String> paramMap = new HashMap<String, String>();
+		
+		//세션생성 세션에서 emp_code를 가져온다.
+		HttpSession session = request.getSession();
+		LoginUserVO loginUserVO = (LoginUserVO) session.getAttribute("onlineUser");
+		String gs_empCode = StringUtil.nvl(loginUserVO.getEmp_code());
+
+		
+		gs_empCode = "admin";
+		
+		//parameter를 map에 setting
+		paramMap.put("gs_empCode", gs_empCode);
+	
+		
+		CompanyCardMgmtVO testVO = companyCardMgmtService.getCompanyCardMgmtInit(paramMap);
+		
+		gs_empCode = "34116";
+		
+		
+		mav.addObject("companyCardMgmtInit", testVO);
+		
+		return mav;
+	}
+	
+	/*@RequestMapping("/business/saleGridList.do")
+	public void saleGridList(HttpServletRequest request, HttpServletResponse response) throws IOException{
+		
+		Map<String, String> paramMap = new HashMap<String, String>();
+		
+		int page = Integer.parseInt(StringUtil.nvl(request.getParameter("page"),"1"));			//현재 page
+		int perPageRow = Integer.parseInt(StringUtil.nvl(request.getParameter("rows"),"20"));	//페이지 size
+		String ad_fr_date = StringUtil.nvl(request.getParameter("ad_fr_date"));
+		String ad_to_date = StringUtil.nvl(request.getParameter("ad_to_date"));
+		String as_fr_cust = StringUtil.nvl(request.getParameter("as_fr_cust"));
+		String as_to_cust = StringUtil.nvl(request.getParameter("as_to_cust"));
+		String sidx = StringUtil.nvl(request.getParameter("sidx"),"ymd, cust_id, rcust_id");
+		String sord = StringUtil.nvl(request.getParameter("sord"),"");
+		
+		paramMap.put("ad_fr_date", ad_fr_date);
+		paramMap.put("ad_to_date", ad_to_date);
+		paramMap.put("as_fr_cust", as_fr_cust);
+		paramMap.put("as_to_cust", as_to_cust);
+		paramMap.put("sidx", sidx);
+		paramMap.put("sord", sord);
+		paramMap.put("page", String.valueOf(page));
+		paramMap.put("perPageRow", String.valueOf(perPageRow));
+		
+		List<SaleVO> saleList = saleService.getSaleGridList(paramMap);
+		
+		SaleVO totalCountInfo = saleService.getSaleGridTotalCount(paramMap);
+		
+		int records = totalCountInfo.getTotal_cnt();
+		int total = (int)Math.ceil((double)records/(double)perPageRow);
+		
+		SaleJsonVO saleJsonVO = new SaleJsonVO();
+		
+		saleJsonVO.setTotal(total);		//page 수
+		saleJsonVO.setPage(page);			//현재 page
+		saleJsonVO.setRecords(records);
+		saleJsonVO.setRows(saleList);
+		saleJsonVO.setTotalCountInfo(totalCountInfo);
+		
+		MarshallerUtil.marshalling("json", response, saleJsonVO);
+	}
+	
+	@SuppressWarnings("rawtypes")
+	@RequestMapping("/business/saleGridListExcelDown.do")
+	public void saleGridListExcelDown(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		
+		Map<String, String> paramMap = new HashMap<String, String>();
+		
+		String ad_fr_date = StringUtil.nvl(request.getParameter("ad_fr_date"));
+		String ad_to_date = StringUtil.nvl(request.getParameter("ad_to_date"));
+		String as_fr_cust = StringUtil.nvl(request.getParameter("as_fr_cust"));
+		String as_to_cust = StringUtil.nvl(request.getParameter("as_to_cust"));
+		
+		paramMap.put("ad_fr_date", ad_fr_date);
+		paramMap.put("ad_to_date", ad_to_date);
+		paramMap.put("as_fr_cust", as_fr_cust);
+		paramMap.put("as_to_cust", as_to_cust);
+		paramMap.put("sidx", "ymd, cust_id, rcust_id");
+		paramMap.put("sord", "");
+		paramMap.put("page", null);
+		paramMap.put("perPageRow", null);
+		
+		List<SaleVO> saleList = saleService.getSaleGridList(paramMap);
+		
+		List<Map> excelMap = new ArrayList<Map>();
+		
+		for (int i = 0; i < saleList.size(); i++) {
+			
+			Map<String, String> mapA1 = new HashMap<String, String>();
+			
+			SaleVO saleVO = new SaleVO();
+			saleVO = saleList.get(i);
+			
+			mapA1.put("1", saleVO.getYmd());
+			mapA1.put("2", saleVO.getCust_id());
+			mapA1.put("3", saleVO.getCust_nm());
+			mapA1.put("4", saleVO.getRcust_id());
+			mapA1.put("5", saleVO.getRcust_nm());
+			mapA1.put("6", saleVO.getItem_id());
+			mapA1.put("7", saleVO.getItem_nm());
+			mapA1.put("8", saleVO.getStandard());
+			mapA1.put("9", saleVO.getQty());
+			mapA1.put("10", saleVO.getDanga());
+			mapA1.put("11", saleVO.getAmt());
+			mapA1.put("12", saleVO.getVat());
+			mapA1.put("13", saleVO.getTot());
+			mapA1.put("14", saleVO.getDc_amt());
+			
+			excelMap.add(mapA1);
+		}
+		
+		String[] header = {"거래일자","거래처코드","거래처명","납품처코드","납품처명","제품코드","제품명","단위","수량","단가","공급가액","세액","합계금액","할인액"};
+		String[] content = {"1","2","3","4","5","6","7","8","9","10","11","12","13","14"};
+		
+		ExcelDownManager.ExcelDown("판매현황", header, content, excelMap, response);
+	}*/
+}

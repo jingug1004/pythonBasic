@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="448" Id="D06010012" Left="8" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="후보생출주장비관리" TooltipFont="Default,0" Top="8" Ver="1.0" Width="400" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsCandEquip">
+				<Contents>
+					<colinfo id="RACER_PERIO_NO" size="256" summ="default" type="STRING"/>
+					<colinfo id="CAND_NO" size="256" summ="default" type="STRING"/>
+					<colinfo id="NM_KOR" size="256" summ="default" type="STRING"/>
+					<colinfo id="MOTOR_NO" size="256" summ="default" type="STRING"/>
+					<colinfo id="BOAT_NO" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Grid AreaSelect="true" AutoEnter="TRUE" AutoFitEndLine="Hide" BindDataset="dsCandEquip" BKColor="white" BkColor2="default" BkSelColor="#eef2f9" BoldHead="FALSE" Border="Flat" BorderColor="#cdcdcd" Bottom="432" ColSizing="TRUE" DropMode="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" Font="굴림,9" HeadBorder="Flat" HeadHeight="36" Height="384" Hilight3dColor="SCROLLBAR" Id="gid_base" InputPanel="FALSE" Left="17" LineColor="#b4ada0" MultiSelect="TRUE" OnCellDBLClick="fcGetCnadEquip" OnHeadClick="fcGridSort" Right="392" SelColor="black" TabOrder="1" TabStop="true" Top="48" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="375">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="93"/>
+						<col width="90"/>
+						<col width="93"/>
+						<col width="93"/>
+					</columns>
+					<head>
+						<cell align="center" bkcolor="user20" col="0" display="text" text="등록번호" wordwrap="exchar"/>
+						<cell align="center" bkcolor="user20" col="1" display="text" text="선수명" wordwrap="exchar"/>
+						<cell align="center" bkcolor="user20" col="2" display="text" text="모터" wordwrap="exchar"/>
+						<cell align="center" bkcolor="user20" col="3" display="text" text="보트" wordwrap="exchar"/>
+					</head>
+					<body>
+						<cell align="center" bkcolor="#f6f7f4" bkcolor2="white" col="0" colid="CAND_NO" combodisplayrowcnt="10" display="text" expandsize="20"/>
+						<cell align="center" bkcolor="#f6f7f4" bkcolor2="white" col="1" colid="NM_KOR" combodisplayrowcnt="10" display="normal" expandsize="20"/>
+						<cell align="center" bkcolor="#f6f7f4" bkcolor2="white" col="2" colid="MOTOR_NO" combodisplayrowcnt="10" display="text" expandsize="20"/>
+						<cell align="center" bkcolor="#f6f7f4" bkcolor2="white" col="3" colid="BOAT_NO" combodisplayrowcnt="10" display="text" expandsize="20"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Shape BKColor="#ff8500" Bottom="34" Height="6" Id="Shape2" Left="26" LineKind="Vertical" LineWidth="0" Right="32" RoundHeight="10" RoundWidth="10" TabOrder="2" Top="28" Type="Ellipse" Width="6"></Shape>
+		<Button Align="Left" ButtonStyle="TRUE" Height="20" Id="btnConfirm" ImageID="btn_txt_02" Left="289" LeftMargin="15" OnClick="fcSave" Style="snis_btn" TabOrder="3" Text="저장" Top="24" Transparent="TRUE" Width="50"></Button>
+		<Button Align="Left" ButtonStyle="TRUE" Height="20" Id="btnClose" ImageID="btn_txt_02" Left="341" LeftMargin="15" OnClick="btnClose_OnClick" Style="snis_btn" TabOrder="4" Text="닫기" Top="24" Transparent="TRUE" Width="50"></Button>
+		<Static Height="22" Id="stFormTitle" Left="39" Style="snis_m_title" TabOrder="5" Text="조회조건" Top="22" VAlign="Middle" Width="258"></Static>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::can_common_script.js";
+#include "lib::can_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = 'D06010012';
+var sBUTTONLIST   = 'TTFTFT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+var sRacerPerioNo	= "";
+var sCandNo			= "";
+
+     
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {  
+	
+	sBUTTONLIST   = 'F'+sInpt+'FTFT';
+    
+ 	//화면환경 설정
+	sFORMCAPTION  = obj.Title;
+	sFORMLOCATION = "";
+
+	//화면 정보 Display 및 Button 권한 설정
+	fnc_FormLoadSetting(obj, sFORMCAPTION, sFORMLOCATION, sBUTTONLIST, sUSERAUTH);
+	
+	//초기 화면 BK Color설정 
+	fnc_SetBKColor(this);
+	
+	// 출주 장비조회
+	fcSearch();
+} 
+
+function fcSearch() {   
+	
+	//var racerPerioNo = null;
+	
+	var sServiceName = "d06010012-service:searchCandEquip";
+    var sInDataSet   = "";
+    var sOutDataSet  = " dsCandEquip=dsCandEquip";
+	
+	fcd_AddParam("RACER_PERIO_NO", Trim(Arg_RacerPerioNo));    
+    fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack",false);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSaveCheck(obj) {
+
+	//변경된 자료가 있는지 체크
+	if ( !fnc_DatasetChangeCheck(dsCandEquip ) )
+	{
+		//저장 할 자료가 없음
+		fnc_Message(SNIS_COM_1006, "N");	
+		return false;
+	}
+
+	return true;
+}
+
+function fcSave(obj) {
+
+	if ( !fcSaveCheck(obj) ) return;
+	
+	var sServiceName = "d06010012-service:saveCandEquip";
+    var sInDataSet   = "dsCandEquip=dsCandEquip:u ";
+    var sOutDataSet  = "dsCandEquip=dsCandEquip ";
+    
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack");
+}
+
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+
+    if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+    
+	// 공통코드 조회시
+	if ( sServiceName == "common-service:saveCandEquip" ) {
+		fcSearch();
+        return;
+	}
+}
+
+function fcFormUnloadProcess(obj) {
+	//자료 변경 여부를 체크하고자 하는  DataSet Object를 넘긴다.
+	var sDataset = "dsCandEquip";
+	if ( !fnc_FormUnloadCheck(sDataset , sFormId) ) return false;
+}
+
+function fcGetCnadEquip(obj,nRow,nCell,nX,nY,nPivotIndex)
+{
+	if ( nCell == 2 ) {
+		var cd = "001";
+		var arg = "grpcode="+Quote(cd) + " arg_title=모터선택";
+		rtn = Dialog("form::D06000023_1.xml",arg,,,true,-1,-1);
+		
+		if( rtn == null || rtn == '' ) return;	
+		
+        if ( fnc_GetExistValue(object(obj.BindDataset), "MOTOR_NO", rtn[0]) >= 0 ) {
+            fnc_Message(L_COM_ALT_0016, "N", "모터");
+            return;
+        }
+		
+		object(obj.BindDataset).SetColumn(nRow,"MOTOR_NO",rtn[0]);
+		fcSetCnadEquipAll(object(obj.BindDataset).GetColumn(nRow, "CAND_NO"), "MOTOR_NO", rtn[0]);
+	} 
+	
+	if ( nCell == 3 ) {
+		var cd = "002";
+		var arg = "grpcode="+Quote(cd) + " arg_title=보트선택";
+		rtn = Dialog("form::D06000023_1.xml",arg,,,true,-1,-1);
+		
+		if( rtn == null || rtn == '' ) return;
+		
+        if ( fnc_GetExistValue(object(obj.BindDataset), "BOAT_NO", rtn[0]) >= 0 ) {
+            fnc_Message(L_COM_ALT_0016, "N", "보트");
+            return;
+        }
+		
+		object(obj.BindDataset).SetColumn(nRow,"BOAT_NO",rtn[0]);
+		fcSetCnadEquipAll(object(obj.BindDataset).GetColumn(nRow, "CAND_NO"), "BOAT_NO", rtn[0]);
+	}
+}
+
+function btnClose_OnClick(obj)
+{
+	close('');
+}]]></Script>
+</Window>

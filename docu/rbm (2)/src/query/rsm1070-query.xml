@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rsm1070(환불액  관리)">
+    <query id="rsm1070_s01" desc="환불액 조회" fetchSize="10">
+      <![CDATA[      
+	       SELECT 
+                   ? MEET_CD
+                 ,(CASE 
+                    WHEN SELL_CD='01' AND COMM_NO <= '10' 
+                            THEN '광명본장'
+                    WHEN SELL_CD='01' AND COMM_NO > '10'  
+                            THEN (SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD ='018' AND CD = COMM_NO )
+                    WHEN SELL_CD='03' THEN '미사리본장'
+    
+                    WHEN SELL_CD='02' AND COMM_NO='07' THEN '김해'
+                    WHEN SELL_CD='04' AND COMM_NO='07' AND DIV_NO='01' THEN '광복'
+                    WHEN SELL_CD='04' AND COMM_NO='07' AND DIV_NO='02' THEN '서면'
+                    WHEN SELL_CD='04' AND COMM_NO='07' AND DIV_NO='03' THEN '금정'
+                    WHEN SELL_CD IN ('02','04') THEN '교차'
+                    ELSE '' END) BRNC_NM
+                 ,? STND_YEAR
+                 ,? TMS
+                 ,? DAY_ORD
+                 ,? RACE_NO
+                 ,SELL_CD
+                 ,COMM_NO
+                 ,DIV_NO
+                 ,SELL_CD || '+' || COMM_NO || '+' || DIV_NO  DIV_GBN
+                 ,MAX(NVL(DIV_TOTAL,0)) DIV_TOTAL
+                 ,MAX(NVL(REFUND,0)) REFUND
+                 ,MIN(ORD) ORD
+                 ,MIN(DECODE(NVL(DIV_TOTAL,''),'','002','001')) GUBUN
+                 ,'' AS CHK             
+            FROM(                                       
+                 SELECT                                                     
+                     D.MEET_CD,                         
+                     D.STND_YEAR,                       
+                     D.TMS,                             
+                     D.DAY_ORD,                         
+                     D.RACE_NO,                         
+                     D.SELL_CD,                         
+                     D.COMM_NO,                      
+                     D.DIV_NO,                       
+                     D.DIV_TOTAL,                       
+                     D.REFUND REFUND ,                              
+                     00 ORD                         
+                 FROM                                   
+                     TBES_SDL_DT D                      
+                 WHERE                                  
+                     D.MEET_CD=?             
+                     AND D.STND_YEAR=?       
+                     AND D.TMS=?                   
+                     AND D.DAY_ORD=?            
+                     AND D.RACE_NO=?
+                     AND D.SELL_CD = DECODE(?,'003','03','01')                  
+                UNION ALL                               
+                 SELECT                                                      
+                     D.MEET_CD,                         
+                     D.STND_YEAR,                       
+                     D.TMS,                             
+                     D.DAY_ORD,                         
+                     D.RACE_NO,                         
+                     D.SELL_CD,                         
+                     D.COMM_NO,                         
+                     D.DIV_NO,                          
+                     D.DIV_TOTAL,                       
+                     D.REFUND ,                                            
+                     99 ORD                          
+                 FROM                                   
+                     TBES_SDL_DT D               
+                 WHERE                                  
+                     D.MEET_CD=?               
+                     AND D.STND_YEAR=?        
+                     AND D.TMS=?                      
+                     AND D.DAY_ORD=?          
+                     AND D.RACE_NO=?
+                     AND D.SELL_CD <>  DECODE(?,'003','03','01')
+               UNION ALL               
+               SELECT
+                     '' MEET_CD
+                    ,'' STND_YEAR
+                    ,0 TMS
+                    ,0 DAY_ORD
+                    ,'' RACE_NO                    
+                    ,SELL_CD
+                    ,COMM_NO
+                    ,DIV_NO
+                    ,NULL DIV_TOTAL                       
+                    ,NULL REFUND                                            
+                    ,DECODE(?,'003',99,00) ORD      
+                FROM TBES_SDL_DT_DIV_INFO
+                WHERE MEET_CD=? 
+            )A
+          
+            WHERE 1=1
+            GROUP BY SELL_CD,COMM_NO,DIV_NO  
+            ORDER BY ORD,SELL_CD,COMM_NO,DIV_NO   
+
+      ]]>
+    </query>
+    
+    
+    
+     <query id="rsm1070_m01" desc="환급액 입력/수정" fetchSize="10">
+
+        <![CDATA[
+        
+             MERGE INTO TBES_SDL_DT A  /* rsm1070_m01 */
+             USING   
+                     (SELECT
+                         ? AS DIV_TOTAL             --  매출총액
+                        ,? AS REFUND                --  환불액
+                        
+                        ,? AS MEET_CD               --  시행처                
+                        ,? AS STND_YEAR             --  기준년도            
+                        ,? AS TMS                   --  회차
+                        
+                        ,? AS DAY_ORD               --  회차 차수                
+                        ,? AS RACE_NO               --  경주번호             
+                        ,? AS SELL_CD               --  판매처                
+                        ,? AS COMM_NO               --  지점코드
+                        ,? AS DIV_NO                --  투표소                       
+                        ,? AS INST_ID               --  작성자
+                        ,? AS UPDT_ID               --  수정자   
+                     FROM    DUAL ) B  
+                 
+             ON (    
+                         A.MEET_CD             = B.MEET_CD          
+			             AND A.STND_YEAR       = B.STND_YEAR  
+			             AND A.TMS             = B.TMS              
+			             AND A.DAY_ORD         = B.DAY_ORD      
+			             AND A.RACE_NO         = B.RACE_NO      
+			             AND A.SELL_CD         = B.SELL_CD      
+			             AND A.COMM_NO         = B.COMM_NO      
+			             AND A.DIV_NO          = B.DIV_NO    
+             )           
+             
+             WHEN MATCHED THEN
+                 UPDATE SET
+                     A.DIV_TOTAL    = B.DIV_TOTAL          -- 매출총액
+                    ,A.REFUND       = B.REFUND             -- 환불액
+                    ,A.UPDT_ID      = B.UPDT_ID            -- 수정일시     
+                    ,A.UPDT_DT      = SYSDATE              -- 수정자       
+                                
+             WHEN NOT MATCHED THEN 
+                 
+                 INSERT (
+					 A.MEET_CD             --시행처
+					,A.STND_YEAR           --기준년도
+					,A.TMS                 --회차
+					,A.DAY_ORD             --회차 차수
+					,A.RACE_NO             --경주번호
+					,A.SELL_CD             --판매처
+					,A.COMM_NO             --지점
+					,A.DIV_NO              --투표소
+					,A.DIV_TOTAL           --매출총액
+					,A.REFUND              --환불액
+					,A.INST_ID             --작성자
+					,A.INST_DT             --작성일시
+					,A.UPDT_ID             --수정자
+					,A.UPDT_DT             --수정일자                    
+
+                 ) VALUES (
+                     B.MEET_CD             --시행처
+                    ,B.STND_YEAR           --기준년도
+                    ,B.TMS                 --회차
+                    ,B.DAY_ORD             --회차 차수
+                    ,B.RACE_NO             --경주번호
+                    ,B.SELL_CD             --판매처
+                    ,B.COMM_NO             --지점
+                    ,B.DIV_NO              --투표소
+                    ,B.DIV_TOTAL           --매출총액
+                    ,B.REFUND              --환불액
+                    ,B.INST_ID             --작성자
+                    ,SYSDATE               --작성일시
+                    ,B.UPDT_ID             --수정자
+                    ,SYSDATE               --수정일자                    
+
+                 )
+                
+        
+        ]]>
+
+    </query>    
+    
+    
+</queryMap>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs1130(명예심판 선정관리)">
+   <query id="rbs1130_s01" desc="명예심판 선정내역  조회 " fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs1130_s01 */
+		            '' AS CHK
+		           ,A.MEET_CD
+		           ,A.STND_YEAR
+		           ,A.TMS   
+		           ,A.SEQ_NO   
+		           ,A.REQ_STND_YEAR
+		           ,A.REQ_SEQ_NO
+		           ,B.REQ_USER_NM
+		           ,FC_DEC(B.HP_NO) AS HP_NO
+		           ,B.AGE
+		           ,B.SEX		           
+		           ,B.BRNC_CD
+		           ,FC_DEC(B.HOME_ADDR1) AS HOME_ADDR1
+		           ,FC_DEC(B.HOME_ADDR2) AS HOME_ADDR2
+		           ,A.RMK
+		           ,B.RMK AS REQ_RMK
+		           ,B.INST_MTH
+		           ,TO_CHAR(B.INST_DT, 'YYYYMMDD') AS INST_DT
+		           --,(SELECT COUNT(*) FROM TBRS_HNR_REFRE_REQ C WHERE A.MEET_CD = C.MEET_CD AND A.REQ_STND_YEAR = C.STND_YEAR AND A.REQ_SEQ_NO = C.SEQ_NO AND C.PROC_CD = 'S') AS WIN_CNT
+		           ,C.WIN_CNT
+			FROM    TBRS_HNR_REFRE_WNR A
+			       ,TBRS_HNR_REFRE_REQ B
+                   ,(
+                    SELECT B.HP_NO, COUNT(*) -1 AS WIN_CNT
+                    FROM TBRS_HNR_REFRE_WNR A,TBRS_HNR_REFRE_REQ B
+                    WHERE A.REQ_STND_YEAR = B.STND_YEAR
+                    AND A.REQ_SEQ_NO = B.SEQ_NO
+                    AND A.INST_MTH = B.INST_MTH 
+                    AND B.HP_NO   IS NOT NULL
+                    GROUP BY B.HP_NO
+                    HAVING COUNT(*) > 1) C
+			WHERE   A.MEET_CD       = B.MEET_CD
+			AND     A.REQ_STND_YEAR = B.STND_YEAR
+			AND     A.REQ_SEQ_NO    = B.SEQ_NO
+			AND     A.INST_MTH      = B.INST_MTH
+            AND     B.HP_NO         = C.HP_NO(+)
+			AND     A.MEET_CD       = ?
+			AND     A.STND_YEAR     = ?
+			AND     A.TMS           = ?
+			ORDER BY A.SEQ_NO
+        ]]>
+    </query>       
+    
+    <query id="rbs1130_i01" desc="명예심판 선정내역 저장 " fetchSize="10">
+      <![CDATA[
+			INSERT /* rbs1130_i01 */
+			       INTO TBRS_HNR_REFRE_WNR
+			       (MEET_CD, STND_YEAR, TMS, SEQ_NO, REQ_STND_YEAR, REQ_SEQ_NO, RMK, INST_MTH, INST_ID, INST_DT)
+			VALUES
+			       (?, ?, ?, (SELECT NVL(MAX(SEQ_NO),0)+1 FROM TBRS_HNR_REFRE_WNR WHERE MEET_CD = ? AND STND_YEAR = ? AND TMS = ?), ?, ?, ?, ?, ?, SYSDATE)
+        ]]> 
+    </query>    
+    
+    <query id="rbs1130_u01" desc="명예심판 선정내역  수정 " fetchSize="10">
+      <![CDATA[           
+           UPDATE  /* rbs1130_u01 */      
+                   TBRS_HNR_REFRE_WNR 
+           SET     REQ_STND_YEAR = ?
+                  ,REQ_SEQ_NO    = ?
+                  ,RMK           = ?
+                  ,UPDT_ID       = ?
+                  ,UPDT_DT       = SYSDATE
+           WHERE   MEET_CD       = ?
+               AND STND_YEAR     = ?
+               AND TMS           = ?
+               AND SEQ_NO        = ?      
+               AND INST_MTH      = ?      
+        ]]>
+    </query>    
+
+        
+    <query id="rbs1130_d01" desc="명예심판 선정내역  삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE  /* rbs1130_d01 */      
+                   FROM TBRS_HNR_REFRE_WNR 
+           WHERE   MEET_CD   = ?
+               AND STND_YEAR = ?
+               AND TMS       = ?
+               AND SEQ_NO    = ?
+               AND INST_MTH  = ?   
+        ]]>
+    </query>    
+        
+</queryMap>

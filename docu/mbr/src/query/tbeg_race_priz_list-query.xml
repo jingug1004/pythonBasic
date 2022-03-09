@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_race_priz 경주별 상금 명세서">
+    
+    <query id="tbeg_race_priz_list_ff001" desc="경주별 상금 명세서 " fetchSize="50">
+        <![CDATA[
+        	/* tbeg_race_priz_list_ff001 */
+            SELECT * FROM (
+			    SELECT 
+			        TRP.STND_YEAR,   -- 기준년도
+			        TRP.PAY_MONTH,     -- 기준월 
+			        TRP.MBR_CD,  -- 경정장 코드 
+			        CASE WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL AND DAY_ORD IS NOT NULL AND RACE_NO IS NOT NULL AND RACE_REG_NO IS NOT NULL THEN MIN(TSC.CD_NM)
+			             WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL  AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL  AND DAY_ORD IS NULL AND RACE_NO IS NULL AND RACE_REG_NO IS NULL THEN TMS ||'회차 소계'
+			             WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL   AND PAY_MONTH IS NOT NULL AND TMS IS NULL AND DAY_ORD IS NULL AND RACE_NO IS NULL AND RACE_REG_NO IS NULL THEN PAY_MONTH || '월 총계'
+			             ELSE MIN(TSC.CD_NM)
+			        END AS MBR_CD_NM,
+			        CASE WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL AND DAY_ORD IS NOT NULL AND RACE_NO IS NOT NULL AND RACE_REG_NO IS NOT NULL THEN 1
+			             WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL  AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL  AND DAY_ORD IS NULL AND RACE_NO IS NULL AND RACE_REG_NO IS NULL THEN 1
+			             WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL   AND PAY_MONTH IS NOT NULL AND TMS IS NULL AND DAY_ORD IS NULL AND RACE_NO IS NULL AND RACE_REG_NO IS NULL THEN 0
+			             ELSE NULL
+			        END AS ORDER_TPE, -- ORDER TPE
+			        CASE WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL AND DAY_ORD IS NOT NULL AND RACE_NO IS NOT NULL AND RACE_REG_NO IS NOT NULL THEN 2
+			             WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL  AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL  AND DAY_ORD IS NULL AND RACE_NO IS NULL AND RACE_REG_NO IS NULL THEN 1
+			             WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL   AND PAY_MONTH IS NOT NULL AND TMS IS NULL AND DAY_ORD IS NULL AND RACE_NO IS NULL AND RACE_REG_NO IS NULL THEN 0
+			             ELSE NULL
+			        END AS TPE, 
+			        TRP.TMS,     -- 회차 
+			        TRP.DAY_ORD,     -- 일차 
+			        TRP.RACE_NO,     -- 경주 번호 
+			        TRP.RACE_REG_NO,     -- 정번
+			        CASE WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL AND DAY_ORD IS NOT NULL AND RACE_NO IS NOT NULL AND RACE_REG_NO IS NOT NULL THEN MIN(TRP.RACER_NO)
+			             ELSE NULL
+			        END AS RACER_NO, 
+			        CASE WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL AND DAY_ORD IS NOT NULL AND RACE_NO IS NOT NULL AND RACE_REG_NO IS NOT NULL THEN MIN(TRM.NM_KOR)
+			             ELSE NULL
+			        END AS RACER_NM, 
+			        CASE WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL AND DAY_ORD IS NOT NULL AND RACE_NO IS NOT NULL AND RACE_REG_NO IS NOT NULL THEN MIN(TRP.DAY_RUN_CNT)
+			             ELSE NULL
+			        END AS DAY_RUN_CNT,     -- 당일 출주수
+			        CASE WHEN STND_YEAR IS NOT NULL AND MBR_CD IS NOT NULL AND PAY_MONTH IS NOT NULL AND TMS IS NOT NULL AND DAY_ORD IS NOT NULL AND RACE_NO IS NOT NULL AND RACE_REG_NO IS NOT NULL THEN MIN(TRP.RANK)
+			             ELSE NULL
+			        END AS RANK,    -- 순위
+			        NVL(SUM(TRP.RANK_AMT),0) AS RANK_AMT,    -- 성적상금
+			        NVL(SUM(TRP.RUN_AMT),0) AS RUN_AMT,      -- 출주수당
+			        NVL(SUM(TRP.EVENT_AMT),0) AS EVENT_AMT,  -- 이벤트수당
+			        NVL(SUM(TRP.WAIT_AMT),0) AS WAIT_AMT,    -- 대기수당
+			        NVL(SUM(TRP.SAFY_AMT),0) AS SAFY_AMT,    -- 안전수당
+			        NVL(SUM(TRP.STR_AMT),0) AS STR_AMT,     -- 출발무사고상금
+			        NVL(SUM(TRP.WIN_AMT),0) AS WIN_AMT,     -- 출발무사고상금
+			        NVL(SUM(TRP.ETC_AMT),0) AS ETC_AMT,     -- 출발무사고상금
+			        SUM(NVL(TRP.RANK_AMT,0) + NVL(TRP.RUN_AMT,0) + NVL(TRP.EVENT_AMT,0) + NVL(TRP.WAIT_AMT,0) + NVL(TRP.SAFY_AMT,0) + NVL(TRP.STR_AMT,0) + NVL(TRP.WIN_AMT,0) + NVL(TRP.ETC_AMT,0)) AS TOT_AMT     -- 출발무사고상금
+			    FROM TBEG_RACE_PRIZ TRP, TBEC_RACER_MASTER TRM, (SELECT CD, CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00006') TSC
+			    WHERE TRP.RACER_NO = TRM.RACER_NO
+			    AND TRP.MBR_CD = TSC.CD
+			    AND TRP.STND_YEAR = ?
+			    AND (TRP.PAY_MONTH = NVL(?,0) OR TRP.TMS = NVL(?,0) )
+			    AND TRM.NM_KOR  LIKE ?||'%'
+			    GROUP BY ROLLUP (TRP.STND_YEAR,   -- 기준년도
+			            TRP.PAY_MONTH,
+			            TRP.MBR_CD,  -- 경정장 코드 
+			            TRP.TMS,     -- 회차 
+			            TRP.DAY_ORD,     -- 일차 
+			            TRP.RACE_NO,     -- 경주 번호 
+			            TRP.RACE_REG_NO     -- 정번
+			           )
+			 )
+			 WHERE ORDER_TPE = 1 OR ORDER_TPE = NVL2(?,0,1)
+			 ORDER BY ORDER_TPE, STND_YEAR, PAY_MONTH,  TMS, DAY_ORD, RACE_NO, RACE_REG_NO
+        ]]>
+    </query> 
+    
+    
+    
+    <query id="tbeg_race_priz_list_ff002" desc="누적 상금 집계 내역서  " fetchSize="50">
+        <![CDATA[
+        	-- 누적 상금 집계 
+            SELECT 
+                T1.RACER_NO,    -- 선수 등록번호 
+                TRM.NM_KOR AS RACER_NM, -- 선수명 
+                TRM.RACER_GRD_CD AS RACER_GRD_CD, -- 등급
+                NVL(RUN_CNT,0) AS RUN_CNT, -- 출주 수 
+                SUPP_AMT_01,    -- 성적상금
+                SUPP_AMT_02,    -- 출전수당
+                SUPP_AMT_31,    -- 이벤트수당
+    			SUPP_AMT_03,    -- 안전수당
+    			SUPP_AMT_04,    -- 대기수당
+    			SUPP_AMT_05,    -- 출발무사고 수당
+    			SUPP_AMT_06,    -- 연승상금
+    			SUPP_ETC_AMT,   -- 기타 상금 
+                (SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05 + SUPP_AMT_06 + SUPP_ETC_AMT) AS SUPP_TOT_AMT, -- 상금 소계 
+                AID_AMT_10,    -- 식대 
+    			AID_AMT_04     -- 선수 회비  
+            FROM (
+                SELECT RACER_NO, 
+                    SUM(SUPP_AMT_01) AS SUPP_AMT_01,    -- 성적상금
+                    SUM(SUPP_AMT_02) AS SUPP_AMT_02,    -- 출전수당
+                    SUM(SUPP_AMT_31) AS SUPP_AMT_31,    -- 이벤트수당
+    			    SUM(SUPP_AMT_03) AS SUPP_AMT_03,    -- 안전수당:없어짐(2014.8.8)
+    			    SUM(SUPP_AMT_04) AS SUPP_AMT_04,    -- 대기상금
+    			    SUM(SUPP_AMT_05) AS SUPP_AMT_05,    -- 출발무사고 상금
+    			    SUM(SUPP_AMT_06) AS SUPP_AMT_06,    -- 연승상금    			    
+    			    SUM(AID_AMT_10) AS AID_AMT_10,    -- 식대 
+    			    /* SUM(SUPP_AMT_06 + SUPP_AMT_07 + SUPP_AMT_08 + SUPP_AMT_09) AS SUPP_ETC_AMT,    -- 2014.8.8 원래 버전=기타수당에 연승수당 포함 */ 
+    			    SUM(SUPP_AMT_07 + SUPP_AMT_08 + SUPP_AMT_09) AS SUPP_ETC_AMT,    -- 기타수당(SUPP_AMT_06=연승수당 제외)
+    			    SUM(AID_AMT_04) AS AID_AMT_04     -- 선수 회비  
+                FROM TBEG_MONTH_PAY
+                WHERE STND_YEAR= ?
+                AND PAY_MONTH BETWEEN TO_NUMBER(?) AND TO_NUMBER(?)
+                AND PAY_TPE='1'
+                GROUP BY RACER_NO
+            )T1,
+            (
+                SELECT 
+                    TRP.RACER_NO, COUNT(*) AS RUN_CNT 
+                FROM TBEG_RACE_PRIZ TRP, TBEB_ORGAN TOR
+                WHERE TRP.STND_YEAR= ?
+                AND TRP.PAY_MONTH BETWEEN TO_NUMBER(?) AND TO_NUMBER(?)
+				AND TRP.STND_YEAR = TOR.STND_YEAR
+				AND TRP.MBR_CD = TOR.MBR_CD
+				AND TRP.TMS = TOR.TMS
+				AND TRP.DAY_ORD = TOR.DAY_ORD
+				AND TRP.RACE_NO = TOR.RACE_NO
+				AND TRP.RACE_REG_NO = TOR.RACE_REG_NO
+				AND (TOR.ABSE_CD <> '003' OR TOR.IMMT_CLS_CD  <> '003')
+                GROUP BY TRP.RACER_NO
+            )T2, TBEC_RACER_MASTER TRM
+            WHERE T1.RACER_NO = T2.RACER_NO(+)
+            AND T1.RACER_NO = TRM.RACER_NO
+            AND TRM.NM_KOR LIKE '%'||?||'%'
+            ORDER BY RACER_NO
+        ]]>
+    </query> 
+   
+</queryMap>

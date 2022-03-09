@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbr1050(경주개최 준비상황 관리 )">
+   <query id="rbr1050_s01" desc="경주개최 준비상황 조회" fetchSize="10">
+      <![CDATA[
+              SELECT   /* rbr1050_s01 */
+                        RACE_DAY                  --경주일자
+				       ,COMM_NO                   --지점코드
+				       ,WRKG_NUM                  --출근인원
+				       ,DUTY_OFF_NUM              --휴가인원
+				       ,WRKG_INFO				  --출근인원정보	
+				       ,DUTY_OFF_INFO			  --휴가인원정보
+				       ,NUM_CHK_RSLT              --인원점검 결과
+				       ,CHK_POINT                 --점검사항
+				       ,CHK_POINT_RSLT            --점검결과
+				       ,SIGNFT_POINT              --특이사항
+				       ,STAT                      --처리상태
+				       ,INST_ID                   --입력자 사번
+				       ,INST_DT                   --입력일시
+				       ,UPDT_ID                   --수정자 사번
+				       ,UPDT_DT                   --수정일시
+				 FROM  USRBM."TBRA_RPT_PREP_SITU"
+				 WHERE RACE_DAY = ?
+				 AND   COMM_NO  = ?            
+        ]]>
+     </query>
+     
+    <query id="rbr1050_s02" desc="부서조회 조회" fetchSize="10">
+      <![CDATA[
+              SELECT   /* rbr1050_s02 */
+                        CD                 --지점코드
+				       ,CD_NM                  --지점코드명
+				       ,CD_NM2
+				 FROM  TBRK_SPEC_CD
+				 WHERE GRP_CD IN ('060','168')
+				 AND   CD NOT IN ('00','01','06','29','98','99')
+				 ORDER BY GRP_CD DESC, ORD_NO
+        ]]>
+     </query>
+    
+     <query id="rbr1050_u01" desc="경주개최 준비상황 수정" fetchSize="10">
+      <![CDATA[
+               UPDATE  /* rbr1050_u01 */
+                       TBRA_RPT_PREP_SITU
+			   SET     STAT           = ?           --처리상태
+			          ,UPDT_ID        = ?
+			          ,UPDT_DT        = SYSDATE
+				 WHERE RACE_DAY = ?
+				 AND   COMM_NO  = ?           
+        ]]>
+    </query>
+    
+     <query id="rbr1050_m01" desc="경주개최준비 상황보고 수정" fetchSize="10">
+      <![CDATA[
+               MERGE  /* rbr1050_m01 */
+                      INTO TBRA_RPT_PREP_SITU DST
+               USING (
+                      SELECT  ? RACE_DAY                  --경주일자
+                             ,? COMM_NO                   --지점코드
+                             ,? WRKG_NUM                  --출근인원
+                             ,? DUTY_OFF_NUM              --휴가인원
+                             ,? WRKG_INFO                 --출근인원정보
+                             ,? DUTY_OFF_INFO             --휴가인원정보
+                             ,? NUM_CHK_RSLT              --인원점검 결과
+                             ,? CHK_POINT                 --점검사항
+                             ,? CHK_POINT_RSLT            --점검결과
+                             ,? SIGNFT_POINT              --특이사항
+                             ,? AS USER_ID
+                      FROM   DUAL       
+                      ) SRC
+                   ON (
+                            DST.RACE_DAY = SRC.RACE_DAY
+                        AND DST.COMM_NO  = SRC.COMM_NO
+                      )
+                   WHEN MATCHED THEN
+                       UPDATE SET
+                            DST.WRKG_NUM       = SRC.WRKG_NUM
+                           ,DST.DUTY_OFF_NUM   = SRC.DUTY_OFF_NUM
+                           ,DST.WRKG_INFO      = SRC.WRKG_INFO
+                           ,DST.DUTY_OFF_INFO  = SRC.DUTY_OFF_INFO
+                           ,DST.NUM_CHK_RSLT   = SRC.NUM_CHK_RSLT
+                           ,DST.CHK_POINT      = SRC.CHK_POINT
+                           ,DST.CHK_POINT_RSLT = SRC.CHK_POINT_RSLT
+                           ,DST.SIGNFT_POINT   = SRC.SIGNFT_POINT
+                           ,DST.UPDT_ID        = SRC.USER_ID
+                           ,DST.UPDT_DT        = SYSDATE
+                   WHEN NOT MATCHED THEN
+                       INSERT (
+                                RACE_DAY                  --경주일자
+                               ,COMM_NO                   --지점코드
+                               ,WRKG_NUM                  --출근인원
+                               ,DUTY_OFF_NUM              --휴가인원
+                               ,WRKG_INFO                 --출근인원정보
+                               ,DUTY_OFF_INFO             --휴가인원정보
+                               ,NUM_CHK_RSLT              --인원점검 결과
+                               ,CHK_POINT                 --점검사항
+                               ,CHK_POINT_RSLT            --점검결과
+                               ,SIGNFT_POINT              --특이사항
+                               ,STAT                      --처리상태                               
+                               ,INST_ID                   --입력자 사번
+                               ,INST_DT                   --입력일시
+                               ) VALUES (
+                                SRC.RACE_DAY
+                               ,SRC.COMM_NO
+                               ,SRC.WRKG_NUM
+                               ,SRC.DUTY_OFF_NUM
+                               ,SRC.WRKG_INFO                 --출근인원정보
+                               ,SRC.DUTY_OFF_INFO             --휴가인원정보
+                               ,SRC.NUM_CHK_RSLT
+                               ,SRC.CHK_POINT
+                               ,SRC.CHK_POINT_RSLT
+                               ,SRC.SIGNFT_POINT
+                               ,'001'
+                               ,SRC.USER_ID
+                               ,SYSDATE
+                               )       
+        ]]>
+    </query>
+       
+     <query id="rbr1050_m02" desc="지점현황 복사" fetchSize="10">
+      <![CDATA[
+               MERGE  /* rbr1050_m02 */
+                      INTO TBRA_RPT_PREP_SITU DST
+               USING (
+                      SELECT ? RACE_DAY                  --경주일자
+                             ,COMM_NO                   --지점코드
+                             ,WRKG_NUM                  --출근인원
+                             ,DUTY_OFF_NUM              --휴가인원
+                             ,WRKG_INFO                 --출근인원정보
+                             ,DUTY_OFF_INFO             --휴가인원정보
+                             ,NUM_CHK_RSLT              --인원점검 결과
+                             ,CHK_POINT                 --점검사항
+                             ,CHK_POINT_RSLT            --점검결과
+                             ,SIGNFT_POINT              --특이사항
+                             ,? AS USER_ID
+                      FROM   TBRA_RPT_PREP_SITU
+                      WHERE RACE_DAY = (SELECT MAX(A.RACE_DAY)
+                                        FROM   TBRA_RPT_PREP_SITU A,
+                                               VW_SDL_INFO B
+                                        WHERE  A.RACE_DAY < ?
+                                        AND    A.COMM_NO  = ?
+                                        AND    A.RACE_DAY = B.RACE_DAY
+                                        AND    B.MEET_CD  = ?
+                                        )      
+                      AND  COMM_NO = ?                  
+                      ) SRC
+                   ON (
+                            DST.RACE_DAY = SRC.RACE_DAY
+                        AND DST.COMM_NO  = SRC.COMM_NO
+                      )
+                   WHEN MATCHED THEN
+                       UPDATE SET
+                            DST.WRKG_NUM       = SRC.WRKG_NUM
+                           ,DST.DUTY_OFF_NUM   = SRC.DUTY_OFF_NUM
+                           ,DST.WRKG_INFO      = SRC.WRKG_INFO
+                           ,DST.DUTY_OFF_INFO  = SRC.DUTY_OFF_INFO
+                           ,DST.NUM_CHK_RSLT   = SRC.NUM_CHK_RSLT
+                           ,DST.CHK_POINT      = SRC.CHK_POINT
+                           ,DST.CHK_POINT_RSLT = SRC.CHK_POINT_RSLT
+                           ,DST.SIGNFT_POINT   = SRC.SIGNFT_POINT
+                           ,DST.UPDT_ID        = SRC.USER_ID
+                           ,DST.UPDT_DT        = SYSDATE
+                   WHEN NOT MATCHED THEN
+                       INSERT (
+                                RACE_DAY                  --경주일자
+                               ,COMM_NO                   --지점코드
+                               ,WRKG_NUM                  --출근인원
+                               ,DUTY_OFF_NUM              --휴가인원
+                               ,WRKG_INFO                 --출근인원정보
+                               ,DUTY_OFF_INFO             --휴가인원정보
+                               ,NUM_CHK_RSLT              --인원점검 결과
+                               ,CHK_POINT                 --점검사항
+                               ,CHK_POINT_RSLT            --점검결과
+                               ,SIGNFT_POINT              --특이사항
+                               ,STAT                      --처리상태                               
+                               ,INST_ID                   --입력자 사번
+                               ,INST_DT                   --입력일시
+                               ) VALUES (
+                                SRC.RACE_DAY
+                               ,SRC.COMM_NO
+                               ,SRC.WRKG_NUM
+                               ,SRC.DUTY_OFF_NUM
+                               ,SRC.WRKG_INFO                 --출근인원정보
+                               ,SRC.DUTY_OFF_INFO             --휴가인원정보
+                               ,SRC.NUM_CHK_RSLT
+                               ,SRC.CHK_POINT
+                               ,SRC.CHK_POINT_RSLT
+                               ,SRC.SIGNFT_POINT
+                               ,'001'
+                               ,SRC.USER_ID
+                               ,SYSDATE
+                               )       
+        ]]>
+    </query>
+    
+</queryMap>

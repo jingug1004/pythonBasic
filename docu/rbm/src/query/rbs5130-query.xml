@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5130(포상지급 관리 )">
+  <query id="rbs5130_s01" desc="포상지급 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5130_s01 */
+                   '0' AS CHK
+                   ,H.RWRD_SEQ					-- 포상금지급 연번
+		           ,H.RACER_ID					-- 선수번호
+		           ,R.RACER_NM					-- 선수번호
+		           ,H.GAME_CD					-- 종목코드
+		           ,H.CONTEST_TYPE_SEQ			-- 대회분류연번
+		           ,H.WIN_HIS_SEQ				-- 포상지급연번
+		           ,H.PAY_DY					-- 포상급 지급일자
+		           ,H.PAY_AMT					-- 포상금액		           
+		           ,H.RMK						-- 비고
+		           ,H.PRV_GRP_TYPE				-- 개인단체 여부
+		           ,W.CONTEST_NM				-- 대회명
+		           ,W.RANK						-- 순위
+		           ,C1.CD_NM AS GAME_NM			-- 종목명
+		           ,W.CONTEST_TYPE_SEQ
+		           ,'' AS MRTN_RACE_TYPE 
+			FROM TBRS_RWRD_HIS H, 
+			     (SELECT  W.WIN_HIS_SEQ
+			             ,W.RANK
+			             ,C.CONTEST_NM
+			             ,C.CONTEST_TYPE_SEQ
+			       FROM  TBRS_CONTEST C, TBRS_WIN_HIS W
+			       WHERE W.CONTEST_SEQ = C.CONTEST_SEQ
+			       )W, TBRS_RACER R, TBRK_SPEC_CD C1
+			WHERE   H.GAME_CD = C1.CD
+			   AND  C1.GRP_CD = '144'
+			   AND  H.RACER_ID = R.RACER_ID
+			   AND  H.WIN_HIS_SEQ = W.WIN_HIS_SEQ(+)
+			   AND  H.GAME_CD LIKE ?||'%'			   
+			   AND  H.PAY_DY BETWEEN NVL(?, '19990101') AND NVL(?, '29991231')
+			   AND  H.RACER_ID LIKE ?||'%'
+			ORDER BY H.GAME_CD, H.PAY_DY 
+        ]]>
+    </query>       
+    
+    <query id="rbs5130_m01" desc="포상지급 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5130_m01 */
+                  TBRS_RWRD_HIS DST
+           USING (
+                     SELECT   ? AS RACER_ID
+                             ,? AS RWRD_SEQ
+                             ,? AS GAME_CD
+                             ,? AS CONTEST_TYPE_SEQ
+                             ,? AS RWRD_RULE_SEQ
+                             ,? AS WIN_HIS_SEQ
+                             ,? AS PAY_DY
+                             ,? AS PAY_AMT
+                             ,? AS RMK
+                             ,? AS PRV_GRP_TYPE
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.RWRD_SEQ 	= SRC.RWRD_SEQ
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.RACER_ID 		= SRC.RACER_ID
+                        ,DST.GAME_CD   		= SRC.GAME_CD
+                        ,DST.CONTEST_TYPE_SEQ = SRC.CONTEST_TYPE_SEQ
+                        ,DST.RWRD_RULE_SEQ  = SRC.RWRD_RULE_SEQ
+                        ,DST.WIN_HIS_SEQ   	= SRC.WIN_HIS_SEQ
+                        ,DST.PAY_DY   		= SRC.PAY_DY
+                        ,DST.PAY_AMT   		= SRC.PAY_AMT
+                        ,DST.RMK   			= SRC.RMK
+                        ,DST.PRV_GRP_TYPE	= SRC.PRV_GRP_TYPE
+                        ,DST.UPDT_ID 		= SRC.USER_ID
+                        ,DST.UPDT_DT 		= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  RWRD_SEQ
+                , RACER_ID
+                , GAME_CD
+                , CONTEST_TYPE_SEQ
+                , RWRD_RULE_SEQ
+                , WIN_HIS_SEQ
+                , PAY_DY
+                , PAY_AMT
+                , RMK
+                , PRV_GRP_TYPE
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  (SELECT NVL(MAX(RWRD_SEQ), 0) + 1 FROM TBRS_RWRD_HIS)
+                , SRC.RACER_ID
+                , SRC.GAME_CD
+                , SRC.CONTEST_TYPE_SEQ
+                , SRC.RWRD_RULE_SEQ
+                , SRC.WIN_HIS_SEQ
+                , SRC.PAY_DY
+                , SRC.PAY_AMT
+                , SRC.RMK
+                , SRC.PRV_GRP_TYPE
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5130_d01" desc="포상지급 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5130_d01 */
+            FROM TBRS_RWRD_HIS
+           WHERE RWRD_SEQ = ? 
+        ]]>
+    </query>    
+    
+</queryMap>

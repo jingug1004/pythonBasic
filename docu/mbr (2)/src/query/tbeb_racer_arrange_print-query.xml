@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_racer_arrange_print(경주)">
+    <query id="tbeb_racer_arrange_print_fb001" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     '등록인원' STR
+                   , MIN(DECODE(RACER_GRD_CD, 'A1', TOT_CNT)) A1
+                   , MIN(DECODE(RACER_GRD_CD, 'A2', TOT_CNT)) A2
+                   , MIN(DECODE(RACER_GRD_CD, 'B1', TOT_CNT)) B1
+                   , MIN(DECODE(RACER_GRD_CD, 'B2', TOT_CNT)) B2
+                   , SUM(TOT_CNT) TT
+            FROM   (
+			            SELECT
+			                     TRM.RACER_GRD_CD
+			                   , COUNT(*) TOT_CNT
+			            FROM     (
+                                    SELECT
+                                             RACER_NO
+                                           , RACER_GRD_CD
+                                    FROM   (
+                                                SELECT 
+                                                         TRG.RACER_NO
+                                                       , TRG.RACER_GRD_CD
+                                                       , RANK() OVER (PARTITION BY TRG.RACER_NO
+                                                                          ORDER BY TRG.CHG_DT DESC) SEQ
+                                                FROM     TBEB_RACER_GRD    TRG
+                                                       , TBEC_RACER_MASTER TRM
+                                                WHERE  TRM.RACER_NO = TRG.RACER_NO
+                                                AND    TRG.CHG_DT   < ?
+                                           )
+                                    WHERE  SEQ = 1
+			                     ) TRM
+			                   , TBEC_RACER_DETAIL TRD
+			            WHERE  TRM.RACER_NO  = TRD.RACER_NO
+			            AND    (TRD.CNL_DT IS NULL OR TRD.CNL_DT   >= ?)
+			            GROUP BY TRM.RACER_GRD_CD
+                   )
+
+            UNION ALL
+            SELECT
+                     '가용인원' STR
+                   , MIN(DECODE(RACER_GRD_CD, 'A1', TOT_CNT)) A1
+                   , MIN(DECODE(RACER_GRD_CD, 'A2', TOT_CNT)) A2
+                   , MIN(DECODE(RACER_GRD_CD, 'B1', TOT_CNT)) B1
+                   , MIN(DECODE(RACER_GRD_CD, 'B2', TOT_CNT)) B2
+                   , SUM(TOT_CNT) TT
+            FROM   (
+			            SELECT
+			                     TRM.RACER_GRD_CD
+			                   , COUNT(*) TOT_CNT
+			            FROM     (
+                                    SELECT
+                                             RACER_NO
+                                           , RACER_GRD_CD
+                                    FROM   (
+                                                SELECT 
+                                                         TRG.RACER_NO
+                                                       , TRG.RACER_GRD_CD
+                                                       , RANK() OVER (PARTITION BY TRG.RACER_NO
+                                                                          ORDER BY TRG.CHG_DT DESC) SEQ
+                                                FROM     TBEB_RACER_GRD    TRG
+                                                       , TBEC_RACER_MASTER TRM
+                                                WHERE  TRM.RACER_NO = TRG.RACER_NO
+                                                AND    TRG.CHG_DT   < ?
+                                                AND    TRM.RACER_NO NOT IN (
+                                                        			            SELECT
+                                                                                       TAE.RACER_NO
+                                                        			            FROM   TBEC_ARRANGE_ESC  TAE
+                                                        			            WHERE  TAE.STR_DT   <= ?
+                                                        			            AND    TAE.END_DT   >= ?
+                                                                           )
+                                           )
+                                    WHERE  SEQ = 1
+			                     ) TRM
+			                   , TBEC_RACER_DETAIL TRD
+			            WHERE  TRM.RACER_NO  = TRD.RACER_NO
+			            AND    (TRD.CNL_DT IS NULL OR TRD.CNL_DT   >= ?)
+			            GROUP BY TRM.RACER_GRD_CD
+                   )
+
+            UNION ALL
+            SELECT
+                     '주선인원' STR
+                   , MIN(DECODE(RACER_GRD_CD, 'A1', TOT_CNT)) A1
+                   , MIN(DECODE(RACER_GRD_CD, 'A2', TOT_CNT)) A2
+                   , MIN(DECODE(RACER_GRD_CD, 'B1', TOT_CNT)) B1
+                   , MIN(DECODE(RACER_GRD_CD, 'B2', TOT_CNT)) B2
+                   , SUM(TOT_CNT) TT
+            FROM   (
+			            SELECT
+			                     TRM.RACER_GRD_CD
+			                   , COUNT(*) TOT_CNT
+			            FROM     (
+                                    SELECT
+                                             RACER_NO
+                                           , RACER_GRD_CD
+                                    FROM   (
+                                                SELECT 
+                                                         TRG.RACER_NO
+                                                       , TRG.RACER_GRD_CD
+                                                       , RANK() OVER (PARTITION BY TRG.RACER_NO
+                                                                          ORDER BY TRG.CHG_DT DESC) SEQ
+                                                FROM     TBEB_RACER_GRD    TRG
+                                                       , TBEC_RACER_MASTER TRM
+                                                WHERE  TRM.RACER_NO = TRG.RACER_NO
+                                                AND    TRG.CHG_DT   < ?
+                                           )
+                                    WHERE  SEQ = 1
+			                     ) TRM
+			                   , TBEB_ARRANGE TA
+			            WHERE  TA .RACER_NO  = TRM.RACER_NO
+			            AND    TA .STND_YEAR = ?
+			            AND    TA .MBR_CD    = ?
+			            AND    TA .TMS       = ?
+			            GROUP BY TRM.RACER_GRD_CD
+                   )
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeb_racer_arrange_print_fb002" desc="저장" fetchSize="10">
+        <![CDATA[
+			select
+			      '등록인원' str
+			    , sum(cnt) tot
+			    , SUM(CNT) TOT2
+			    , ' ' rmk
+			from (
+			        select
+			              count(*) cnt
+			        from  tbec_racer_master a
+			        where racer_stat_cd = '002'
+			    ) x
+			
+			union all
+			
+			-- 1, 2회차때 주선 제외된 선수
+			select
+			      '가용인원' str
+			    , sum(cnt) tot
+			    , sum(cnt) tot2
+			    , ' ' rmk
+			from (
+			        select 
+			            count(*) cnt
+			        from  tbec_racer_master a
+			        where  a.racer_no not in (
+			                                select
+			                                    racer_no
+			                                from  tbec_arrange_esc
+			                                    where (
+			                                             str_dt between (select
+			                                                                min(str_dt)
+			                                                            from  tbeb_race_tms
+			                                                            where stnd_year = ?
+			                                                            and   mbr_cd = ?
+			                                                            and   tms = to_number(?)) 
+			                                                            
+			                                                            and
+			                                                            
+			                                                            (select
+			                                                                    max(end_dt)
+			                                                                from  tbeb_race_tms
+			                                                                where stnd_year = ?
+			                                                                and   mbr_cd = ?
+			                                                                and   tms = to_number(?))
+                                                         or
+                                                         
+			                                             end_dt between (select
+			                                                                min(str_dt)
+			                                                            from  tbeb_race_tms
+			                                                            where stnd_year = ?
+			                                                            and   mbr_cd = ?
+			                                                            and   tms = to_number(?)) 
+			                                                            
+			                                                            and
+			                                                            
+			                                                            (select
+			                                                                    max(end_dt)
+			                                                                from  tbeb_race_tms
+			                                                                where stnd_year = ?
+			                                                                and   mbr_cd = ?
+			                                                                and   tms = to_number(?))                                                         
+                                                    )
+			                                )
+			        and racer_stat_cd = '002'
+			    ) x
+			    
+			union all
+			
+			-- 1, 2회차때 주선 선수
+			select
+			      '주선인원' str
+			    , sum(cnt) tot
+			    , sum(cnt) tot2
+			    , ' ' rmk
+			from (
+			        select 
+			            count(*) cnt
+			        from  tbeb_arrange a
+			            , tbec_racer_master b
+			        where a.stnd_year = ?
+			        and   mbr_cd = ?
+			        and   a.tms = to_number(?)
+			        and   a.racer_no = b.racer_no
+			        and   a.racer_no not in (
+			                                select
+			                                    racer_no
+			                                from  tbec_arrange_esc
+			                                    where (
+			                                             str_dt between (select
+			                                                                min(str_dt)
+			                                                            from  tbeb_race_tms
+			                                                            where stnd_year = ?
+			                                                            and   mbr_cd = ?
+			                                                            and   tms = to_number(?)) 
+			                                                            
+			                                                            and
+			                                                            
+			                                                            (select
+			                                                                    max(end_dt)
+			                                                                from  tbeb_race_tms
+			                                                                where stnd_year = ?
+			                                                                and   mbr_cd = ?
+			                                                                and   tms = to_number(?))
+                                                         or
+                                                         
+			                                             end_dt between (select
+			                                                                min(str_dt)
+			                                                            from  tbeb_race_tms
+			                                                            where stnd_year = ?
+			                                                            and   mbr_cd = ?
+			                                                            and   tms = to_number(?)) 
+			                                                            
+			                                                            and
+			                                                            
+			                                                            (select
+			                                                                    max(end_dt)
+			                                                                from  tbeb_race_tms
+			                                                                where stnd_year = ?
+			                                                                and   mbr_cd = ?
+			                                                                and   tms = to_number(?))                                                         
+                                                    )
+			                                )
+			        and racer_stat_cd = '002'
+			    ) x
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeb_racer_arrange_print_fb003" desc="등급별선수조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         RACER_GRD_CD
+			       , MAX(SEQ) CNT
+			       , SUBSTR(MAX(SYS_CONNECT_BY_PATH (NM_KOR, ', ')), 2) STR
+			FROM   (
+			            SELECT
+			                     TRM.RACER_GRD_CD
+			                   , TRM.NM_KOR || DECODE(BF.RACER_NO, NULL, '', '(*)') NM_KOR
+			                   , RANK() OVER (PARTITION BY TRM.RACER_GRD_CD
+			                                      ORDER BY TA .RACER_NO) SEQ
+			            FROM     TBEB_ARRANGE TA
+			                   , (
+			                        SELECT
+			                                 RACER_NO
+			                        FROM     TBEB_ARRANGE TA
+			                        WHERE  TA.STND_YEAR = ?
+			                        AND    TA.MBR_CD    = ?
+			                        AND    TA.TMS       = ? - 1
+			                     ) BF
+			                   , (
+			                        SELECT
+			                                 RACER_NO
+			                               , NM_KOR
+			                               , RACER_GRD_CD
+			                        FROM   (
+			                                    SELECT 
+			                                             TRG.RACER_NO
+			                                           , TRM.NM_KOR
+			                                           , TRG.RACER_GRD_CD
+			                                           , RANK() OVER (PARTITION BY TRG.RACER_NO
+			                                                              ORDER BY TRG.CHG_DT DESC) SEQ
+			                                    FROM     TBEB_RACER_GRD    TRG
+			                                           , TBEC_RACER_MASTER TRM
+			                                    WHERE  TRM.RACER_NO = TRG.RACER_NO
+			                                    AND    TRG.CHG_DT   < ?
+			                               )
+			                        WHERE  SEQ = 1
+			                     ) TRM
+			            WHERE  TA.RACER_NO  = TRM.RACER_NO(+)
+			            AND    TA.RACER_NO  = BF .RACER_NO(+)
+			            AND    TA.STND_YEAR = ?
+			            AND    TA.MBR_CD    = ?
+			            AND    TA.TMS       = ?
+			       )
+			START WITH SEQ = 1
+			CONNECT BY PRIOR SEQ = SEQ - 1 AND PRIOR RACER_GRD_CD = RACER_GRD_CD
+			GROUP BY RACER_GRD_CD
+			ORDER BY RACER_GRD_CD
+        ]]>
+    </query>     
+    
+    
+    <query id="tbeb_racer_arrange_print_fb004" desc="등급별선수수조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         DAY_ORD || '일차' DAYORD
+			       , SUM(CNT) CNT
+			       , MIN(DECODE(RACER_GRD_CD, 'A1', STR)) A1
+			       , MIN(DECODE(RACER_GRD_CD, 'A2', STR)) A2
+			       , MIN(DECODE(RACER_GRD_CD, 'B1', STR)) B1
+			       , MIN(DECODE(RACER_GRD_CD, 'B2', STR)) B2
+			FROM   (
+			            SELECT
+			                     TRRA.DAY_ORD
+			                   , TRM .RACER_GRD_CD
+			                   , COUNT(*) CNT
+			                   , SUBSTR(XMLAGG(XMLELEMENT(A,', ' || TRM.NM_KOR) ORDER BY TRM.RACER_NO).EXTRACT('//text()'), 2) STR
+			            FROM     TBEB_RACER_RACE_ALLOC TRRA
+			                   , (
+			                        SELECT
+			                                 RACER_NO
+			                               , NM_KOR
+			                               , RACER_GRD_CD
+			                        FROM   (
+			                                    SELECT 
+			                                             TRG.RACER_NO
+			                                           , TRM.NM_KOR
+			                                           , TRG.RACER_GRD_CD
+			                                           , RANK() OVER (PARTITION BY TRG.RACER_NO
+			                                                              ORDER BY TRG.CHG_DT DESC) SEQ
+			                                    FROM     TBEB_RACER_GRD    TRG
+			                                           , TBEC_RACER_MASTER TRM
+			                                    WHERE  TRM.RACER_NO = TRG.RACER_NO
+			                                    AND    TRG.CHG_DT   < ?
+			                               )
+			                        WHERE  SEQ = 1
+			                     ) TRM
+			            WHERE  TRRA.RACER_NO  = TRM.RACER_NO
+			            AND    TRRA.STND_YEAR = ?
+			            AND    TRRA.MBR_CD    = ?
+			            AND    TRRA.TMS       = ?
+			            AND    RACE_ALLOC_CNT > 1
+			            GROUP BY DAY_ORD
+			                   , RACER_GRD_CD
+			                   , RACER_GRD_CD
+			       )
+			GROUP BY DAY_ORD
+			ORDER BY DAY_ORD
+        ]]>
+    </query>    
+    
+    
+    <query id="tbeb_racer_arrange_print_fb005" desc="출전정지자조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     ROWNUM SEQ
+                   , RACER_NO
+                   , NM_KOR
+                   , RACER_GRD_CD
+                   , '출전정지 ' || UNIT || '(' || STR_DT || ' ~ ' || END_DT || ')' CD_NM
+                   , SANC_RSN
+                   , RMK
+            FROM   (
+                        SELECT
+                                 TRM.RACER_NO
+                               , TRM.NM_KOR
+                               , TRM.RACER_GRD_CD
+                               , TAE.RSN_CD
+                               , NVL(TRS.SANC_RSN, TAE.RMK) SANC_RSN
+                               , TO_CHAR(TO_DATE(TAE.STR_DT, 'YYYYMMDD'), 'MM-DD') STR_DT
+                               , TO_CHAR(TO_DATE(TAE.END_DT, 'YYYYMMDD'), 'MM-DD') END_DT
+                               , TRS.SANC_TERM || (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00116' AND CD = TRS .UNIT) UNIT
+                               , DECODE(TRM.RACER_STAT_CD, '002', '신인') RMK
+                        FROM     TBEC_ARRANGE_ESC  TAE
+                               , TBEC_RACER_MASTER TRM
+                               , TBEC_RACER_DETAIL TRD
+                               , TBEE_RACER_SANC   TRS
+                        WHERE  TAE.RACER_NO  = TRM.RACER_NO
+                        AND    TAE.RACER_NO  = TRD.RACER_NO
+                        AND    TAE.RACER_NO  = TRS.RACER_NO         (+)
+                        AND    TAE.STR_DT    = TRS.HOMEPAGE_NOTI_SDT(+)
+                        --AND    TAE.END_DT    = TRS.HOMEPAGE_NOTI_EDT(+)
+                        AND    TAE.STR_DT   <= ?
+                        AND    TAE.END_DT   >= ?
+                        AND    TAE.RSN_CD    = '001'
+                        ORDER BY TAE.RSN_CD
+                               , TRM.RACER_GRD_CD
+                               , TRM.RACER_NO
+                   )
+        ]]>
+    </query>     
+    
+    <query id="tbeb_racer_arrange_print_fb006" desc="출전정지자조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     ROWNUM SEQ
+                   , RACER_NO
+                   , NM_KOR
+                   , RACER_GRD_CD
+                   , RSN_CD
+                   , RMK
+            FROM   (
+                        SELECT
+                                 TRM.RACER_NO
+                               , TRM.NM_KOR
+                               , TRM.RACER_GRD_CD
+                               , TAE.RSN_CD
+                               , TAE.RMK
+                        FROM     TBEC_ARRANGE_ESC  TAE
+                               , TBEC_RACER_MASTER TRM
+                               , TBEC_RACER_DETAIL TRD
+                        WHERE  TAE.RACER_NO  = TRM.RACER_NO
+                        AND    TAE.RACER_NO  = TRD.RACER_NO
+                        AND    TAE.STR_DT   <= ?
+                        AND    TAE.END_DT   >= ?
+                        AND    TAE.RSN_CD LIKE '0%'
+                        AND    TAE.RSN_CD   <> '001'
+                        ORDER BY TAE.RSN_CD
+                               , TRM.RACER_GRD_CD
+                               , TRM.RACER_NO
+                   )
+        ]]>
+    </query>     
+    
+    
+    <query id="tbeb_racer_arrange_print_fb007" desc="출전정지자조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     ROWNUM SEQ
+                   , RACER_NO
+                   , NM_KOR
+                   , RACER_PERIO_NO
+                   , RSN_CD
+                   , RMK
+            FROM   (
+                        SELECT
+                                 TRM.RACER_NO
+                               , TRM.NM_KOR
+                               , TRM.RACER_PERIO_NO
+                               , TAE.RSN_CD
+                               , TAE.RMK
+                        FROM     TBEC_ARRANGE_ESC  TAE
+                               , TBEC_RACER_MASTER TRM
+                               , TBEC_RACER_DETAIL TRD
+                        WHERE  TAE.RACER_NO  = TRM.RACER_NO
+                        AND    TAE.RACER_NO  = TRD.RACER_NO
+                        AND    TAE.STR_DT   <= ?
+                        AND    TAE.END_DT   >= ?
+                        AND    TAE.RSN_CD LIKE '2%'
+                        ORDER BY TAE.RSN_CD
+                               , TRM.RACER_NO
+                   )
+        ]]>
+    </query>     
+    
+    <query id="tbeb_racer_arrange_print_fb008" desc="조회" fetchSize="10">
+        <![CDATA[
+			-- 주선에 포함된 선수번호의 기수중 최소/최대값 구하기
+			select
+			      decode( min(b.racer_perio_no) , max(b.racer_perio_no), max(b.racer_perio_no)||'기', min(b.racer_perio_no) ||'~'||max(b.racer_perio_no)||'기' ) str
+			from  tbeb_arrange a
+			    , tbec_racer_master b
+			where a.racer_no = b.racer_no
+			and   a.stnd_year = ?
+			and   a.mbr_cd    = ?
+			and   a.tms       = ?
+			and   b.racer_stat_cd != '003'
+        ]]>
+    </query>   
+    
+    <query id="tbeb_racer_arrange_print_fb009" desc="조회" fetchSize="10">
+        <![CDATA[
+			-- 주선에 포함된 신인선수번호의 기수중 최소/최대값 구하기
+			select
+			      decode( min(b.racer_perio_no) , max(b.racer_perio_no), max(b.racer_perio_no)||'기', min(b.racer_perio_no) ||'~'||max(b.racer_perio_no)||'기' ) str
+			from  tbeb_arrange a
+			    , tbec_racer_master b
+			where a.racer_no = b.racer_no
+			and   a.stnd_year = ?
+			and   a.mbr_cd    = ?
+			and   a.tms       = ?
+			and   b.racer_stat_cd = '002'
+        ]]>
+    </query>   
+    
+    <query id="tbeb_racer_arrange_print_fb010" desc="조회" fetchSize="10">
+        <![CDATA[
+			select b.cd_nm qurtstr 
+			from  tbeb_race_tms a
+			    , (select cd, cd_nm from tbea_spec_cd where grp_cd='E00107') b
+			where stnd_year = ?
+			and   mbr_cd    = ?
+			and   tms       = ?
+			and   a.qurt_cd = b.cd
+        ]]>
+    </query>  
+</queryMap>

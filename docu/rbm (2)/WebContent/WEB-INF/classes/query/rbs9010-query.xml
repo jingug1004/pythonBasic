@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs9010(총량준수율 관리 )">
+  <query id="rbs9010_s01" desc="순매출목표 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs9010_s01 */
+                   MEET_CD
+                  ,STND_YEAR
+                  ,PLAN_TYPE
+                  ,SUM(DECODE(STND_MONTH, '01', SALES_AMT)) AS NET01
+                  ,SUM(DECODE(STND_MONTH, '02', SALES_AMT)) AS NET02           
+                  ,SUM(DECODE(STND_MONTH, '03', SALES_AMT)) AS NET03           
+                  ,SUM(DECODE(STND_MONTH, '04', SALES_AMT)) AS NET04           
+                  ,SUM(DECODE(STND_MONTH, '05', SALES_AMT)) AS NET05           
+                  ,SUM(DECODE(STND_MONTH, '06', SALES_AMT)) AS NET06           
+                  ,SUM(DECODE(STND_MONTH, '07', SALES_AMT)) AS NET07           
+                  ,SUM(DECODE(STND_MONTH, '08', SALES_AMT)) AS NET08           
+                  ,SUM(DECODE(STND_MONTH, '09', SALES_AMT)) AS NET09           
+                  ,SUM(DECODE(STND_MONTH, '10', SALES_AMT)) AS NET10           
+                  ,SUM(DECODE(STND_MONTH, '11', SALES_AMT)) AS NET11           
+                  ,SUM(DECODE(STND_MONTH, '12', SALES_AMT)) AS NET12           
+                  ,SUM(SALES_AMT) AS NET_TOTAL          
+             FROM TBRS_SALES_PLAN
+	        WHERE MEET_CD   = ?
+	        AND   STND_YEAR = ?
+	        AND   PLAN_TYPE = 'Y'
+	        GROUP BY MEET_CD, STND_YEAR, PLAN_TYPE
+        ]]>
+    </query>       
+    
+    <query id="rbs9010_s02" desc="순매출실적 월별  조회 " fetchSize="10">
+      <![CDATA[			       
+			--순매출액
+			SELECT /* rbs9010_s02 */
+						STND_YEAR
+						           ,ROUND(SUM(NET_SALES_01)) AS RSLT_01
+						           ,ROUND(SUM(NET_SALES_02)) AS RSLT_02
+						           ,ROUND(SUM(NET_SALES_03)) AS RSLT_03
+						           ,ROUND(SUM(NET_SALES_04)) AS RSLT_04
+						           ,ROUND(SUM(NET_SALES_05)) AS RSLT_05
+						           ,ROUND(SUM(NET_SALES_06)) AS RSLT_06
+						           ,ROUND(SUM(NET_SALES_07)) AS RSLT_07
+						           ,ROUND(SUM(NET_SALES_08)) AS RSLT_08
+						           ,ROUND(SUM(NET_SALES_09)) AS RSLT_09
+						           ,ROUND(SUM(NET_SALES_10)) AS RSLT_10
+						           ,ROUND(SUM(NET_SALES_11)) AS RSLT_11
+						           ,ROUND(SUM(NET_SALES_12)) AS RSLT_12
+						           ,ROUND(SUM(NET_SALES_TOTAL)) AS RSLT_TOTAL
+						FROM  (
+						            SELECT
+						            	I.STND_YEAR
+						            	,DECODE(SUBSTR(I.RACE_DAY,5,2),'01',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_01
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'02',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_02
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'03',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_03
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'04',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_04
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'05',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_05
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'06',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_06
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'07',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_07
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'08',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_08
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'09',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_09
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'10',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_10
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'11',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_11
+						                ,DECODE(SUBSTR(I.RACE_DAY,5,2),'12',SUM(NET_AMT) - SUM(RET_AMT),0) AS NET_SALES_12
+						                ,SUM(NET_AMT)-SUM(RET_AMT) AS NET_SALES_TOTAL
+						            FROM VW_SDL_INFO I
+						                     ,(
+						                        SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, SUM(DIV_TOTAL) NET_AMT
+						                        FROM   TBES_SDL_DT
+						                        WHERE  MEET_CD   =  ? /**P*/
+						                        AND    STND_YEAR >= ? /**P*/
+						                        GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD
+						                       )P
+						                     , (
+						                     
+						                     -- ▷ 단·연승식 : 70%(∼‘04년) → 81%(단·연승, ’05년∼)
+											 -- ▷ 그 외승식 : 70%(∼‘08년) → 72%(그외승식, ‘09년∼)
+						                     
+			                                    SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,
+			                                    	WIN_1*(CASE WHEN STND_YEAR < '2005' THEN 0.7 ELSE 0.81 END) +
+			                                    	WIN_2*(CASE WHEN STND_YEAR < '2009' THEN 0.7 ELSE 0.72 END) RET_AMT
+			                                    FROM (
+			                                          SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,
+			                                                 SUM(CASE WHEN POOL_CD IN ('001', '002') THEN AMT ELSE 0 END) WIN_1,
+			                                                 SUM(CASE WHEN POOL_CD IN ('004', '005', '006') THEN AMT ELSE 0 END) WIN_2
+			                                          FROM (
+			                                                SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,
+			                                                       S.POOL_CD,
+			                                                       SUM(S.NET_AMT) AMT
+			                                                FROM USRBM.VW_PC_PAYOFFS S
+			                                                WHERE  MEET_CD   =   ? /**P*/
+			                                                AND    STND_YEAR >= ? /**P*/
+			                                                AND SELL_CD IN ('01','03')
+			                                                GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, S.POOL_CD
+			                                                UNION ALL
+			                                                -- 교차투표 매출액
+			                                                SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,
+			                                                       POOL_CD,
+			                                                       SUM(NET_AMT) AMT
+			                                                FROM USRBM.VW_PC_PAYOFFS S
+			                                                WHERE 1=1
+			                                                AND    MEET_CD   =   ? /**P*/
+			                                                AND    STND_YEAR >= ? /**P*/
+			                                                AND S.SELL_CD IN ('02','04')
+			                                                GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, S.POOL_CD
+			                                                )
+			                                          GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD
+			                                         )
+						                       ) R
+						            WHERE I.MEET_CD = P.MEET_CD
+						            AND     I.STND_YEAR = P.STND_YEAR
+						            AND     I.TMS = P.TMS
+						            AND     I.DAY_ORD = P.DAY_ORD
+						            AND     I.MEET_CD = R.MEET_CD
+						            AND     I.STND_YEAR = R.STND_YEAR
+						            AND     I.TMS = R.TMS
+						            AND     I.DAY_ORD = R.DAY_ORD
+						            AND     I.MEET_CD IN ('001','003')
+						            AND     I.MEET_CD   =  ? /**P*/
+						            AND     I.STND_YEAR >= ? /**P*/
+						            GROUP BY I.STND_YEAR, SUBSTR(I.RACE_DAY,5,2)
+			                   )
+			                   GROUP BY STND_YEAR
+			                   ORDER BY STND_YEAR
+
+        ]]>
+    </query>       
+    
+    <query id="rbs9010_s03" desc="순매출실적 비율 조회 " fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs9010_s03 */
+			       SUM(DECODE(TERM_Q, 1, NET_SALES, 0)) AS SALES_Q01
+                  ,SUM(DECODE(TERM_Q, 2, NET_SALES, 0)) AS SALES_Q02
+                  ,SUM(DECODE(TERM_Q, 3, NET_SALES, 0)) AS SALES_Q03
+                  ,SUM(DECODE(TERM_Q, 4, NET_SALES, 0)) AS SALES_Q04
+                  ,SUM(NET_SALES) AS SALES_TOTAL
+                  ,MAX(CASE WHEN TERM_Q = 1 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q01
+                  ,MAX(CASE WHEN TERM_Q = 2 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q02
+                  ,MAX(CASE WHEN TERM_Q = 3 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q03
+                  ,MAX(CASE WHEN TERM_Q = 4 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q04
+                  ,SUM(CASE WHEN TERM_Q = 1 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q01
+                  ,SUM(CASE WHEN TERM_Q = 2 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q02
+                  ,SUM(CASE WHEN TERM_Q = 3 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q03
+                  ,SUM(CASE WHEN TERM_Q = 4 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q04
+       FROM (                                   
+               SELECT A.TERM_Q
+                          ,ROUND(A.NET_SALES/1000000) AS NET_SALES
+                          ,ROUND(SUM(NET_SALES) OVER (ORDER BY A.TERM_Q)/1000000) SALE_CUM
+                          ,B.TERM_PLAN 
+                          ,SUM(B.TERM_PLAN) OVER(ORDER BY B.TERM_Q) PLAN_CUM
+               FROM (
+                       SELECT  TO_CHAR(TO_DATE(I.RACE_DAY,'YYYYMMDD'),'Q') AS TERM_Q,
+                               SUM(NET_AMT) - SUM(RET_AMT)  AS NET_SALES 
+                       FROM VW_SDL_INFO I
+                                ,(
+                                   SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, SUM(NET_AMT) NET_AMT
+                                   FROM   TBJI_PC_PAYOFFS 
+                                   WHERE  MEET_CD   = ?
+                                   AND    STND_YEAR = ?
+                                   GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD
+                                  )P
+                                , (
+                                    SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, (WIN_1 * 0.81) + (WIN_2 * 0.72) RET_AMT                               
+                                    FROM (                                                                                                                     
+                                          SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,                                                                                                       
+                                                 SUM(CASE WHEN POOL_CD IN ('001', '002') THEN AMT ELSE 0 END) WIN_1,                                           
+                                                 SUM(CASE WHEN POOL_CD IN ('004', '005', '006') THEN AMT ELSE 0 END) WIN_2                                     
+                                          FROM (                                                                                                               
+                                                SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,                                                                                      
+                                                       S.POOL_CD,                                                                                              
+                                                       SUM(S.NET_AMT) * 100 AMT                                                                                
+                                                FROM USRBM.VW_PC_SATLIT S    
+                                                WHERE  MEET_CD   =  ?
+                                                AND    STND_YEAR =  ?                                                             
+                                                GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, S.POOL_CD                                                                                     
+                                                UNION ALL                                                                                                      
+                                                -- 교차투표 매출액                                                                                             
+                                                SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD,                                                    
+                                                       POOL_CD,                                                                                                
+                                                       SUM(NET_AMT) AMT                                                                                        
+                                                FROM USRBM.VW_PC_PAYOFFS S                                                                
+                                                WHERE 1=1                                        
+                                                AND    MEET_CD   =  ?
+                                                AND    STND_YEAR =  ?                                                              
+                                                AND S.SELL_CD IN ('02','04')                                                                             
+                                                GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, S.POOL_CD                                                                                     
+                                                )                                                                                                                   
+                                          GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD                                                                                                       
+                                         )   
+                                  ) R
+                       WHERE I.MEET_CD = P.MEET_CD
+                       AND     I.STND_YEAR = P.STND_YEAR
+                       AND     I.TMS = P.TMS
+                       AND     I.DAY_ORD = P.DAY_ORD
+                       AND     I.MEET_CD = R.MEET_CD
+                       AND     I.STND_YEAR = R.STND_YEAR
+                       AND     I.TMS = R.TMS
+                       AND     I.DAY_ORD = R.DAY_ORD
+                       AND     I.MEET_CD IN ('001','003')
+                       AND     I.MEET_CD   = ?
+                       AND     I.STND_YEAR = ?
+                       GROUP BY TO_CHAR(TO_DATE(I.RACE_DAY,'YYYYMMDD'),'Q')
+                   ) A
+                   , ( SELECT TO_CHAR(TO_DATE(STND_YEAR||STND_MONTH||'01','YYYYMMDD'),'Q') AS TERM_Q, 
+                                    SUM(SALES_AMT) AS TERM_PLAN 
+                       FROM   TBRS_SALES_PLAN
+                       WHERE  MEET_CD   = ?
+                       AND    STND_YEAR = ?
+                       AND    PLAN_TYPE = 'Y'
+                       GROUP BY TO_CHAR(TO_DATE(STND_YEAR||STND_MONTH||'01','YYYYMMDD'),'Q')
+                    ) B
+      WHERE A.TERM_Q = B.TERM_Q(+)   
+      ORDER BY A.TERM_Q             
+      ) 
+                   
+        ]]>
+    </query>    
+    
+    <query id="rbs9010_s04" desc="기준년도 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs9010_s04 */
+                   STND_YEAR AS CD
+                  ,STND_YEAR||'년' AS CD_NM
+            FROM   VW_SDL_DT_SUM
+	        GROUP BY STND_YEAR
+	        ORDER BY STND_YEAR DESC
+        ]]>
+    </query>       
+    
+    
+    <query id="rbs9010_m01" desc="월별 순매출목표  저장 " fetchSize="10">
+      <![CDATA[           
+           MERGE INTO /* rbs9010_m01 */
+                  TBRS_SALES_PLAN DST
+           USING (
+					SELECT  ? AS MEET_CD                  -- 개최지코드
+					       ,? AS STND_YEAR                -- 기준년도
+					       ,? AS STND_MONTH               -- 기준월
+					       ,? AS PLAN_TYPE					-- 순매출/총매출 여부
+					       ,? AS SALES_AMT            -- 순매출목표금액(단위:백만원)
+					       ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.MEET_CD    = SRC.MEET_CD
+                     AND DST.STND_YEAR  = SRC.STND_YEAR
+                     AND DST.STND_MONTH = SRC.STND_MONTH
+                     AND DST.PLAN_TYPE  = SRC.PLAN_TYPE
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.SALES_AMT = SRC.SALES_AMT
+                        ,DST.UPDT_ID       = SRC.USER_ID 
+                        ,DST.UPDT_DT       = SYSDATE 
+            WHEN NOT MATCHED THEN
+                INSERT (
+                    MEET_CD              
+			       ,STND_YEAR            
+			       ,STND_MONTH   
+			       ,PLAN_TYPE        
+			       ,SALES_AMT        
+			       ,UPDT_ID              
+			       ,UPDT_DT              
+               ) VALUES (
+                    SRC.MEET_CD                  --개최지 코드
+			       ,SRC.STND_YEAR                --기준년도
+			       ,SRC.STND_MONTH               --기준월
+			       ,SRC.PLAN_TYPE
+			       ,SRC.SALES_AMT                --순매출목표
+			       ,SRC.USER_ID                  --입력자(수정자) 사번
+			       ,SYSDATE                      --등록/수정일시
+              )      
+        ]]>
+    </query>    
+    
+    
+    
+    
+  <query id="rbs9010_s11" desc="총매출목표 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs9010_s11 */
+                   MEET_CD
+                  ,STND_YEAR
+                  ,PLAN_TYPE
+                  ,SUM(DECODE(STND_MONTH, '01', SALES_AMT)) AS NET01
+                  ,SUM(DECODE(STND_MONTH, '02', SALES_AMT)) AS NET02           
+                  ,SUM(DECODE(STND_MONTH, '03', SALES_AMT)) AS NET03           
+                  ,SUM(DECODE(STND_MONTH, '04', SALES_AMT)) AS NET04           
+                  ,SUM(DECODE(STND_MONTH, '05', SALES_AMT)) AS NET05           
+                  ,SUM(DECODE(STND_MONTH, '06', SALES_AMT)) AS NET06           
+                  ,SUM(DECODE(STND_MONTH, '07', SALES_AMT)) AS NET07           
+                  ,SUM(DECODE(STND_MONTH, '08', SALES_AMT)) AS NET08           
+                  ,SUM(DECODE(STND_MONTH, '09', SALES_AMT)) AS NET09           
+                  ,SUM(DECODE(STND_MONTH, '10', SALES_AMT)) AS NET10           
+                  ,SUM(DECODE(STND_MONTH, '11', SALES_AMT)) AS NET11           
+                  ,SUM(DECODE(STND_MONTH, '12', SALES_AMT)) AS NET12           
+                  ,SUM(SALES_AMT) AS NET_TOTAL          
+             FROM TBRS_SALES_PLAN
+	        WHERE MEET_CD   = ?
+	        AND   STND_YEAR = ?
+	        AND   PLAN_TYPE = 'N'
+	        GROUP BY MEET_CD, STND_YEAR, PLAN_TYPE
+        ]]>
+    </query>       
+    
+    <query id="rbs9010_s12" desc="총매출실적 월별  조회 " fetchSize="10">
+      <![CDATA[			       
+			SELECT /* rbs9010_s12 */ 
+			            ROUND(SUM(TOT_SALES_01)/1000000) AS RSLT_01
+			           ,ROUND(SUM(TOT_SALES_02)/1000000) AS RSLT_02
+			           ,ROUND(SUM(TOT_SALES_03)/1000000) AS RSLT_03
+			           ,ROUND(SUM(TOT_SALES_04)/1000000) AS RSLT_04
+			           ,ROUND(SUM(TOT_SALES_05)/1000000) AS RSLT_05
+			           ,ROUND(SUM(TOT_SALES_06)/1000000) AS RSLT_06
+			           ,ROUND(SUM(TOT_SALES_07)/1000000) AS RSLT_07
+			           ,ROUND(SUM(TOT_SALES_08)/1000000) AS RSLT_08
+			           ,ROUND(SUM(TOT_SALES_09)/1000000) AS RSLT_09
+			           ,ROUND(SUM(TOT_SALES_10)/1000000) AS RSLT_10
+			           ,ROUND(SUM(TOT_SALES_11)/1000000) AS RSLT_11
+			           ,ROUND(SUM(TOT_SALES_12)/1000000) AS RSLT_12
+			           ,ROUND(SUM(TOT_SALES_TOTAL)/1000000) AS RSLT_TOTAL
+			FROM  (           
+                        SELECT  DECODE(SUBSTR(I.RACE_DAY,5,2),'01',SUM(TOT_AMT),0) AS TOT_SALES_01 
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'02',SUM(TOT_AMT),0) AS TOT_SALES_02
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'03',SUM(TOT_AMT),0) AS TOT_SALES_03
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'04',SUM(TOT_AMT),0) AS TOT_SALES_04
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'05',SUM(TOT_AMT),0) AS TOT_SALES_05
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'06',SUM(TOT_AMT),0) AS TOT_SALES_06
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'07',SUM(TOT_AMT),0) AS TOT_SALES_07
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'08',SUM(TOT_AMT),0) AS TOT_SALES_08
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'09',SUM(TOT_AMT),0) AS TOT_SALES_09
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'10',SUM(TOT_AMT),0) AS TOT_SALES_10
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'11',SUM(TOT_AMT),0) AS TOT_SALES_11
+                                    ,DECODE(SUBSTR(I.RACE_DAY,5,2),'12',SUM(TOT_AMT),0) AS TOT_SALES_12
+                                    ,SUM(TOT_AMT) AS TOT_SALES_TOTAL 
+                         FROM VW_SDL_INFO I
+			                     ,(
+			                        SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, SUM(DIV_TOTAL) TOT_AMT
+			                        FROM   VW_SDL_DT_SUM 
+			                        WHERE  MEET_CD   = ?
+			                        AND    STND_YEAR = ?
+			                        GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD
+			                       )D
+			            WHERE I.MEET_CD = D.MEET_CD
+			            AND     I.STND_YEAR = D.STND_YEAR
+			            AND     I.TMS = D.TMS
+			            AND     I.DAY_ORD = D.DAY_ORD
+			            AND     I.MEET_CD IN ('001','003')
+			            AND     I.MEET_CD   = ?
+			            AND     I.STND_YEAR = ?
+			            GROUP BY SUBSTR(I.RACE_DAY,5,2)			            
+                   )
+        ]]>
+    </query>       
+    
+    <query id="rbs9010_s13" desc="총매출실적 비율 조회 " fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs9010_s13 */
+			       SUM(DECODE(TERM_Q, 1, TOT_SALES, 0)) AS SALES_Q01
+                  ,SUM(DECODE(TERM_Q, 2, TOT_SALES, 0)) AS SALES_Q02
+                  ,SUM(DECODE(TERM_Q, 3, TOT_SALES, 0)) AS SALES_Q03
+                  ,SUM(DECODE(TERM_Q, 4, TOT_SALES, 0)) AS SALES_Q04
+                  ,SUM(TOT_SALES) AS SALES_TOTAL
+                  ,MAX(CASE WHEN TERM_Q = 1 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q01
+                  ,MAX(CASE WHEN TERM_Q = 2 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q02
+                  ,MAX(CASE WHEN TERM_Q = 3 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q03
+                  ,MAX(CASE WHEN TERM_Q = 4 AND PLAN_CUM > 0 THEN TRIM(TO_CHAR(ROUND(SALE_CUM/PLAN_CUM*100),'999')||'%'||CHR(13)||CHR(10)||TRIM(TO_CHAR(SALE_CUM,'999,999,999'))||'/'||TRIM(TO_CHAR(PLAN_CUM,'999,999,999'))) END) AS RATE_DESC_Q04
+                  ,SUM(CASE WHEN TERM_Q = 1 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q01
+                  ,SUM(CASE WHEN TERM_Q = 2 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q02
+                  ,SUM(CASE WHEN TERM_Q = 3 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q03
+                  ,SUM(CASE WHEN TERM_Q = 4 AND PLAN_CUM > 0 THEN ROUND(SALE_CUM/PLAN_CUM*100) END) AS RATE_Q04
+       FROM (                                   
+               SELECT A.TERM_Q
+                          ,ROUND(A.TOT_SALES/1000000) AS TOT_SALES
+                          ,ROUND(SUM(TOT_SALES) OVER (ORDER BY A.TERM_Q)/1000000) SALE_CUM
+                          ,B.TERM_PLAN 
+                          ,SUM(B.TERM_PLAN) OVER(ORDER BY B.TERM_Q) PLAN_CUM
+               FROM (
+                       SELECT  TO_CHAR(TO_DATE(I.RACE_DAY,'YYYYMMDD'),'Q') AS TERM_Q,
+                               SUM(TOT_AMT)  AS TOT_SALES 
+                       FROM VW_SDL_INFO I
+                                ,(
+                                   SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, SUM(DIV_TOTAL) TOT_AMT
+                                   FROM   VW_SDL_DT_SUM 
+                                   WHERE  MEET_CD   = ?
+                                   AND    STND_YEAR = ?
+                                   GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD
+                                  ) D
+                       WHERE I.MEET_CD = D.MEET_CD
+                       AND     I.STND_YEAR = D.STND_YEAR
+                       AND     I.TMS = D.TMS
+                       AND     I.DAY_ORD = D.DAY_ORD
+                       AND     I.MEET_CD IN ('001','003')
+                       AND     I.MEET_CD   = ?
+                       AND     I.STND_YEAR = ?
+                       GROUP BY TO_CHAR(TO_DATE(I.RACE_DAY,'YYYYMMDD'),'Q')
+                   ) A
+                   , ( SELECT TO_CHAR(TO_DATE(STND_YEAR||STND_MONTH||'01','YYYYMMDD'),'Q') AS TERM_Q, 
+                                    SUM(SALES_AMT) AS TERM_PLAN 
+                       FROM   TBRS_SALES_PLAN
+                       WHERE  MEET_CD   = ?
+                       AND    STND_YEAR = ?
+                       AND    PLAN_TYPE = 'N'	--총매출액 목표
+                       GROUP BY TO_CHAR(TO_DATE(STND_YEAR||STND_MONTH||'01','YYYYMMDD'),'Q')
+                    ) B
+      WHERE A.TERM_Q = B.TERM_Q(+)   
+      ORDER BY A.TERM_Q             
+      ) 
+                   
+        ]]>
+    </query>    
+    
+    
+</queryMap>

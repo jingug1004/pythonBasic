@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : message.xml
+  * @메뉴명 : 쪽지함
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="message">
+
+	<insert id="insertMessageTarget" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+		INSERT INTO GW_OF_MESSAGE_TARGET
+	            (
+	            	MESSAGE_SEQ, EMP_NO, READ_YN, DELETE_YN
+	            )
+	     VALUES (
+	     			#{message_seq}, #{emp_no}, 'N', 'N'
+	            )
+	</insert>
+	
+	<insert id="insertMessage" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+		<selectKey keyProperty="message_seq" resultType="string" order="BEFORE">
+    		SELECT SEQ_GW_OF_MESSAGE.nextval message_seq FROM dual
+		</selectKey>
+		INSERT INTO GW_OF_MESSAGE
+		            (
+		            	MESSAGE_SEQ, CONTENTS, READ_CNT, CREATE_DT, CREATE_NO, DELETE_YN, SUBJECT
+		            )
+	     	VALUES (
+		     			#{message_seq}, #{contents}, 0, SYSDATE, #{create_no}, 'N', #{subject}
+		            )
+	</insert>
+
+	<!-- ml180122.ml16_T55 김진국 - message.xml에 insertMessageMustOpinion 맵퍼(insert) 추가 - 시행부서 의견 필수 시 쪽지 추가 -->
+	<insert id="insertMessageMustOpinion" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+		<selectKey keyProperty="message_seq" resultType="string" order="BEFORE">
+    		SELECT SEQ_GW_OF_MESSAGE.nextval message_seq FROM dual
+		</selectKey>
+		INSERT INTO GW_OF_MESSAGE
+		            (
+		            	MESSAGE_SEQ, CONTENTS, READ_CNT, CREATE_DT, CREATE_NO, DELETE_YN, SUBJECT
+		            )
+	     	VALUES (
+		     			#{message_seq}, #{contents}, 0, SYSDATE, #{create_no}, 'N', #{subject}
+		            )
+	</insert>
+
+	<select id="getMessageSeq" resultType="int">
+		SELECT MAX(MESSAGE_SEQ) MESSAGE_SEQ FROM GW_OF_MESSAGE
+	</select>
+
+	<select id="getSendMessageList" parameterType="hashmap" resultType="com.hanaph.gw.of.message.vo.MessageVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+			SELECT * 
+			FROM(
+				SELECT GOM.MESSAGE_SEQ, GOM.CONTENTS, TA.READ_CNT, TB.ATTACH_CNT
+				       , ORAGMP.F_GET_EMP_KO_NM(GOM.CREATE_NO) EMP_KO_NM, GOM.DELETE_YN,
+				       TO_CHAR (GOM.CREATE_DT, 'YYYY-MM-DD HH24:MI:SS') CREATE_DT, GOM.CREATE_NO, GOM.SUBJECT
+				  FROM GW_OF_MESSAGE GOM,
+				       (SELECT GOMT.MESSAGE_SEQ, SUM(DECODE(READ_YN,'Y',1,0)) READ_CNT 
+                          FROM GW_OF_MESSAGE_TARGET GOMT
+                         GROUP BY GOMT.MESSAGE_SEQ) TA,
+				       (SELECT SEQ, COUNT(*) ATTACH_CNT 
+				          FROM GW_OF_FILE_ATTACH TFA
+				         WHERE DELETE_YN = 'N'
+				           AND CD = 'O03000'
+				         GROUP BY SEQ) TB
+				 WHERE DELETE_YN = 'N'
+				   AND GOM.CREATE_NO = #{emp_no}
+		<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">   
+				   AND TO_CHAR(CREATE_DT,'YYYY-MM-DD') <![CDATA[ >= #{search_start_ymd} ]]> 
+				   AND TO_CHAR(CREATE_DT,'YYYY-MM-DD') <![CDATA[ <= #{search_end_ymd} ]]>
+		</if>    
+				   AND GOM.MESSAGE_SEQ = TA.MESSAGE_SEQ
+				   AND GOM.MESSAGE_SEQ = TB.SEQ(+)) TC
+		<if test="searchKeyword != null">
+			<choose>
+				<when test="searchType == 'subject'">
+ 					WHERE TC.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'createNo'">
+ 					WHERE TC.EMP_KO_NM LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+				ORDER BY CREATE_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getReceiveMessageList" parameterType="hashmap" resultType="com.hanaph.gw.of.message.vo.MessageVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+			SELECT * 
+			FROM(
+				SELECT GOM.MESSAGE_SEQ, GOM.CONTENTS, GOMT.READ_YN, GOM.DELETE_YN, GOM.CREATE_NO,
+				       TO_CHAR (GOM.CREATE_DT, 'YYYY-MM-DD HH24:MI:SS') CREATE_DT, TA.ATTACH_CNT,
+				       ORAGMP.F_GET_EMP_KO_NM(GOM.CREATE_NO) EMP_KO_NM, GOM.SUBJECT
+				  FROM GW_OF_MESSAGE GOM, GW_OF_MESSAGE_TARGET GOMT,
+				       (SELECT SEQ, COUNT(*) ATTACH_CNT 
+				          FROM GW_OF_FILE_ATTACH TFA
+				         WHERE DELETE_YN = 'N'
+				           AND CD = 'O03000'
+				         GROUP BY SEQ) TA
+				 WHERE GOMT.DELETE_YN = 'N'
+				   AND GOM.DELETE_YN = 'N'
+				   AND GOMT.EMP_NO= #{emp_no}
+		<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">
+				   AND TO_CHAR(CREATE_DT,'YYYY-MM-DD') <![CDATA[ >= #{search_start_ymd} ]]> 
+				   AND TO_CHAR(CREATE_DT,'YYYY-MM-DD') <![CDATA[ <= #{search_end_ymd} ]]>
+		</if>
+				   AND GOM.MESSAGE_SEQ = GOMT.MESSAGE_SEQ
+				   AND GOMT.MESSAGE_SEQ = TA.SEQ(+)) TC
+	   <where>
+		<if test="search_read_yn != 'all'">
+			read_yn = #{search_read_yn}
+		</if>
+		<if test="searchKeyword != null">
+			<choose>
+				<when test="searchType == 'subject'">
+ 					AND TC.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'createNo'">
+ 					AND TC.EMP_KO_NM LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+		</where>
+				 ORDER BY READ_YN ,CREATE_DT DESC 
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getMessageReceiveCount" parameterType="hashmap" resultType="int">
+		-- 받은 쪽지 개수를 가져온다 / getMessageReceiveCount / @ message.xml / 시행 문서 조회
+		SELECT COUNT(ORAGMP.F_GET_SORT_SEQ(GONT.EMP_NO)) EMP_SORT
+		FROM GW_OF_MESSAGE_TARGET GONT
+		,GW_OF_MESSAGE GOM
+		,ORAGMP.CMEMPM EMP
+		WHERE GONT.EMP_NO = #{emp_no} 
+		AND GONT.MESSAGE_SEQ = GOM.MESSAGE_SEQ
+		AND GONT.READ_YN = 'N' 
+		AND GONT.DELETE_YN = 'N'
+		AND GOM.DELETE_YN = 'N'
+		AND GONT.EMP_NO = EMP.EMPCODE
+		AND EMP.RETIREDT IS NULL
+		ORDER BY EMP_SORT ASC
+	</select>
+	
+	<select id="getMessageDetail" parameterType="hashmap" resultType="com.hanaph.gw.of.message.vo.MessageVO">
+		SELECT MESSAGE_SEQ, SUBJECT, CONTENTS
+					, ORAGMP.F_GET_EMP_KO_NM(OM.CREATE_NO) EMP_KO_NM, OM.CREATE_NO
+					, TO_CHAR(CREATE_DT,'YYYY-MM-DD HH24:MI:SS') CREATE_DT
+		  FROM GW_OF_MESSAGE OM
+		 WHERE MESSAGE_SEQ = #{message_seq} 
+		     AND DELETE_YN = #{delete_yn}
+	</select>
+	
+	<select id="getReceiveEmpNO" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT GONT.MESSAGE_SEQ
+		,EMP.EMPNAME AS EMP_KO_NM
+		,EMP.DEPTCODE AS DEPT_CD
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		,EMP.EMPCODE AS EMP_NO
+		,ORAGMP.F_GET_SORT_SEQ(GONT.EMP_NO) EMP_SORT
+		FROM GW_OF_MESSAGE_TARGET GONT
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE MESSAGE_SEQ = #{message_seq}
+		AND GONT.EMP_NO = EMP.EMPCODE
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND EMP.RETIREDT IS NULL
+		ORDER BY EMP_SORT ASC
+	</select>
+	
+	<select id="getReplyEmpNO" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT GONT.MESSAGE_SEQ
+		,EMP.EMPNAME AS EMP_KO_NM
+		,EMP.DEPTCODE AS DEPT_CD
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		,EMP.EMPCODE AS EMP_NO
+		,ORAGMP.F_GET_SORT_SEQ(GONT.CREATE_NO) EMP_SORT
+		FROM GW_OF_MESSAGE GONT
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE MESSAGE_SEQ = #{message_seq}
+		AND GONT.CREATE_NO = EMP.EMPCODE
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND EMP.RETIREDT IS NULL
+		ORDER BY EMP_SORT ASC
+	</select>
+	
+	<update id="deleteMessageTarget" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+		UPDATE GW_OF_MESSAGE_TARGET
+		   SET DELETE_YN = #{delete_yn}
+		 WHERE MESSAGE_SEQ = #{message_seq}
+		   AND EMP_NO = #{emp_no}
+	</update>
+
+	<update id="deleteMessage" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+		UPDATE GW_OF_MESSAGE
+		   SET DELETE_YN = #{delete_yn},
+		       MODIFY_NO = #{modify_no},
+		       MODIFY_DT = SYSDATE
+		 WHERE MESSAGE_SEQ = #{message_seq}
+	</update>	
+	
+	<update id="updateMessageReadYn" parameterType="com.hanaph.gw.of.message.vo.MessageVO" >
+		UPDATE GW_OF_MESSAGE_TARGET
+		   SET READ_YN = #{read_yn}, READ_DT = SYSDATE
+		 WHERE EMP_NO = #{emp_no}
+		   AND MESSAGE_SEQ = #{message_seq}
+	</update>
+	
+	<delete id="deleteMessageDB" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+		DELETE GW_OF_MESSAGE
+		 WHERE MESSAGE_SEQ = #{message_seq}
+	</delete>
+	
+	<select id="getMessageReadDataList" parameterType="hashmap" resultType="com.hanaph.gw.of.common.vo.CommonTargetVO">
+ 		SELECT MT.EMP_NO
+		,EMP.EMPNAME AS EMP_KO_NM
+		,EMP.DEPTCODE AS DEPT_CD
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		,TO_CHAR (READ_DT, 'YYYY-MM-DD HH24:MI:SS') READ_DT
+		,READ_YN
+		,ORAGMP.F_GET_SORT_SEQ(MT.EMP_NO) EMP_SORT
+		FROM GW_OF_MESSAGE_TARGET MT
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE MT.MESSAGE_SEQ = #{message_seq}
+		AND MT.EMP_NO = EMP.EMPCODE
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND EMP.RETIREDT IS NULL
+		ORDER BY EMP_SORT ASC
+	</select>
+	
+	<delete id="deleteMessageTargetDB" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+		DELETE GW_OF_MESSAGE_TARGET
+		 WHERE MESSAGE_SEQ = #{message_seq}
+	</delete>
+	
+	<insert id="insertMessageTargetToss" parameterType="com.hanaph.gw.of.message.vo.MessageVO">
+   		MERGE INTO GW_OF_MESSAGE_TARGET
+	     USING DUAL
+	        ON (EMP_NO = #{emp_no} AND MESSAGE_SEQ = #{message_seq})
+	      WHEN NOT MATCHED THEN
+	    INSERT (EMP_NO, MESSAGE_SEQ, READ_YN)
+	    VALUES (#{emp_no}, #{message_seq}, 'N')
+	</insert>
+	
+	<select id="getMessageSender" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+	 	SELECT EMP.EMPCODE AS EMP_NO
+		,EMP.EMPNAME AS EMP_KO_NM
+		,EMP.DEPTCODE AS DEPT_CD
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		FROM ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE EMP.EMPCODE = #{sender_emp_no}
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+	</select>
+</mapper>

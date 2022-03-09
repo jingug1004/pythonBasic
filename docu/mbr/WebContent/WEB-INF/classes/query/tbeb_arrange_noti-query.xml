@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_arrange_noti(주선통보)">
+    <query id="tbeb_arrange_noti_fb001" desc="주선통보 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_arrange_noti_fb001 */
+			         TRT .STND_YEAR                                                                                  -- 기준년도
+			       , TRT .MBR_CD                                                                                     -- 경정장
+			       , TRT .TMS                                                                                        -- 회차
+			       , NVL(TAMM.SEQ, 0) SEQ                                                                            -- 순번
+			       , NVL(TAMM.MAIL_SEND_REQ_DAY, TO_CHAR(SYSDATE, 'YYYYMMDD')) MAIL_SEND_REQ_DAY                    -- 메일발송요청일
+			       , NVL(TO_CHAR(TAMM.MEET_DTM, 'YYYYMMDD'), TO_CHAR(TO_DATE(TRT.STR_DT)-1,'YYYYMMDD')) MEET_DT     -- 집합일
+			       , NVL(TO_CHAR(TAMM.MEET_DTM, 'HH24MI'), '0830') MEET_MM                                          -- 집합시간
+			       , NVL(TO_CHAR(TAMM.REPORT_DTM, 'YYYYMMDD'), TO_CHAR(TO_DATE(TRT.STR_DT)-5,'YYYYMMDD')) REPORT_DT -- 통보일
+			       , NVL(TO_CHAR(TAMM.REPORT_DTM, 'HH24MI'), '1800') REPORT_MM                                      -- 통보시간
+			       , TAMM.NOTICE                                                                                    -- 공지사항
+			       , NVL(TAMM.MAIL_SEND_FLAG, 'I') MAIL_SEND_FLAG                                                    -- 발송구분
+			       , TAMM.EMS_WORK_DAY
+			       , TAMM.EMS_SEQ_NO
+			       , NVL(CNT.CNT,0) CNT 
+			  FROM   TBEB_RACE_TMS TRT
+			       , TBEB_ARRANGE_MAIL_MASTER TAMM
+				   , (SELECT   TAMD.STND_YEAR
+				             , TAMD.MBR_CD
+				             , TAMD.TMS
+				             , TAMD.SEQ
+				             , COUNT(*) CNT
+				        FROM   TBEB_ARRANGE_MAIL_MASTER TAMM
+						     , TBEB_ARRANGE_MAIL_DETAIL TAMD
+					   WHERE   TAMM.STND_YEAR = TAMD.STND_YEAR
+			             AND   TAMM.MBR_CD    = TAMD.MBR_CD
+			             AND   TAMM.TMS       = TAMD.TMS
+			             AND   TAMM.SEQ       = TAMD.SEQ
+			             AND   TAMM.STND_YEAR = ? 
+			             AND   TAMM.MBR_CD    = ?
+					  GROUP BY TAMD.STND_YEAR
+				             , TAMD.MBR_CD
+				             , TAMD.TMS
+							 , TAMD.SEQ ) CNT
+			 WHERE   TRT .STND_YEAR       = TAMM.STND_YEAR(+)
+			   AND   TRT .MBR_CD          = TAMM.MBR_CD(+)
+			   AND   TRT .TMS             = TAMM.TMS(+)
+			   AND   TAMM.STND_YEAR       = CNT .STND_YEAR(+)
+			   AND   TAMM.MBR_CD          = CNT .MBR_CD(+)
+			   AND   TAMM.TMS             = CNT .TMS(+)
+			   AND   TAMM.SEQ             = CNT .SEQ(+)
+			   AND   TRT .ARRANGE_CMPL_YN = 'Y'
+			   AND   TRT .STND_YEAR = ? 
+			   AND   TRT .MBR_CD    = ?
+		  ORDER BY   TRT .STND_YEAR
+			       , TRT .TMS DESC
+			       , TAMM.SEQ DESC
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_fb002" desc="주선통보 발송명단 및 결과확인" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbeb_arrange_noti_fb002 */
+                     TA .STND_YEAR
+                   , TA .MBR_CD
+                   , TA .TMS
+                   , NVL(EMS.SEQ, 0) SEQ
+                   , DECODE(NVL(EMS.ERROR_CODE,''), '00', '0', '1') CHK
+                   , NVL(EMS.RACER_NO, TA .RACER_NO) RACER_NO
+                   , TRM.NM_KOR RACER_NM
+                   , DECODE(NVL(EMS.ERROR_CODE,''), '00', NVL(EMS.EMAIL_ADDR, TRM.EMAIL_ADDR), TRM.EMAIL_ADDR) EMAIL_ADDR
+                   , TRD.CELPON_NO
+                   , EMS.SEND_TIME
+                   , EMS.DELIVER_TIME
+                   , EMS.OPEN_TIME
+                   , EMS.OPEN_CNT
+                   , EMS.ERROR_NM
+                   , EMS.RESPONSE_DTM
+                   , EMS.ANSWER_1
+                   , EMS.ANSWER_2
+                   , EMS.COMMENTARY
+                   , NVL(EMS.MAPPING,'') MAPPING
+                   , '' MAPPING_YEAR
+                   , 0 MAPPING_TMS
+                   , 0 MAPPING_SEQ
+              FROM  (
+                     SELECT   TAMM.STND_YEAR
+	            	        , TAMM.MBR_CD
+	            			, TAMM.TMS
+	            			, TAMM.SEQ
+                            , TAMD.RACER_NO
+                            , TAMD.EMAIL_ADDR
+                            , EMS .SEND_TIME
+                            , EMS .DELIVER_TIME
+                            , EMS .OPEN_TIME
+                            , EMS .OPEN_CNT
+							, EMS.ERROR_CODE
+                            , DECODE(NVL(EMS.ERROR_CODE,''), '','발송중', '00','정상', '50','수신거부', '60','용량초과', '주소오류') ERROR_NM
+                            , TAMD.RESPONSE_DTM
+                            , TAMD.ANSWER_1
+                            , TAMD.ANSWER_2
+                            , TAMD.COMMENTARY
+                            , EMS.MAPPING
+                       FROM   TBEB_ARRANGE_MAIL_MASTER TAMM
+                            , TBEB_ARRANGE_MAIL_DETAIL TAMD
+                            , ems70.ems_auto_send_list_01 EMS
+                      WHERE   TAMM.STND_YEAR    = TAMD.STND_YEAR
+                        AND   TAMM.MBR_CD       = TAMD.MBR_CD
+                        AND   TAMM.TMS          = TAMD.TMS
+                        AND   TAMM.SEQ          = TAMD.SEQ
+                        AND   TAMM.EMS_WORK_DAY = EMS.WORKDAY
+                        AND   TAMM.EMS_SEQ_NO   = EMS.SEQNO
+                        AND   TAMD.RACER_NO     = EMS.MEMBER_ID
+                        AND   TAMM.STND_YEAR    = ?
+                        AND   TAMM.MBR_CD       = ?
+                        AND   TAMM.TMS          = ?
+                        AND   TAMM.SEQ          = ?
+                    ) EMS
+	               , TBEB_ARRANGE TA
+	               , TBEC_RACER_MASTER TRM
+	               , TBEC_RACER_DETAIL TRD
+             WHERE   TA .RACER_NO        = TRM.RACER_NO
+               AND   TA .RACER_NO        = TRD.RACER_NO
+               AND   TA .STND_YEAR       = EMS.STND_YEAR(+)
+               AND   TA .MBR_CD          = EMS.MBR_CD(+)
+               AND   TA .TMS             = EMS.TMS(+)
+               AND   TA .RACER_NO        = EMS.RACER_NO(+)
+               AND   TA .STND_YEAR       = ?
+               AND   TA .MBR_CD          = ?
+               AND   TA .TMS             = ?
+               AND   ?                   = EMS.SEQ(+)
+            ORDER BY RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_fb003" desc="주선통보 발송명단 및 결과확인" fetchSize="10">
+        <![CDATA[     
+            SELECT   /* tbeb_arrange_noti_fb003 */
+                     EMS.STND_YEAR
+                   , EMS.MBR_CD
+                   , EMS.TMS
+                   , NVL(EMS.SEQ, 0) SEQ
+                   , DECODE(NVL(EMS.ERROR_CODE,''), '00', '0', '1') CHK
+                   , NVL(EMS.RACER_NO, TA .RACER_NO) RACER_NO
+                   , EMS.RACER_NM
+                   , EMS.EMAIL_ADDR
+                   , EMS.CELPON_NO
+                   , EMS.SEND_TIME
+                   , EMS.DELIVER_TIME
+                   , EMS.OPEN_TIME
+                   , EMS.OPEN_CNT
+                   , EMS.ERROR_NM
+                   , EMS.RESPONSE_DTM
+                   , EMS.ANSWER_1
+                   , EMS.ANSWER_2
+                   , EMS.COMMENTARY
+                   , NVL(EMS.MAPPING,'') MAPPING
+                   , '' MAPPING_YEAR
+                   , 0 MAPPING_TMS
+                   , 0 MAPPING_SEQ
+              FROM  (
+                     SELECT   TAMM.STND_YEAR
+	            	        , TAMM.MBR_CD
+	            			, TAMM.TMS
+	            			, TAMM.SEQ
+                            , TAMD.RACER_NO
+                            , TRM .NM_KOR RACER_NM
+                            , TRD .CELPON_NO
+                            , DECODE(NVL(EMS.ERROR_CODE,''), '00', NVL(TAMD.EMAIL_ADDR, TRM.EMAIL_ADDR), TRM.EMAIL_ADDR) EMAIL_ADDR
+                            , EMS .SEND_TIME
+                            , EMS .DELIVER_TIME
+                            , EMS .OPEN_TIME
+                            , EMS .OPEN_CNT
+							, EMS.ERROR_CODE
+                            , DECODE(NVL(EMS.ERROR_CODE,''), '','발송중', '00','정상', '50','수신거부', '60','용량초과', '주소오류') ERROR_NM
+                            , TAMD.RESPONSE_DTM
+                            , TAMD.ANSWER_1
+                            , TAMD.ANSWER_2
+                            , TAMD.COMMENTARY
+                            , EMS.MAPPING
+                       FROM   TBEB_ARRANGE_MAIL_MASTER TAMM
+                            , TBEB_ARRANGE_MAIL_DETAIL TAMD
+                            , TBEC_RACER_MASTER TRM
+                            , TBEC_RACER_DETAIL TRD
+                            , (SELECT * 
+                                 FROM ems70.ems_auto_send_list_01 EMS
+                                WHERE EMS.WORKDAY = ? 
+                                  AND EMS.MAPPING LIKE ?||'|'||?||'|'||?||'%') EMS
+                      WHERE   TAMM.STND_YEAR    = TAMD.STND_YEAR
+                        AND   TAMM.MBR_CD       = TAMD.MBR_CD
+                        AND   TAMM.TMS          = TAMD.TMS
+                        AND   TAMM.SEQ          = TAMD.SEQ
+                        AND   TAMM.EMS_WORK_DAY = EMS.WORKDAY
+                        AND   TAMM.EMS_SEQ_NO   = EMS.SEQNO
+                        AND   TAMD.RACER_NO     = EMS.MEMBER_ID
+                        AND   TAMD.RACER_NO     = TRM.RACER_NO
+                        AND   TAMD.RACER_NO     = TRD.RACER_NO
+                        AND   TAMM.STND_YEAR    = ?
+                        AND   TAMM.MBR_CD       = ?
+                        AND   TAMM.TMS          = ?
+                        AND   TAMM.SEQ          = ?
+                    ) EMS
+	               , TBEB_ARRANGE TA
+             WHERE   EMS.STND_YEAR       = TA.STND_YEAR(+)
+               AND   EMS.MBR_CD          = TA.MBR_CD(+)
+               AND   EMS.TMS             = TA.TMS(+)
+               AND   EMS.RACER_NO        = TA.RACER_NO(+)
+            ORDER BY RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_ib001" desc="이메일 주선통보 저장" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_arrange_noti_ib001 */
+			       INTO TBEB_ARRANGE_MAIL_MASTER
+			(
+			         STND_YEAR							-- 기준년도    
+			       , MBR_CD								-- 경정장    
+			       , TMS								-- 회차    
+			       , SEQ								-- 순번    
+			       , MEET_DTM							-- 집합일시
+			       , REPORT_DTM							-- 통보일시
+			       , NOTICE								-- 공지사항
+			       , MAIL_SEND_REQ_DAY					-- 메일발송요청일
+			       , MAIL_SEND_FLAG						-- 메일발송구분
+			       , INST_ID							-- 작성자ID    
+			       , INST_DTM							-- 작성일시    
+			) 
+			SELECT
+			         ?									-- 기준년도    
+			       , ?									-- 경정장    
+			       , ?									-- 회차    
+			       , NVL(MAX(SEQ),0)+1					--  순번    
+			       , TO_DATE(?||?,'YYYYMMDD-HH24MI')	-- 집합일시
+			       , TO_DATE(?||?,'YYYYMMDD-HH24MI')	-- 통보일시
+			       , ?									-- 공지사항
+			       , ?									-- 메일발송요청일
+			       , 'N'								-- 메일발송구분
+			       , ?									-- 작성자ID    
+			       , SYSDATE							-- 작성일시
+			  FROM   TBEB_ARRANGE_MAIL_MASTER
+			 WHERE   STND_YEAR			= ?				-- 기준년도    
+			   AND   MBR_CD				= ?				-- 경정장코드    
+			   AND   TMS				= ?				-- 회차
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_ib002" desc="이메일 주선통보 목록 저장" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_arrange_noti_ib001 */
+			       INTO TBEB_ARRANGE_MAIL_DETAIL
+			(
+			         STND_YEAR		-- 기준년도    
+			       , MBR_CD			-- 경정장코드    
+			       , TMS			-- 회차    
+			       , SEQ			-- 순번    
+			       , RACER_NO		-- 선수등록번호
+			       , EMAIL_ADDR		-- 이메일주소
+			) 
+			SELECT   TA .STND_YEAR
+			       , TA .MBR_CD
+			       , TA .TMS
+			       , TAMD.SEQ 
+			       , TA .RACER_NO
+			       , TRM.EMAIL_ADDR
+			  FROM   TBEB_RACE_TMS TRT
+	               , TBEB_ARRANGE TA
+	               , TBEC_RACER_MASTER TRM
+				   , (SELECT NVL(MAX(SEQ),1) SEQ
+				        FROM TBEB_ARRANGE_MAIL_DETAIL 
+					   WHERE STND_YEAR       = ?
+                         AND MBR_CD          = ?
+                         AND TMS             = ?) TAMD
+	         WHERE   TA .STND_YEAR       = TRT.STND_YEAR
+               AND   TA .MBR_CD          = TRT.MBR_CD
+               AND   TA .TMS             = TRT.TMS
+               AND   TA .RACER_NO        = TRM.RACER_NO
+               AND   TRT.ARRANGE_CMPL_YN = 'Y'
+               AND   TRT.STND_YEAR       = ?
+               AND   TRT.MBR_CD          = ?
+               AND   TRT.TMS             = ?
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_ib003" desc="이메일 주선통보 목록 저장" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_arrange_noti_ib003 */
+			       INTO TBEB_ARRANGE_MAIL_DETAIL
+			(
+			         STND_YEAR							-- 기준년도    
+			       , MBR_CD								-- 경정장코드    
+			       , TMS								-- 회차    
+			       , SEQ								-- 순번    
+			       , RACER_NO							-- 선수등록번호
+			       , EMAIL_ADDR							-- 이메일주소
+			) 
+			SELECT
+			         ?									-- 기준년도    
+			       , ?									-- 경정장    
+			       , ?									-- 회차    
+			       , NVL(MAX(SEQ),1)					-- 순번    
+			       , ?									-- 선수등록번호
+			       , ?									-- 이메일주소
+			  FROM   TBEB_ARRANGE_MAIL_MASTER
+			 WHERE   STND_YEAR			= ?				-- 기준년도    
+			   AND   MBR_CD				= ?				-- 경정장코드    
+			   AND   TMS				= ?				-- 회차
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_ub001" desc="선수 이메일 주선통보 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_arrange_noti_ub001 */
+			       TBEB_ARRANGE_MAIL_MASTER SET
+			         MEET_DTM			= TO_DATE(?||?,'YYYYMMDD-HH24MI')	-- 집합일시
+			       , REPORT_DTM			= TO_DATE(?||?,'YYYYMMDD-HH24MI')	-- 통보일시
+			       , NOTICE				= ?									-- 수정자ID
+			       , MAIL_SEND_REQ_DAY	= ?									-- 메일발송요청일    
+			       , UPDT_ID			= ?									-- 수정자ID    
+			       , UPDT_DTM			= SYSDATE							-- 수정일시    
+			WHERE  STND_YEAR			= ?									-- 기준년도    
+			AND    MBR_CD				= ?									-- 경정장코드    
+			AND    TMS					= ?									-- 회차
+			AND    SEQ					= ?									-- 순번
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_ub002" desc="선수 이메일 주선통보목록 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_arrange_noti_ub002 */
+			       TBEB_ARRANGE_MAIL_DETAIL SET
+			       COMMENTARY			= ?									-- 담당자입력사항
+			WHERE  STND_YEAR			= ?									-- 기준년도    
+			AND    MBR_CD				= ?									-- 경정장코드    
+			AND    TMS					= ?									-- 회차
+			AND    SEQ					= ?									-- 순번
+			AND    RACER_NO				= ?									-- 선수번호
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_noti_db001" desc="이메일 주선통보 목록 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE /* tbeb_arrange_noti_db001 */
+			       FROM TBEB_ARRANGE_MAIL_DETAIL
+			WHERE  STND_YEAR			= ?									-- 기준년도    
+			AND    MBR_CD				= ?									-- 경정장코드    
+			AND    TMS					= ?									-- 회차
+			AND    SEQ					= ?									-- 순번
+        ]]>
+    </query> 
+</queryMap>

@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSY3070(개인정보처리메뉴 권한 관리)">
+  <query id="rsy3070_s01" desc="메뉴그룹조회" fetchSize="10">
+        <![CDATA[
+            SELECT  A.USER_ID  /*rsy3070_s01*/
+                    , DECODE(B.LVL, '2', B.UP_MN_ID, B.UPUP_MN_ID) UPUP_MN_ID
+                    , DECODE(B.LVL, '2', B.UPMNNM, B.UPUPMN_NM) UPUPMN_NM
+                    , B.UP_MN_ID
+                    , B.UPMNNM
+                    , B.MN_ID
+                    , B.MN_NM
+                    , B.LVL 
+                    , B.ORD_NO
+                    , B.MN_LEVEL
+                    , A.INST_ID
+                    , A.INST_DT
+                    , A.UPDT_ID
+                    , A.UPDT_DT     
+                    , '0' AS CHK
+              FROM  (SELECT USER_ID    
+                            , MN_ID    
+                            , INST_ID    
+                            , INST_DT    
+                            , UPDT_ID    
+                            , UPDT_DT    
+                       FROM TBRK_ADMIN_INFO
+                      WHERE USER_ID = ?
+                    ) A
+                    ,(SELECT A.MN_ID
+                            , A.MN_NM
+                            , A.UP_MN_ID
+                            , C.MN_NM UPMNNM
+                            , D.MN_ID UPUP_MN_ID
+                            , D.MN_NM UPUPMN_NM
+                            , A.LVL 
+                            , A.ORD_NO
+                            , A.MN_LEVEL 
+                            , ROWNUM AS SEQ           
+                      FROM  (SELECT MN_ID
+                                    , MN_NM
+                                    , UP_MN_ID
+                                    , ORD_NO
+                                    , MN_LEVEL
+                                    , URL
+                                    , LEVEL - 1 AS LVL
+                                    , PERSONAL_DATA_MN
+                               FROM TBRK_MN        
+                        	   START  WITH MN_ID = ?
+                               CONNECT BY PRIOR  MN_ID =  UP_MN_ID
+                               ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+                             ) A
+                             , TBRK_MN B, TBRK_MN C, TBRK_MN D
+                     WHERE A.MN_ID    = B.MN_ID
+                       AND A.UP_MN_ID = C.MN_ID
+                       AND C.UP_MN_ID = D.MN_ID
+                       AND A.URL IS NOT NULL
+                       AND A.PERSONAL_DATA_MN = 'Y'
+                   ORDER BY A.ORD_NO, TO_NUMBER(A.MN_LEVEL) ASC
+                   ) B
+             WHERE A.MN_ID(+) = B.MN_ID 
+             ORDER BY B.ORD_NO, B.SEQ
+        ]]>
+
+    </query>
+ 
+    <query id="rsy3070_s02" desc="사용자 조회" fetchSize="10">
+        <![CDATA[
+           SELECT  /* rsy3070_s02 */
+                      A.USER_ID          -- 사용자ID     
+                    , A.USER_NM        -- 사용자명         
+                    , A.PSWD           -- 비밀번호
+                    , A.DEPT_CD        -- 부서코드
+                    , A.DEPT_NM       -- 부서이름
+                    , A.TEAM_CD       -- 팀코드
+                    , A.TEAM_NM       -- 팀이름
+                    , A.FLOC          -- 직위코드
+                    , A.FGRADE            -- 직위         
+                    , A.TEL_NO         -- 전화번호         
+                    , A.EMAIL         -- 이메일       
+                    , '0' AS CHK
+                    , NVL(B.PERSONAL_YN,0) PERSONAL_YN
+                    , B.PERSONAL_MN_IP
+                    , B.STR_DT_TM
+                    , B.SRCH_YN
+              FROM  TBRK_USER A, 
+                    (SELECT 
+                              USER_ID    
+                            , MN_ID
+                            , STR_DT_TM    
+                            , DECODE(PERSONAL_YN, 'Y', 1, 0) PERSONAL_YN
+                            , PERSONAL_MN_IP
+                            , INST_ID    
+                            , INST_DT    
+                            , UPDT_ID    
+                            , UPDT_DT
+                            , SRCH_YN    
+                       FROM TBRK_MN_AUTH_HIST    
+                      WHERE MN_ID = ?
+                      AND   TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+                    ) B
+             WHERE A.USER_ID= B.USER_ID(+)
+               AND B.SRCH_YN IS NOT NULL
+               AND A.TEAM_CD LIKE '%' || NVL(?, A.TEAM_CD) || '%'
+               AND A.USER_NM LIKE '%' || NVL(?, A.USER_NM) || '%' 
+             ORDER BY A.ORD_NO, A.TEAM_CD, A.FGRADE, A.USER_ID
+        ]]>
+    </query>
+    
+    <query id="rsy3070_i02" desc="권한 추가" fetchSize="10">
+        <![CDATA[
+			INSERT /* rsy3070_i02 */
+			       INTO TBRK_MN_AUTH_HIST (
+			      USER_ID
+			    , MN_ID
+			    , STR_DT_TM
+			    , END_DT_TM
+			    , PERSONAL_YN
+			    , INST_ID
+			    , INST_DT
+			    , PERSONAL_MN_IP
+			    , PERSONAL_AUTH_ID
+			    , PERSONAL_AUTH_CHK
+			    , PERSONAL_AUTH_DT
+			    , SRCH_YN
+			) VALUES (
+			      ?                 -- USER_ID
+			    , ?                 -- MN_ID
+			    , ? 				-- 작업기준일시
+			    , '299912312359'
+			    , ?                 -- PERSONAL_YN
+			    , ?                 -- INST_ID			    
+			    , SYSDATE           -- INST_DT
+			    , ?					-- PERSONAL_MN_IP
+			    , ?					-- PERSONAL_AUTH_ID
+			    , ?					-- PERSONAL_AUTH_CHK
+			    , SYSDATE			-- PERSONAL_AUTH_DT
+			    , ?					-- SRCH_YN
+			)
+        ]]>
+    </query> 
+    
+    <query id="rsy3070_i03" desc="개인정보 처리내역 저장" fetchSize="10">
+        <![CDATA[
+			INSERT /* rsy3070_i03 */
+			  INTO TBRK_PERSONAL_MN_AUTH_HIST (
+			            SEQ_NO
+			          , PERSONAL_MN_ID
+			          , PERSONAL_AUTH_ID
+			          , PERSONAL_AUTH_CHK
+			          , PERSONAL_AUTH_DT
+			          , USER_ID
+			          , PERSONAL_MN_IP
+				) VALUES (
+				        (SELECT NVL(MAX(SEQ_NO),0)+1 FROM TBRK_PERSONAL_MN_AUTH_HIST)         -- SEQ_NO
+				      , ? 		  -- PERSONAL_MN_ID
+				      , ?		  -- PERSONAL_AUTH_ID
+				      , ?		  -- PERSONAL_AUTH_CHK
+				      , SYSDATE	  -- PERSONAL_AUTH_DT
+				      , ?		  -- USER_ID
+				      , ?		  -- PERSONAL_MN_IP
+			)
+        ]]>
+    </query> 
+    
+    <query id="rsy3070_u01" desc="특정 메뉴 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rsy3070_u01 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    STR_DT_TM  = ?		-- 시작일시분
+        ]]>
+    </query>  
+    
+    <query id="rsy3070_u02" desc="권한 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rsy3070_u02 */
+			       TBRK_MN_AUTH_HIST
+			SET    PERSONAL_YN = ?				-- 개인정보처리메뉴 사용여부(Y:사용, N:미사용)
+			     , PERSONAL_MN_IP = ?			-- 개인정보처리메뉴 사용자 IP
+			     , PERSONAL_AUTH_ID = ?			-- 개인정보처리메뉴 권한부여자
+			     , PERSONAL_AUTH_CHK = ?		-- 개인정보처리메뉴 권한체크(Y:부여, N:말소)
+			     , PERSONAL_AUTH_DT = SYSDATE	-- 개인정보처리메뉴 권한부여일시 
+			     , UPDT_ID = ?					-- 수정자 사번
+			     , UPDT_DT = SYSDATE			-- 수정일시
+			WHERE  USER_ID = ?					-- 사용자 사번
+			AND    MN_ID   = ?					-- 메뉴ID
+			AND    STR_DT_TM  = ?				-- 시작일시분
+        ]]>
+    </query> 
+     
+</queryMap>

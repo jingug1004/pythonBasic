@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS1240(예상 결과 집계)">
+    
+    <query id="rbs1240_s01" desc="예상결과점수 합계 조회" fetchSize="10">
+        <![CDATA[  
+			SELECT /* rbs1240_s01 */
+                   A.YES_COM_SEQ
+                  ,B.YES_COM_NM
+                  ,B.ORDR_NO
+                  ,TMS
+                  ,DAY_ORD 
+                  ,SUM(AB+BA+AC+ABC+EX_A+EX_AB+EX_AC+EX_BA+RT_AB+RT_BA) AS SCR
+            FROM  TBRS_YES_SANG A, TBRS_YES_COM B
+            WHERE A.YES_COM_SEQ = B.YES_COM_SEQ
+            AND   A.MEET_CD     =  ?
+            AND   STND_YEAR     =  ?
+            AND   TMS           BETWEEN ? AND ?
+            GROUP BY A.YES_COM_SEQ, B.YES_COM_NM, B.ORDR_NO, TMS,DAY_ORD
+            ORDER BY TMS, DAY_ORD, B.ORDR_NO 
+        ]]>
+    </query>
+    
+    <query id="rbs1240_s02" desc="경주결과  조회" fetchSize="10">
+        <![CDATA[  
+			SELECT /* rbs1240_s02 */
+			       A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.RACE_NO,
+			       NVL(RANK_1,'-') AS RANK_1, NVL(RANK_2,'-') AS RANK_2, 
+			       NVL(RANK_3,'-') AS RANK_3, EX_RATE, QU_RATE
+			FROM (
+			        SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO,
+		                   MAX(DECODE(RANK,'1',REG_NO)) RANK_1,
+		                   MAX(DECODE(RANK,'2',REG_NO)) RANK_2,
+		                   MAX(DECODE(RANK,'3',REG_NO)) RANK_3,
+		                   0 AS CNT_A, 0 AS CNT_AB, 0 AS CNT_AC, 0 AS CNT_BA
+			        FROM (
+                            SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO, RANK,
+                                     SUBSTR(MAX(SYS_CONNECT_BY_PATH(REG_NO,',')),2) AS REG_NO
+                            FROM  TBES_SDL_FN                                                          
+                            START WITH FN_SEQ = 1
+                            CONNECT BY PRIOR MEET_CD = MEET_CD 
+                                      AND PRIOR STND_YEAR = STND_YEAR
+                                      AND PRIOR TMS = TMS
+                                      AND PRIOR DAY_ORD = DAY_ORD
+                                      AND PRIOR RACE_NO = RACE_NO
+                                      AND PRIOR RANK = RANK
+                                      AND PRIOR FN_SEQ = FN_SEQ -1
+                            GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO, RANK
+			              )
+			        GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO
+			        ) A
+			        ,(
+			        SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO,
+			                 SUM(DECODE(POOL_CD,'004',PAYOFF)) AS EX_RATE,
+			                 SUM(DECODE(POOL_CD,'005',PAYOFF)) AS QU_RATE
+			        FROM TBES_SDL_RS
+			        WHERE POOL_CD IN ('004','005')
+			        GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_NO
+			        ) B
+			WHERE A.MEET_CD = B.MEET_CD
+			AND    A.STND_YEAR = B.STND_YEAR
+			AND    A.TMS       = B.TMS
+			AND    A.DAY_ORD   = B.DAY_ORD
+			AND    A.RACE_NO   = B.RACE_NO
+			AND    A.MEET_CD   = ?
+			AND    A.STND_YEAR = ? 
+			AND    A.TMS BETWEEN ? AND ?
+			ORDER BY A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.RACE_NO
+        ]]>
+    </query>
+    
+    <query id="rbs1240_s03" desc="예상내역  조회" fetchSize="10">
+        <![CDATA[  
+			SELECT /* rbs1240_s03 */
+			       STND_YEAR, MEET_CD, TMS, DAY_ORD, RACE_NO, 
+		           YES_COM_SEQ, YESANG, AB, AC, BA, CA, ABC, 
+		           EX_AB, EX_ABC, EX_AC, EX_A, AUTO, RATE, ETC, 
+		           EXCLUSION, EX_BA, RT_AB, RT_BA, RATE_QU
+		    FROM   TBRS_YES_SANG
+		    WHERE  MEET_CD   = ?
+		    AND    STND_YEAR = ?
+		    AND    TMS BETWEEN ? AND ?
+		    ORDER BY MEET_CD, STND_YEAR, MEET_CD, TMS, DAY_ORD, RACE_NO
+        ]]>
+    </query>
+    
+    <query id="rbs1240_u01" desc="점수 계산결과 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE  /* rbs1240_u01 */
+			        TBRS_YES_SANG DST			
+			SET     AB        = ?
+			       ,AC        = ?
+			       ,BA        = ?
+			       ,CA        = ?
+			       ,ABC       = ?
+			       ,EX_AB     = ?
+			       ,EX_ABC    = ?
+			       ,EX_AC     = ?
+			       ,EX_A      = ?
+			       ,AUTO      = ?
+			       ,RATE      = ?
+			       ,RATE_QU   = ? 
+			       ,ETC       = ?
+			       ,EXCLUSION = ?
+			       ,EX_BA     = ?
+			       ,RT_AB     = ?
+			       ,RT_BA     = ?
+			       ,UPDT_ID   = ?
+			       ,UPDT_DT   = SYSDATE
+			WHERE YES_COM_SEQ = ?
+			AND   MEET_CD   = ?
+			AND   STND_YEAR   = ?
+			AND   TMS         = ?
+			AND   DAY_ORD     = ?
+			AND   RACE_NO     = ?
+        ]]>
+    </query>
+    
+</queryMap>

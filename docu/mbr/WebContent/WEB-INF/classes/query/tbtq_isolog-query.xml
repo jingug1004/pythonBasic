@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbtq_isolog_mngr(ISO 로그관리)">
+ <query id="tbtq_isolog_fa001" desc="로그관리조회" fetchSize="10">
+    <![CDATA[
+       SELECT TO_CHAR(CONN_DATE,'YYYY-MM-DD') CONN_DATE
+       	  ,TO_CHAR(CONN_DATE,'HH24:MI:SS') CONN_TIME
+	      ,USER_ID
+		  ,USER_NAME
+		  ,TEAM_CD
+		  ,(SELECT GROUP_NAME  FROM V_GROUP@SOSFO_LINK A WHERE A.GROUP_ID = TEAM_CD) TEAM_NM
+		  ,MENU_ID
+		  ,(SELECT MN_NM FROM TBEA_MN A WHERE A.MN_ID = MENU_ID) MENU_NM
+	   FROM TBTQ_ISOCONN_LOG
+	   WHERE TO_CHAR(CONN_DATE,'YYYYMMDD') BETWEEN ? AND ?
+	   AND USER_NAME = NVL(?,USER_NAME)
+	   AND TEAM_CD =   NVL(?,TEAM_CD)
+	   ORDER BY CONN_DATE DESC,CONN_TIME DESC
+     ]]>
+ </query>
+  <query id="tbtq_isolog_ia001" desc="로그저장 및 수정" fetchSize="10">
+     <![CDATA[
+           MERGE INTO TBTQ_ISOCONN_LOG TIL
+ 		 		   USING   DUAL
+		   ON	   (    TIL.USER_ID	= ?
+		   		   	AND TIL.MENU_ID	= ?
+					)
+		   WHEN MATCHED THEN
+		    UPDATE SET
+			  USER_NAME           = ?
+			, TEAM_CD  	  		  = ?
+			, CONN_DATE           = SYSDATE
+		   WHEN NOT MATCHED THEN
+			INSERT (
+				   	  USER_ID
+					, MENU_ID
+					, USER_NAME
+					, TEAM_CD	
+					, CONN_DATE	   
+					)VALUES (
+								 ?
+								,?
+								,?
+								,?
+								,SYSDATE								
+							)
+                ]]>
+ </query>
+</queryMap> 

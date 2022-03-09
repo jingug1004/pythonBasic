@@ -1,0 +1,628 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm6010(TSN조회)">
+    
+    <query id="rsm6010_s01" desc="창구번호  조회" fetchSize="10">
+      <![CDATA[ 
+		 SELECT TO_CHAR (TO_DATE (YEAR_TOTE || DATE_TOTE, 'YYYYMMDD'),'YYYY-MM-DD') YEAR_DATE,
+	          TO_CHAR (TO_DATE (TIME_TOTE, 'HH24MISS'), 'HH24:MI:SS') TIME_TOTE,
+	          YEAR_TOTE,
+	          DATE_TOTE,
+	          GUBUN,
+	          CASE
+	             WHEN GUBUN <> 'POOL' AND TSN IS NOT NULL
+	             THEN
+	                   SUBSTR (TSN, 1, 1)
+	                || '-'
+	                || SUBSTR (TSN, 2, 4)
+	                || '-'
+	                || SUBSTR (TSN, 6, 4)
+	                || '-'
+	                || SUBSTR (TSN, 10, 4)
+	             ELSE
+	                TSN
+	          END
+	             AS NTSN,
+	          WIN_NO,
+	          TELLER_ID,
+	          TRAN_TYPE,
+	          'VALID' STATUS,
+	          PERF_NO,
+	          MEET_NO,
+	          RACE_NO,
+	          AMOUNT,
+	          BET_SUMMARY CONT2,
+	          TSN,
+	          TFA,
+	          GC_CARD_NO,
+	          GC_ACCOUNT_NO
+	     FROM (    
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '경주권판매' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 STATUS,
+	                  TO_CHAR (PERF_NO) PERF_NO,
+	                  TO_CHAR (MEET_NO) MEET_NO,
+	                  TO_CHAR (RACE_NO) RACE_NO,
+	                  AMOUNT,
+	                     BET1_SUMMARY
+	                  || NVL2 (BET2_SUMMARY, '<BR>' || BET2_SUMMARY, '')
+	                  || NVL2 (BET3_SUMMARY, '<BR>' || BET3_SUMMARY, '')
+	                     AS BET_SUMMARY,
+	                  GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO   
+	             FROM TF_SELL@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN   
+	             -- AND GC_CARD_NO = 그린카드번호(영구계좌는 주로 카드번호, 일일계좌는 계좌번호/카드번호 동일)
+	             -- AND GC_ACCOUNT_NO = 그린카드 계좌번호(영구계좌는 고객이 계좌번호를 모름)   
+	             AND WINDOW_ID = ?
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '경주권취소' AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  TO_CHAR (SELL_PERF_NO) PERF_NO,
+	                  TO_CHAR (SELL_MEET_NO) MEET_NO,
+	                  TO_CHAR (RACE_NO) RACE_NO,
+	                  AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO    
+	             FROM TF_CANCEL@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN   
+	             -- AND GC_CARD_NO = 그린카드번호(영구계좌는 주로 카드번호, 일일계좌는 계좌번호/카드번호 동일)
+	             -- AND GC_ACCOUNT_NO = 그린카드 계좌번호(영구계좌는 고객이 계좌번호를 모름) 
+	             AND WINDOW_ID = ?
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  CASE
+	                     WHEN KSSN IS NULL THEN '경주권환급'
+	                     ELSE '경주권환급(지급조서)'
+	                  END
+	                     AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  'PAID:' RACE_NO,
+	                  TOTAL_PAY AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO    
+	             FROM TF_CASH@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN   
+	             -- AND GC_CARD_NO = 그린카드번호(영구계좌는 주로 카드번호, 일일계좌는 계좌번호/카드번호 동일)
+	             -- AND GC_ACCOUNT_NO = 그린카드 계좌번호(영구계좌는 고객이 계좌번호를 모름) 
+	             AND WINDOW_ID = ?
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  DECODE(VOUCH_TYPE, 2, '구매권판매', 4, '이벤트구매권발행','') AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF,
+	                  '' MEET,
+	                  '' RACE,
+	                  TOTAL,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' AS GC_ACCOUNT_NO   
+	             FROM TF_VOUC_SELL@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN 
+	             AND WINDOW_ID = ?
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  DECODE(VOUCH_TYPE, 3,'당일이전일일계좌해지', '구매권환급')  AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  'PAID:' RACE_NO,
+	                  AMOUNT_PAID AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_VCASH@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)  
+	              -- AND TSN = 13자리 TSN 
+	              AND WINDOW_ID = ?
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '전도' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF,
+	                  '' MEET,
+	                  'CHECK:' RACE,
+	                  AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' AS GC_ACCOUNT_NO   
+	             FROM TF_DRAW@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4) 
+	              AND WINDOW_ID = ?
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '입급' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  'CHECK:' RACE_NO,
+	                  AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' GC_ACCOUNT_NO   
+	             FROM TF_RETURN@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	              AND WINDOW_ID = ?
+	           UNION ALL           
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '계좌개설' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  AMOUNT AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO   
+	             FROM TF_ACCT_OPEN@ODDSDBLINK
+	           WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN   
+	             -- AND GC_CARD_NO = 그린카드번호(영구계좌는 주로 카드번호, 일일계좌는 계좌번호/카드번호 동일)
+	             -- AND GC_ACCOUNT_NO = 그린카드 계좌번호(영구계좌는 고객이 계좌번호를 모름) 
+	              AND WINDOW_ID = ?
+	           UNION ALL          
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '계좌해지' AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  AMOUNT AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_ACCT_CLOSE@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN   
+	             -- AND GC_CARD_NO = 그린카드번호(영구계좌는 주로 카드번호, 일일계좌는 계좌번호/카드번호 동일)
+	             -- AND GC_ACCOUNT_NO = 그린카드 계좌번호(영구계좌는 고객이 계좌번호를 모름) 
+	              AND WINDOW_ID = ?
+	           UNION ALL          
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  CASE CASHFLOW
+	                     WHEN '1' THEN '계좌입금'
+	                     WHEN '2' THEN '계좌출금'
+	                     WHEN '3' THEN '계좌입금취소'
+	                     WHEN '4' THEN '계좌출금취소'
+	                     ELSE ''
+	                  END
+	                     AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  AMOUNT AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_ACCT_DEPWID@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN   
+	             -- AND GC_CARD_NO = 그린카드번호(영구계좌는 주로 카드번호, 일일계좌는 계좌번호/카드번호 동일)
+	             -- AND GC_ACCOUNT_NO = 그린카드 계좌번호(영구계좌는 고객이 계좌번호를 모름)  
+	              AND WINDOW_ID = ?
+	           UNION ALL          
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '수지조회' AS GUBUN,
+	                  '' TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  BALANCE AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' AS GC_ACCOUNT_NO
+	             FROM TF_CAPO@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	              AND WINDOW_ID = ?
+	            UNION ALL                                           
+	            SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '계좌지급조서작성' AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  RELEASE_AMOUNT AS AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_HIGHPAY_REPORT@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)
+	             -- AND TSN = 13자리 TSN   
+	             -- AND GC_CARD_NO = 그린카드번호(영구계좌는 주로 카드번호, 일일계좌는 계좌번호/카드번호 동일)
+	             -- AND GC_ACCOUNT_NO = 그린카드 계좌번호(영구계좌는 고객이 계좌번호를 모름)
+	              AND WINDOW_ID = ?
+	            UNION ALL                                
+	            SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  'POOL' AS GUBUN,
+	                  'CLOSE POOLS FOR CARD:' || TO_CHAR (CARD_NO) TSN,
+	                  '' AS WIN_NO,
+	                  TO_NUMBER('') AS TELLER_ID,
+	                  '' AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  TO_CHAR (PERF_NO) PERF_NO,
+	                  TO_CHAR (MEET_NO) MEET_NO,
+	                  TO_CHAR (CARD_NO) RACE_NO,
+	                  TO_NUMBER ('') AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' AS GC_ACCOUNT_NO
+	             FROM TF_POOL_CLOSE@ODDSDBLINK
+	            WHERE YEAR_TOTE = SUBSTR(?,1,4)
+	              AND DATE_TOTE = SUBSTR(?,5,4)                                          
+	             ) ORDER BY YEAR_TOTE, DATE_TOTE, TFA                                                         
+        ]]>
+    </query>
+    
+    <query id="rsm6010_s02" desc="TSN번호 조회" fetchSize="10">
+      <![CDATA[
+		 SELECT TO_CHAR (TO_DATE (YEAR_TOTE || DATE_TOTE, 'YYYYMMDD'),'YYYY-MM-DD') YEAR_DATE,
+	          TO_CHAR(TO_DATE(TIME_TOTE,'HH24MISS'),'HH24:MI:SS') TIME_TOTE, 
+	          TO_CHAR(TO_DATE(DATE_TOTE,'MMDD'),'MM-DD') DATE_TOTE, 
+	          YEAR_TOTE,
+	          GUBUN,
+	          CASE WHEN GUBUN <> 'POOL' AND TSN IS NOT NULL 
+              THEN SUBSTR (TSN, 1, 1) || '-' || SUBSTR (TSN, 2, 4) || '-' || SUBSTR (TSN, 6, 4) || '-' || SUBSTR (TSN, 10, 4) ELSE TSN 
+              END AS NTSN,
+	          WIN_NO,
+	          TELLER_ID,
+	          TRAN_TYPE,
+	          'VALID' STATUS,
+	          PERF_NO,
+	          MEET_NO,
+	          RACE_NO,
+	          AMOUNT,
+	          BET_SUMMARY CONT2,
+	          TSN,
+	          TFA,
+	          GC_CARD_NO,
+	          GC_ACCOUNT_NO
+	     FROM (    
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '경주권판매' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 STATUS,
+	                  TO_CHAR (PERF_NO) PERF_NO,
+	                  TO_CHAR (MEET_NO) MEET_NO,
+	                  TO_CHAR (RACE_NO) RACE_NO,
+	                  AMOUNT,
+	                     BET1_SUMMARY
+	                  || NVL2 (BET2_SUMMARY, '<BR>' || BET2_SUMMARY, '')
+	                  || NVL2 (BET3_SUMMARY, '<BR>' || BET3_SUMMARY, '')
+	                     AS BET_SUMMARY,
+	                  GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO   
+	             FROM TF_SELL@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '경주권취소' AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  TO_CHAR (SELL_PERF_NO) PERF_NO,
+	                  TO_CHAR (SELL_MEET_NO) MEET_NO,
+	                  TO_CHAR (RACE_NO) RACE_NO,
+	                  AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO    
+	             FROM TF_CANCEL@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  CASE
+	                     WHEN KSSN IS NULL THEN '경주권환급'
+	                     ELSE '경주권환급(지급조서)'
+	                  END
+	                     AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  'PAID:' RACE_NO,
+	                  TOTAL_PAY AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO    
+	             FROM TF_CASH@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  DECODE(VOUCH_TYPE, 2, '구매권판매', 4, '이벤트구매권발행','') AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF,
+	                  '' MEET,
+	                  '' RACE,
+	                  TOTAL,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' AS GC_ACCOUNT_NO   
+	             FROM TF_VOUC_SELL@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  DECODE(VOUCH_TYPE, 3,'당일이전일일계좌해지', '구매권환급')  AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  'PAID:' RACE_NO,
+	                  AMOUNT_PAID AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_VCASH@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '전도' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF,
+	                  '' MEET,
+	                  'CHECK:' RACE,
+	                  AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' AS GC_ACCOUNT_NO   
+	             FROM TF_DRAW@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '입급' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  'CHECK:' RACE_NO,
+	                  AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  '' AS GC_CARD_NO,
+	                  '' GC_ACCOUNT_NO   
+	             FROM TF_RETURN@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL           
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '계좌개설' GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  AMOUNT AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO   
+	             FROM TF_ACCT_OPEN@ODDSDBLINK
+	           WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL          
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '계좌해지' AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  AMOUNT AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_ACCT_CLOSE@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           UNION ALL          
+	           SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  CASE CASHFLOW
+	                     WHEN '1' THEN '계좌입금'
+	                     WHEN '2' THEN '계좌출금'
+	                     WHEN '3' THEN '계좌입금취소'
+	                     WHEN '4' THEN '계좌출금취소'
+	                     ELSE ''
+	                  END
+	                     AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  AMOUNT AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_ACCT_DEPWID@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+	           -- TF_CAPO@ODDSDBLINK
+             UNION ALL   
+	            SELECT YEAR_TOTE,
+	                  DATE_TOTE,
+	                  TIME_TOTE,
+	                  TFA,
+	                  '계좌지급조서작성' AS GUBUN,
+	                  TSN,
+	                  WINDOW_ID AS WIN_NO,
+	                  TELLER_ID,
+	                  TRANS_TYPE_STRING AS TRAN_TYPE,
+	                  1 AS STATUS,
+	                  '' PERF_NO,
+	                  '' MEET_NO,
+	                  '' RACE_NO,
+	                  RELEASE_AMOUNT AS AMOUNT,
+	                  '' AS BET_SUMMARY,
+	                  GC_CARD_NO AS GC_CARD_NO,
+	                  ACCOUNT_NO AS GC_ACCOUNT_NO
+	             FROM TF_HIGHPAY_REPORT@ODDSDBLINK
+	            WHERE TSN = REPLACE(UPPER(?),'-','')
+              -- TF_POOL_CLOSE@ODDSDBLINK                                         
+	             ) ORDER BY YEAR_TOTE, DATE_TOTE, TFA   
+        ]]>
+    </query>
+    
+</queryMap>

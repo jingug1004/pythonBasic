@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_parts_crfw 부품 이월 ">
+	<query id="tbef_parts_crfw_ff001" desc="부품 조회 " fetchSize="50">
+        <![CDATA[
+            -- 부품 조회  
+		SELECT  /* tbef_parts_crfw_ff001 */
+                NUM,																			-- 순번 
+                STND_YEAR,        																-- 기준년도
+                MBR_CD,            																-- 경정장코드
+				PARTS_TPE,																		-- 모터/보트 구분
+                NVL(PARTS_CD, DECODE(PARTS_TPE, 'M', '모터 계', 'B', '보트 계', 'T','공구 계','합 계')) PARTS_CD,	-- 부품코드 
+                PARTS_YEAR,        														--부품 일련 번호 
+                PARTS_COM_CD,        															-- 부품업체코드
+                COM_NM,            																-- 부품업체명
+                PARTS_ITEM_CD_NM, 																-- 품명
+                SPEC,                															-- 규격
+                DECODE(PARTS_CD, NULL, '', SAFT_UNIT_CNT) SAFT_UNIT_CNT,    					-- 안전재고
+                DECODE(PARTS_CD, NULL, '', CRFW_UNIT_CNT) CRFW_UNIT_CNT,    					-- 이월재고
+                NOW_UNIT_CNT,     																-- 현재재고
+                LOC                																-- 보관장소         
+		  FROM (
+				  SELECT 
+				  		 ROWNUM AS NUM,    -- 순번 
+				  		 STND_YEAR,        -- 기준년도
+				  		 MBR_CD,            -- 경정장코드
+				  		 PARTS_TPE,
+				  		 PARTS_CD,            -- 부품코드 
+				  		 PARTS_YEAR,        --부품 일련 번호 
+				  		 PARTS_COM_CD,        -- 부품업체코드
+				  		 COM_NM,            -- 부품업체명
+				  		 PARTS_ITEM_CD_NM, -- 품명
+				  		 SPEC,                -- 규격
+				  		 SAFT_UNIT_CNT,    -- 안전재고
+				  		 CRFW_UNIT_CNT,    -- 이월재고
+				  		 NOW_UNIT_CNT,     -- 현재재고
+				  		 LOC                -- 보관장소         
+				   FROM(
+				   		 SELECT 
+						 		TP.STND_YEAR,        -- 기준년도
+						 		TP.MBR_CD,            -- 경정장코드
+						 		TPM.PARTS_TPE,
+						 		TP.PARTS_CD,            -- 부품코드
+						 		TP.PARTS_YEAR,     -- 부품 일련번호 
+						 		TPM.PARTS_COM_CD,        -- 부품업체코드
+						 		TPC.COM_NM,            -- 부품업체명
+						 		TPM.PARTS_ITEM_CD_NM, -- 품명
+						 		TPM.SPEC,                -- 규격
+						 		TPM.SAFT_UNIT_CNT,    -- 안전재고
+						 		TP.CRFW_UNIT_CNT,    -- 이월재고
+						 		TP.NOW_UNIT_CNT,     -- 현재재고
+						 		TPM.LOC                -- 보관장소                                     
+						   FROM TBEF_PARTS TP, TBEF_PARTS_COM TPC , TBEF_PARTS_MASTER TPM
+						  WHERE TP.STND_YEAR = ?
+			                AND TP.PARTS_CD = TPM.PARTS_CD
+			                AND TP.PARTS_YEAR = TPM.PARTS_YEAR
+			                AND TPM.PARTS_COM_CD = TPC.PARTS_COM_CD(+)
+			                AND TP.NOW_UNIT_CNT >0
+			                AND TP.MBR_CD LIKE ?||'%'        
+   				            AND DECODE(?, 'P', 1, 0) = SIGN(ASCII('W')-ASCII(TPM.PARTS_TPE))
+		               ORDER BY TP.MBR_CD, DECODE(TPM.PARTS_TPE,'B',1,'M',2,'T',3,'A',8,9), TPM.PARTS_COM_CD, TP.PARTS_CD, TP.PARTS_YEAR DESC
+			            )
+				UNION ALL
+				  SELECT 
+				  		 99991,
+				  		 TP.STND_YEAR,        -- 기준년도
+						 TP.MBR_CD,            -- 경정장코드
+						 TPM.PARTS_TPE,
+						 '','','','','','',0,0,
+						 SUM(TP.NOW_UNIT_CNT),     -- 현재재고
+						 ''
+				    FROM TBEF_PARTS TP, TBEF_PARTS_MASTER TPM
+			       WHERE TP.STND_YEAR = ?
+ 				     AND TP.PARTS_CD = TPM.PARTS_CD
+ 				     AND TP.PARTS_YEAR = TPM.PARTS_YEAR
+ 				     AND TP.NOW_UNIT_CNT >0
+ 				     AND TP.MBR_CD LIKE ?||'%' 
+		             AND DECODE(?, 'P', 1, 0) = SIGN(ASCII('W')-ASCII(TPM.PARTS_TPE))
+		             AND TPM.PARTS_TPE <> 'W' 				     
+				GROUP BY TP.STND_YEAR, TP.MBR_CD, TPM.PARTS_TPE        
+				UNION ALL
+				  SELECT 
+				  		 99999,
+				  		 TP.STND_YEAR,        -- 기준년도
+						 TP.MBR_CD,            -- 경정장코드
+						 'A',
+						 '','','','','','',0,0,
+						 SUM(TP.NOW_UNIT_CNT),     -- 현재재고
+						 ''
+				    FROM TBEF_PARTS TP, TBEF_PARTS_MASTER TPM
+			       WHERE TP.STND_YEAR = ?
+ 				     AND TP.PARTS_CD = TPM.PARTS_CD
+ 				     AND TP.PARTS_YEAR = TPM.PARTS_YEAR
+ 				     AND TP.NOW_UNIT_CNT >0
+ 				     AND TP.MBR_CD LIKE ?||'%' 
+		             AND DECODE(?, 'P', 1, 0) = SIGN(ASCII('W')-ASCII(TPM.PARTS_TPE)) 				     
+				GROUP BY TP.STND_YEAR, TP.MBR_CD        
+            ) 
+		--ORDER BY STND_YEAR, MBR_CD, PARTS_TPE DESC, NUM
+		ORDER BY STND_YEAR, MBR_CD, DECODE(PARTS_TPE,'B',1,'M',2,'T',3,'W',4,'A',8,9), NUM
+        ]]>
+    </query> 
+    
+  
+    <query id="tbef_parts_crfw_df001" desc="이월년도 부품 삭제 " fetchSize="10">
+        <![CDATA[
+           	-- 부품 삭제 
+			DELETE /* tbef_parts_crfw_df001 */
+			FROM TBEF_PARTS
+			WHERE  STND_YEAR    = ?	-- 기준년도 
+			AND  MBR_CD    = ?	-- 경정장코드 			
+        ]]>
+    </query>  
+</queryMap>

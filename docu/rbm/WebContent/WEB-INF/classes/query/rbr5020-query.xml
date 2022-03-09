@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR5020(출주표 검수조서 관리)">
+	<query id="rbr5020_s01" desc="진행상태 조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT   	/*rbr5020_s01 진행상태 조회*/
+				STND_YEAR,
+				STND_MM,
+				MEET_CD,
+				DECODE(MEET_CD, '001', '경륜', '003', '경정', '') MEET_NM,
+				CASE WHEN ERR_VERY_CNT > 0 THEN 'False' --잘못된 사용자일 경우
+					 WHEN (TOTAL_CNT-CHG_CNT) = 0 AND (TOTAL_CNT-CFM_CNT) = 0 THEN 'True'
+				ELSE 'False' END CFM_ENABLE, --확정버튼 활성화 여부
+			
+				CASE WHEN (TOTAL_CNT-MGR_VERY_CNT) = 0 THEN '확정취소' --확정버튼 위에서 표시되는 메시지
+				ELSE '확정' END CFM_STAT,
+				
+				CASE WHEN (TOTAL_CNT-MGR_VERY_CNT) = 0 THEN '현재 확정상태입니다. 확정취소가 가능합니다.'
+				     WHEN (TOTAL_CNT-CHG_CNT) != 0 OR (TOTAL_CNT-CFM_CNT) != 0 THEN '지점에서 검수가 완료되지 않아 확정이 불가능합니다.'
+				     WHEN (TOTAL_CNT-CHG_CNT) = 0 AND (TOTAL_CNT-CFM_CNT) = 0 THEN '지점에서 검수가 완료되었습니다. 확정이 가능합니다.'
+				ELSE '' END CFM_MESSAGE,
+			
+				CASE WHEN (TOTAL_CNT-MGR_VERY_CNT) = 0 THEN 'N' -- 확정버튼을 눌렀을 때 서버로 전송되는 값
+				ELSE 'Y' END CFM_VALUE,
+				
+				CASE WHEN (TOTAL_CNT-MGR_VERY_CNT) = 0 THEN 'False' --지점초기화 버튼 활성화 여부
+				ELSE 'True' END CNCL_ENABLE
+			FROM (
+				SELECT
+					MAX(STND_YEAR) STND_YEAR, MAX(STND_MM) STND_MM,
+					COUNT(STND_YEAR) TOTAL_CNT, MAX(MEET_CD) MEET_CD,
+					SUM(DECODE(CHG_VERI_YN, 'Y', 1, 0)) CHG_CNT,
+					SUM(DECODE(CFM_VERI_YN, 'Y', 1, 0)) CFM_CNT,
+					SUM(DECODE(MGR_VERY_YN, 'Y', 1, 0)) MGR_VERY_CNT,
+					SUM(DECODE(MGR_VERY_YN, 'X', 1, 0)) ERR_VERY_CNT
+				FROM (
+					SELECT
+					T1.STND_YEAR, T1.STND_MM, T1.BRNC_CD, T1.MEET_CD,
+					T3.CHG_VERI_YN,
+					T3.CFM_VERI_YN,
+					DECODE(T1.MEET_CD, '001', MGR_CYCLE_VERI_YN, '003', MGR_BOAT_VERI_YN, 'X') MGR_VERY_YN
+					FROM (
+						SELECT
+							STND_YEAR, MEET_CD, STND_MM, BRNC_CD
+						FROM TBRA_ORGAN_EXAM
+						WHERE 1=1
+						AND STND_YEAR = ?
+						AND MEET_CD = (DECODE((SELECT BRNC_CD FROM TBRK_USER WHERE USER_ID = ?), '00', '001', '98', '003', '000'))
+						AND STND_MM = ?
+						GROUP BY STND_YEAR, MEET_CD, STND_MM, BRNC_CD
+					) T1, TBRA_ORGAN_EXAM_VERI T3
+					WHERE 1=1
+					AND T1.STND_YEAR = T3.STND_YEAR(+)
+					AND T1.STND_MM = T3.STND_MM(+)
+					AND T1.BRNC_CD = T3.BRNC_CD(+)
+				)
+			)
+			
+        ]]>
+	</query>
+
+	<query id="rbr5020_s02" desc="검수내역 요약정보 조회" fetchSize="10">
+		<![CDATA[
+			SELECT	/*rbr5020_s02 검수내역 요약정보 조회*/
+				'0' CHK,
+				T1.STND_YEAR, T1.STND_MM, T1.BRNC_CD,
+				DECODE(T1.BRNC_CD, '00', '경륜본장', '98', '경정본장', '29', '부산김해', FC_CODE_NM('060', T1.BRNC_CD)||'지점') BRNC_NM,
+				FC_GET_USERNAME_PORTAL(T3.CHG_ID) CHG_NM,
+				T3.CHG_VERI_YN,
+				FC_GET_USERNAME_PORTAL(T3.CFM_ID) CFM_NM,
+				T3.CFM_VERI_YN,
+				FC_GET_USERNAME_PORTAL(T3.MGR_CYCLE_ID) MGR_CYCLE_NM,
+				T3.MGR_CYCLE_VERI_YN,
+				FC_GET_USERNAME_PORTAL(T3.MGR_BOAT_ID) MGR_BOAT_NM,
+				T3.MGR_BOAT_VERI_YN
+			FROM (
+				SELECT
+					STND_YEAR, STND_MM, BRNC_CD
+				FROM TBRA_ORGAN_EXAM
+				WHERE 1=1
+				AND STND_YEAR = ?
+				AND MEET_CD = (DECODE((SELECT BRNC_CD FROM TBRK_USER WHERE USER_ID = ?), '00', '001', '98', '003', '000'))
+				AND STND_MM = ?
+				GROUP BY STND_YEAR, STND_MM, BRNC_CD
+			) T1, TBRA_ORGAN_EXAM_VERI T3
+			WHERE 1=1
+			AND T1.STND_YEAR = T3.STND_YEAR(+)
+			AND T1.STND_MM = T3.STND_MM(+)
+			AND T1.BRNC_CD = T3.BRNC_CD(+)
+			ORDER BY BRNC_CD
+			
+        ]]>
+	</query>
+	
+	<query id="rbr5020_s03" desc="검수내역 상세정보 조회" fetchSize="10">
+		<![CDATA[
+			SELECT	/*rbr5020_s03 출주표 상세정보 조회*/
+				T1.BRNC_CD,
+			    DECODE(T1.BRNC_CD, '00', '경륜본장', '98', '경정본장', '29', '부산김해', FC_CODE_NM('060', T1.BRNC_CD)||'지점') BRNC_NM,
+				(SELECT MAX(TMS) FROM VW_SDL_INFO
+					WHERE MEET_CD = T1.MEET_CD
+				AND (
+						(RACE_DAY =  T1.DIST_DT) OR (RACE_DAY =  TO_CHAR(TO_DATE(T1.DIST_DT, 'YYYYMMDD')+1, 'YYYYMMDD'))
+					)
+				) TMS,
+				SUBSTR(T1.DIST_DT,5,2)||'월 '||SUBSTR(T1.DIST_DT,7,2)||'일('||
+					TO_CHAR(TO_DATE(DIST_DT, 'YYYYMMDD'),'DY')||')' RACE_YOIL,
+				FC_CODE_NM('173', ORGAN_CD) ORGAN_NM,
+				NVL(T1.DIST_CNT,0) DIST_CNT,
+				T1.VERI_YN,
+				FC_GET_USERNAME_PORTAL(T3.CHG_ID) CHG_NM,
+				T3.CHG_VERI_YN,
+				FC_GET_USERNAME_PORTAL(T3.CFM_ID) CFM_NM,
+				T3.CFM_VERI_YN,
+				DECODE(T1.MEET_CD, '001', FC_GET_USERNAME_PORTAL(T3.MGR_CYCLE_ID), '003', FC_GET_USERNAME(T3.MGR_BOAT_ID), 'N') MGR_NM,
+				DECODE(T1.MEET_CD, '001', MGR_CYCLE_VERI_YN, '003', MGR_BOAT_VERI_YN, 'N') MGR_VERI_YN
+			FROM TBRA_ORGAN_EXAM T1, TBRA_ORGAN_EXAM_VERI T3
+			WHERE 1=1
+			AND T1.STND_YEAR = T3.STND_YEAR(+)
+			AND T1.STND_MM = T3.STND_MM(+)
+			AND T1.BRNC_CD = T3.BRNC_CD(+)
+			AND T1.STND_YEAR = ?
+			AND T1.MEET_CD = (DECODE((SELECT BRNC_CD FROM TBRK_USER WHERE USER_ID = ?), '00', '001', '98', '003', '000'))
+			AND T1.STND_MM = ?
+			ORDER BY BRNC_CD, TMS, DIST_DT, ORGAN_CD
+			
+        ]]>
+	</query>
+	
+	<query id="rbr5020_m01" desc="출주표 검수(경륜)" fetchSize="10">
+		<![CDATA[
+			UPDATE TBRA_ORGAN_EXAM_VERI /*rbr5020_m01 출주표 검수(경륜)*/
+			SET 
+				 MGR_CYCLE_ID = ?
+				,MGR_CYCLE_VERI_YN = ?
+				,MGR_CYCLE_DT = SYSDATE		
+			WHERE 	1=1
+			AND  STND_YEAR  = ?
+			AND  STND_MM 	= ?
+        ]]>
+	</query>
+	
+	<query id="rbr5020_m02" desc="출주표 검수(경정)" fetchSize="10">
+		<![CDATA[
+			UPDATE TBRA_ORGAN_EXAM_VERI /*rbr5020_m02 출주표 검수(경정)*/
+			SET 
+				 MGR_BOAT_ID = ?
+				,MGR_BOAT_VERI_YN = ?
+				,MGR_BOAT_DT = SYSDATE		
+			WHERE 	1=1
+			AND  STND_YEAR  = ?
+			AND  STND_MM 	= ?
+        ]]>
+	</query>
+
+	<query id="rbr5020_m03" desc="지점 출주표 검수 취소" fetchSize="10">
+		<![CDATA[
+			UPDATE TBRA_ORGAN_EXAM_VERI /*rbr5020_m02 출주표 검수(경정)*/
+			SET 
+				 CHG_VERI_YN = 'N'
+				,CFM_VERI_YN = 'N'
+				,MGR_CYCLE_VERI_YN = 'N'
+				,MGR_BOAT_VERI_YN = 'N'
+				,MGR_CYCLE_ID = ?
+				,MGR_CYCLE_DT = SYSDATE
+				,MGR_BOAT_ID = ?
+				,MGR_BOAT_DT = SYSDATE
+				,CHG_ID = ?
+				,CHG_DT = SYSDATE
+				,CFM_ID = ?
+				,CFM_DT = SYSDATE
+			WHERE 	1=1
+			AND  STND_YEAR  = ?
+			AND  STND_MM 	= ?
+			AND  BRNC_CD = ?
+        ]]>
+	</query>
+</queryMap>

@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_trng_expt_racer(훈련예정선수)">
+    <query id="tbeb_trng_expt_racer_fb001" desc="훈련예정선수일련번호조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			       NVL(MAX(TRNG_EXPT_SEQ), TO_CHAR(SYSDATE, 'YY') || '-' || '0000') TRNG_EXPT_SEQ
+			FROM   TBEB_TRNG_EXPT_RACER
+			WHERE  TRNG_EXPT_SEQ LIKE TO_CHAR(SYSDATE, 'YY') || '%'
+        ]]>
+    </query> 
+    <query id="tbeb_trng_expt_racer_fb002" desc="훈련대상선수(제재) 조회" fetchSize="10">
+        <![CDATA[
+            SELECT * 
+            FROM (
+					SELECT /* tbeb_trng_expt_racer_fb002 */
+					       '' AS CHK,
+					       S.SANC_ACT_DT,
+					       S.SANC_ISSUE_NO,
+					       S.RACER_NO,
+					       R.NM_KOR,
+					       R.RACER_GRD_CD,
+					       S.STND_YEAR,
+					       S.SANC_BASIS_CD,
+					       S.SANC_RSN_CD,
+					       GET_CD_NM('E00071', S.SANC_RSN_CD) AS SANC_RSN,
+					       S.SANC_TERM,
+					       S.UNIT AS SANC_TERM_UNIT,
+					       GET_CD_NM('E00116', S.UNIT) AS SANC_TERM_UNIT_NM,
+					       S.SMRY,
+					       NVL(T.TRNG_RSN_CD, DECODE(S.SANC_RSN_CD, '001','002','002','002','001')) AS TRNG_RSN_CD,
+					       NVL(T.TRNG_RQST_DD_NUM, GET_TRNG_TERM('003', S.SANC_RSN_CD, S.SANC_TERM, S.UNIT, NULL)) AS TRNG_RQST_DD_NUM,  -- 훈련요구일
+					       T.TRNG_EXPT_STAT_CD, -- 훈련예정상태코드
+					       GET_CD_NM('E20003', T.TRNG_EXPT_STAT_CD) AS TRNG_EXPT_STAT_NM, -- 훈련예정상태
+					       DECODE(S.SANC_RSN_CD, '001', '출전정지 ' || S.SANC_TERM || (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00116' AND CD = S.UNIT)) SANC_TERM_NM,         -- 제제처분기간
+					       NVL2(T.RACER_NO,'N','Y') AS NOT_YET,
+					       T.RMK 
+					FROM TBEE_RACER_SANC S, 
+					     TBEC_RACER_MASTER R,
+					     TBEB_TRNG_EXPT_RACER T
+					WHERE 1=1
+					  AND R.NM_KOR LIKE ?||'%'
+					  AND T.TRNG_EXPT_STAT_CD(+) LIKE ?||'%'
+					  AND S.SANC_ACT_DT BETWEEN ? AND ?
+					  AND S.RACER_NO = R.RACER_NO
+					  AND S.SANC_ISSUE_NO = T.SANC_ISSUE_NO(+)
+				ORDER BY S.SANC_ACT_DT
+				/*  
+				UNION ALL
+					SELECT '' AS CHK,
+                           E.STR_DT,
+                           TO_CHAR(E.SEQ),
+                           E.RACER_NO,
+                           R.NM_KOR,
+                           R.RACER_GRD_CD,
+                           SUBSTR(E.STR_DT,1,4) AS STND_YEAR,
+                           NULL AS SANC_BASIS_CD,
+                           E.RSN_CD AS SANC_RSN_CD,
+                           GET_CD_NM('E00083', E.RSN_CD) AS SANC_RSN, 
+                           6 AS SANC_TERM,
+                           '004' AS SANC_TERM_UNIT,
+                           GET_CD_NM('E00116', '004') AS SANC_TERM_UNIT_NM,
+                           E.RMK AS SMRY,
+                           '005'  AS TRNG_RSN_CD,
+                           NVL(T.TRNG_RQST_DD_NUM, GET_TRNG_TERM('005', '004', 6, '004', NULL)) AS TRNG_RQST_DD_NUM,  -- 훈련요구일
+                           T.TRNG_EXPT_STAT_CD, -- 훈련예정상태코드
+                           GET_CD_NM('E20003', T.TRNG_EXPT_STAT_CD) AS TRNG_EXPT_STAT_NM, -- 훈련예정상태
+                           '6개월 출전정지' AS  SANC_TERM_NM,         -- 제제처분기간
+                           NVL2(T.RACER_NO,'N','Y') AS NOT_YET,
+                           T.RMK 
+                    FROM TBEC_ARRANGE_ESC E, 
+                         TBEC_RACER_MASTER R,
+                         TBEB_TRNG_EXPT_RACER T
+                    WHERE 1=1
+                      AND R.NM_KOR LIKE  ?||'%'
+                      AND T.TRNG_EXPT_STAT_CD(+) LIKE  ?||'%'
+                      AND E.STR_DT BETWEEN  ? AND ?
+                      AND E.STR_DT > '2011'
+                      AND E.RACER_NO = R.RACER_NO
+                      AND TO_CHAR(E.SEQ) = T.SANC_ISSUE_NO(+)
+                      AND E.RACER_NO = T.RACER_NO(+)
+                    ORDER BY 2  
+                   */
+					
+			) A
+			WHERE NOT_YET LIKE DECODE(?, 'N', '%', ?)
+        ]]>
+    </query> 
+    
+    <query id="tbeb_trng_expt_racer_fb012" desc="훈련예정선수 조회" fetchSize="10">
+        <![CDATA[
+					SELECT /* tbeb_trng_expt_racer_fb012 */
+					       '' AS CHK,
+					       T.TRNG_EXPT_SEQ,
+					       NVL2(T.INJURY_SEQ, I.IJRY_DT, S.SANC_ACT_DT) AS SANC_ACT_DT,
+                           NVL2(T.INJURY_SEQ, SUBSTR(I.STND_YEAR,1,2)||'-'||I.SEQ, S.SANC_ISSUE_NO) AS SANC_ISSUE_NO,
+                           T.RACER_NO,
+					       R.NM_KOR,
+					       R.RACER_GRD_CD,
+					       S.SANC_BASIS_CD,
+					       T.STND_YEAR,
+					       S.SANC_RSN_CD,
+					       NVL2(T.INJURY_SEQ, I.IJRY_PART, GET_CD_NM('E00071', S.SANC_RSN_CD)) AS SANC_RSN,
+                           NVL2(T.INJURY_SEQ, I.DIAGNS_WK, S.SANC_TERM) AS SANC_TERM,
+					       S.UNIT  AS SANC_TERM_UNIT,
+                           NVL2(T.INJURY_SEQ, '주', GET_CD_NM('E00116', S.UNIT)) AS SANC_TERM_UNIT_NM,
+					       S.SMRY,
+					       NVL(T.TRNG_RSN_CD, DECODE(S.SANC_RSN_CD, '001','002','002','002','003')) AS TRNG_RSN_CD,
+					       NVL(T.TRNG_RQST_DD_NUM, GET_TRNG_TERM('003', S.SANC_RSN_CD, S.SANC_TERM, S.UNIT, NULL)) AS TRNG_RQST_DD_NUM,  -- 훈련요구일
+					       T.TRNG_EXPT_STAT_CD, -- 훈련예정상태코드
+					       DECODE(S.SANC_RSN_CD, '001', '출전정지 ' || S.SANC_TERM || (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00116' AND CD = S.UNIT)) SANC_TERM_NM,         -- 제제처분기간
+					       TO_CHAR(T.INST_DTM, 'YYYYMMDD') AS INST_DTM, 
+					       T.RMK,
+					       T.INJURY_SEQ,
+					       T.COMP_EDU_CD, 		-- 의무훈련코드
+					       T.TRNG_RQST_SEQ,		-- 커뮤니티 훈련신청번호	
+					       '' AS CELPON_NO,		-- 선수 전화번호 (희망훈련 신청 시 popup에서 할당받음)
+					       '' AS ACCEPT_STAT	-- 진행상태 (신청건에서 바로 훈련등록을 진행할때 SMS 송신여부를 판단하기 위함)
+					FROM TBEE_RACER_SANC S, 
+					     TBEC_RACER_MASTER R,
+					     TBEB_TRNG_EXPT_RACER T,
+					     TBEC_RACER_INJURY I
+					WHERE 1=1
+					  AND T.TRNG_RSN_CD LIKE ?||'%'
+					  AND R.NM_KOR LIKE ?||'%'
+					  AND NVL(T.TRNG_EXPT_STAT_CD,'%') LIKE ?||'%'
+					  AND T.INST_DTM BETWEEN TO_DATE(?, 'YYYYMMDD') AND TO_DATE(?, 'YYYYMMDD') + 1
+					  AND T.RACER_NO = R.RACER_NO
+					  AND T.SANC_ISSUE_NO = S.SANC_ISSUE_NO(+)
+                      AND T.INJURY_SEQ = I.SEQ(+)
+                      AND T.STND_YEAR = I.STND_YEAR(+)
+                      AND T.RACER_NO = I.RACER_NO(+)					  
+					ORDER BY T.TRNG_EXPT_SEQ DESC
+        ]]>
+    </query> 
+    
+    <query id="tbeb_trng_expt_racer_fb003" desc="훈련예정선수조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_trng_expt_racer_fb003 */
+			         TTER.TRNG_EXPT_SEQ      -- 훈련예정일련번호
+			       , TTER.RACER_NO           -- 선수번호
+			       , TRM .NM_KOR
+			       , TRM .RACER_GRD_CD
+			       , TTER.TRNG_RSN_CD        -- 훈련사유코드
+			       , TTER.TRNG_RQST_DD_NUM   -- 훈련요구일수
+			       , TTER.TRNG_RQST_DD_NUM - NVL(TTARR.TRNG_DD, 0) REST_DD     -- 잔여일
+			       , TTER.RMK                -- 비고
+			       , TTER.TRNG_EXPT_STAT_CD  -- 훈련예정상태코드  
+			FROM   TBEB_TRNG_EXPT_RACER TTER
+                   , ( 
+            			SELECT
+            			         TTAR.RACER_NO           -- 선수번호
+            			       , TTAR.TRNG_EXPT_SEQ      -- 훈련예정일련번호
+            			       , COUNT(*) TRNG_DD
+            			FROM     TBEB_TRNG_ASK_RACER      TTAR
+            			       , TBEB_TRNG_ASK_RACER_RSLT TTARR
+            			WHERE  TTAR .TRNG_ASK_SEQ = TTARR.TRNG_ASK_SEQ
+            			AND    TTAR .RACER_NO     = TTARR.RACER_NO
+            			AND    TTARR.TRNG_STAT_CD = '003'
+                        GROUP BY 
+            			         TTAR.RACER_NO           -- 선수번호
+            			       , TTAR.TRNG_EXPT_SEQ      -- 훈련예정일련번호                     
+			         ) TTARR -- 훈령요청결과
+			       , TBEC_RACER_MASTER TRM
+			WHERE  TTER.TRNG_EXPT_SEQ = TTARR.TRNG_EXPT_SEQ(+)
+			AND    TTER.RACER_NO      = TTARR.RACER_NO     (+)
+			AND    TTER.RACER_NO      = TRM  .RACER_NO
+			AND    TRM .NM_KOR     LIKE '%' || NVL(?, TRM.NM_KOR) || '%'
+        ]]>
+    </query> 
+    <query id="tbeb_trng_expt_racer_fb004" desc="훈련예정선수훈련결과조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_trng_expt_racer_fb004 */
+			         TTER.TRNG_EXPT_SEQ      -- 훈련요청일련번호
+			       , TTER.RACER_NO           -- 선수번호
+			       , TRM .NM_KOR             -- 선수명
+			       , TRM .RACER_GRD_CD       -- 선수등급코드
+			       , TTER.TRNG_RSN_CD        -- 훈련사유코드
+			       , TTER.TRNG_RQST_DD_NUM   -- 훈련요구일
+			       , NVL(TTARR.PLC_SUCC_1, 0) PLC_SUCC_1
+			       , NVL(TTARR.PLC_SUCC_2, 0) PLC_SUCC_2
+			       , NVL(TTARR.PLC_SUCC_3, 0) PLC_SUCC_3
+			       , NVL(TTARR.FAIL      , 0) FAIL
+			       , NVL(TTARR.PLC_SUCC_1, 0) + NVL(TTARR.PLC_SUCC_2, 0) + NVL(TTARR.PLC_SUCC_3, 0) TOTAL
+			       , NVL(TTARR.ASK       , 0) TRNG_ASK_DD_NUM
+			       , TTER.TRNG_RQST_DD_NUM - (NVL(TTARR.PLC_SUCC_1, 0) + NVL(TTARR.PLC_SUCC_2, 0) + NVL(TTARR.PLC_SUCC_3, 0)) - NVL(TTARR.ASK, 0) REST_DD_NUM
+			       , TO_CHAR(TTER.INST_DTM, 'YYYYMMDD') INST_DTM
+			FROM     TBEC_RACER_MASTER        TRM
+			       , TBEB_TRNG_EXPT_RACER     TTER
+			       , (
+                        SELECT
+                                 RACER_NO
+                               , TRNG_EXPT_SEQ
+                               , MIN(DECODE(TRNG_PLC_CD, '001', SUCC)) PLC_SUCC_1
+                               , MIN(DECODE(TRNG_PLC_CD, '002', SUCC)) PLC_SUCC_2
+                               , MIN(DECODE(TRNG_PLC_CD, '003', SUCC)) PLC_SUCC_3
+                               , SUM(FAIL) FAIL
+                               , SUM(ASK ) ASK
+                        FROM   (
+                                    SELECT
+                                             TTARR.RACER_NO
+                                           , TTA  .TRNG_PLC_CD
+                                           , TTAR .TRNG_EXPT_SEQ
+                                           , SUM(DECODE(TTARR.TRNG_STAT_CD, '001', 1)) ASK
+                                           , SUM(DECODE(TTARR.TRNG_STAT_CD, '002', 1)) SUCC
+                                           , SUM(DECODE(TTARR.TRNG_STAT_CD, '003', 1)) FAIL
+                                    FROM     TBEB_TRNG_ASK_RACER_RSLT TTARR
+                                           , TBEB_TRNG_ASK_RACER      TTAR
+                                           , TBEB_TRNG_ASK            TTA
+                                    WHERE  TTARR.TRNG_ASK_SEQ   = TTA .TRNG_ASK_SEQ
+                                    AND    TTARR.TRNG_ASK_SEQ   = TTAR.TRNG_ASK_SEQ
+                                    AND    TTARR.RACER_NO       = TTAR.RACER_NO
+                                    AND    TTAR .TRNG_EXPT_SEQ IN (
+                                                                    SELECT TTER.TRNG_EXPT_SEQ
+                                                        			FROM     TBEC_RACER_MASTER        TRM
+                                                        			       , TBEB_TRNG_EXPT_RACER     TTER
+                                                        			WHERE  TTER.RACER_NO             = TRM .RACER_NO
+                                                        			AND    TRM .NM_KOR            LIKE '%' || NVL(?, TRM .NM_KOR) || '%'
+                                                        			AND    TTER.INST_DTM       BETWEEN TO_DATE(? || '000000', 'YYYYMMDDHH24MISS')
+                                                        			                               AND TO_DATE(? || '235959', 'YYYYMMDDHH24MISS')
+                                                                  )
+                                    GROUP BY 
+                                             TTARR.RACER_NO
+                                           , TTA  .TRNG_PLC_CD
+                                           , TTAR .TRNG_EXPT_SEQ
+                               )
+                               GROUP BY RACER_NO
+                                      , TRNG_EXPT_SEQ
+			         ) TTARR
+			WHERE  TTER.RACER_NO             = TRM  .RACER_NO
+			AND    TTER.RACER_NO             = TTARR.RACER_NO     (+)
+			AND    TTER.TRNG_EXPT_SEQ        = TTARR.TRNG_EXPT_SEQ(+)
+			
+			AND    TRM .NM_KOR            LIKE '%' || NVL(?, TRM .NM_KOR) || '%'
+			AND    TTER.INST_DTM       BETWEEN TO_DATE(? || '000000', 'YYYYMMDDHH24MISS')
+			                               AND TO_DATE(? || '235959', 'YYYYMMDDHH24MISS')
+            ORDER BY TTER.TRNG_EXPT_SEQ DESC
+        ]]>
+    </query> 
+    <query id="tbeb_trng_expt_racer_fb005" desc="훈련참여가능선수조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbeb_trng_expt_racer_fb005 */
+                     TRM.RACER_NO
+                   , TRM.NM_KOR
+                   , TRM.RACER_GRD_CD
+                   , DECODE(TTER.RACER_NO, NULL, '', TTER.TRNG_RSN_CD) TRNG_RSN_CD
+                   , TTER.TRNG_EXPT_SEQ
+                   , TTER.TRNG_RQST_DD_NUM
+                   , TTER.REST_DD
+                   , TTER.INST_DTM
+                   , TTTR.COMMUTE_YN                      
+                   , TTTR.MENTO_YN                        
+            FROM     TBEC_RACER_MASTER TRM
+                   , (
+                        SELECT
+            			         TTER.RACER_NO
+            			       , TTER.TRNG_EXPT_SEQ
+                               , TTER.TRNG_RSN_CD
+            			       , TTER.TRNG_RQST_DD_NUM
+            			       , TTER.REST_DD
+                               , TTER.INST_DTM
+                               , TTER.TRNG_RQST_SEQ
+                        FROM   (
+                        			SELECT
+                        			         TTER.RACER_NO
+                        			       , TTER.TRNG_EXPT_SEQ
+                                           , TTER.TRNG_RSN_CD
+                        			       , TTER.TRNG_RQST_DD_NUM
+                        			       , NVL(TTA .REST_DD, TTER.TRNG_RQST_DD_NUM) AS REST_DD
+                        			       , RANK() OVER (PARTITION BY TTER.RACER_NO
+                                                              ORDER BY TTER.TRNG_EXPT_SEQ
+                                                         ) RANK
+                                           , TO_CHAR(TTER.INST_DTM, 'YYYYMMDD') AS INST_DTM
+                                           , TTER.TRNG_RQST_SEQ
+                        			FROM     TBEB_TRNG_EXPT_RACER TTER
+                        			       , (
+                                                SELECT
+                                                         TTARR.RACER_NO
+                                                       , TTER .TRNG_EXPT_SEQ
+                                                       , TTER .TRNG_RQST_DD_NUM - (NVL(SUM(DECODE(TTARR.TRNG_STAT_CD, '001', 1)), 0) + NVL(SUM(DECODE(TTARR.TRNG_STAT_CD, '002', 1)), 0)) REST_DD
+                                                       , NVL(SUM(DECODE(TTARR.TRNG_STAT_CD, '001', 1)), 0) ASK
+                                                       , NVL(SUM(DECODE(TTARR.TRNG_STAT_CD, '002', 1)), 0) SUCC
+                                                       , NVL(SUM(DECODE(TTARR.TRNG_STAT_CD, '003', 1)), 0) FAIL
+                                                FROM     TBEB_TRNG_EXPT_RACER     TTER
+                                                       , TBEB_TRNG_ASK_RACER_RSLT TTARR
+                                                       , TBEB_TRNG_ASK_RACER      TTAR
+                                                       , TBEB_TRNG_ASK            TTA
+                                                WHERE  TTARR.TRNG_ASK_SEQ   = TTA .TRNG_ASK_SEQ
+                                                AND    TTARR.TRNG_ASK_SEQ   = TTAR.TRNG_ASK_SEQ
+                                                AND    TTARR.RACER_NO       = TTAR.RACER_NO
+                                                AND    TTER .TRNG_EXPT_SEQ  = TTAR.TRNG_EXPT_SEQ
+                                    			AND    TTER.TRNG_EXPT_STAT_CD <> '006'
+                                                GROUP BY
+                                                         TTARR.RACER_NO
+                                                       , TTER .TRNG_EXPT_SEQ
+                                                       , TTER.TRNG_RQST_DD_NUM
+                        			         ) TTA -- 훈련결과
+                        			WHERE  TTER.RACER_NO           = TTA.RACER_NO     (+)
+                        			AND    TTER.TRNG_EXPT_SEQ      = TTA.TRNG_EXPT_SEQ(+)
+                        			AND    TTER.TRNG_EXPT_STAT_CD <> '006'
+                        			AND    (TTA.REST_DD            > 0 OR TTA.REST_DD IS NULL)
+                               ) TTER
+                       --  WHERE  TTER.RANK = 1 
+                     ) TTER -- 훈련예정선수의훈련잔여일
+                   ,TBEB_TRNG_RQST TTTR       
+            WHERE  TRM.RACER_STAT_CD IN ('001', '002')
+            AND    TRM.RACER_NO  = TTER.RACER_NO	-- 반드시 예정선수를 등록해야 조회 가능
+            AND    TTER.TRNG_RQST_SEQ = TTTR.TRNG_RQST_SEQ(+)
+            AND    TRM.RACER_NO  NOT IN (
+                                            -- 기간중 경주참여선수 제외
+                                            SELECT
+                                                   RACER_NO
+                                            FROM   TBEB_ARRANGE
+                                            WHERE  (STND_YEAR, MBR_CD, TMS) IN (
+                                                                                    SELECT
+                                                                                             STND_YEAR
+                                                                                           , MBR_CD
+                                                                                           , TMS
+                                                                                    FROM   TBEB_RACE_TMS
+                                                                                    WHERE  STR_DT >= (
+                                                                                                        SELECT 
+                                                                                                               TO_CHAR(TO_DATE(?, 'YYYYMMDD') - TO_CHAR(TO_DATE(?, 'YYYYMMDD'), 'D') + 2, 'YYYYMMDD')
+                                                                                                        FROM   DUAL
+                                                                                                     )
+                                                                                    AND   END_DT  <= (
+                                                                                                        SELECT 
+                                                                                                               TO_CHAR(TO_DATE(?, 'YYYYMMDD') - TO_CHAR(TO_DATE(?, 'YYYYMMDD'), 'D') + 8, 'YYYYMMDD')
+                                                                                                        FROM   DUAL
+                                                                                                     )
+                                                                               )
+                                            GROUP BY RACER_NO
+                                        )
+			ORDER BY TRM.RACER_NO
+        ]]>
+    </query> 
+    
+    <query id="tbeb_trng_expt_racer_fb006" desc="훈련대상선수(부상) 조회" fetchSize="10">
+        <![CDATA[
+        SELECT *
+        FROM (
+	            SELECT  /* tbeb_trng_expt_racer_fb006 */
+	                    '0' as CHK
+	                  , I.STND_YEAR           -- 기준년도    
+	                  , I.SEQ                 -- 일련번호
+	                  , I.RACER_NO            -- 등록번호
+	                  , R.NM_KOR              -- 선수명    
+	                  , R.RACER_GRD_CD        -- 선수등급  
+					  , I.IJRY_DT             -- 부상일    
+	                  , I.IJRY_PART           -- 부상부위  
+	                  , I.IJRY_STAT           -- 부상상태    
+	                  , I.DIAGNS_WK           -- 진단주   
+	                  , I.EHOSP_DT            -- 입원일    
+	                  , I.RESIGN_DT           -- 퇴원일 
+	                  , I.RESIGN_DT - I.EHOSP_DT AS HOSP_DAY-- 입원일수
+					  , NVL(T.TRNG_RQST_DD_NUM, GET_TRNG_TERM('004', NULL,I.DIAGNS_WK, NULL, NULL)) AS TRNG_RQST_DD_NUM  -- 훈련요구일
+					  , T.TRNG_EXPT_STAT_CD -- 훈련예정상태코드
+					  , GET_CD_NM('E20003', T.TRNG_EXPT_STAT_CD) AS TRNG_EXPT_STAT_NM -- 훈련예정상태
+					  , NVL2(T.RACER_NO,'N','Y') AS NOT_YET
+					  , '003' AS TRNG_RSN_CD	-- 훈련사유
+					  , NULL AS SANC_RSN_CD
+					  , NULL AS SANC_TERM
+					  , NULL AS SANC_TERM_UNIT
+	            FROM  TBEC_RACER_INJURY I
+	                 ,TBEC_RACER_MASTER R
+	                 ,TBEB_TRNG_EXPT_RACER T
+	            WHERE I.RACER_NO = R.RACER_NO
+	                AND I.STND_YEAR = NVL(?, I.STND_YEAR)
+	                AND R.NM_KOR LIKE '%' ||NVL(?, R.NM_KOR)|| '%'
+	                AND I.STND_YEAR = T.STND_YEAR(+)
+	                AND I.RACER_NO = T.RACER_NO(+)
+	                AND I.SEQ = T.INJURY_SEQ(+)
+	            ORDER BY STND_YEAR DESC, SEQ DESC
+			    ) A
+			WHERE NOT_YET LIKE DECODE(?, 'N', '%', ?)            
+        ]]>
+    </query>    
+    
+    <query id="tbeb_trng_expt_racer_fb007" desc="희망훈련대상선수(전체선수) 조회" fetchSize="10">
+        <![CDATA[
+                SELECT  /* tbeb_trng_expt_racer_fb007 */
+                        '0' AS CHK
+                      , R.RACER_NO            -- 등록번호
+                      , R.NM_KOR              -- 선수명    
+                      , R.RACER_GRD_CD        -- 선수등급  
+                      , '004' AS TRNG_RSN_CD    -- 훈련사유
+                      , NULL AS SANC_RSN_CD
+                      , NULL AS SANC_TERM
+                      , NULL AS SANC_TERM_UNIT
+                      , EMAIL_ADDR
+                      , ''	AS TRNG_RQST_SEQ	-- 커뮤니티 신청번호
+                      , ''  AS IJRY_SDT			-- 희망일자 시작일
+                      , ''  AS IJRY_EDT			-- 희망일자 종료일
+                      , ''  AS CELPON_NO		-- 선수 휴대폰 번호 (승인 시 SMS 전송에 사용)
+                      ,	'' 	AS ACCEPT_STAT	-- 진행상태 (신청건에서 바로 훈련등록을 진행할때 SMS 송신여부를 판단하기 위함)
+                FROM  TBEC_RACER_MASTER R
+                WHERE R.RACER_NO LIKE ?||'%'
+                    AND R.NM_KOR LIKE '%' ||NVL(?, R.NM_KOR)|| '%'
+                ORDER BY R.RACER_NO
+        ]]>
+    </query>        
+    <query id="tbeb_trng_expt_racer_ib001" desc="훈련예정선수저장" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_trng_expt_racer_ib001 */
+			       INTO TBEB_TRNG_EXPT_RACER
+			(
+			         TRNG_EXPT_SEQ      -- 훈련예정일련번호
+			       , RACER_NO           -- 선수등록번호    
+			       , TRNG_RSN_CD        -- 훈련사유코드    
+			       , STND_YEAR          -- 기준년도        
+			       , SANC_ISSUE_NO      -- 제재발급번호 
+			       , TRNG_RQST_DD_NUM   -- 훈련요구일수      
+			       , TRNG_EXPT_STAT_CD  -- 훈련예정상태코드
+			       , RMK                -- 비고       
+			       , INJURY_SEQ         -- 부상 일련번호     
+			       , COMP_EDU_CD        -- 의무훈련코드
+			       , INST_ID            -- 작성자ID        
+			       , INST_DTM           -- 작성일시        
+			       , UPDT_ID            -- 수정자ID        
+			       , UPDT_DTM           -- 수정일시   
+			       , TRNG_RQST_SEQ		-- 커뮤니티 신청번호     
+			) VALUES (
+			         ?                  -- 훈련예정일련번호
+			       , ?                  -- 선수등록번호    
+			       , ?                  -- 훈련사유코드    
+			       , ?                  -- 기준년도        
+			       , ?                  -- 제재일련번호    
+			       , ?                  -- 훈련요구일수      
+			       , ?                  -- 훈련예정상태코드
+			       , ?                  -- 비고
+			       , ?					-- 부상 일련번호
+			       , ?                  -- 의무훈련코드      
+			       , ?                  -- 작성자ID        
+			       , SYSDATE            -- 작성일시        
+			       , ?                  -- 수정자ID        
+			       , SYSDATE            -- 수정일시 
+			       , ?       
+			)
+        ]]>
+    </query>
+    <query id="tbeb_trng_expt_racer_ub001" desc="훈련예정선수수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_trng_expt_racer_ub001 */
+			       TBEB_TRNG_EXPT_RACER SET
+			         RACER_NO          = ?         -- 선수등록번호    
+			       , TRNG_RSN_CD       = ?         -- 훈련사유코드    
+			       , STND_YEAR         = ?         -- 기준년도        
+			       , SANC_ISSUE_NO     = ?         -- 제재발급번호 
+			       , TRNG_RQST_DD_NUM  = ?         -- 훈련요구일수      
+			       , TRNG_EXPT_STAT_CD = ?         -- 훈련예정상태코드
+			       , COMP_EDU_CD       = ?		   -- 의무훈련코드
+			       , RMK               = ?         -- 비고     
+			       , INJURY_SEQ        = ?
+			       , UPDT_ID           = ?         -- 수정자ID        
+			       , UPDT_DTM          = SYSDATE   -- 수정일시        
+			WHERE  TRNG_EXPT_SEQ       = ?         -- 훈련예정일련번호
+        ]]>
+    </query> 
+    <query id="tbeb_trng_expt_racer_ub002" desc="훈련예정선수수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_TRNG_EXPT_RACER SET
+			         TRNG_EXPT_STAT_CD = ?         -- 훈련예정상태코드
+			       , UPDT_ID           = ?         -- 수정자ID        
+			       , UPDT_DTM          = SYSDATE   -- 수정일시        
+			WHERE  TRNG_EXPT_SEQ       = ?         -- 훈련예정일련번호
+        ]]>
+    </query> 
+    <query id="tbeb_trng_expt_racer_db001" desc="훈련예정선수삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM   TBEB_TRNG_EXPT_RACER
+			WHERE  TRNG_EXPT_SEQ       = ?         -- 훈련예정일련번호
+        ]]>
+    </query> 
+    <query id="tbeb_trng_expt_racer_fb102" desc="훈련예정선수조회" fetchSize="10">
+        <![CDATA[
+			SELECT   /* tbeb_trng_expt_racer_fb102 */
+			         TTER.TRNG_EXPT_SEQ      -- 훈련예정일련번호
+			       , TRM .NM_KOR             -- 선수명
+			       , TRM .RACER_GRD_CD       -- 선수등급코드
+			       , TTER.RACER_NO           -- 선수등록번호    
+			       , TTER.TRNG_RSN_CD        -- 훈련사유코드    
+			       , TTER.STND_YEAR          -- 기준년도        
+			       , TTER.SANC_ISSUE_NO      -- 제재발급번호    
+			       , TTER.TRNG_RQST_DD_NUM   -- 훈련요구일수
+			       , TTER.TRNG_EXPT_STAT_CD  -- 훈련예정상태코드
+			       , TTER.RMK                -- 비고            
+                   , TRS .SANC_ISSUE_NO      -- 발급번호      
+                   , TRS .SANC_BASIS_CD      -- 양정코드      
+                   , DECODE(TTER.TRNG_RSN_CD, '001', '출전정지 ' || TRS .SANC_TERM || (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00116' AND CD = TRS .UNIT)) SANC_TERM         -- 제제처분기간  
+                   , TRS .SANC_RSN_CD        -- 사유코드      
+                   , TRS .SANC_RSN           -- 사유          
+                   , TRS .SANC_ACT_DT        -- 처분일자      
+                   , TRS .SANC_OBJECTION     -- 이의신청      
+                   , TRS .UNIT               -- 제재처분단위  
+                   , TRS .HOMEPAGE_NOTI_SDT  -- 공지시작일    
+                   , TRS .HOMEPAGE_NOTI_EDT  -- 공지종료일    
+                   , TRS .SMRY               -- 관련근거      
+			       , TTER.INST_ID            -- 작성자ID        
+			       , TO_CHAR(TTER.INST_DTM, 'YYYYMMDD') INST_DTM           -- 작성일시        
+			       , TTER.UPDT_ID            -- 수정자ID        
+			       , TTER.UPDT_DTM           -- 수정일시        
+			FROM     TBEB_TRNG_EXPT_RACER TTER
+			       , TBEC_RACER_MASTER    TRM
+			       , TBEE_RACER_SANC      TRS
+			WHERE  TTER.RACER_NO             = TRS.RACER_NO     (+)
+			AND    TTER.SANC_ISSUE_NO        = TRS.SANC_ISSUE_NO(+)
+			AND    TTER.RACER_NO             = TRM.RACER_NO
+			AND    TTER.TRNG_RSN_CD          = NVL(?, TTER.TRNG_RSN_CD      )
+			AND    TRM .NM_KOR            LIKE '%' || NVL(?, TRM .NM_KOR) || '%'
+			AND    TTER.TRNG_EXPT_STAT_CD    = NVL(?, TTER.TRNG_EXPT_STAT_CD)
+			AND    TTER.INST_DTM       BETWEEN TO_DATE(? || '000000', 'YYYYMMDDHH24MISS')
+			                               AND TO_DATE(? || '235959', 'YYYYMMDDHH24MISS')
+			ORDER BY TTER.TRNG_EXPT_SEQ DESC
+        ]]>
+    </query>     
+    
+
+
+    <query id="tbeb_trng_expt_racer_kc001" desc="훈련예정선수 기본키 개수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* tbeb_trng_expt_racer_kc001 */
+                 COUNT(*) AS CNT   --기본키개수           
+                                
+              FROM  TBEB_TRNG_EXPT_RACER
+             WHERE  1=1
+               AND  RACER_NO    = ?   -- 선수번호
+               AND  STND_YEAR  = ?   -- 기준년도
+               AND  (SANC_ISSUE_NO = ? OR INJURY_SEQ = ?) 
+        ]]>
+    </query>
+    
+    
+</queryMap>

@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : implement.xml
+  * @메뉴명 : 시행문서조회 
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="implement">
+
+	<select id="getImplementList" parameterType="hashmap" resultType="com.hanaph.gw.ea.implement.vo.ImplementReportVO">
+		<if test="page != null">
+			SELECT *
+			FROM (
+					SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+						SELECT MASTER.APPROVAL_SEQ, MASTER.DOCU_SEQ, MASTER.SUBJECT, TO_CHAR(MASTER.MAKE_DT, 'YYYY-MM-DD') MAKE_DT,
+			       		MASTER.STATE, F_GW_GET_CD_NM(MASTER.STATE) STATE_NM,
+			       		MASTER.REJECTION_REASON, MASTER.SECURITY_YN,
+			       		MASTER.DECIDE_YN, MASTER.STEP_STATE, MASTER.CREATE_DT,
+			       		MASTER.CREATE_NO, MASTER.MODIFY_DT, MASTER.MODIFY_NO, MASTER.DELETE_YN,
+			       		TO_CHAR(MASTER.REQ_DT, 'YYYY-MM-DD') REQ_DT, IMPL.INTEREST_YN,
+			       		IMPL.READ_YN, IMPL.READ_DT, F_GW_GET_CD_NM(DOCU.DOCU_CD) DOCU_NM, 
+			       		DOCU.DOCU_CD, EMP.EMP_KO_NM,
+			       		F_GW_GET_LAST_LINE_NM(MASTER.APPROVAL_SEQ) LAST_LINE_NM,
+			       		(
+			       				SELECT COUNT(APPROVAL_SEQ) 
+			       				FROM GW_EA_SHARE_TARGET 
+			       				WHERE APPROVAL_SEQ = MASTER.APPROVAL_SEQ 
+			       				AND MASTER.DELETE_YN = 'N'
+	       				) SHARE_TARGET_CNT,
+			       		(
+			       				SELECT COUNT(APPROVAL_SEQ) 
+			       				FROM GW_EA_SHARE_TARGET 
+			       				WHERE APPROVAL_SEQ = MASTER.APPROVAL_SEQ 
+			       				AND READ_YN='Y' 
+			       				AND MASTER.DELETE_YN = 'N'
+	       				) SHARE_TARGET_READ_CNT,
+			       		(
+			       				SELECT COUNT(DEPT_CD) 
+			       				FROM GW_EA_IMPL_DEPT 
+			       				WHERE APPROVAL_SEQ = MASTER.APPROVAL_SEQ 
+			       				AND MASTER.DELETE_YN = 'N'
+	       				) IMPL_DEPT_CNT,
+			       		(
+			       				SELECT COUNT(APPROVAL_SEQ) 
+			       				FROM GW_EA_IMPL_DEPT_EMP 
+			       				WHERE APPROVAL_SEQ = MASTER.APPROVAL_SEQ 
+			       				AND COMPLETE_YN = 'Y' 
+			       				AND MASTER.DELETE_YN = 'N' 
+	       				)IMPL_DEPT_READ_CNT,
+			       		(
+			       				SELECT DETAIL.APPROVAL_SEQ 
+  					  			FROM GW_EA_OVERTIME_DETAIL DETAIL
+  					  			,GW_EA_APPROVAL_MASTER MASTRT2
+  					 			WHERE APPROVAL_SEQ_OLD = MASTER.APPROVAL_SEQ
+  					   			AND DETAIL.APPROVAL_SEQ = MASTRT2.APPROVAL_SEQ
+  					   			AND MASTRT2.STATE IN ('E02002', 'E02003', 'E02004', 'E02005') 
+  					   			AND MASTER.DELETE_YN = 'N' AND ROWNUM = 1
+  						) OVERTIME_DETAIL_SEQ,
+			       		(
+			       				SELECT DECODE(COUNT(*), 1, 'Y', 0, 'N', 'Y' ) 
+			       				FROM GW_EA_IMPL_DEPT_EMP 
+			       				WHERE APPROVAL_SEQ = MASTER.APPROVAL_SEQ 
+			       				AND MASTER.DELETE_YN = 'N' 
+			       				AND DEPT_CD = #{dept_cd} 
+			       				AND COMPLETE_YN = 'Y'
+	       				) IMPL_DEPT_COMPLETE_YN ,
+			       		CASE WHEN OP.OPINION_CNT = '0' THEN 'N'
+                       		ELSE 'Y'
+                        END OPTION_READ_YN
+			  			FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+			       		GW_EA_APPROVAL_MASTER MASTER,
+			       		GW_EA_DOCU DOCU, 
+                   		GW_EA_IMPL_DEPT_EMP IMPL,
+                   		(
+                   				SELECT TA.APPROVAL_SEQ,TA.DEPT_CD,
+	                  			CASE WHEN COUNT(TB.OPINION_SEQ) >= 1  THEN '1'
+	                  				ELSE '0'
+	                   			END AS OPINION_CNT
+	                  			FROM GW_EA_IMPL_DEPT_EMP TA, 
+	                       		GW_EA_OPINION TB
+	                 			WHERE TA.APPROVAL_SEQ  = TB.APPROVAL_SEQ(+)
+	                   			AND TA.EMP_NO = TB.CREATE_NO(+)
+	                   			AND TA.DEPT_CD = #{dept_cd}                           
+	                 			GROUP BY  TA.APPROVAL_SEQ,TA.DEPT_CD
+	                 	) OP
+			 			WHERE MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+			   			AND MASTER.CREATE_NO = EMP.EMP_NO 
+               			AND MASTER.APPROVAL_SEQ = IMPL.APPROVAL_SEQ
+               			AND MASTER.APPROVAL_SEQ = OP.APPROVAL_SEQ(+)               
+               			AND MASTER.DELETE_YN = 'N'
+               			AND IMPL.EMP_NO = #{emp_no}
+  				<choose>
+					<when test="approval_type == 'E03001' ">
+             			AND MASTER.STATE IN ('E02002', 'E02003')
+          			</when>
+          			<otherwise>
+             			AND MASTER.STATE IN ('E02004', 'E02005')	
+          			</otherwise>
+      			</choose>
+					<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		 	   			AND TO_CHAR(REQ_DT, 'YYYYMMDD') BETWEEN #{search_start_dt} AND #{search_end_dt}
+					</if>
+					<if test="search_docu_cd != null and search_docu_cd !=''">
+	 		   			AND DOCU.DOCU_CD = #{search_docu_cd}
+	 				</if>
+					<if test="search_condition == 'SEQ' and search_text !='' and search_text != null">
+	 		   			AND MASTER.APPROVAL_SEQ LIKE '%' || #{search_text} || '%'
+	 				</if>
+	 				<if test="search_condition == 'SBJECT' and search_text !='' and search_text != null">
+	 		   			AND MASTER.SUBJECT LIKE '%' || #{search_text} || '%'
+	 				</if>
+	 				<if test="search_condition == 'NAME' and search_text !='' and search_text != null">
+	 		   			AND EMP.EMP_KO_NM LIKE '%' || #{search_text} || '%'
+	 				</if>
+	 				<if test="search_read_yn !='' and search_read_yn != null">
+	 		   			AND IMPL.READ_YN = #{search_read_yn}        
+	 				</if>
+	 				<if test="search_interest_yn !='' and search_interest_yn != null">
+	 	       			AND IMPL.INTEREST_YN = #{search_interest_yn}
+	 				</if>
+	 					ORDER BY MASTER.REQ_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getImplementCount" parameterType="hashmap" resultType="int">
+		 SELECT COUNT(*)
+			  FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+			       GW_EA_APPROVAL_MASTER MASTER,
+			       GW_EA_DOCU DOCU, 
+                   GW_EA_IMPL_DEPT_EMP IMPL 
+			 WHERE MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+			   AND MASTER.CREATE_NO = EMP.EMP_NO 
+               AND MASTER.APPROVAL_SEQ = IMPL.APPROVAL_SEQ			   
+               AND MASTER.DELETE_YN = 'N'
+               AND IMPL.EMP_NO = #{emp_no}
+		<choose>
+			<when test="approval_type == 'E03001' ">
+               AND MASTER.STATE IN ('E02002', 'E02003')
+            </when>
+            <otherwise>
+               AND MASTER.STATE IN ('E02004', 'E02005')
+            </otherwise>
+        </choose>
+		<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		 	   AND TO_CHAR(REQ_DT, 'YYYYMMDD') BETWEEN #{search_start_dt} AND #{search_end_dt}
+		</if>
+		<if test="search_docu_cd != null and search_docu_cd !=''">
+	 		   AND DOCU.DOCU_CD = #{search_docu_cd}
+	 	</if>
+		<if test="search_condition == 'SEQ' and search_text !='' and search_text != null">
+	 		   AND MASTER.APPROVAL_SEQ LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'SBJECT' and search_text !='' and search_text != null">
+	 		   AND MASTER.SUBJECT LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_condition == 'NAME' and search_text !='' and search_text != null">
+	 		   AND EMP.EMP_KO_NM LIKE '%' || #{search_text} || '%'
+	 	</if>
+	 	<if test="search_read_yn !='' and search_read_yn != null">
+	 		   AND IMPL.READ_YN = #{search_read_yn}        
+	 	</if>
+	 	<if test="search_interest_yn !='' and search_interest_yn != null">
+	 	       AND IMPL.INTEREST_YN = #{search_interest_yn}
+	 	</if>
+	</select> 
+</mapper>

@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdn_cmpt_edu_outl_mngr(종합교육일정)">
+
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			  
+			   SELECT  CD  RACER_PERIO_NO
+				 FROM  TBDM_SPEC_CD
+				 WHERE GRP_CD  = 'D10000'
+				 ORDER BY CD DESC
+		]]>
+    </query>     
+             
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn002" desc="강사 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  GUD_LECTR_ID
+				   ,NM_KOR
+				   ,BLNG
+			FROM   TBDN_GUD_LECTR
+			WHERE  USE_YN = '001'
+			ORDER BY NM_KOR		
+		]]>
+    </query>
+    
+    <query id="item_code_d06000002" desc="종목코드 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  TGC.GRP_CD      	-- 그룹코드
+			      , TGC.GRP_NM      	-- 그룹명
+			      , TSC.CD              -- 코드
+			      , TSC.CD_NM       	-- 코드명
+			      , TSC.RMK         	-- 비고
+			FROM    TBDM_GRP_CD  TGC
+			      , TBDM_SPEC_CD TSC
+			WHERE TGC.GRP_CD = TSC.GRP_CD
+			AND   TSC.DEL_YN = 'N'
+			AND   TGC.GRP_CD IN ('D10030','D10064','D10010')
+			ORDER BY TSC.GRP_CD,TSC.CD 
+        ]]>
+    </query>  
+        
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn003" desc="교육개요 조회" fetchSize="10">
+        <![CDATA[
+     		SELECT 
+                    ? AS RACER_PERIO_NO
+                    ,MIN(DT) AS EDU_STR_DT
+                    ,MAX(DT) AS EDU_END_DT
+                    ,TRUNC(ABS(MONTHS_BETWEEN(TO_DATE(MAX(DT),'YYYYMMDD'),  TO_DATE(MIN(DT),'YYYYMMDD'))))+1 AS EDU_MM
+                    ,TO_DATE(MAX(DT),'YYYYMMDD') - TO_DATE(MIN(DT),'YYYYMMDD') AS TOT_DAY_CNT
+                    ,COUNT(DISTINCT DT) AS EDU_DAY_CNT
+                    ,SUM(EDU_TIME) AS TOT_EDU_TIME
+            FROM    TBDN_DETL_EDU_ASSIGN
+            WHERE	RACER_PERIO_NO = ?			
+		]]>
+    </query>
+    
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn004" desc=" 시간배정표 조회" fetchSize="10">
+		<![CDATA[
+			SELECT  
+					? AS RACER_PERIO_NO	
+			    	,SECTN_CD
+					,CRS_CD
+					,SUM(EDU_TIME) AS EDU_TIME
+					,'' AS LECTR
+					,'' AS BLNG
+					,'' AS RMK
+					,'0' CHK
+			FROM	TBDN_DETL_EDU_ASSIGN
+			WHERE RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND SECTN_CD = NVL(?, SECTN_CD)
+			GROUP BY SECTN_CD, CRS_CD
+			ORDER BY SECTN_CD, CRS_CD					
+		
+			
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn005" desc=" 세부교육등록현황 조회" fetchSize="10">
+		<![CDATA[
+			 
+			 SELECT  SUM(DECODE(SECTN_CD,'001',EDU_TIME)) LI_TIME
+		            ,SUM(DECODE(SECTN_CD,'002',EDU_TIME)) SIL_TIME
+		            ,SUM(DECODE(SECTN_CD,'003',EDU_TIME)) CHK_TIME
+		            ,SUM(EDU_TIME)                        BOAT_TIME 
+		        FROM  TBDN_CMPT_EDU_ASSIGN
+		        WHERE RACER_PERIO_NO = ?
+		        AND   SECTN_CD IN ('001','002','003')
+		        GROUP BY RACER_PERIO_NO
+                            
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn006" desc=" 세부일정조회" fetchSize="10">
+		<![CDATA[
+            SELECT   
+                    RACER_PERIO_NO
+                    ,SEQ
+                    ,DT
+                    ,STR_END_TIME
+                    ,SECTN_CD
+                    ,CRS_CD
+                    ,DETL_EDU_CRS
+                    ,OBJ
+                    ,LECTR
+                    ,PLC     
+                    ,EDU_TIME
+            FROM    TBDN_DETL_EDU_ASSIGN
+			WHERE RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND SECTN_CD         = NVL(?, SECTN_CD)
+			ORDER BY DT, STR_END_TIME
+	    ]]>
+    </query>
+    
+   
+    
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn007" desc=" 교육인원조회" fetchSize="10">
+		<![CDATA[
+			SELECT COUNT(*) AS EDU_PERS_NO,
+			       NVL(SUM(DECODE(SEX, 'M', 1)), 0) AS EDU_MAN_NO,
+			       NVL(SUM(DECODE(SEX, 'F', 1)), 0) AS EDU_WOMAN_NO
+			FROM TBDN_CAND_IDENT
+			WHERE   1=1
+			        AND   NVL(DEL_YN,'N') = 'N'
+			        AND   RACER_PERIO_NO =  ?
+			        AND   TH_STAT NOT IN ('004','005') -- 이수구분 (퇴원,휴학)제외    
+	    ]]>
+    </query>
+    
+     <query id="tbdn_cmpt_edu_outl_d06000002_fn008" desc="연간교육계획일정표" fetchSize="10">
+		<![CDATA[
+            SELECT
+				DD,
+			    MAX(DECODE(MM, '01',CRS,'')) CRS_01,
+				MAX(DECODE(MM, '02',CRS,'')) CRS_02,
+				MAX(DECODE(MM, '03',CRS,'')) CRS_03,
+				MAX(DECODE(MM, '04',CRS,'')) CRS_04,
+				MAX(DECODE(MM, '05',CRS,'')) CRS_05,
+				MAX(DECODE(MM, '06',CRS,'')) CRS_06,
+				MAX(DECODE(MM, '07',CRS,'')) CRS_07,
+				MAX(DECODE(MM, '08',CRS,'')) CRS_08,
+				MAX(DECODE(MM, '09',CRS,'')) CRS_09,
+				MAX(DECODE(MM, '10',CRS,'')) CRS_10,
+				MAX(DECODE(MM, '11',CRS,'')) CRS_11,
+				MAX(DECODE(MM, '12',CRS,'')) CRS_12
+			FROM
+			(
+				SELECT MM, DD, RTRIM(REPLACE(XMLAGG(XMLELEMENT(DETL, XMLFOREST(CRS), '@'||CHR(13)||CHR(10))).EXTRACT('//text()').GETSTRINGVAL(),'@',''),CHR(13)||CHR(10)) CRS
+				FROM
+				(
+					SELECT
+					                 SUBSTR(DT,5,2) MM
+					                 ,LTRIM(SUBSTR(DT,7,2),'0') DD
+					                 ,DETL_EDU_CRS || '(' || SUBSTR(DT, 1, 4) || ')' CRS
+					         FROM    TBDN_DETL_EDU_ASSIGN
+					WHERE RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+				) DETL
+				GROUP BY MM, DD
+			)
+			GROUP BY DD
+			ORDER BY TO_NUMBER(DD)
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cmpt_edu_outl_d06000002_fn009" desc="세부교육일정 확정여부조회" fetchSize="10">
+		<![CDATA[
+			SELECT RACER_PERIO_NO, NVL(CFM_FG,'N') CFM_YN FROM TBDN_CFM
+			WHERE RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND MN_ID = 'D06000003'
+	    ]]>
+    </query>
+             
+    <query id="tbdn_cmpt_edu_outl_d06000002_in001" desc=" 교육개요 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_CMPT_EDU_OUTL (
+			      RACER_PERIO_NO
+			    , EDU_STR_DT
+			    , EDU_END_DT
+			    , EDU_MM
+			    , TOT_EDU_TIME
+			    , EDU_PERS_NO
+			    , EDU_MAN_NO
+				, EDU_WOMAN_NO
+			    , INST_ID
+			    , INST_DTM
+			)VALUES (
+				 ?
+				,NVL(?, null)
+				,NVL(?, null)
+				,NVL(?, 0)
+				,NVL(?, 0)
+				,NVL(?, 0)
+				,NVL(?, 0)
+				,NVL(?, 0)
+				,?
+				,SYSDATE 
+			)    
+		]]>
+    </query>
+    
+    
+    <query id="tbdn_cmpt_edu_outl_d06000002_in002" desc="시간배정표 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_CMPT_EDU_ASSIGN (
+			      RACER_PERIO_NO
+			    , SECTN_CD
+			    , CRS_CD
+			    , EDU_TIME
+			    , LECTR
+			    , BLNG
+			    , RMK
+			    , INST_ID
+			    , INST_DTM
+			    
+			) VALUES (
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+				
+			)    
+		]]>
+    </query>
+    
+         
+    <query id="tbdn_cmpt_edu_outl_d06000002_un001" desc="교육개요 갱신" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_CMPT_EDU_OUTL 
+			SET    EDU_STR_DT     = ?
+			     , EDU_END_DT     = ?
+			     , EDU_MM         = ?
+			     , TOT_EDU_TIME   = ?
+			     , EDU_PERS_NO    = ?
+			     , EDU_MAN_NO     = ?
+				 , EDU_WOMAN_NO   = ?
+			     , UPDT_ID        = ?
+			     , UPDT_DTM       = SYSDATE
+			WHERE RACER_PERIO_NO = ?
+			   
+		]]>
+    </query>
+    
+    <query id="tbdn_cmpt_edu_outl_d06000002_un002" desc="시간배정표 갱신" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_CMPT_EDU_ASSIGN
+			SET    EDU_TIME       = ?
+			     , LECTR          = ?
+			     , BLNG           = ?
+			     , RMK            = ? 
+			     , UPDT_ID        = ?
+			     , UPDT_DTM       = SYSDATE
+			WHERE  RACER_PERIO_NO = ?
+			AND    SECTN_CD       = ?	   
+			AND    CRS_CD         = ?    
+		]]>
+    </query>
+          
+    <query id="tbdn_cmpt_edu_outl_d06000002_dn001" desc="시간배정표 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   TBDN_CMPT_EDU_ASSIGN 
+			WHERE  RACER_PERIO_NO = ?
+			AND    SECTN_CD       = ?   
+			AND    CRS_CD         = ?   
+		]]>
+    </query>     
+    
+</queryMap>

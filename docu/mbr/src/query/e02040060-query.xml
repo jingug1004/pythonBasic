@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+
+<queryMap desc="E02040060(출주표)">
+
+    <query id="e02040060_s01" desc="확정건수 및 메일발송 건수 조회" fetchSize="10">
+        <![CDATA[
+			SELECT ( SELECT COUNT(*) 
+			           FROM TBEB_NOT_CFM_ORGAN 
+			          WHERE STND_YEAR = ?
+			            AND MBR_CD    = '001'
+			            AND TMS       = ?
+			            AND DAY_ORD   = ?
+			            AND CFM_YN    = '1') CFM_CNT,
+			       ( SELECT COUNT(*)
+			           FROM TBEB_ORGAN_MAIL   
+			          WHERE STND_YEAR = ?
+			            AND MBR_CD   = '001'
+			            AND TMS       = ?
+			            AND DAY_ORD   = ?
+			            AND CFM_YN    = '0') MAIL_CNT
+			  FROM DUAL
+         ]]>
+    </query>      
+        
+	<query id="e02040060_s02" desc="메일발송 여부  조회" fetchSize="10">
+        <![CDATA[
+			SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, CFM_YN, SEQ, SEND_YN, SEND_DETL, INST_ID, INST_DT
+			FROM   TBEB_ORGAN_MAIL
+			WHERE  1=1
+			AND    STND_YEAR = ? 
+			AND    MBR_CD    = ?  	
+			AND    TMS = ?      	
+			AND    DAY_ORD   = ?  	
+			AND    CFM_YN    = ?  	
+         ]]>
+    </query>
+       
+	<query id="e02040060_s03" desc="메일발송 용 파일  조회" fetchSize="10">
+        <![CDATA[
+			SELECT FILE_ID, FILE_NAME, FILE_SIZE, FILE_URL, INST_ID, INST_DT, '' AS PROG_BAR
+			FROM   TBEB_ORGAN_FILE
+			WHERE  1=1
+			AND    STND_YEAR = ? 
+			AND    MBR_CD    = ?  	
+			AND    TMS = ?      	
+			AND    DAY_ORD   = ?  	
+			AND    CFM_YN    = ?  	
+			AND    SEQ       = 3		--메일발송용 파일
+			AND    FILE_SIZE > 0
+         ]]>
+    </query>
+       
+    <query id="e02040060_d01" desc="메일발송내역 삭제" fetchSize="10">
+        <![CDATA[
+
+			DELETE FROM TBEB_ORGAN_MAIL
+			 WHERE 0 = 0
+			   AND STND_YEAR = ?
+			   AND MBR_CD    = ?
+			   AND TMS = ?
+			   AND DAY_ORD   = ?
+			   AND CFM_YN    = ?
+
+         ]]>
+    </query>          
+    
+ 
+    
+ 	<query id="e02040060_i01" desc="메일발송 여부 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_ORGAN_MAIL
+			(STND_YEAR, MBR_CD, TMS, DAY_ORD, CFM_YN
+				, SEQ
+				, SEND_YN, SEND_DETL, INST_ID, INST_DT)
+			VALUES
+			   (?,?,?,?,?
+				,(SELECT  NVL(MAX(seq),0)+1
+					FROM  TBEB_ORGAN_MAIL
+					WHERE 1=1
+					AND   STND_YEAR = ?
+					AND   MBR_CD    = ?
+					AND   TMS       = ?
+					AND   DAY_ORD   = ?
+					AND   CFM_YN    = ?)
+				,?,?,?,SYSDATE)
+         ]]>					
+    </query>                
+            
+    <query id="e02040060_i02" desc="메일발송 생성" fetchSize="10">
+        <![CDATA[
+
+			INSERT INTO TBEB_ORGAN_MAIL (
+			       STND_YEAR
+			     , MBR_CD
+			     , TMS
+			     , DAY_ORD
+			     , CFM_YN
+			     , SEND_YN
+			     , SEND_DETL
+			     , INST_ID
+			     , INST_DT
+			     , UPDT_ID
+			     , UPDT_DT
+			) VALUES (
+			       ?
+			     , ?
+			     , ?
+			     , ?
+			     , ?
+			     , '0'
+			     , ''
+			     , ?
+			     , SYSDATE
+			     , ?
+			     , SYSDATE
+			)
+
+         ]]>
+    </query>              
+      
+    
+       
+    <query id="e02040060_u01" desc="출주표 파일 저장" fetchSize="10">
+        <![CDATA[
+
+			MERGE INTO /* e02040060_u01 */
+			          TBEB_ORGAN_FILE DST 
+			USING (
+			          SELECT  ? AS STND_YEAR
+			                 ,? AS MBR_CD
+			                 ,? AS TMS
+			                 ,? AS DAY_ORD
+			                 ,? AS CFM_YN
+			                 ,? AS SEQ
+			                 ,? AS FILE_ID
+			                 ,? AS FILE_NAME
+			                 ,? AS FILE_SIZE
+			                 ,? AS FILE_URL
+			                 ,? AS USER_ID
+			           FROM   DUAL 
+			       ) SRC
+			       ON (
+			                DST.STND_YEAR = SRC.STND_YEAR
+			            AND DST.MBR_CD   = SRC.MBR_CD
+			            AND DST.TMS       = SRC.TMS
+			            AND DST.DAY_ORD   = SRC.DAY_ORD
+			            AND DST.CFM_YN    = SRC.CFM_YN
+			            AND DST.SEQ       = SRC.SEQ
+			       )
+			       WHEN MATCHED THEN
+			            UPDATE SET
+			                   DST.FILE_ID   = SRC.FILE_ID
+			                  ,DST.FILE_NAME = SRC.FILE_NAME
+			                  ,DST.FILE_SIZE = SRC.FILE_SIZE
+			                  ,DST.FILE_URL  = SRC.FILE_URL
+			                  ,DST.INST_ID   = SRC.USER_ID
+			                  ,DST.INST_DT   = SYSDATE
+			       WHEN NOT MATCHED THEN
+			            INSERT (
+			                   STND_YEAR
+			                  ,MBR_CD
+			                  ,TMS
+			                  ,DAY_ORD
+			                  ,CFM_YN
+			                  ,SEQ
+			                  ,FILE_ID
+			                  ,FILE_NAME
+			                  ,FILE_SIZE
+			                  ,FILE_URL
+			                  ,INST_ID
+			                  ,INST_DT
+			                ) VALUES (
+			                   SRC.STND_YEAR
+			                  ,SRC.MBR_CD
+			                  ,SRC.TMS
+			                  ,SRC.DAY_ORD
+			                  ,SRC.CFM_YN
+			                  ,SRC.SEQ
+			                  ,SRC.FILE_ID
+			                  ,SRC.FILE_NAME
+			                  ,SRC.FILE_SIZE
+			                  ,SRC.FILE_URL
+			                  ,SRC.USER_ID
+			                  ,SYSDATE
+			                )         
+         ]]>
+    </query>              
+      
+    
+</queryMap>

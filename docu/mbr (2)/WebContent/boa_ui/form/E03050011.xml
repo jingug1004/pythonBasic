@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="480" Id="E03050011" Left="8" OnKeyDown="fcHotKey" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="주선선수&#32;목록" Top="8" Ver="1.0" Width="360" WorkArea="true">
+		<Image Height="32" Id="Image2" ImageID="pop_bg" LeftMargin="25" TabOrder="1" Width="360"></Image>
+		<Static Height="20" Id="Static9" Left="26" Style="snis_pop_title" TabOrder="2" Text="주선선수&#32;목록" Top="8" VAlign="Middle" Width="110"></Static>
+		<Grid AutoFit="TRUE" AutoFitEndLine="Hide" BindDataset="dsOutArrangeRacer" BKColor="user15" BkColor2="user16" BkSelColor="user17" BoldHead="true" Border="Flat" BorderColor="user22" Bottom="469" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="429" Id="grdArrangeRacer_F" InputPanel="FALSE" Left="5" LineColor="user18" MinWidth="100" OnCellDBLClick="grdArrangeRacer_addRacer" OnHeadClick="fcGridSort" Right="352" SelColor="user19" Style="snis_grid" TabOrder="3" TabStop="true" Top="40" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="347">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="140"/>
+						<col width="180"/>
+					</columns>
+					<head>
+						<cell bkcolor="user20" col="0" color="user21" display="text" font="굴림,9" text="등록번호"/>
+						<cell bkcolor="user20" col="1" color="user21" display="text" font="굴림,9" text="선수명"/>
+					</head>
+					<body>
+						<cell col="0" colid="RACER_NO" display="text"/>
+						<cell col="1" colid="NM_KOR" cursor="hand" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Static Align="Right" Height="20" Id="Static0" Left="24" Style="snis_pop_title" TabOrder="4" Top="8" VAlign="Middle" Width="31"></Static>
+		<Button Align="Left" ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnClose" ImageID="btn_txt_02" Left="301" LeftMargin="15" OnClick="fcEnd" Style="snis_btn" TabOrder="5" Text="닫기" Top="8" Transparent="TRUE" Width="50"></Button>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::boa_common_script.js";
+#include "lib::boa_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = 'E03050011';
+var sBUTTONLIST   = 'FTFTTT';                         //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+var CURR_DT = fce_GetSysdate("YYYYMMDD");
+var CURR_STNT_YEAR = SubStr(CURR_DT,0,4);
+var CURR_USER_MBR_CD = gdsRace.GetColumn(gdsRace.rowposition, "MBR_CD");	//현재 User의 경정자 코드 
+var CURR_TMS = gdsRace.GetColumn(gdsRace.rowposition, "TMS");			//현재 회차  
+var CURR_DAY_ORD = gdsRace.GetColumn(gdsRace.rowposition, "DAY_ORD");		//현재 일차 
+
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {
+	//화면환경 설정
+	sFORMCAPTION  = obj.Title;
+	sFORMLOCATION = "주선선수 목록";
+	
+	//화면 정보 Display 및 Button 권한 설정
+	fnc_FormLoadSetting(obj, sFORMCAPTION, sFORMLOCATION, sBUTTONLIST, sUSERAUTH);
+	
+	//초기 화면 BK Color설정 
+	fnc_SetBKColor(this);
+
+	// 화면 초기화
+	fcInit();
+	
+	//조회
+	fcSearch();
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	//if ( !fnc_FormUnloadCheck("dsOutArrangeRacer" , sFormId) ) return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	//Return Key Press時 Next Component focus
+	if ( nChar == 13 ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+
+	//Control Key가 눌려져 있다면 단축키 처리
+	//if (bControl) fnc_HotKey(this, nChar);
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  취소 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInit(obj) {	
+	dsOutArrangeRacer.ClearData();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearchCheck() {
+   if(fnc_IsMandatory(Arg_StndYear, "기준년도"))return;
+   if(fnc_IsMandatory(Arg_Mbr, "경정장"))return;
+   if(fnc_IsMandatory(Arg_Tms, "회차"))return;
+}
+
+function fcSearch(obj) {
+	fcSearchCheck();
+	
+	var sServiceName = "e03050010-service:searchArrangeRacer";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsOutArrangeRacer=dsOutArrangeRacer"; 		//추첨 대상 보트 
+
+    fce_AddParam("STND_YEAR", Arg_StndYear);
+	fce_AddParam("MBR_CD", Arg_Mbr);
+    fce_AddParam("TMS", Arg_Tms);
+	
+	fce_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcToExcel(obj) {
+	fnc_OpenExcelExport("grdArrangeRacer");
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  인쇄 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcPrint(obj) {
+	var sFileName = "C:\\snis_root\\\\template01r0.xml";
+    fnc_ToPrint(sFileName, dsOutEmp, divBtnLst.flCom);          //인쇄 할 레포트 파일명, DataSet
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	//화면 종료
+	Close();	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행추가 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcAddRow(obj) {
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcDelRow(obj) {
+            
+}
+
+/***************************************************************************************************
+*                                      공통 Function 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Text Box가 Focus를 받을 때
++-------------------------------------------------------------------------------------------------*/
+function fcEditFocus(obj) {
+	fnc_EditFocus(obj);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Help Popup Open
++-------------------------------------------------------------------------------------------------*/
+function fcHelpDialoge(obj,nX,nY) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드에서 팝업 처리 
++-------------------------------------------------------------------------------------------------*/
+function fcGrdOnExpandEdit(objGrd, nRow, nCell, strVal, nPivotIndex){
+	
+}
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+	
+	// 조회 후
+	if ( sServiceName == "e03050010-service:searchArrangeRacer" ) {
+
+	}
+	
+	//오류가 없이 정상 처리되었다면...
+	fcPostProcess(sServiceName);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 Post Process!
++-------------------------------------------------------------------------------------------------*/
+function fcPostProcess(sServiceName) {
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  코드나 명 입력 후 Lost Focus 시 해당 정보 Display
++-------------------------------------------------------------------------------------------------*/
+function fcCodeNameDisplay(obj) {
+	
+}
+]]></Script>
+</Window>

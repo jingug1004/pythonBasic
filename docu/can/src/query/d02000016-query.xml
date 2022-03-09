@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="경륜교육훈련일지"> 
+     <query id="item_code_d02000016" desc="종목코드 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			        TGC.GRP_CD      	-- 그룹코드
+			      , TGC.GRP_NM      	-- 그룹명
+			      , TSC.CD              -- 코드
+			      , TSC.CD_NM       	-- 코드명
+			      , TSC.RMK         	-- 비고
+			FROM    TBDA_GRP_CD  TGC
+			      , TBDA_SPEC_CD TSC
+			WHERE TGC.GRP_CD = TSC.GRP_CD
+			AND   TSC.DEL_YN = 'N'
+			AND   TGC.GRP_CD IN ('D10064','D10030','D10088','D10089','D10090')
+        ]]>
+     </query>
+     
+     <query id="tbdb_trng_diary_mst_fb000" desc="교육훈련일지마스터 조회(NEW)" fetchSize="10">
+		<![CDATA[
+   			 SELECT
+		   	 RACER_PERIO_NO
+			,DT            
+			,WEATHER       
+			,WIND_DIRC     
+			,WIND_SPD      
+			,TEMPT         
+			,HUMID         
+			,RAIN
+			,ACDNT_CNTNT
+			,TOT_PERS_NO
+			,ABS_PERS_NO
+	 		,TOT_PERS_NO - ABS_PERS_NO	AS CURR_PERS_NO
+			FROM(
+				 SELECT
+					 RACER_PERIO_NO
+					,DT            
+					,WEATHER       
+					,WIND_DIRC     
+					,WIND_SPD      
+					,TEMPT         
+					,HUMID         
+					,RAIN
+					,ACDNT_CNTNT
+					,(SELECT COUNT(RACER_PERIO_NO)
+							 FROM	TBDB_CAND_IDENT
+							 WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO) 
+							 AND DEL_YN='N'
+							 AND CAND_NO NOT IN(SELECT CAND_NO FROM TBDB_CAND_IDENT
+				 				WHERE RACER_PERIO_NO = ?
+				 				AND LEAVE_DT <= ?
+				 				AND GRDU_GBN IN(004,005))) AS TOT_PERS_NO
+					,(SELECT COUNT(DISTINCT CAND_NO)
+							 FROM	TBDB_TRNG_DIARY_ABS
+							 WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO) 
+							 AND		DT = NVL(?, DT)) AS ABS_PERS_NO	 
+			FROM	TBDB_TRNG_DIARY_MST
+			WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND		DT = NVL(?, DT)		
+			)
+	        ]]>
+    </query>			
+    
+    <query id="tbdb_trng_diary_mst_fb001" desc="교육훈련일지마스터 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+					RACER_PERIO_NO
+					,DT            
+					,WEATHER       
+					,WIND_DIRC     
+					,WIND_SPD      
+					,TEMPT         
+					,HUMID         
+					,RAIN
+					,ACDNT_CNTNT
+					,'' AS TOT_PERS_NO
+					,'' AS CURR_PERS_NO
+					,'' AS ABS_PERS_NO
+			FROM	TBDB_TRNG_DIARY_MST
+			WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND		DT = NVL(?, DT)		
+	    ]]>
+    </query>
+    
+    <query id="tbdb_trng_diary_detl_fb001" desc="교육훈련상세 조회" fetchSize="10">
+		<![CDATA[
+			SELECT 
+					'0' AS CHK
+					,RACER_PERIO_NO    
+					,DT               
+					,SEQ              
+					,STR_END_TIME     
+					,SECTN_CD         
+					,CRS_CD           
+					,TIME AS EDU_TIME 
+					,DETL_EDU_CRS AS EDU_DETL
+					,'' AS EDU_COMMENT
+					,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) AS SECTN_CD_NM
+					,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  =(
+					  CASE WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='001' THEN 'D10030' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='002' THEN 'D10064' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='003' THEN 'D10028' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='004' THEN 'D10058' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='005' THEN 'D10073'
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='006' THEN 'D10065' END 
+					  )  AND CD = T1.CRS_CD  ) AS CRS_CD_NM 
+			FROM	TBDB_WK_SCHE T1
+			WHERE	SEQ NOT IN (SELECT SEQ FROM TBDB_TRNG_DIARY_DETL WHERE RACER_PERIO_NO = NVL(?, RACER_PERIO_NO))	
+			AND		RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND		DT = NVL(?, DT)
+			UNION ALL
+			SELECT
+					'0' AS CHK
+					,RACER_PERIO_NO 
+					,DT   
+					,SEQ  		
+					,STR_END_TIME       
+					,SECTN_CD       
+					,CRS_CD           
+					,EDU_TIME       
+					,EDU_DETL
+					,EDU_COMMENT
+					,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) AS SECTN_CD_NM
+					,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  =(
+					  CASE WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='001' THEN 'D10030' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='002' THEN 'D10064' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='003' THEN 'D10028' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='004' THEN 'D10058' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='005' THEN 'D10073'
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = T1.SECTN_CD  ) ='006' THEN 'D10065' END 
+					  )  AND CD = T1.CRS_CD  ) AS CRS_CD_NM                
+			FROM	TBDB_TRNG_DIARY_DETL T1
+			WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND		DT = NVL(?, DT)
+			ORDER BY STR_END_TIME		
+	    ]]>
+    </query>  
+    <query id="tbdb_trng_diary_abs_fb001" desc="교육훈련결원 조회" fetchSize="10">
+		<![CDATA[
+			SELECT 
+					A1.*
+			FROM
+			(
+				SELECT
+						'0' AS CHK				
+						,RACER_PERIO_NO
+						,CAND_NO
+						,NM_KOR
+						,'' AS DT    
+						,0 AS SEQ
+						,'' AS STR_END_TIME       
+						,'' AS SECTN_CD         
+						,'' AS CRS_CD   					     
+						,0 AS EDU_TIME        
+						,'' AS RMK
+				FROM	TBDB_CAND_IDENT
+				WHERE	CAND_NO NOT IN 
+						(	SELECT 	CAND_NO 
+							FROM 	TBDB_TRNG_DIARY_ABS
+							WHERE	RACER_PERIO_NO 	= ?
+							AND		DT 				= ?
+							AND		SEQ 			= ?	
+						)
+				AND     CAND_NO NOT IN(
+								SELECT CAND_NO FROM TBDB_CAND_IDENT
+				 				WHERE RACER_PERIO_NO = ?
+				 				AND LEAVE_DT <= ?
+				 				AND GRDU_GBN IN(004,005)
+						)
+				AND		RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+				AND     DEL_YN = 'N'
+				
+				UNION 
+				SELECT	
+						'1' AS CHK
+						,A.RACER_PERIO_NO AS RACER_PERIO_NO
+						,A.CAND_NO AS CAND_NO
+						,B.NM_KOR AS NM_KOR				
+						,A.DT AS DT
+						,A.SEQ AS SEQ
+						,A.STR_END_TIME AS STR_END_TIME
+						,A.SECTN_CD AS SECTN_CD
+						,A.CRS_CD AS CRS_CD			     
+						,A.EDU_TIME AS EDU_TIME     
+						,A.RMK AS RMK
+				FROM	TBDB_TRNG_DIARY_ABS A, TBDB_CAND_IDENT B	
+				WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO
+				AND		A.CAND_NO = B.CAND_NO
+				AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+				AND		A.DT = NVL(?, A.DT)
+				AND		A.SEQ = NVL(?, A.SEQ)
+				AND     B.DEL_YN = 'N'
+			)A1
+			ORDER BY A1.CHK DESC, A1.CAND_NO ASC
+	    ]]>
+    </query>       
+
+    <query id="tbdb_trng_diary_mst_fb002" desc="기수쿼리" fetchSize="10">
+        <![CDATA[
+			SELECT CD_NM AS RACER_PERIO_NO
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC
+		]]>
+    </query> 
+    
+    <query id="tbdb_trng_diary_mst_fb003" desc="기수카운터 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+					COUNT(RACER_PERIO_NO) AS P_COUNT
+			FROM	TBDB_CAND_IDENT
+			WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND	DEL_YN='N'
+		]]>
+    </query>
+    
+    <query id="tbdb_trng_diary_mst_fb004" desc="결원카운터 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+					COUNT(DISTINCT CAND_NO) AS A_COUNT
+			FROM	TBDB_TRNG_DIARY_ABS
+			WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND		DT = NVL(?, DT)
+		]]>
+    </query>         
+    <query id="tbdb_trng_diary_abs_fb005" desc="교육훈련결원 조회(PRINT)" fetchSize="10">
+		<![CDATA[  
+    				SELECT	
+						 A.CAND_NO AS CAND_NO
+						,B.NM_KOR AS NM_KOR				
+						,A.STR_END_TIME AS STR_END_TIME
+						,A.SECTN_CD AS SECTN_CD
+						,A.CRS_CD AS CRS_CD			     
+						,A.EDU_TIME AS EDU_TIME     
+						,A.RMK AS RMK
+						,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = A.SECTN_CD  ) AS SECTN_CD_NM
+					,(SELECT CD_NM  FROM TBDA_SPEC_CD WHERE GRP_CD  =(
+					  CASE WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = A.SECTN_CD  ) ='001' THEN 'D10030' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = A.SECTN_CD  ) ='002' THEN 'D10064' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = A.SECTN_CD  ) ='003' THEN 'D10028' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = A.SECTN_CD  ) ='004' THEN 'D10058' 
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = A.SECTN_CD  ) ='005' THEN 'D10073'
+					  WHEN (SELECT CD  FROM TBDA_SPEC_CD WHERE GRP_CD  ='D10027' AND CD = A.SECTN_CD  ) ='006' THEN 'D10065' END 
+					  )  AND CD = A.CRS_CD  ) AS CRS_CD_NM 
+				FROM	TBDB_TRNG_DIARY_ABS A, TBDB_CAND_IDENT B	
+				WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO
+				AND		A.CAND_NO = B.CAND_NO
+				AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+				AND		A.DT = NVL(?, A.DT)
+                ORDER BY DT,STR_END_TIME 
+          ]]>
+    </query>            
+    <query id="tbdb_trng_diary_mst_ib001" desc="교육훈련일지마스터 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDB_TRNG_DIARY_MST (
+				RACER_PERIO_NO
+				,DT
+				,WEATHER
+				,WIND_DIRC
+				,WIND_SPD
+				,TEMPT
+				,HUMID
+				,RAIN
+				,ACDNT_CNTNT
+				,TOT_PERS_NO
+				,CURR_PERS_NO
+				,ABS_PERS_NO
+				,INST_ID
+				,INST_DTM 
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+    
+    <query id="tbdb_trng_diary_mst_ub001" desc="교육훈련일지마스터 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDB_TRNG_DIARY_MST 
+			SET		WEATHER			= ?
+					,WIND_DIRC		= ?
+					,WIND_SPD		= ?
+					,TEMPT			= ?
+					,HUMID			= ?
+					,RAIN			= ?
+					,ACDNT_CNTNT	= ?
+					,TOT_PERS_NO	= ?
+					,CURR_PERS_NO	= ?
+					,ABS_PERS_NO	= ?
+					,UPDT_ID		= ?
+					,UPDT_DTM		= SYSDATE    
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?
+		]]>
+    </query>
+          
+    <query id="tbdb_trng_diary_mst_db001" desc="교육훈련일지마스터 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDB_TRNG_DIARY_MST 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?   
+		]]>
+    </query>
+    
+    <query id="tbdb_trng_diary_detl_ib001" desc="교육훈련일지상세 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDB_TRNG_DIARY_DETL (
+				RACER_PERIO_NO
+				,DT               
+				,SEQ  		
+				,STR_END_TIME       
+				,SECTN_CD         
+				,CRS_CD        
+				,EDU_TIME       
+				,EDU_DETL 
+				,EDU_COMMENT       
+				,INST_ID        
+				,INST_DTM  
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+                 
+    <query id="tbdb_trng_diary_detl_ub001" desc="교육훈련일지상세 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDB_TRNG_DIARY_DETL 
+			SET		STR_END_TIME	= ?
+					,SECTN_CD		= ?
+					,CRS_CD			= ?
+					,EDU_TIME		= ?
+					,EDU_DETL		= ?
+					,EDU_COMMENT	= ?
+					,UPDT_ID		= ?
+					,UPDT_DTM		= SYSDATE    
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?
+			AND		SEQ				= ?
+		]]>
+    </query>
+          
+    <query id="tbdb_trng_diary_detl_db001" desc="교육훈련일지상세 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDB_TRNG_DIARY_DETL 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ? 
+			AND		SEQ				= ?			  
+		]]>
+    </query>    
+
+   <query id="tbdb_trng_diary_abs_ib001" desc="교육훈련일지결원 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDB_TRNG_DIARY_ABS (
+				RACER_PERIO_NO
+				,SEQ
+				,DT
+				,CAND_NO
+				,STR_END_TIME
+				,SECTN_CD
+				,CRS_CD
+				,EDU_TIME
+				,RMK
+				,INST_ID
+				,INST_DTM
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+         
+    <query id="tbdb_trng_diary_abs_ub001" desc="교육훈련일지결원 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDB_TRNG_DIARY_ABS 
+			SET		STR_END_TIME	= ?
+					,SECTN_CD		= ?
+					,CRS_CD			= ?
+					,EDU_TIME		= ?
+					,RMK			= ?
+					,UPDT_ID		= ?
+					,UPDT_DTM		= SYSDATE  
+			WHERE	RACER_PERIO_NO	= ?
+			AND		SEQ				= ?	
+			AND		DT				= ?
+			AND		CAND_NO			= ?	
+		]]>
+    </query>
+          
+    <query id="tbdb_trng_diary_abs_db001" desc="교육훈련일지결원 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDB_TRNG_DIARY_ABS 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		SEQ				= ?	
+			AND		DT				= ?
+			AND		CAND_NO			= ?	
+		]]>
+    </query>        
+    
+    <query id="tbdb_trng_diary_fb005" desc="확정 조회" fetchSize="10">
+        <![CDATA[
+		    SELECT 	RACER_PERIO_NO
+		    		,DT
+		    		,CFG_YN 
+		    FROM  TBDB_TRNG_DIARY_MST
+			WHERE RACER_PERIO_NO = ?
+			AND DT = ?
+        ]]>
+    </query>  
+    
+    <query id="tbdb_trng_diary_ub005" desc="확정 입력" fetchSize="10">
+        <![CDATA[
+ 			UPDATE TBDB_TRNG_DIARY_MST TTDM
+ 	   		SET		
+ 	   		     CFG_YN 	= 'Y'
+			WHERE	 
+				 TTDM.RACER_PERIO_NO = ?
+			AND  TTDM.DT = ?
+		]]>
+    </query>
+    
+</queryMap>

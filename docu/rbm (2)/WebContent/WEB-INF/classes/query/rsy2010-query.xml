@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="RSY2010(메뉴관리)">
+    <query id="rsy2010_s01" desc="메뉴그룹조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /*rsy2010_s01*/
+                     T1.MN_ID 				-- 메뉴아이디
+                   , MN_NM          		-- 메뉴명
+                   , ORD_NO         		-- 순서번호
+                   , UP_MN_ID       		-- 상위메뉴ID
+                   , PROGRAM_ID AS SCRN_ID  -- 화면ID
+                   
+                   , URL            		-- 메뉴URL
+                   , RMK            		-- 비고
+                   , LVL          			-- 메뉴 레벨                   
+                   , '0' AS CHK
+                   , ' ' AS CLOLR
+                   
+                   , MN_LEVEL				-- 메뉴순
+                   , DECODE(BASE_SRCH_YN,'Y',BASE_SRCH_YN,'N') BASE_SRCH_YN            	-- DEFAULT(조회) 메뉴여부
+                   , DECODE(BASE_INST_YN,'Y',BASE_INST_YN,'N') BASE_INST_YN            	-- DEFAULT(저장) 메뉴여부  
+                   , DECODE(PERSONAL_DATA_MN,'Y',PERSONAL_DATA_MN,'N') PERSONAL_DATA_MN	-- 개인정보처리 메뉴여부                   , ROWNUM AS SEQ
+            FROM     (
+                        SELECT
+                               TM.* ,LEVEL - 1 AS LVL
+                        FROM   TBRK_MN TM  --메뉴관리
+                        START  WITH TM.MN_ID = ?
+                        CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID                                    
+                        --ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+                        ORDER SIBLINGS BY UP_MN_ID, TO_NUMBER(MN_LEVEL)
+                     ) T1
+            WHERE  T1.LVL > 0
+         --   ORDER BY ORD_NO, SEQ
+        ]]>
+    </query>       
+    <query id="rsy2010_s02" desc="메뉴그룹리스트조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /*rsy2010_s02*/
+                     T1.MN_ID 				-- 메뉴아이디
+                   , MN_NM          		-- 메뉴명
+                   , ORD_NO         		-- 순서번호
+                   , UP_MN_ID       		-- 상위메뉴ID
+                   , (SELECT MN_NM FROM TBRK_MN WHERE MN_ID = T1.UP_MN_ID) AS UP_MN_NM 	--상위메뉴명
+                   
+                   , PROGRAM_ID AS SCRN_ID  -- 화면ID
+                   , URL            		-- 메뉴URL
+                   , MN_LEVEL				-- 메뉴순서
+                   , RMK            		-- 비고
+                   , DECODE(BASE_SRCH_YN,'Y',BASE_SRCH_YN,'N') BASE_SRCH_YN	            -- DEFAULT(조회) 메뉴여부
+                   , DECODE(BASE_INST_YN,'Y',BASE_INST_YN,'N') BASE_INST_YN	            -- DEFAULT(저장) 메뉴여부  
+                                      , DECODE(PERSONAL_DATA_MN,'Y',PERSONAL_DATA_MN,'N') PERSONAL_DATA_MN	-- 개인정보처리 메뉴여부                   
+                   , INST_ID				-- 작성자ID
+                   , INST_DT				-- 작성일자
+                   , UPDT_ID				-- 수정자ID
+                   , UPDT_DT				-- 수정일자
+                   , '0' AS CHK
+            FROM     (
+                        SELECT
+                               TM.* ,LEVEL - 1 AS LVL 
+                        FROM   TBRK_MN TM   --메뉴관리
+                        START  WITH TM.MN_ID = ?
+                        CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID                                    
+                        ORDER SIBLINGS BY UP_MN_ID, ORD_NO
+                     ) T1
+            WHERE	 LVL = 1
+            ORDER BY ORD_NO, TO_NUMBER(MN_LEVEL)
+        ]]>
+    </query> 
+
+    <query id="rsy2010_i01" desc="메뉴입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBRK_MN (  /*rsy2010_i01*/
+				  MN_ID         --메뉴ID
+				, MN_NM         --메뉴명
+				, ORD_NO        --정렬순서
+				, UP_MN_ID      --상위메뉴ID
+				, PROGRAM_ID    --프로그램ID
+
+				, URL           --실행파일위치
+				, MN_LEVEL      --메뉴레벨
+				, RMK		    --비고
+				, BASE_SRCH_YN    -- DEFAULT 메뉴여부 
+				, BASE_INST_YN    -- DEFAULT 메뉴여부				, PERSONAL_DATA_MN -- 개인정보처리 메뉴여부 
+				      			    , INST_ID			    , INST_DT			    			    , UPDT_ID			    , UPDT_DT
+			    			) VALUES (
+			      ?             -- MN_ID
+			    , ?             -- MN_NM
+			    , ?				-- ORD_NO
+			    , ?             -- UP_MN_ID			    
+			    , ?             -- PROGRAM_ID	
+			    		    
+			    , ?             -- URL			    
+			    , ?             -- MN_LEVEL		    
+			    , ?             -- RMK
+			    , ?             -- DEFAULT 메뉴여부 
+			    , ?             -- DEFAULT 메뉴여부
+			    , ?				-- 개인정보처리 메뉴여부			    			    
+			    , ?             -- INST_ID
+			    , SYSDATE       -- INST_DT
+			    
+			    , ?             -- UPDT_ID
+			    , SYSDATE       -- UPDT_DT
+			)
+        ]]>
+    </query>       
+    <query id="rsy2010_u01" desc="메뉴수정" fetchSize="10">
+        <![CDATA[
+			UPDATE  TBRK_MN  --메뉴관리  /*rsy2010_u01*/
+			   SET				  MN_NM 	 = ?  --메뉴명
+				, ORD_NO	 = ?  --정렬순서
+				, PROGRAM_ID = ?  --프로그램ID
+				, URL 		 = ?  --실행파일위치
+				, RMK		 = ?  --비고
+				
+				, BASE_SRCH_YN = ?  --DEFAULT(조회) 메뉴여부 	
+				, BASE_INST_YN = ?  --DEFAULT(저장) 메뉴여부    					, PERSONAL_DATA_MN = ?  --개인정보처리 메뉴여부						
+				, MN_LEVEL 	 = ?  --메뉴레벨				
+				, UPDT_ID 	 = ?
+				, UPDT_DT	 = SYSDATE
+								
+			 WHERE  MN_ID 	 = ?
+        ]]>
+    </query>           <query id="rsy2010_u02" desc="메뉴Default조회 수정(Y)" fetchSize="10">
+        <![CDATA[
+			UPDATE TBRK_MN   /*rsy2010_u02*/
+			              SET BASE_SRCH_YN = 'Y' 
+			WHERE MN_ID IN ( 
+			        SELECT MN_ID  
+			          FROM TBRK_MN A 
+			         WHERE EXISTS (SELECT 1 
+			                      FROM TBRK_MN 
+			                     WHERE A.MN_ID = A.MN_ID 
+			                      AND MN_ID = ?          -- MN_ID 
+			                      AND BASE_SRCH_YN = 'Y') 
+			         START  WITH  MN_ID = ?              --MN_ID 
+			         CONNECT BY MN_ID = PRIOR UP_MN_ID    
+			     ) 
+        ]]>
+    </query>   
+    <query id="rsy2010_u03" desc="메뉴Default조회 수정(N)" fetchSize="10">
+        <![CDATA[
+				UPDATE TBRK_MN /*rsy2010_u03*/
+				    SET BASE_SRCH_YN = 'N'  
+				  WHERE MN_ID IN ( 
+				            SELECT UP_MN_ID  
+				              FROM TBRK_MN 
+				             WHERE UP_MN_ID IN ( 
+				                                SELECT MN_ID   
+				                                  FROM TBRK_MN A   
+				                                 WHERE MN_ID <> 'R000000'  
+				                                   AND BASE_SRCH_YN = 'Y'  
+				                                 START  WITH  MN_ID = ? --  MN_ID  
+				                                 CONNECT BY MN_ID = PRIOR UP_MN_ID     
+				                               )  
+				            GROUP BY UP_MN_ID 
+				              HAVING SUM(DECODE(BASE_SRCH_YN, 'Y',1,0)) = 0 
+				           ) 
+
+        ]]>
+    </query> 
+    
+    <query id="rsy2010_u04" desc="메뉴Default조회 수정(상위)" fetchSize="10">
+        <![CDATA[
+                UPDATE TBRK_MN /*rsy2010_u04*/
+                    SET BASE_SRCH_YN = 'N'  
+                  WHERE UP_MN_ID = ? 
+        ]]>
+    </query> 
+    
+    <query id="rsy2010_u05" desc="메뉴Default저장 수정(Y)" fetchSize="10">
+        <![CDATA[
+            UPDATE TBRK_MN   /*rsy2010_u05*/
+                          SET BASE_INST_YN = 'Y' 
+            WHERE MN_ID IN ( 
+                    SELECT MN_ID  
+                      FROM TBRK_MN A 
+                     WHERE EXISTS (SELECT 1 
+                                  FROM TBRK_MN 
+                                 WHERE A.MN_ID = A.MN_ID 
+                                  AND MN_ID = ?          -- MN_ID 
+                                  AND BASE_INST_YN = 'Y') 
+                     START  WITH  MN_ID = ?              --MN_ID 
+                     CONNECT BY MN_ID = PRIOR UP_MN_ID    
+                 ) 
+        ]]>
+    </query>   
+    <query id="rsy2010_u06" desc="메뉴Default저장  수정(N)" fetchSize="10">
+        <![CDATA[
+                UPDATE TBRK_MN /*rsy2010_u06*/
+                    SET BASE_INST_YN = 'N'  
+                  WHERE MN_ID IN ( 
+                            SELECT UP_MN_ID  
+                              FROM TBRK_MN 
+                             WHERE UP_MN_ID IN ( 
+                                                SELECT MN_ID   
+                                                  FROM TBRK_MN A   
+                                                 WHERE MN_ID <> 'R000000'  
+                                                   AND BASE_INST_YN = 'Y'  
+                                                 START  WITH  MN_ID = ? --  MN_ID  
+                                                 CONNECT BY MN_ID = PRIOR UP_MN_ID     
+                                               )  
+                            GROUP BY UP_MN_ID 
+                              HAVING SUM(DECODE(BASE_INST_YN, 'Y',1,0)) = 0 
+                           ) 
+
+        ]]>
+    </query> 
+    
+    <query id="rsy2010_u07" desc="메뉴Default저장  수정(상위)" fetchSize="10">
+        <![CDATA[
+                UPDATE TBRK_MN /*rsy2010_u07*/
+                    SET BASE_INST_YN = 'N'  
+                  WHERE UP_MN_ID = ? 
+        ]]>
+    </query>     
+    <query id="rsy2010_d01" desc="메뉴삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 	/* rsy2010_d01 */
+			  FROM  TBRK_MN    --메뉴관리			 WHERE  MN_ID = ?  --메뉴ID                
+        ]]>
+    </query>    
+       
+    <query id="rsy2010_d02" desc="메뉴권한삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 	/* rsy2010_d02 */
+			  FROM  TBRK_MN_AUTH_HIST  --메뉴권한
+		     WHERE  MN_ID = ?     --메뉴ID               
+        ]]>
+    </query>
+    
+   <query id="rsy2010_d03" desc="특별관리자메뉴권한삭제" fetchSize="10">
+        <![CDATA[
+            DELETE  /* rsy2010_d03 */
+              FROM  TBRK_ADMIN_INFO  --메뉴권한
+             WHERE  MN_ID = ?     --메뉴ID               
+        ]]>
+    </query>
+</queryMap>

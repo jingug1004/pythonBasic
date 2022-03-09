@@ -1,0 +1,628 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_month_pay 월별상금  관리">
+    <query id="tbeg_month_pay_ff001" desc="월별상금 조회" fetchSize="50">
+        <![CDATA[
+            /* 월별상금  조회  */ 
+			SELECT /* tbeg_month_pay_ff001 */
+        		TRP.STND_YEAR,   -- 기준년도
+			    TRP.PAY_MONTH,   -- 기준월
+			    TRP.RACER_NO,    -- 선수등록번호
+			    TRM.NM_KOR AS RACER_NM, 	-- 선수명 
+			    PAY_TPE,     -- 지급 구분 
+                SUPP_AMT_01,   	-- 지급항목 - 성적상금
+                SUPP_AMT_02,    -- 지급항목 - 출전수당
+                SUPP_AMT_31,    -- 지급항목 - 이벤트경주수당
+                SUPP_AMT_03,   	-- 지급항목 - 안전수당
+                SUPP_AMT_04,   	-- 지급항목 - 대기수당
+                SUPP_AMT_05,    -- 지급항목 - 출발무사고 수당
+                SUPP_AMT_06,    -- 지급항목 - 연승수당
+                SUPP_AMT_07,    -- 지급항목  - 기타수당
+                SUPP_AMT_10,  	-- 지급 공제항목 - 식대 
+                SUPP_AMT_12,    -- 지급 공제항목 - 선수연금(사업자부담분) - 지급 
+                AID_AMT_04,     -- 공제항목 - 선수 회비 
+                AID_AMT_05,     -- 공제항목  - 선수연금(개인부담분)
+                AID_AMT_10,     -- 지급 공제항목 - 식대 
+                AID_AMT_12      -- 지급 공제항목 - 선수연금(사업자부담분) - 공제 
+        	FROM TBEG_MONTH_PAY TRP, TBEC_RACER_MASTER TRM
+        	WHERE TRP.RACER_NO = TRM.RACER_NO
+        	AND TRP.STND_YEAR = ?
+        	AND TRP.PAY_MONTH = ?
+        	AND TRM.NM_KOR LIKE ?||'%'
+        	AND PAY_TPE = '1'
+        	ORDER BY TRM.RACER_NO
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_mf001" desc="월별상금 등록/수정 " fetchSize="10">
+        <![CDATA[ 
+			/* 월별 상금 계산   MERGE(BK_ACCUNT 복호화 안함)*/
+			/* tbeg_month_pay_mf001 */
+			MERGE INTO TBEG_MONTH_PAY TMP
+            USING (
+                 --- 월별 상금 계산 
+                SELECT 
+                    T1.STND_YEAR,   					-- 기준년도
+                    T1.PAY_MONTH,   					-- 기준월
+                    T1.RACER_NO,    					-- 선수등록번호
+                    '1' AS PAY_TPE,     				-- 지급 구분 
+                    NVL(RANK_AMT, 0) AS SUPP_AMT_01,    -- 지급항목 - 성적상금
+                    NVL(RUN_AMT, 0) AS SUPP_AMT_02,   	-- 지급항목 - 출전수당
+                    NVL(EVENT_AMT, 0) AS SUPP_AMT_31,   -- 지급항목 - 이벤트수당
+                    NVL(SAFY_AMT, 0) AS SUPP_AMT_03,    -- 지급항목 - 안전수당
+                    NVL(WAIT_AMT, 0) AS SUPP_AMT_04,    -- 지급항목 - 대기수당
+                    NVL(STR_AMT, 0) AS SUPP_AMT_05,     -- 지급항목 - 출발무사고 수당
+                    NVL(WIN_AMT, 0) AS SUPP_AMT_06,     -- 지급항목 - 연승수당
+                    NVL(ETC_AMT, 0) AS SUPP_AMT_07,     -- 지급항목  - 기타수당
+                    NVL(FD_AMT,0) AS SUPP_AMT_10,       -- 지급 공제항목 - 식대 
+                    CASE WHEN CNL_DT >= '20' THEN NVL(PEN_SUB_AMT,0) ELSE 0 END AS SUPP_AMT_12,   -- 지급 공제항목 - 선수연금(사업자부담분) - 지급, 등록취소가 당월 20일 이후면 지급
+                    NVL(MBS_FEE_AMT,0) AS AID_AMT_04,   -- 공제항목 - 선수 회비
+                    CASE WHEN CNL_DT >= '20' AND NVL(RANK_AMT,0)+ NVL(RUN_AMT,0)+ NVL(EVENT_AMT,0)+ NVL(SAFY_AMT,0)+ NVL(WAIT_AMT,0) + NVL(STR_AMT,0) > 0 THEN NVL(PEN_SUB_AMT,0) ELSE 0 END AID_AMT_05,    -- 공제항목  - 선수연금(개인부담분), 등록취소가 당월 20일 이후면 지급
+                    NVL(FD_AMT,0) AS AID_AMT_10,    	-- 지급 공제항목 - 식대 
+                    CASE WHEN CNL_DT >= '20' THEN NVL(PEN_SUB_AMT,0) ELSE 0 END AS AID_AMT_12,     -- 지급 공제항목 - 선수연금(사업자부담분) - 공제 
+                    T1.BK_CD,
+                    (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00023' AND CD = T1.BK_CD) AS BK_NM,
+                    T1.BK_ACCUNT,
+                    ? AS PAY_DT,						-- 지급일자
+                    ? AS USER_ID    					-- 사용자  아이디 
+                FROM
+                (SELECT ?  AS STND_YEAR, ? AS PAY_MONTH, TRM.RACER_NO, TRM.RACER_PERIO_NO, PEN_SUB_AMT , TRM.BK_CD, TRM.BK_ACCUNT, DECODE(TRD.CNL_DT, NULL , '99', SUBSTR(TRD.CNL_DT,7,2)) CNL_DT -- 취소일이 NULL 이면 취소일에 99 넣음.
+                    FROM (SELECT TRM.RACER_NO, TRM.NM_KOR, TRM.RACER_PERIO_NO, RACER_STAT_CD, TRCI.BK_CD, TRCI.BK_ACCUNT FROM TBEC_RACER_MASTER TRM, TBEG_RACER_COM_INFO TRCI
+                          WHERE TRM.RACER_NO = TRCI.RACER_NO(+)
+                     ) TRM, TBEG_PEN_SUB_BAC TPB, TBEC_RACER_DETAIL TRD
+                 WHERE TRM.RACER_PERIO_NO = TPB.RACER_PERIO_NO(+)
+                 AND TRM.RACER_NO = TRD.RACER_NO(+)
+                 AND ? = TPB.STND_YEAR(+)
+                 AND ((TRM.RACER_STAT_CD IN ('001', '002')) OR ( TRM.RACER_STAT_CD = '003' AND SUBSTR(TRD.CNL_DT,1,6) = ?||LPAD(?,2,'0')))
+                 )T1, 
+                (
+                    SELECT STND_YEAR, PAY_MONTH, RACER_NO, SUM(RANK_AMT) AS RANK_AMT, 
+                        SUM(RUN_AMT) AS RUN_AMT, SUM(EVENT_AMT) AS EVENT_AMT, SUM(WAIT_AMT) AS WAIT_AMT, SUM(SAFY_AMT)AS SAFY_AMT, 
+                        SUM(STR_AMT) AS STR_AMT, SUM(WIN_AMT) AS WIN_AMT, SUM(ETC_AMT) AS ETC_AMT,   SUM(MBS_FEE_AMT) AS MBS_FEE_AMT,  SUM(FD_AMT) AS FD_AMT
+                    FROM (
+                        -- 성적 상금 
+                        SELECT ?  AS STND_YEAR, ? AS PAY_MONTH, TRP.RACER_NO, TRP.RANK_AMT,  RUN_AMT, EVENT_AMT, WAIT_AMT, SAFY_AMT, STR_AMT, WIN_AMT, ETC_AMT, 
+                            DECODE(TRCI.MBS_FEE_YN, 'Y', NVL(FLOOR((TRP.RANK_AMT + RUN_AMT + EVENT_AMT + WAIT_AMT + SAFY_AMT + STR_AMT + WIN_AMT + ETC_AMT)*TRRAB.RANK_AMT/100*0.1)*10,0), 0) AS MBS_FEE_AMT, 0 AS FD_AMT
+                        FROM TBEG_RACE_PRIZ TRP, VWEG_MONTH_PAY_BAC VMPB, TBEG_RACE_RANK_AMT_BAC TRRAB, TBEG_RACER_COM_INFO TRCI
+                        WHERE  TRP.STND_YEAR = VMPB.STND_YEAR
+                        AND VMPB.STND_YEAR=? 
+                        AND VMPB.PAY_MONTH= ?
+                        AND TRP.STND_YEAR = TRRAB.STND_YEAR
+                        AND TRP.RACE_KINDS_CD = TRRAB.RACE_KINDS_CD
+                        AND TRP.RACE_DGRE_CD = TRRAB.RACE_DGRE_CD
+                        AND TRP.RACER_NO = TRCI.RACER_NO
+                        AND TRRAB.RANK=7  -- 선수회비 공제율
+                        AND TRP.MBR_CD||TRP.STND_YEAR||LPAD(TRP.TMS ,3,'0')||LPAD(TRP.DAY_ORD, 2, '0')
+                                BETWEEN VMPB.MBR_CD||VMPB.STND_YEAR||LPAD(VMPB.STR_TMS ,3,'0')||LPAD(VMPB.STR_DAY_ORD, 2, '0') 
+                                AND VMPB.MBR_CD||VMPB.STND_YEAR||LPAD(VMPB.END_TMS ,3,'0')||LPAD(VMPB.END_DAY_ORD, 2, '0')
+                        -- 식대 
+                        UNION ALL
+                        SELECT STND_YEAR, TMS AS PAY_MONTH, RACER_NO,  0 AS RANK_AMT, 0 AS RUN_AMT,  0 AS EVENT_AMT, 0 AS WIAT_AMT, 
+                               0 AS SAFY_AMT, 0 AS STR_AMT, 0 AS WIN_AMT, 0 AS ETC_AMT, 0 AS MBS_FEE_AMT,  SUM_AMT AS FD_AMT FROM TBEC_RACER_FD_EXP
+                        WHERE STND_YEAR = ? AND MBR_CD = '001' AND TMS = ?
+                    )
+                    GROUP BY  STND_YEAR, PAY_MONTH, RACER_NO
+                 )T2
+                 WHERE T1.RACER_NO = T2.RACER_NO(+)
+                 ORDER BY T1.RACER_NO
+            ) TP
+            ON (TMP.STND_YEAR = TP.STND_YEAR
+                AND TMP.PAY_MONTH = TP.PAY_MONTH
+                AND TMP.PAY_TPE = TP.PAY_TPE
+                AND TMP.RACER_NO = TP.RACER_NO
+                )
+            WHEN MATCHED THEN
+                UPDATE
+                SET
+                    TMP.SUPP_AMT_01 = TP.SUPP_AMT_01,   -- 지급항목 - 성적상금
+                    TMP.SUPP_AMT_02 = TP.SUPP_AMT_02,   -- 지급항목 - 출전수당
+                    TMP.SUPP_AMT_31 = TP.SUPP_AMT_31,   -- 지급항목 - 이벤트수당
+                    TMP.SUPP_AMT_03 = TP.SUPP_AMT_03,   -- 지급항목 - 안전수당
+                    TMP.SUPP_AMT_04 = TP.SUPP_AMT_04,   -- 지급항목 - 대기수당
+                    TMP.SUPP_AMT_05 = TP.SUPP_AMT_05,   -- 지급항목 - 출발무사고 수당
+                    TMP.SUPP_AMT_06 = TP.SUPP_AMT_06,   -- 지급항목 - 연승수당
+                    TMP.SUPP_AMT_07 = TP.SUPP_AMT_07,   -- 지급항목  - 기타수당
+                    TMP.SUPP_AMT_10 = TP.SUPP_AMT_10,   -- 지급 공제항목 - 식대 
+                    TMP.SUPP_AMT_12 = TP.SUPP_AMT_12,   -- 지급 공제항목 - 선수연금(사업자부담분) - 지급 
+                    TMP.AID_AMT_04  = TP.AID_AMT_04,     -- 공제항목 - 선수 회비 
+                    TMP.AID_AMT_05  = TP.AID_AMT_05,     -- 공제항목  - 선수연금(개인부담분)
+                    TMP.AID_AMT_10  = TP.AID_AMT_10,     -- 지급 공제항목 - 식대 
+                    TMP.AID_AMT_12  = TP.AID_AMT_12,     -- 지급 공제항목 - 선수연금(사업자부담분) - 공제 
+                    TMP.UPDT_ID     = TP.USER_ID,    	-- 수정자 아이디 
+                    TMP.BK_CD       = TP.BK_CD,    		-- 은행 
+                    TMP.BK_ACCUNT   = TP.BK_ACCUNT,    	-- 계좌 번호 
+                    TMP.PAY_DT      = TP.PAY_DT,     	-- 지급일자
+                    TMP.UPDT_DTM    = SYSDATE    		-- 수정일시 
+            WHEN NOT MATCHED THEN
+                INSERT (
+                    TMP.STND_YEAR,   	-- 기준년도
+                    TMP.PAY_MONTH,   	-- 기준월
+                    TMP.RACER_NO,    	-- 선수등록번호
+                    TMP.PAY_TPE,     	-- 지급 구분 
+                    TMP.SUPP_AMT_01,    -- 지급항목 - 성적상금
+                    TMP.SUPP_AMT_02,    -- 지급항목 - 출전수당
+                    TMP.SUPP_AMT_31,    -- 지급항목 - 이벤트수당
+                    TMP.SUPP_AMT_03,    -- 지급항목 - 안전수당
+                    TMP.SUPP_AMT_04,    -- 지급항목 - 대기수당
+                    TMP.SUPP_AMT_05,    -- 지급항목 - 출발무사고 수당
+                    TMP.SUPP_AMT_06,    -- 지급항목 - 연승수당
+                    TMP.SUPP_AMT_07,    -- 지급항목  - 기타수당
+                    TMP.SUPP_AMT_10,    -- 지급 공제항목 - 식대 
+                    TMP.SUPP_AMT_12,    -- 지급 공제항목 - 선수연금(사업자부담분) - 지급 
+                    TMP.AID_AMT_04,     -- 공제항목 - 선수 회비 
+                    TMP.AID_AMT_05,     -- 공제항목  - 선수연금(개인부담분)
+                    TMP.AID_AMT_10,     -- 지급 공제항목 - 식대 
+                    TMP.AID_AMT_12,     -- 지급 공제항목 - 선수연금(사업자부담분) - 공제 
+                    TMP.BK_CD,    		-- 은행 
+                    TMP.BK_ACCUNT,      -- 계좌 번호 
+                    TMP.PAY_DT,         -- 지급일자
+                    TMP.INST_ID,    	-- 수정자 아이디 
+                    TMP.INST_DTM   		-- 수정일자
+                  )
+                  VALUES
+                  (
+                    TP.STND_YEAR,      -- 기준년도
+                    TP.PAY_MONTH,      -- 기준월
+                    TP.RACER_NO,       -- 선수등록번호
+                    TP.PAY_TPE,        -- 지급 구분 
+                    TP.SUPP_AMT_01,    -- 지급항목 - 성적상금
+                    TP.SUPP_AMT_02,    -- 지급항목 - 출전수당
+                    TP.SUPP_AMT_31,    -- 지급항목 - 이벤트수당
+                    TP.SUPP_AMT_03,    -- 지급항목 - 안전수당
+                    TP.SUPP_AMT_04,    -- 지급항목 - 대기수당
+                    TP.SUPP_AMT_05,    -- 지급항목 - 출발무사고 수당
+                    TP.SUPP_AMT_06,    -- 지급항목 - 연승수당
+                    TP.SUPP_AMT_07,    -- 지급항목  - 기타수당
+                    TP.SUPP_AMT_10,      -- 지급 공제항목 - 식대 
+                    TP.SUPP_AMT_12,    -- 지급 공제항목 - 선수연금(사업자부담분) - 지급 
+                    TP.AID_AMT_04,     -- 공제항목 - 선수 회비 
+                    TP.AID_AMT_05,     -- 공제항목  - 선수연금(개인부담분)
+                    TP.AID_AMT_10,     -- 지급 공제항목 - 식대 
+                    TP.AID_AMT_12,     -- 지급 공제항목 - 선수연금(사업자부담분) - 공제 
+                    TP.BK_CD,    	   -- 은행 
+                    TP.BK_ACCUNT,      -- 계좌 번호 
+                    TP.PAY_DT,         -- 지급일자
+                    TP.USER_ID,        -- 수정자 아이디 
+                    SYSDATE            -- 수정일시 
+                  )
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeg_month_pay_uf001" desc="월별상금 수정" fetchSize="10">
+        <![CDATA[
+			/* 월별상금  수정 2 */
+			UPDATE TBEG_MONTH_PAY SET
+			    SUPP_AMT_01 = NVL(?,0),   	-- 지급항목 - 성적상금
+                SUPP_AMT_02 = NVL(?,0),    -- 지급항목 - 출전수당
+                SUPP_AMT_31 = NVL(?,0),   	-- 지급항목 - 이벤트수당
+                SUPP_AMT_03 = NVL(?,0),   	-- 지급항목 - 안전수당
+                SUPP_AMT_04 = NVL(?,0),   	-- 지급항목 - 대기수당
+                SUPP_AMT_05 = NVL(?,0),    -- 지급항목 - 출발무사고 수당
+                SUPP_AMT_06 = NVL(?,0),    -- 지급항목 - 연승수당
+                SUPP_AMT_07 = NVL(?,0),    -- 지급항목  - 기타수당
+                SUPP_AMT_10 = NVL(?,0),  	-- 지급 공제항목 - 식대 
+                SUPP_AMT_12 = NVL(?,0),    -- 지급 공제항목 - 선수연금(사업자부담분) - 지급 
+                AID_AMT_04 = NVL(?,0),     -- 공제항목 - 선수 회비 
+                AID_AMT_05 = NVL(?,0),     -- 공제항목  - 선수연금(개인부담분)
+                AID_AMT_10 = NVL(?,0),     -- 지급 공제항목 - 식대 
+                AID_AMT_12 = NVL(?,0),      -- 지급 공제항목 - 선수연금(사업자부담분) - 공제 
+			    UPDT_ID = ?,	-- 수정자 아이디 
+			    UPDT_DTM = SYSDATE	-- 수정일시 
+        	WHERE STND_YEAR = ?  -- 기준년도
+			AND PAY_MONTH = ?   -- 기준월
+			AND RACER_NO = ?    -- 선수등록번호
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_uf010" desc="월별상금 수정(초기화-선수 지원팀 )" fetchSize="10">
+        <![CDATA[
+			/* 월별상금 수정(초기화-선수지원팀 ) */
+			UPDATE TBEG_MONTH_PAY SET
+			    SUPP_AMT_01 = 0,   	-- 지급항목 - 성적상금
+                SUPP_AMT_02 = 0,    -- 지급항목 - 출전수당
+                SUPP_AMT_31 = 0,   	-- 지급항목 - 이벤트수당
+                SUPP_AMT_03 = 0,   	-- 지급항목 - 안전수당
+                SUPP_AMT_04 = 0,   	-- 지급항목 - 대기수당
+                SUPP_AMT_05 = 0,    -- 지급항목 - 출발무사고 수당
+                SUPP_AMT_06 = 0,    -- 지급항목 - 연승수당
+                SUPP_AMT_07 = 0,    -- 지급항목  - 기타수당
+                SUPP_AMT_10 = 0,  	-- 지급 공제항목 - 식대 
+                SUPP_AMT_12 = 0,    -- 지급 공제항목 - 선수연금(사업자부담분) - 지급 
+                AID_AMT_04 = 0,     -- 공제항목 - 선수 회비 
+                AID_AMT_05 = 0,     -- 공제항목  - 선수연금(개인부담분)
+                AID_AMT_10 = 0,     -- 지급 공제항목 - 식대 
+                AID_AMT_12 = 0,      -- 지급 공제항목 - 선수연금(사업자부담분) - 공제 
+			    UPDT_ID = ?,	-- 수정자 아이디 
+			    UPDT_DTM = SYSDATE	-- 수정일시 
+        	WHERE STND_YEAR = ?  -- 기준년도
+			AND PAY_MONTH   = ?   -- 기준월
+        ]]>
+    </query> 
+    
+    
+    
+    <query id="tbeg_month_pay_ff101" desc="기수별 평균 금액 별 비교  " fetchSize="10">
+        <![CDATA[
+			/* 기수별 평균 금액 별 비교 */
+			SELECT /* tbeg_month_pay_ff101 */
+				    CASE WHEN RACER_PERIO_NO  IS NULL THEN '합계 : ' ELSE RACER_PERIO_NO || ' 기' END AS RACER_PERIO_NO,    -- 기수 
+				    MONTH_RUN_RACER_CNT,    -- 출전인원
+				    FLOOR(MONTH_TOT_AMT/DECODE(MONTH_RUN_RACER_CNT,0,1,MONTH_RUN_RACER_CNT)) AS AVG_MONTH_AMT ,    -- 월 평균 금액 
+				    TOT_RACER_CNT,    -- 총원 
+				    NVL(FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)/DECODE(MONTH_CNT,0,1,MONTH_CNT)),0) AS AVG_YEAR_MONTH_AMT,    -- 년간 월 평균금액 
+				    NVL(FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)),0) AS PER_RACER_TOT_AMT    -- 년간 총액 (1인당)
+			FROM 
+				(    
+				    SELECT TO_NUMBER(TRM.RACER_PERIO_NO) RACER_PERIO_NO, COUNT(DISTINCT TRM.RACER_NO ) TOT_RACER_CNT, 
+					        COUNT(DISTINCT (CASE WHEN PAY_MONTH=? AND RACE_AMT>0 THEN TRP.RACER_NO ELSE NULL END)) AS MONTH_RUN_RACER_CNT, 
+					        SUM(RACE_AMT) AS YEAR_TOT_AMT,
+					        SUM(CASE WHEN PAY_MONTH=? THEN RACE_AMT ELSE 0 END) AS MONTH_TOT_AMT,
+					        COUNT(DISTINCT PAY_MONTH) AS MONTH_CNT
+				    FROM
+						    (    
+						        SELECT CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+			                                         ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END AS PAY_MONTH, 
+			                           TRP.RACER_NO, 
+						               (SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07) AS RACE_AMT
+						        FROM   TBEG_MONTH_PAY TRP
+						        WHERE  TRP.STND_YEAR  = ?
+						        AND    CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+			                                ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END <= ?
+						        AND    TRP.PAY_TPE    = '1'
+						        AND    DECODE(?,'1','1',(SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05 + SUPP_AMT_06 + SUPP_AMT_07))>0
+						    )TRP,
+						    TBEC_RACER_MASTER TRM
+				    WHERE TRM.RACER_NO = TRP.RACER_NO 
+				    AND TRM.RACER_STAT_CD <= decode(?,'1','003', '002')
+				    GROUP BY ROLLUP(TO_NUMBER(TRM.RACER_PERIO_NO))    
+				) 			
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_ff102" desc="선수 등급별 금액 비교 " fetchSize="10">
+        <![CDATA[
+			/* 선수 등급별 금액 비교 */
+			SELECT /* tbeg_month_pay_ff102 */
+			    CASE WHEN RACER_GRD_CD IS NULL THEN '합계 : ' ELSE RACER_GRD_CD|| '등급' END  AS RACER_GRD_CD,    -- 등급 
+			    MONTH_RUN_RACER_CNT,	-- 출전인원 
+			    FLOOR(MONTH_TOT_AMT/DECODE(MONTH_RUN_RACER_CNT,0,1,MONTH_RUN_RACER_CNT)) AS AVG_MONTH_AMT ,	-- 월 평균 금액 
+			    TOT_RACER_CNT,	-- 총원 
+			    FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)/DECODE(MONTH_CNT,0,1,MONTH_CNT)) AS AVG_YEAR_MONTH_AMT,	-- 년간 월 평균금액 
+			    FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)) AS PER_RACER_TOT_AMT	-- 년간 총액 (1인당)
+			FROM 
+				(    
+				    SELECT TRM.RACER_GRD_CD, MIN(TRM.RACER_PERIO_NO) AS RACER_PERIO_NO,  COUNT(DISTINCT TRM.RACER_NO ) TOT_RACER_CNT, 
+				        COUNT(DISTINCT (CASE WHEN PAY_MONTH=? AND RACE_AMT>0 THEN TRP.RACER_NO ELSE NULL END)) AS MONTH_RUN_RACER_CNT, 
+				        SUM(RACE_AMT) AS YEAR_TOT_AMT,
+				        SUM(CASE WHEN PAY_MONTH=? THEN RACE_AMT ELSE 0 END) AS MONTH_TOT_AMT,
+				        COUNT(DISTINCT PAY_MONTH) AS MONTH_CNT
+				    FROM
+					    (    
+					        SELECT CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+					                                ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END AS PAY_MONTH, 
+					               TRP.RACER_NO, 
+					               (SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07) AS RACE_AMT
+					        FROM TBEG_MONTH_PAY TRP
+					        WHERE TRP.STND_YEAR=?
+					        AND  CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+					                                ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END <=?
+					        AND TRP.PAY_TPE='1'
+					        AND decode(?,'1','1',(SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07))>0
+					    )TRP,TBEC_RACER_MASTER TRM
+				    WHERE TRM.RACER_NO = TRP.RACER_NO 
+				    AND TRM.RACER_STAT_CD <= decode(?,'1','003', '002')
+				    GROUP BY ROLLUP(TRM.RACER_GRD_CD)
+				)    
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_ff103" desc="상금 지급액별 비교  " fetchSize="10">
+        <![CDATA[
+			/* 상금 지급액별 비교 */
+			SELECT /* tbeg_month_pay_ff103 */
+				CASE WHEN AMT_BAC = 0 THEN TO_CHAR(1000,'9,999')||'천원 미만'
+			         WHEN AMT_BAC = 10 THEN TO_CHAR(10000,'99,999')||'천원 이상'
+			         ELSE TO_CHAR(AMT_BAC*1000,'9,999')||'천원 이상'
+			    END AMT_BAC,	-- 상금지급액 
+			    AMT_BAC AMT_BAC2,
+				MONTH_CNT, 	-- 당월 
+				BEFORE_MONTH_CNT, 	-- 전월 
+				FLOOR(YEAR_MONTH_AVG_CNT/DECODE(CURR_YEAR_MONTH,0,1,CURR_YEAR_MONTH)) AS YEAR_MONTH_AVG_CNT, 	-- 당해 년도 월 평균 
+				FLOOR(BEFORE_YEAR_MONTH_AVG_CNT /DECODE(BEFORE_YEAR_MOMTH,0,1,BEFORE_YEAR_MOMTH)) AS BEFORE_YEAR_MONTH_AVG_CNT -- 전년도  월 평균 
+			FROM 
+			(
+			    SELECT 
+			        (CASE WHEN ((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 10 THEN 10
+			              WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 7) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 10) THEN 7
+			              WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 5) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 7) THEN 5
+			              WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 3) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 5) THEN 3
+			              WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 2) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 3) THEN 2
+			              WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 1) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 2) THEN 1
+			              ELSE (TRUNC((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000))
+			         END
+			         ) AS AMT_BAC, 
+			        COUNT(CASE WHEN STND_YEAR||LPAD(PAY_MONTH,2,'0') = ?||LPAD(?,2, '0') THEN TRP.RACER_NO ELSE NULL END) AS MONTH_CNT, 
+			        COUNT(CASE WHEN STND_YEAR||LPAD(PAY_MONTH,2,'0') = TO_CHAR(ADD_MONTHS(TO_DATE(?||LPAD(?,2, '0'),'YYYYMM'),-1),'YYYYMM') THEN TRP.RACER_NO ELSE NULL END) AS BEFORE_MONTH_CNT,
+			        COUNT(CASE WHEN STND_YEAR = ? THEN  TRP.RACER_NO ELSE NULL END)  AS YEAR_MONTH_AVG_CNT,
+			        COUNT(CASE WHEN STND_YEAR = TO_CHAR(TO_NUMBER(?)-1) THEN  TRP.RACER_NO ELSE NULL END) AS BEFORE_YEAR_MONTH_AVG_CNT,
+			        -- 계산되어진 월
+			        (SELECT COUNT(DISTINCT SUBSTR(PMT_DT,5,2)) FROM TBEG_MONTH_PAY_BAC WHERE STND_YEAR = ? AND PMT_DT <= STND_YEAR||LPAD(?,2,'0')||'31' AND INCE_TAX_RATE >-1) AS CURR_YEAR_MONTH,
+			        COUNT(DISTINCT (CASE WHEN STND_YEAR = TO_CHAR(TO_NUMBER(?)-1) THEN PAY_MONTH ELSE NULL END)) AS BEFORE_YEAR_MOMTH
+			    FROM (
+					    SELECT STND_YEAR, 
+					           CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+					                ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END AS PAY_MONTH,
+					           PAY_TPE,
+					           RACER_NO,
+					           SUPP_AMT_01, SUPP_AMT_02, SUPP_AMT_31, SUPP_AMT_03, SUPP_AMT_04, SUPP_AMT_05, SUPP_AMT_06, SUPP_AMT_07     
+					    FROM TBEG_MONTH_PAY
+			          )  TRP, TBEC_RACER_MASTER TRM
+			    WHERE TRM.RACER_NO = TRP.RACER_NO 
+			    AND TRP.STND_YEAR||LPAD(TRP.PAY_MONTH,2,'0') BETWEEN  TO_CHAR(TO_NUMBER(?)-1)||'01' AND ?||LPAD(?,2, '0')
+			    AND TRP.PAY_TPE='1'
+			    AND DECODE(?,'1','1',(SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07))>0
+			    AND TRM.RACER_STAT_CD <= decode(?,'1','003', '002')
+			    GROUP BY (
+			                CASE WHEN ((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 10 THEN 10
+			                     WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 7) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 10) THEN 7
+			                     WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 5) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 7) THEN 5
+			                     WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 3) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 5) THEN 3
+			                     WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 2) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 3) THEN 2
+			                     WHEN (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)>= 1) AND (((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000)< 2) THEN 1
+			                     ELSE (TRUNC((SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07)/1000000))
+			                END
+			              )
+			)
+			ORDER BY AMT_BAC2 DESC              
+          
+        ]]>
+    </query> 
+    
+    
+    
+    <query id="tbeg_month_pay_ff201" desc="기수별 평균 금액 별 비교  " fetchSize="10">
+        <![CDATA[
+			/* 회차별 기수별 평균 금액 별 비교 */
+			SELECT /* tbeg_month_pay_ff201 */
+				    CASE WHEN RACER_PERIO_NO  IS NULL THEN '합계 : ' ELSE RACER_PERIO_NO || ' 기' END AS RACER_PERIO_NO,    -- 기수 
+				    MONTH_RUN_RACER_CNT,    -- 출전인원
+				    FLOOR(MONTH_TOT_AMT/DECODE(MONTH_RUN_RACER_CNT,0,1,MONTH_RUN_RACER_CNT)) AS AVG_MONTH_AMT ,    -- 월 평균 금액 
+				    TOT_RACER_CNT,    -- 총원 
+				    NVL(FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)/DECODE(MONTH_CNT,0,1,MONTH_CNT)),0) AS AVG_YEAR_MONTH_AMT,    -- 년간 월 평균금액 
+				    NVL(FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)),0) AS PER_RACER_TOT_AMT    -- 년간 총액 (1인당)
+			FROM 
+				(    
+				    SELECT TO_NUMBER(TRM.RACER_PERIO_NO) RACER_PERIO_NO, COUNT(DISTINCT TRM.RACER_NO ) TOT_RACER_CNT, 
+					        COUNT(DISTINCT (CASE WHEN PAY_MONTH=? AND RACE_AMT>0 THEN TRP.RACER_NO ELSE NULL END)) AS MONTH_RUN_RACER_CNT, 
+					        SUM(RACE_AMT) AS YEAR_TOT_AMT,
+                            SUM(CASE WHEN PAY_MONTH= ? THEN RACE_AMT ELSE 0 END) AS MONTH_TOT_AMT,
+                            COUNT(DISTINCT PAY_MONTH) AS MONTH_CNT
+				    FROM
+						    (    
+						        SELECT TMS PAY_MONTH, 
+			                           TRP.RACER_NO, 
+			                           STND_YEAR,
+						               --(SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_04 + SUPP_AMT_05+ SUPP_AMT_06 + SUPP_AMT_07) AS RACE_AMT
+						               SUM(SUPP_AMT) AS RACE_AMT 
+						        FROM   (SELECT STND_YEAR, TMS, RACER_NO, 
+							                   SUM(RANK_AMT + RUN_AMT + EVENT_AMT + SAFY_AMT + WAIT_AMT + STR_AMT + WIN_AMT + ETC_AMT) AS SUPP_AMT
+							            FROM   TBEG_RACE_PRIZ
+							            GROUP BY STND_YEAR, TMS, RACER_NO) TRP
+						        WHERE  TRP.STND_YEAR  = ?
+						        AND    TRP.TMS       <= ?
+						        AND    DECODE(?,'1','1',SUPP_AMT) > 0
+						        GROUP BY TMS,TRP.RACER_NO,STND_YEAR           
+						    )TRP,
+						    TBEC_RACER_MASTER TRM
+				    WHERE TRM.RACER_NO = TRP.RACER_NO 
+				    AND TRM.RACER_STAT_CD <= decode(?,'1','003', '002')
+				    GROUP BY ROLLUP(TO_NUMBER(TRM.RACER_PERIO_NO))    
+				) 			
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_ff202" desc="선수 등급별 금액 비교 " fetchSize="10">
+        <![CDATA[
+			/* 선수 등급별 금액 비교 */
+			SELECT /* tbeg_month_pay_ff202 */
+			    CASE WHEN RACER_GRD_CD IS NULL THEN '합계 : ' ELSE RACER_GRD_CD|| '등급' END  AS RACER_GRD_CD,    -- 등급 
+			    MONTH_RUN_RACER_CNT,	-- 출전인원 
+			    FLOOR(MONTH_TOT_AMT/DECODE(MONTH_RUN_RACER_CNT,0,1,MONTH_RUN_RACER_CNT)) AS AVG_MONTH_AMT ,	-- 월 평균 금액 
+			    TOT_RACER_CNT,	-- 총원 
+			    FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)/DECODE(MONTH_CNT,0,1,MONTH_CNT)) AS AVG_YEAR_MONTH_AMT,	-- 년간 월 평균금액 
+			    FLOOR(YEAR_TOT_AMT/DECODE(TOT_RACER_CNT,0,1,TOT_RACER_CNT)) AS PER_RACER_TOT_AMT	-- 년간 총액 (1인당)
+			    ,YEAR_TOT_AMT,MONTH_CNT
+			FROM 
+				(    
+				    SELECT TRM.RACER_GRD_CD, MIN(TRM.RACER_PERIO_NO) AS RACER_PERIO_NO,  COUNT(DISTINCT TRM.RACER_NO ) TOT_RACER_CNT, 
+				        COUNT(DISTINCT (CASE WHEN PAY_MONTH=? AND RACE_AMT>0 THEN TRP.RACER_NO ELSE NULL END)) AS MONTH_RUN_RACER_CNT, 
+				        SUM(RACE_AMT) AS YEAR_TOT_AMT,
+				        SUM(CASE WHEN PAY_MONTH=? THEN RACE_AMT ELSE 0 END) AS MONTH_TOT_AMT,
+				        COUNT(DISTINCT PAY_MONTH) AS MONTH_CNT
+				    FROM
+					    (    
+					        SELECT TMS PAY_MONTH, 
+					               TRP.RACER_NO, 
+					               STND_YEAR,
+					               SUPP_AMT AS RACE_AMT
+					        FROM  (SELECT STND_YEAR, TMS, RACER_NO, 
+					                      SUM(RANK_AMT + RUN_AMT + EVENT_AMT + SAFY_AMT + WAIT_AMT + STR_AMT + WIN_AMT + ETC_AMT) AS SUPP_AMT
+					               FROM   TBEG_RACE_PRIZ
+					               GROUP BY STND_YEAR, TMS, RACER_NO) TRP
+					        WHERE TRP.STND_YEAR = ?
+					        AND   TMS <= ?
+					        --AND   TRP.PAY_TPE='1'
+					        AND   DECODE(?,'1','1',SUPP_AMT)>0
+					    )TRP,TBEC_RACER_MASTER TRM
+				    WHERE TRM.RACER_NO = TRP.RACER_NO 
+				    AND TRM.RACER_STAT_CD <= decode(?,'1','003', '002')
+				    GROUP BY ROLLUP(TRM.RACER_GRD_CD)
+				)    
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_ff203" desc="상금 지급액별 비교  " fetchSize="10">
+        <![CDATA[
+			/* 상금 지급액별 비교 */
+			SELECT /* tbeg_month_pay_ff203 */
+				CASE WHEN AMT_BAC = 0 THEN TO_CHAR(1000,'9,999')||'천원 미만'
+			         WHEN AMT_BAC = 10 THEN TO_CHAR(10000,'99,999')||'천원 이상'
+			         ELSE TO_CHAR(AMT_BAC*1000,'9,999')||'천원 이상'
+			    END AMT_BAC,	-- 상금지급액 
+			    AMT_BAC AMT_BAC2,
+				MONTH_CNT, 	-- 당월 
+				BEFORE_MONTH_CNT, 	-- 전월 
+				ROUND(YEAR_MONTH_AVG_CNT/DECODE(CURR_YEAR_MONTH,0,1,CURR_YEAR_MONTH),2) AS YEAR_MONTH_AVG_CNT, 	-- 당해 년도 월 평균 
+				ROUND(BEFORE_YEAR_MONTH_AVG_CNT /DECODE(BEFORE_YEAR_MOMTH,0,1,BEFORE_YEAR_MOMTH),2) AS BEFORE_YEAR_MONTH_AVG_CNT -- 전년도  월 평균
+				,YEAR_MONTH_AVG_CNT AS YEAR_MONTH_AVG_CNT_ORG, CURR_YEAR_MONTH, BEFORE_YEAR_MONTH_AVG_CNT AS BEFORE_YEAR_MONTH_AVG_CNT_ORG, BEFORE_YEAR_MOMTH 
+			FROM 
+			(
+			    SELECT 
+			        (CASE WHEN ((SUPP_AMT)/1000000)>= 10 THEN 10
+			              WHEN ((SUPP_AMT/1000000)>= 7) AND ((SUPP_AMT/1000000)< 10) THEN 7
+			              WHEN ((SUPP_AMT/1000000)>= 5) AND ((SUPP_AMT/1000000)< 7) THEN 5
+			              WHEN ((SUPP_AMT/1000000)>= 3) AND ((SUPP_AMT/1000000)< 5) THEN 3
+			              WHEN ((SUPP_AMT/1000000)>= 2) AND ((SUPP_AMT/1000000)< 3) THEN 2
+			              WHEN ((SUPP_AMT/1000000)>= 1) AND ((SUPP_AMT/1000000)< 2) THEN 1
+			              ELSE (TRUNC(SUPP_AMT/1000000))
+			         END
+			         ) AS AMT_BAC, 
+			        COUNT(CASE WHEN RNUM = 1 THEN TRP.RACER_NO ELSE NULL END) AS MONTH_CNT, 
+                    COUNT(CASE WHEN RNUM = 2 THEN TRP.RACER_NO ELSE NULL END) AS BEFORE_MONTH_CNT,
+                    COUNT(CASE WHEN STND_YEAR = ? THEN  TRP.RACER_NO ELSE NULL END)  AS YEAR_MONTH_AVG_CNT,
+			        COUNT(CASE WHEN STND_YEAR = TO_CHAR(TO_NUMBER(?)-1) THEN  TRP.RACER_NO ELSE NULL END) AS BEFORE_YEAR_MONTH_AVG_CNT,
+			        -- 계산되어진 월
+			        (SELECT COUNT(DISTINCT TMS) FROM TBEG_RACE_PRIZ WHERE STND_YEAR = ? AND TMS <= ?) AS CURR_YEAR_MONTH,
+			        (SELECT COUNT(DISTINCT TMS) FROM TBEG_RACE_PRIZ WHERE STND_YEAR = ? -1) AS BEFORE_YEAR_MOMTH
+			    FROM (
+					    SELECT A.STND_YEAR, 
+					           A.TMS PAY_MONTH,
+					           --PAY_TPE,
+					           RACER_NO,
+					           SUPP_AMT,
+					           RNUM     
+					    FROM  (SELECT STND_YEAR, TMS, RACER_NO, 
+					                  SUM(RANK_AMT + RUN_AMT + EVENT_AMT + SAFY_AMT + WAIT_AMT + STR_AMT + WIN_AMT + ETC_AMT) AS SUPP_AMT
+					           FROM   TBEG_RACE_PRIZ
+					           GROUP BY STND_YEAR, TMS, RACER_NO) A,
+                              (                              
+                                SELECT *
+                                FROM (
+                                        SELECT STND_YEAR, TMS AS PAY_MONTH, ROW_NUMBER() OVER (ORDER BY STND_YEAR DESC, TMS DESC) RNUM
+                                        FROM  (SELECT STND_YEAR, TMS FROM TBEB_RACE GROUP BY STND_YEAR, TMS) A
+                                        WHERE STND_YEAR||TRIM(TO_CHAR(TMS,'00')) <= ?||TRIM(TO_CHAR(?,'00'))
+                                        )
+                                WHERE RNUM < 3                                        
+                              ) B
+                        WHERE A.STND_YEAR = B.STND_YEAR(+)
+                        AND   A.TMS = B.PAY_MONTH(+)
+			          )  TRP, TBEC_RACER_MASTER TRM
+			    WHERE TRM.RACER_NO = TRP.RACER_NO 
+			    AND TRP.STND_YEAR||LPAD(TRP.PAY_MONTH,2,'0') BETWEEN  TO_CHAR(TO_NUMBER(?)-1)||'01' AND ?||LPAD(?,2, '0')
+			    --AND TRP.PAY_TPE='1'
+			    AND DECODE(?,'1','1',SUPP_AMT)>0
+			    AND TRM.RACER_STAT_CD <= decode(?,'1','003', '002')
+			    GROUP BY (
+			                CASE WHEN (SUPP_AMT/1000000)>= 10 THEN 10
+			                     WHEN ((SUPP_AMT/1000000)>= 7) AND ((SUPP_AMT/1000000)< 10) THEN 7
+			                     WHEN ((SUPP_AMT/1000000)>= 5) AND ((SUPP_AMT/1000000)< 7) THEN 5
+			                     WHEN ((SUPP_AMT/1000000)>= 3) AND ((SUPP_AMT/1000000)< 5) THEN 3
+			                     WHEN ((SUPP_AMT/1000000)>= 2) AND ((SUPP_AMT/1000000)< 3) THEN 2
+			                     WHEN ((SUPP_AMT/1000000)>= 1) AND ((SUPP_AMT/1000000)< 2) THEN 1
+			                     ELSE (TRUNC(SUPP_AMT/1000000))
+			                END
+			              )
+			)
+			ORDER BY AMT_BAC2 DESC              
+          
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_uf999" desc="세액 Update" fetchSize="10">
+        <![CDATA[
+			/* tbeg_month_pay_uf999 : 세액 Update */
+			UPDATE TBEG_MONTH_PAY SET
+			    SUPP_AMT_30 = NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+			    			  + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+			                  + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                              + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                              + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                              + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0),
+                AID_AMT_01 =  FLOOR((NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+                              + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+                              + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                              + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                              + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                              + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0)
+                              ) * ?/100 * 0.1) * 10,                              
+                AID_AMT_02 = FLOOR(
+                                FLOOR((NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+                                  + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+                                  + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                                  + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                                  + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                                  + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0)
+                                  ) * ?/100 * ?/100) * 0.1
+                              )*10,
+                AID_AMT_20 = FLOOR((NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+                              + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+                              + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                              + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                              + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                              + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0)
+                              )* ?/100 * 0.1) * 10
+                              +    
+                              FLOOR(
+                                FLOOR((NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+                                  + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+                                  + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                                  + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                                  + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                                  + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0)
+                                  ) * ?/100 * ?/100) * 0.1
+                              )*10
+                              + NVL(AID_AMT_03,0) + NVL(AID_AMT_04,0) + NVL(AID_AMT_05,0)
+                              + NVL(AID_AMT_06,0) + NVL(AID_AMT_07,0) + NVL(AID_AMT_08,0) + NVL(AID_AMT_09,0) + NVL(AID_AMT_10,0)
+                              + NVL(AID_AMT_11,0) + NVL(AID_AMT_12,0) + NVL(AID_AMT_13,0) + NVL(AID_AMT_14,0) + NVL(AID_AMT_15,0)
+                              + NVL(AID_AMT_16,0) + NVL(AID_AMT_17,0) + NVL(AID_AMT_18,0) + NVL(AID_AMT_19,0),
+                REAL_SUPP_AMT = NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+                              + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+                              + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                              + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                              + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                              + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0)
+                              -    (
+                                  FLOOR((NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+                                  + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+                                  + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                                  + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                                  + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                                  + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0)
+                                  )* ?/100 * 0.1) * 10
+                                  +    
+                                  FLOOR(
+                                    FLOOR((NVL(SUPP_AMT_01,0) + NVL(SUPP_AMT_02,0) + NVL(SUPP_AMT_31,0) + NVL(SUPP_AMT_03,0) + NVL(SUPP_AMT_04,0) + NVL(SUPP_AMT_05,0)
+                                      + NVL(SUPP_AMT_06,0) + NVL(SUPP_AMT_07,0) + NVL(SUPP_AMT_08,0) + NVL(SUPP_AMT_09,0) + NVL(SUPP_AMT_10,0)
+                                      + NVL(SUPP_AMT_11,0) + NVL(SUPP_AMT_12,0) + NVL(SUPP_AMT_13,0) + NVL(SUPP_AMT_14,0) + NVL(SUPP_AMT_15,0) 
+                                      + NVL(SUPP_AMT_16,0) + NVL(SUPP_AMT_17,0) + NVL(SUPP_AMT_18,0) + NVL(SUPP_AMT_19,0) + NVL(SUPP_AMT_20,0)
+                                      + NVL(SUPP_AMT_21,0) + NVL(SUPP_AMT_22,0) + NVL(SUPP_AMT_23,0) + NVL(SUPP_AMT_24,0) + NVL(SUPP_AMT_25,0) 
+                                      + NVL(SUPP_AMT_26,0) + NVL(SUPP_AMT_27,0) + NVL(SUPP_AMT_28,0) + NVL(SUPP_AMT_29,0)
+                                      )* ?/100 * ?/100) * 0.1
+                                  )*10
+                                  + NVL(AID_AMT_03,0) + NVL(AID_AMT_04,0) + NVL(AID_AMT_05,0)
+                                  + NVL(AID_AMT_06,0) + NVL(AID_AMT_07,0) + NVL(AID_AMT_08,0) + NVL(AID_AMT_09,0) + NVL(AID_AMT_10,0)
+                                  + NVL(AID_AMT_11,0) + NVL(AID_AMT_12,0) + NVL(AID_AMT_13,0) + NVL(AID_AMT_14,0) + NVL(AID_AMT_15,0)
+                                  + NVL(AID_AMT_16,0) + NVL(AID_AMT_17,0) + NVL(AID_AMT_18,0) + NVL(AID_AMT_19,0)
+                              ),                         
+                UPDT_ID    = ?,                              
+                UPDT_DTM = SYSDATE    -- 수정일시 
+            WHERE STND_YEAR = ?  -- 기준년도
+            AND PAY_MONTH = ?   -- 기준월
+            AND PAY_TPE='1'
+        ]]>
+    </query> 
+    
+    
+    
+   
+</queryMap>

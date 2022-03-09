@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_cert_issu_history(증명서발급)">
+    <query id="tbec_cert_issu_history_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+                SELECT 
+                	TCIH.CERT_KND_CD
+                    ,TCIH.SEQ
+                    ,TCIH.ISSU_YEAR
+                    ,TCIH.ISSU_NO
+                    ,TO_CHAR(TCIH.ISSU_DTM,'YYYYMMDD') ISSU_DTM
+                    ,TO_CHAR(TCIH.INST_DTM,'YYYYMMDD') INST_DT
+                    ,TCIH.RACER_NO
+                    ,TRM.NM_KOR 
+                    ,TCIH.PURPOSES_CD
+                    ,TCIH.ISSU_CNT
+                    ,TCIH.PRS_STAT_CD
+                    ,CASE WHEN TCIH.ISSU_YN ='Y' THEN '발급' END AS ISSU_YN	-- 발금 여부
+                    ,(SELECT USER_NM FROM VWEA_USER WHERE USER_ID(+)    = TCIH.REQ_USER_ID) AS REQ_USER_NM
+                    ,(SELECT USER_NM FROM VWEA_USER WHERE USER_ID(+)    = TCIH.CONFIRM_ID) AS CONFIRM_NM
+                FROM TBEC_CERT_ISSU_HISTORY TCIH
+                    ,TBEC_RACER_MASTER TRM
+                WHERE TCIH.CERT_KND_CD 	= NVL(?, TCIH.CERT_KND_CD)
+                    AND TCIH.ISSU_YEAR 	= NVL(?, TCIH.ISSU_YEAR)
+                    AND TCIH.PURPOSES_CD 	= NVL(?, TCIH.PURPOSES_CD)       
+                    AND TRM.NM_KOR LIKE '%' ||NVL(?, TRM.NM_KOR)|| '%'
+                    AND TCIH.ISSU_DTM BETWEEN
+                    		 TO_DATE(?,'YYYYMMDD') AND TO_DATE(?,'YYYYMMDD')+0.99999
+                    AND TCIH.RACER_NO 	= TRM.RACER_NO
+                ORDER BY TCIH.ISSU_NO DESC, TCIH.SEQ DESC
+        ]]>
+    </query>
+    <query id="tbec_cert_issu_history_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+        	INSERT INTO TBEC_CERT_ISSU_HISTORY (
+				SEQ,				-- 일련번호
+				ISSU_YEAR,			-- 발급년도
+				RACER_NO,			-- 등록번호
+				CERT_KND_CD,		-- 증명서구분코드
+				PURPOSES_CD,		-- 발급용도코드
+				ISSU_CNT,			-- 발급부수
+				REQ_USER_ID,		-- 요청자ID
+				REQ_DTM,			-- 요청일시
+				INST_ID,			-- 작성자ID
+				INST_DTM,			-- 작성일시
+			   	UPDT_ID, 			-- 수정자 아이디
+			   	UPDT_DTM) 			-- 수정일시
+			VALUES ( 
+				?,			-- 일련번호
+				?,			-- 발급년도
+				?,			-- 등록번호
+				'001',		-- 증명서구분코드
+				?,			-- 발급용도코드
+				?,			-- 발급부수
+			   	?, 			-- 요청자 아이디
+			   	SYSDATE,				
+			   	?, 			-- 작성자 아이디
+			   	SYSDATE,
+			   	?, 			-- 수정자 아이디
+			   	SYSDATE)  
+        ]]>
+    </query> 
+    <query id="tbec_cert_issu_history_fc002" desc="증명서발급  시퀀스조회" fetchSize="10">
+        <![CDATA[
+            /* 증명서발급 시퀀스조회 */
+			SELECT 											
+    		NVL(MAX(SEQ)+1,1) SEQ		--시퀀스	 
+			FROM TBEC_CERT_ISSU_HISTORY
+			WHERE ISSU_YEAR = ?
+        ]]>
+    </query> 
+    <query id="tbec_cert_issu_history_fc003" desc="증명서레포트정보 조회" fetchSize="10">
+        <![CDATA[
+            SELECT 
+                TCIH.ISSU_YEAR
+                ,TCIH.SEQ
+                ,TCIH.ISSU_NO
+                ,(SELECT NVL(MAX(ISSU_NO),0) FROM TBEC_CERT_ISSU_HISTORY WHERE ISSU_YEAR = ?) AS MAXNO
+                ,TO_CHAR(TCIH.ISSU_DTM,'YYYYMMDD') ISSU_DTM
+                ,TRM.NM_KOR
+                ,TRM.RACER_NO
+                ,TRD.NM_CHN
+                ,GET_DEC(TRD.RES_NO) RES_NO
+                ,TRD.POST_NO
+                ,TRD.ADD1_HOME
+                ,TRD.ADD2_HOME
+                ,TRPNR.STR_DT
+                ,TRPNR.END_DT
+                ,SUBSTR(TRPNR.STR_DT,0,4)||'. '||SUBSTR(TRPNR.STR_DT,5,2)||'. '||SUBSTR(TRPNR.STR_DT,7,2)
+                ||' ~ '||SUBSTR(TRPNR.END_DT,0,4)||'. '||SUBSTR(TRPNR.END_DT,5,2)||'. '||SUBSTR(TRPNR.END_DT,7,2) PERIO_TERM
+                ,(SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00092' AND CD = PURPOSES_CD) PURPOSES_CD_NM --용도명
+                ,TCIH.PERIOD_CNTN
+            FROM TBEC_RACER_MASTER TRM
+                , TBEC_RACER_DETAIL TRD
+                , (SELECT RACER_PERIO_NO, MAX(STR_DT) STR_DT, MAX(END_DT) END_DT FROM TBEB_RACER_PERIO_NO_REG_TERM
+                  GROUP BY RACER_PERIO_NO
+                  ORDER BY RACER_PERIO_NO) TRPNR
+                , TBEC_CERT_ISSU_HISTORY TCIH
+            WHERE TRM.RACER_NO                  = ?
+                  AND TCIH.ISSU_YEAR             = ?
+                  AND TCIH.SEQ                   = ?
+                  AND TRM.RACER_NO              = TRD.RACER_NO
+                  AND TRM.RACER_PERIO_NO        = TRPNR.RACER_PERIO_NO
+        ]]>
+    </query>
+    
+    <!-- IWORKS_SFR006 2013.12.21 -->
+    <!-- 
+    <query id="tbec_cert_issu_history_uc001" desc="확인여부 저장" fetchSize="10">
+        <![CDATA[
+        	UPDATE TBEC_CERT_ISSU_HISTORY SET
+				PRS_STAT_CD 		= ? // 확인여부
+			   	,CONFIRM_ID			= ? // 확인자 아이디
+			   	,CONFIRM_DTM 		= SYSDATE // 수정일시
+			WHERE ISSU_YEAR 		= ?	// 년도
+			      AND SEQ 			= ?	// 번
+        ]]>
+    </query>
+     --> 
+    <query id="tbec_cert_issu_history_uc001" desc="확인여부 저장" fetchSize="10">
+        <![CDATA[
+        	UPDATE TBEC_CERT_ISSU_HISTORY SET
+				PRS_STAT_CD 		= ? -- 확인여부
+			   	,CONFIRM_ID			= ? -- 확인자 아이디
+			   	,CONFIRM_DTM 		= SYSDATE -- 수정일시
+			   	,PERIOD_CNTN			= ?	-- 기간내용
+			   	,RJT_RS				= ? -- 반려사유
+			WHERE ISSU_YEAR 		= ?	-- 년도
+			      AND SEQ 			= ?	-- 번
+        ]]>
+    </query>
+    
+    <query id="tbec_cert_issu_history_uc002" desc="발급여부 저장" fetchSize="10">
+        <![CDATA[
+        	UPDATE TBEC_CERT_ISSU_HISTORY SET
+				ISSU_YN 			= ? 		-- 인쇄여부
+			   	,ISSU_NO 			= ? 		-- 발급번호
+			   	,ISSU_DTM 			= SYSDATE 	-- 인쇄일자
+			   	,UPDT_ID			= ? 		-- 수정자 아이디
+			   	,UPDT_DTM 			= SYSDATE 	-- 수정일시
+			WHERE ISSU_YEAR 		= ?			-- 년도
+			      AND SEQ 			= ?			-- 번
+        ]]>
+    </query>
+    
+    <!-- IWORKS_SFR006 2013.12.21 -->
+    <query id="tbec_cert_issu_history_uc003" desc="PDF 파일정보 저장" fetchSize="10">
+        <![CDATA[
+        	UPDATE TBEC_CERT_ISSU_HISTORY SET
+				PDF_FILE_NM 		= ? 		-- PDF파일명
+			   	,PDF_UPDT_DT 		= SYSDATE 	-- 파일생성일시
+			WHERE ISSU_YEAR 		= ?			-- 년도
+			      AND SEQ 			= ?			-- 번
+        ]]>
+    </query>
+
+</queryMap>

@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4020(입고)">
+    <query id="rbo4020_s01" desc="모델별 부품 입고 정보 조회" fetchSize="10">
+      <![CDATA[
+      
+			SELECT  /* rbo4020_S01 */ 
+			        A.PARTS_LCD             AS PARTS_LCD            -- 발매기코드
+			      , FC_CODE_NM('097', A.PARTS_LCD)  AS PARTS_LCD_NM    -- 발매기명
+			      , A.PARTS_MCD             AS PARTS_MCD            -- 부품그룹코드
+			      , FC_CODE_NM('098', A.PARTS_MCD)  AS PARTS_MCD_NM    -- 부품그룹명
+			      , A.PARTS_CD              AS PARTS_CD             -- 부품코드
+			      , A.PARTS_NM              AS PARTS_NM             -- 부품명
+			      , A.MADE_GBN              AS MADE_GBN             -- 생산지코드
+			      , FC_CODE_NM('112', A.MADE_GBN) AS MADE_GBN_NM	-- 생산지명
+			      , SUM(NVL(B.IN_CNT, 0))   AS IN_CNT               -- 입고수량
+			      , B.IN_DT                 AS IN_DT                -- 입고일자
+			      , '0'                     AS CHK                  
+			FROM  TBRB_PARTS_MODEL A, 
+				  TBRB_PARTS_IN B
+			WHERE A.PARTS_CD = B.PARTS_CD                                       -- A, B 부품코드
+			AND   A.PARTS_LCD LIKE '%' || NVL(?, A.PARTS_LCD) || '%'            -- 발매기코드
+			AND   A.PARTS_MCD LIKE '%' || NVL(?, A.PARTS_MCD) || '%'            -- 부품그룹코드
+		  	AND   A.PARTS_CD  LIKE '%' || NVL(?, A.PARTS_CD)  || '%'
+			AND  (B.IN_DT BETWEEN NVL(?, '19000101') AND NVL(?, '99991231'))  	-- 입고일자
+			AND   A.USE_YN = 'Y'
+			AND   B.DEL_YN = 'N'
+			GROUP BY A.PARTS_LCD, A.PARTS_MCD, A.PARTS_CD, A.PARTS_NM, A.MADE_GBN, B.IN_DT
+			ORDER BY  B.IN_DT, A.PARTS_LCD, A.PARTS_MCD, A.PARTS_CD, A.PARTS_NM, A.MADE_GBN
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4020_s02" desc="모델별 부품 콤보(공통코드화) 조회" fetchSize="10">
+      <![CDATA[
+      
+			SELECT  A.PARTS_LCD     PARTS_LCD
+			      , A.PARTS_MCD     PARTS_MCD
+			      , A.PARTS_CD      PARTS_CD
+			      , A.PARTS_NM      PARTS_NM
+			FROM    TBRB_PARTS_MODEL A
+			WHERE   A.PARTS_LCD LIKE '%'|| NVL(?, A.PARTS_LCD) ||'%'
+			AND     A.PARTS_MCD LIKE '%'|| NVL(?, A.PARTS_MCD) ||'%'
+			AND     A.USE_YN = 'Y'
+      
+      ]]>
+    </query>
+
+	<query id="rbo4020_i01" desc="부품 입고 정보 등록" fetchSize="10">
+      <![CDATA[
+      
+			INSERT
+			INTO TBRB_PARTS_IN    /* rbo4020_i01 */
+			(
+			      PARTS_CD      -- 부품코드
+			    , SEQ           -- 순번                
+			    
+			    , IN_DT         -- 입고일자
+			    , IN_NO         -- 입고자
+			    , IN_CNT        -- 입고수량
+			    
+			    , INPUT_DT		-- 입력일자
+			    , DEL_YN      	-- 삭제여부                                              
+			    
+			    , INST_ID       -- 작성자ID
+			    , INST_DT       -- 작성일자
+			)
+			VALUES
+			(
+			      ?         		-- PARTS_CD
+			    , (SELECT
+			               NVL(MAX(SEQ), 0) + 1
+			       FROM    TBRB_PARTS_IN
+			       WHERE   PARTS_CD = ?
+			       AND     IN_DT = substr(?, 0, 8)
+			      )         		-- SEQ                                  
+			    
+			    , substr(?, 0, 8)	-- IN_DT
+			    , ?         		-- IN_NO
+			    , ?         		-- IN_CNT
+			    
+			    , TO_CHAR(SYSDATE, 'YYYYMMDD')	-- INPUT_DT
+			    , 'N'
+			    
+			    , ?         		-- INST_ID
+			    , SYSDATE   		-- INST_DT
+			)
+      
+      ]]>
+    </query>
+    
+    
+    <query id="rbo4020_u01" desc="현재고 수정" fetchSize="10">
+      <![CDATA[
+      
+			MERGE INTO  TBRB_PARTS_STOCK A
+			USING   (   SELECT
+			                    ?   	AS PARTS_CD     -- 부품코드
+			                  , '00'   AS BRNC_CD      	-- 지점코드 ( 광명 ) 
+			                  , ?   	AS IN_CNT      	-- 입고수량
+			                  , ?   	AS INST_ID      -- 작성자ID
+			            FROM    DUAL
+			        ) B
+			ON  (
+			            A. PARTS_CD = B.PARTS_CD
+			        AND A. BRNC_CD = B.BRNC_CD
+			    )
+			WHEN MATCHED THEN
+			        UPDATE
+			        SET   STK_CNT = (SELECT SUM(STK_CNT) + NVL(B.IN_CNT, 0) 
+		                             FROM TBRB_PARTS_STOCK  
+		                             WHERE   PARTS_CD = B.PARTS_CD
+		                             AND     BRNC_CD = B.BRNC_CD
+		                             )   		-- 현재고수량                                                                          
+			            , UPDT_ID = B.INST_ID   -- 작성자ID
+			            , UPDT_DT = SYSDATE     -- 작성일자
+			        WHERE   PARTS_CD = B.PARTS_CD
+			        AND     BRNC_CD = B.BRNC_CD
+			
+			WHEN NOT MATCHED THEN
+			        INSERT
+			        (
+			              PARTS_CD      -- 부품코드
+			            , BRNC_CD       -- 지점코드                              
+			            , STK_CNT       -- 현재고수량                                                                          
+			            , INST_ID       -- 작성자ID
+			            , INST_DT       -- 작성일자
+			        )
+			        VALUES
+			        (
+			              B.PARTS_CD                -- PARTS_CD
+			            , B.BRNC_CD                 -- BRNC_CD                                                  
+			            , NVL(B.IN_CNT, 0)          -- STK_CNT               
+			            , B.INST_ID                 -- INST_ID
+			            , SYSDATE                   -- INST_DT
+			        )
+      
+      ]]>
+    </query>
+    
+    
+    <query id="rbo4020_d01" desc="부품 입고 정보 삭제" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  TBRB_PARTS_IN	/* RBO4021_d01 */
+			SET
+			        DEL_YN = 'Y'			-- 삭제여부( Y : 삭제, N : 사용 ) 이력관리
+			      , UPDT_ID = ?				-- 수정자ID
+			      , UPDT_DT = SYSDATE		-- 수정일시
+			
+			WHERE   PARTS_CD = ?			-- 부품코드
+			AND     IN_DT = ?				-- 입고일자
+      
+      ]]>
+    </query>
+    
+    <query id="rbo4020_d02" desc="현재고 수정(입고 삭제 시)" fetchSize="10">
+      <![CDATA[
+      
+			UPDATE  TBRB_PARTS_STOCK    /* RBO4021_d02 */
+			SET   STK_CNT = (SELECT SUM(STK_CNT) - NVL(?, 0) 
+			                 FROM TBRB_PARTS_STOCK  
+			                 WHERE   PARTS_CD = ?
+			                 AND     BRNC_CD = '00'
+			                 )          -- 현재고수량                                                                          
+			    , UPDT_ID = ?           -- 작성자ID
+			    , UPDT_DT = SYSDATE     -- 작성일자
+			WHERE   PARTS_CD = ?
+			AND     BRNC_CD = '00'
+      
+      ]]>
+    </query>
+    
+</queryMap>

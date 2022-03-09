@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdn_cand_race_detld(각종출력)">
+
+	<query id="tbdn_cand_race_detld_fb001" desc="기수별 결과 집계 조회" fetchSize="10">
+        <![CDATA[
+		--기수별 결과 집계 조회
+		
+		SELECT DECODE(RACER_PERIO_NO,'','합계',RACER_PERIO_NO) AS RACER_PERIO_NO,
+               EDU_DAY,
+               RACE_SEQ,
+               VIOLCNT_3,
+               VIOLCNT_4,
+               BOAT_TIME,
+               VIOL_3,
+               VIOL_2,
+               VIOL_4,
+               VIOL_1,
+               VIOL_5,
+               ADD_SCR,
+               MOTER
+        FROM(            
+                SELECT
+                      RACER_PERIO_NO                    RACER_PERIO_NO,   
+                      NVL(COUNT(DISTINCT DT),0)         EDU_DAY,
+                      NVL(COUNT(RACE_SEQ),0)            RACE_SEQ,
+                      NVL(SUM(VIOLCNT_3),0)             VIOLCNT_3,
+                      NVL(SUM(VIOLCNT_4),0)             VIOLCNT_4,
+                      NVL(SUM(to_number(boat_time)),0)  BOAT_TIME,
+                      NVL(SUM(VIOL_3),0) 				VIOL_3,
+                      NVL(SUM(VIOL_2),0) 				VIOL_2,
+                      NVL(SUM(VIOL_4),0) 				VIOL_4,
+                      NVL(SUM(VIOL_1),0) 				VIOL_1,
+                      NVL(SUM(VIOL_5),0) 				VIOL_5,
+                      NVL(SUM(ADD_SCR),0) 				ADD_SCR,
+                      NVL(SUM(MOTER),0) 				MOTER
+                FROM(
+                       SELECT A.RACER_PERIO_NO,
+                              A.RACE_SEQ,
+                              A.DT,
+                              A.BOAT_TIME,
+                              CASE WHEN A.GBN 		= '003' THEN COUNT(A.GBN)  		 ELSE 0 END AS VIOLCNT_3,
+                              CASE WHEN A.GBN 		= '004' THEN COUNT(A.GBN)  		 ELSE 0 END AS VIOLCNT_4,
+                              CASE WHEN VIOL_CNTNT = '003' 	THEN COUNT(A.VIOL_CNTNT) ELSE 0 END AS VIOL_3,    
+                              CASE WHEN VIOL_CNTNT = '002' 	THEN COUNT(A.VIOL_CNTNT) ELSE 0 END AS VIOL_2,
+                              CASE WHEN VIOL_CNTNT = '004' 	THEN COUNT(A.VIOL_CNTNT) ELSE 0 END AS VIOL_4,
+                              CASE WHEN VIOL_CNTNT = '001' 	THEN COUNT(A.VIOL_CNTNT) ELSE 0 END AS VIOL_1,
+                              CASE WHEN VIOL_CNTNT = '005' 	THEN COUNT(A.VIOL_CNTNT) ELSE 0 END AS VIOL_5,
+                               (SELECT SUM(B.PRZ_SCR)-SUM(B.PENAL_SCR) AS ADD_SCR
+                                 FROM TBDN_CAND_RWNPT B
+                                 WHERE A.RACER_PERIO_NO = B.RACER_PERIO_NO
+                                 AND   B.RWNPT_DT BETWEEN ? AND ?
+                                 GROUP BY B.RACER_PERIO_NO
+                                 ) AS ADD_SCR,
+                               (SELECT COUNT(SEQ) AS MOTER 
+                                    FROM TBDP_MANTC_DETL B
+                                 WHERE A.CAND_NO = B.USER_NO
+                                 AND B.MANTC_DT BETWEEN ? AND ?
+                                 AND EQUIP_GBN 	= '001'
+                                 AND USER_GBN 	= '001'
+                                 ) AS MOTER            
+                        FROM TBDN_CAND_RACE_DETL A 
+                        WHERE A.RACER_PERIO_NO LIKE  ? ||'%'
+                        AND   A.DT BETWEEN ? AND ?
+                        GROUP BY A.RACER_PERIO_NO,A.RACE_SEQ,A.DT,A.BOAT_TIME,A.GBN,A.VIOL_CNTNT,A.CAND_NO                    
+                    )
+                    GROUP BY ROLLUP( RACER_PERIO_NO)
+                    )
+                    
+		]]>
+    </query>
+    <query id="tbdn_cand_race_detld_fb002" desc="체중측정" fetchSize="10">
+        <![CDATA[
+		    SELECT  A.CAND_NO
+				   ,B.NM_KOR
+				   ,A.DT
+				   ,A.REC 
+			FROM    TBDN_CAND_IDENT  B, TBDN_DT_STRT_MESUR A    
+			WHERE   B.RACER_PERIO_NO    = A.RACER_PERIO_NO
+			AND     B.CAND_NO           = A.CAND_NO
+			AND     A.ITEM_CD = '101' 
+			AND	    A.RACER_PERIO_NO = ?
+			AND     A.DT BETWEEN ? AND ? 
+		]]>
+    </query>
+    <query id="tbdn_cand_race_detld_fb003" desc="악력측정" fetchSize="10">
+        <![CDATA[
+     	   	SELECT  A.CAND_NO
+				   ,B.NM_KOR
+				   ,A.DT
+				   ,A.REC 
+				   ,ITEM_CD
+			FROM    TBDN_CAND_IDENT  B, TBDN_DT_STRT_MESUR A    
+			WHERE   B.RACER_PERIO_NO    = A.RACER_PERIO_NO
+			AND     B.CAND_NO           = A.CAND_NO
+			AND     A.ITEM_CD IN ('102' ,'103') 
+			AND	    A.RACER_PERIO_NO = ?
+			AND     A.DT BETWEEN ? AND ?
+		]]>
+    </query>
+    <query id="tbdn_cand_race_detld_fb004" desc="배근력측정" fetchSize="10">
+        <![CDATA[
+		    SELECT  A.CAND_NO
+				   ,B.NM_KOR
+				   ,A.DT
+				   ,A.REC 
+			FROM    TBDN_CAND_IDENT  B, TBDN_DT_STRT_MESUR A    
+			WHERE   B.RACER_PERIO_NO    = A.RACER_PERIO_NO
+			AND     B.CAND_NO           = A.CAND_NO
+			AND     A.ITEM_CD = '104' 
+			AND	    A.RACER_PERIO_NO = ?
+			AND     A.DT BETWEEN ? AND ? 
+		]]>
+    </query>
+</queryMap>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : mgrDocuInfo.xml
+  * @메뉴명 : 양식정보관리, 기본 결재라인
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="mgrDocuInfo"> 
+	<!-- 양식정보관리 START-->
+	<select id="getDocumentInfoList" parameterType="hashmap" resultType="com.hanaph.gw.ea.mgrDocuInfo.vo.DocumentInfoVO">
+		SELECT ROWNUM RNUM, DOCU_SEQ, DEPT_CD, HANAHR.F_GET_DEPT_NM (DEPT_CD) DEPT_KO_NM, 
+			   DOCU_NM, DOCU_CD, DECIDE_YN, SECURITY_YN, CONTENTS, CREATE_DT, CREATE_NO, MODIFY_DT, MODIFY_NO, USE_YN, ORDERING
+			   FROM
+			   (
+				SELECT   DOCU.DOCU_SEQ, DOCU.DEPT_CD,
+					     HANAHR.F_GET_DEPT_NM (DEPT_CD) DEPT_KO_NM, DOCU.DOCU_NM,
+				         DOCU.DOCU_CD, DOCU.DECIDE_YN, DOCU.SECURITY_YN, DOCU.CONTENTS, DOCU.CREATE_DT,
+				         DOCU.CREATE_NO, DOCU.MODIFY_DT, DOCU.MODIFY_NO, DOCU.USE_YN, CODE.ORDERING
+				    FROM GW_EA_DOCU DOCU, GW_CO_CODE CODE
+				   WHERE DOCU.DOCU_CD = CODE.CD
+				     AND DEPT_CD = #{search_dept_cd}
+				     AND CODE.USE_YN = 'Y'
+		           	<if test="use_yn != null and use_yn !=''">  
+				     AND DOCU.USE_YN = #{use_yn}
+		           	</if>    
+					<if test="search_docu_nm != null and search_docu_nm !=''">  
+				     AND DOCU.DOCU_NM LIKE '%' || #{search_docu_nm} || '%'
+					</if>
+					<if test="menu != null and menu !=''">
+					<if test="menu eq '0201'">
+					 AND DOCU.DOCU_CD <![CDATA[ <> ]]> 'E01012'
+					</if>
+					</if>
+				ORDER BY CODE.ORDERING ASC
+			)		
+	</select>
+	
+	<select id="getDocumentInfoCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) 
+		  FROM GW_EA_DOCU DOCU, GW_CO_CODE CODE
+	     WHERE DOCU.DOCU_CD = CODE.CD
+		   AND DEPT_CD = #{search_dept_cd}
+		   AND CODE.USE_YN = 'Y'
+		<if test="use_yn != null and use_yn !=''">  
+           AND DOCU.USE_YN = #{use_yn}
+        </if>
+		<if test="search_docu_nm != null and search_docu_nm !=''">  
+		   AND DOCU.DOCU_NM LIKE '%' || #{search_docu_nm} || '%'
+		</if>		
+		<if test="menu != null and menu !=''">
+		<if test="menu eq '0201'">
+		  AND DOCU.DOCU_CD <![CDATA[ <> ]]> 'E01012'
+		</if>
+		</if> 
+	</select>
+	
+	<select id="getDocumentInfoDetail" parameterType="hashmap" resultType="com.hanaph.gw.ea.mgrDocuInfo.vo.DocumentInfoVO">
+		SELECT DOCU_SEQ, DEPT_CD, HANAHR.F_GET_DEPT_NM (DEPT_CD) DEPT_KO_NM, DOCU_NM,
+		       DOCU_CD, DECIDE_YN, SECURITY_YN, CONTENTS, TO_CHAR(CREATE_DT, 'yyyy-mm-dd') CREATE_DT, 
+		       CREATE_NO, MODIFY_DT, MODIFY_NO, USE_YN
+		  FROM GW_EA_DOCU
+		 WHERE DOCU_SEQ = #{docu_seq} 
+	</select>
+	
+	<update id="updateDocumentInfo" parameterType="com.hanaph.gw.ea.mgrDocuInfo.vo.DocumentInfoVO">
+		UPDATE GW_EA_DOCU
+		   SET DECIDE_YN = #{decide_yn},
+		       SECURITY_YN = #{security_yn},
+		       CONTENTS = #{contents},
+		       MODIFY_DT = SYSDATE,
+		       MODIFY_NO = #{modify_no},
+		       USE_YN = #{use_yn}
+		 WHERE DOCU_SEQ = #{docu_seq} 
+	</update>
+	
+	<select id="selectDocuSeq" parameterType="hashmap" resultType="String">
+		SELECT DOCU_SEQ
+		  FROM GW_EA_DOCU
+		 WHERE DEPT_CD = #{dept_cd} AND DOCU_CD = #{docu_cd} 
+	</select>
+	<!-- 양식정보관리 END-->
+	
+	<!-- 문서별 기본 결재 라인 START-->
+	<select id="getBasicApprovalDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.mgrDocuInfo.vo.BasicApprovalVO">
+		SELECT   DOCU_SEQ, BASIC.EMP_NO, ORDERING, CREATE_DT, CREATE_NO,
+		         EMP.EMP_KO_NM
+		    FROM GW_EA_BASIC_APPROVAL BASIC, HANAHR.HR_HC_EMPBAS_0 EMP
+		   WHERE BASIC.EMP_NO = EMP.EMP_NO
+		     AND (EMP.ENGAG_DIV = '70010' OR EMP.ENGAG_DIV = '70030')
+		     AND DOCU_SEQ = #{docu_seq}
+		ORDER BY ORDERING ASC
+	</select>
+	
+	<insert id="insertBasicApproval" parameterType="com.hanaph.gw.ea.mgrDocuInfo.vo.BasicApprovalVO">
+		INSERT INTO GW_EA_BASIC_APPROVAL
+	            (DOCU_SEQ, EMP_NO, ORDERING, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (#{docu_seq} , #{emp_no} , #{ordering} , SYSDATE, #{create_no} 
+	            )
+	</insert>
+	
+	<delete id="deleteBasicApproval" parameterType="hashmap">
+		DELETE FROM GW_EA_BASIC_APPROVAL WHERE DOCU_SEQ = #{docu_seq}
+	</delete>
+	<!-- 문서별 기본 결재 라인 END-->
+	
+	<!-- 문서별 기본 시행 라인 START-->
+	<select id="getBasicImplDeptDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.mgrDocuInfo.vo.BasicImplDeptVO">
+		SELECT IMPL.DOCU_SEQ, IMPL.DEPT_CD, IMPL.ORDERING, IMPL.CREATE_DT, IMPL.CREATE_NO,
+			   HANAHR.F_GET_DEPT_NM(IMPL.DEPT_CD) DEPT_KO_NM
+		  FROM GW_EA_BASIC_IMPL_DEPT IMPL, HANAHR.HR_CO_DEPART_0 DEPT
+		 WHERE IMPL.DEPT_CD = DEPT.DEPT_CD
+           AND IMPL.DOCU_SEQ = #{docu_seq} 
+           AND DEPT.USE_YN = 'Y' 
+		ORDER BY ORDERING ASC 
+	</select>
+	
+	<insert id="insertBasicImplDept" parameterType="com.hanaph.gw.ea.mgrDocuInfo.vo.BasicImplDeptVO">
+		INSERT INTO GW_EA_BASIC_IMPL_DEPT
+	            (DOCU_SEQ, DEPT_CD, ORDERING, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (#{docu_seq} , #{dept_cd}, #{ordering}, SYSDATE, #{create_no}
+	            )
+	</insert>
+	
+	<delete id="deleteBasicImplDept" parameterType="hashmap">
+		DELETE FROM GW_EA_BASIC_IMPL_DEPT WHERE DOCU_SEQ = #{docu_seq}
+	</delete>
+	<!-- 문서별 기본 시행 라인 END-->
+	
+</mapper>

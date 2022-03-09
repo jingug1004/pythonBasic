@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbo3040(구매수량산출)">
+    <query id="rbo3040_s01" desc="구매수량산출  조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbo3040_s01 */
+				 BRNC_CD		--지점코드
+				,STND_YEAR		--년도
+				,ROLL_GBN		--용지구분
+				,BFR_YEAR_STK_QTY	--전년도이월재고
+				,MAKE_STK_CNT		--제작입고
+				,MOVE_IN_CNT		--점간입고수량
+				,MOVE_OUT_CNT		--점간출고수량
+				,USGE_CNT		--사용량
+				,END_YEAR_STK		--연말재고
+				,YEAR_TMS		--연간경주회차수
+				,AVG_TMS		--회차평균사용량
+				,INC_DEC_RATE		--증감율
+				,NECE_CNT		--소요량
+				,QUAR_USGE_CNT		--1/4사용량
+				,MAKE_CNT		--제작수량
+				,UNIT_PRICE		--단가
+				,NECE_BUDG		--소요예산
+				,CFM_YN			--확정여부
+				,RMK			--비고
+				,INST_ID		--작성자
+				,INST_DT		--작성일시
+				,UPDT_ID		--수정자
+				,UPDT_DT		--수정일시
+
+			FROM TBRB_ROLL_PRHS_CACU			 
+			WHERE  STND_YEAR = ?
+			       AND ROLL_GBN  = ?
+			       AND BRNC_CD  LIKE  '%' || NVL(? , BRNC_CD) || '%' 
+			ORDER BY BRNC_CD
+
+			
+        ]]>
+    </query>       
+
+   <query id="rbo3040_i01" desc="구매수량산출 생성" fetchSize="10">
+
+        <![CDATA[
+		
+				INSERT INTO TBRB_ROLL_PRHS_CACU  /*rbo3040_i01*/
+				SELECT
+				     B.BRNC_CD      --지점
+				    ,?  STND_YEAR   --기준년도
+				    ,?  ROLL_GBN
+				    ,NVL(A.PRE_END_CNT,0)  PRE_END_CNT -- 전년이월재고
+				    ,NVL(A.MAKE_STK_CNT,0) MAKE_STK_CNT --제작입고
+				    ,NVL(A.OUT_CNT,0)      OUT_CNT --점간출고수량
+				    ,NVL(A.IN_CNT,0)       IN_CNT --점간입고수량
+				    ,NVL(A.USGE_CNT,0)     USGE_CNT --사용량
+				    ,NVL(A.END_CNT,0)      END_CNT --연말재고
+				    ,NVL(A.TMS_CNT,0)      TMS_CNT --연간경주회차수
+				    ,NVL(AVG_CNT,0)                       --회차평균사용량 
+				    ,(NVL(A.INC_RATE,0)*100)     INC_RATE --증감율
+				    ,NVL(ROUND((AVG_CNT * A.TMS_CNT *(1 + A.INC_RATE)),0),0)  NEXT_USGE_CNT--소요량
+				    ,NVL((AVG_CNT * 11 ) ,0)  NEXT_CNT -- 1/4사용량
+				    ,NVL(ROUND(((AVG_CNT * A.TMS_CNT * (1 + A.INC_RATE)) - A.END_CNT +  (AVG_CNT * 11 )),0),0)  NEXT_MAKE_CNT
+				    ,? UNIT_PRICE
+				    ,NVL(ROUND(((AVG_CNT * A.TMS_CNT * (1 + A.INC_RATE)) - A.END_CNT +  (AVG_CNT * 11 )),0) * ?,0) NECE_BUDG
+				    ,''     CFM_YN      --확정여부
+				    ,''     RMK         --비고
+				    ,''     INST_ID     -- 작성자
+				    ,SYSDATE    INST_DT --작성일시
+				    ,''         UPDT_ID -- 수정자
+				    ,SYSDATE    UPDT_DT -- 수정일시
+				FROM(
+				       
+				       SELECT     
+				              B.BRNC_CD  --지점
+				             ,B.STND_YEAR --기준년도
+				            ,NVL(FC_GET_ROLLSTKCNT(?,'',B.BRNC_CD, ? ,'03'),0) PRE_END_CNT  -- 전년이월재고
+				            ,SUM(MAKE_STK_CNT) MAKE_STK_CNT     --제작입고
+				            
+				            ,NVL((SELECT SUM(MOVE_CNT) FROM TBRB_ROLL_BRNC_MOVE C
+				                WHERE       C.ROLL_GBN    = B.ROLL_GBN
+				                        AND C.OUT_BRNC_CD = B.BRNC_CD
+				                        AND C.STND_YEAR   = B.STND_YEAR ),0)  IN_CNT	  --점간입고수량
+				                        
+				            ,NVL((SELECT SUM(MOVE_CNT) 
+				                  FROM TBRB_ROLL_BRNC_MOVE D
+				                  WHERE     D.ROLL_GBN   = B.ROLL_GBN
+				                        AND D.IN_BRNC_CD = B.BRNC_CD
+				                        AND D.STND_YEAR  = B.STND_YEAR ),0)  OUT_CNT	--점간출고수량
+				                        
+				            ,SUM(NVL(A.MRA_USGE_CNT,0) + NVL(A.CRA_USGE_CNT ,0)) USGE_CNT
+				            ,NVL(FC_GET_ROLLSTKCNT(?,'',B.BRNC_CD, ? ,'02'),0) END_CNT  -- 연말재고
+				            ,ROUND(SUM(NVL(A.MRA_USGE_CNT,0) + NVL(A.CRA_USGE_CNT ,0))/5,0)  AVG_CNT    -- 회차별 평균수량
+				            ,(SELECT  COUNT(DISTINCT(TMS)) FROM VW_SDL_INFO D WHERE  D.MEET_CD ='001' AND D.STND_YEAR = B.STND_YEAR)  TMS_CNT    -- 연간경주회차수
+				            ,0   INC_RATE   -- 증감율
+				        FROM TBRB_ROLL_MANA A,
+				             (SELECT BRNC_CD, 
+				                     ? AS STND_YEAR,
+				                     ? AS ROLL_GBN
+				              FROM   TBRB_ROLL_PRHS_CACU
+				              WHERE  STND_YEAR = ? -1
+				              GROUP BY BRNC_CD ) B
+				        WHERE   A.STND_YEAR(+) = B.STND_YEAR
+				            AND A.BRNC_CD(+)   = B.BRNC_CD
+				            AND A.ROLL_GBN(+)  = B.ROLL_GBN
+				        GROUP BY B.BRNC_CD, B.STND_YEAR, B.ROLL_GBN
+				 )A, 
+				 (
+				        SELECT
+				             CD BRNC_CD
+				            ,CD_NM BRNC_NM
+				        FROM TBRK_SPEC_CD 
+				       WHERE GRP_CD = '018'
+				         AND DEL_YN = 'N'
+				 )B
+				 WHERE A.BRNC_CD(+) = B.BRNC_CD
+				 ORDER BY BRNC_CD 
+			
+        ]]>
+
+    </query>    
+    
+  <query id="rbo3040_u01" desc="구매수량산출 수정" fetchSize="10">
+
+        <![CDATA[
+			   UPDATE  TBRB_ROLL_PRHS_CACU  /*rbo3040_u01*/
+			   SET
+			     INC_DEC_RATE	= ?	--증감율
+				,NECE_CNT		= ? --소요량
+				,QUAR_USGE_CNT	= ? --1/4사용량
+				,MAKE_CNT		= ? --제작수량
+				,UNIT_PRICE		= ? --단가
+				,NECE_BUDG		= ? --소요예산
+				,RMK			= ? --비고
+				,UPDT_ID		= ? --수정자
+				,UPDT_DT		= SYSDATE  --수정일시	 
+			WHERE  STND_YEAR = ?
+			       AND ROLL_GBN  = ?
+			       AND BRNC_CD  = ?
+			
+        ]]>
+
+    </query>  
+
+   <query id="rbo3040_u02" desc="구매수량산출 확정" fetchSize="10">
+
+        <![CDATA[
+			UPDATE  TBRB_ROLL_PRHS_CACU   /*rbo3040_u02*/
+			   SET
+			     CFM_YN			= ?		--확정여부
+				,UPDT_ID		= ? 	--수정자
+				,UPDT_DT		= SYSDATE  --수정일시		 
+			WHERE  STND_YEAR = ?
+			       AND ROLL_GBN  = ?
+			
+        ]]>
+
+    </query>    
+
+    <query id="rbo3040_s02" desc="용지재고 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* "rbo3040_s02" */
+				MIN(STND_YEAR) STND_YEAR
+			FROM 		
+               TBRB_ROLL_MANA		
+        ]]>
+    </query>         
+
+   <query id="rbo3040_s03" desc="구매수량산출  확정 조회" fetchSize="10">
+      <![CDATA[
+			SELECT  /* rbo3040_s03 */
+				 BRNC_CD		--지점코드
+				,STND_YEAR		--기준년도
+				,ROLL_GBN		--용지구분
+				,CFM_YN			--확정여부
+				
+				,INST_ID
+				,INST_DT
+				,UPDT_ID
+				,UPDT_DT
+
+			FROM TBRB_ROLL_PRHS_CACU			 
+			WHERE  STND_YEAR = ?
+			       AND ROLL_GBN  = ?	
+        ]]>
+    </query>       
+
+    <query id="rbo3040_d01" desc="구매수량산출  삭제" fetchSize="10">
+      <![CDATA[
+			DELETE  /* rbo3040_d01 */			
+			FROM TBRB_ROLL_PRHS_CACU			 
+			WHERE  STND_YEAR = ?
+			       AND ROLL_GBN  = ?	
+        ]]>
+    </query>    
+</queryMap>

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs2040(건전레저 현황">
+        
+    <query id="rbs2040_s_list" desc="건전레저 현황 조회" fetchSize="10">
+        <![CDATA[
+                
+			SELECT   A.BUSI_CNTNT_CD,                               -- 사업내역코드			
+			         A.HEAL_LEISU_CD,                               -- 건전레저코드
+			         A.BUSI_NM,                                     -- 사업명
+			         
+			         NVL(B.THIS_YEAR_TOTAL, 0) AS THIS_YEAR_TOTAL,  -- 검색년도 총합
+			         NVL(B.M1,  0)             AS THIS_M1,          -- 검색년도 1 월
+			         NVL(B.M2,  0)             AS THIS_M2,          -- 검색년도 2 월 
+			         NVL(B.M3,  0)             AS THIS_M3,          -- 검색년도 3 월 
+			         NVL(B.M4,  0)             AS THIS_M4,          -- 검색년도 4 월 
+			         NVL(B.M5,  0)             AS THIS_M5,          -- 검색년도 5 월 
+			         NVL(B.M6,  0)             AS THIS_M6,          -- 검색년도 6 월
+			         NVL(B.M7,  0)             AS THIS_M7,          -- 검색년도 7 월 
+			         NVL(B.M8,  0)             AS THIS_M8,          -- 검색년도 8 월 
+			         NVL(B.M9,  0)             AS THIS_M9,          -- 검색년도 9 월
+			         NVL(B.M10, 0)             AS THIS_M10,         -- 검색년도 10월 
+			         NVL(B.M11, 0)             AS THIS_M11,         -- 검색년도 11월 
+			         NVL(B.M12, 0)             AS THIS_M12,         -- 검색년도 12월
+			         
+			         
+			         NVL(C.LAST_YEAR_TOTAL, 0) LAST_YEAR_TOTAL,     -- 검색년의 전년도 총합			         
+			         NVL(C.M1,  0)             AS LAST_M1,          -- 검색년의 전년도 1 월
+			         NVL(C.M2,  0)             AS LAST_M2,          -- 검색년의 전년도 2 월 
+			         NVL(C.M3,  0)             AS LAST_M3,          -- 검색년의 전년도 3 월 
+			         NVL(C.M4,  0)             AS LAST_M4,          -- 검색년의 전년도 4 월 
+			         NVL(C.M5,  0)             AS LAST_M5,          -- 검색년의 전년도 5 월 
+			         NVL(C.M6,  0)             AS LAST_M6,          -- 검색년의 전년도 6 월
+			         NVL(C.M7,  0)             AS LAST_M7,          -- 검색년의 전년도 7 월 
+			         NVL(C.M8,  0)             AS LAST_M8,          -- 검색년의 전년도 8 월 
+			         NVL(C.M9,  0)             AS LAST_M9,          -- 검색년의 전년도 9 월
+			         NVL(C.M10, 0)             AS LAST_M10,         -- 검색년의 전년도 10 월 
+			         NVL(C.M11, 0)             AS LAST_M11,         -- 검색년의 전년도 11 월 
+			         NVL(C.M12, 0)             AS LAST_M12,         -- 검색년의 전년도 12 월
+			         
+			         --NVL(D.THIS_YEAR_MONTH_TOTAL, 0) AS THIS_YEAR_MONTH_TOTAL,  -- 검색년의            1 월 - 현재월 합
+			         --NVL(E.LAST_YEAR_MONTH_TOTAL, 0) AS LAST_YEAR_MONTH_TOTAL,  -- 검색년의 전년도 1 월 - 현재월 합
+			         			         
+			         CASE NVL(E.LAST_YEAR_MONTH_TOTAL, 0) 
+			         WHEN 0 THEN 0
+			                ELSE ROUND((NVL(D.THIS_YEAR_MONTH_TOTAL, 0) - NVL(E.LAST_YEAR_MONTH_TOTAL, 0)) * 100/NVL(E.LAST_YEAR_MONTH_TOTAL, 0), 2) -- ROUND((현재 - 작년)*100/작년, 2)
+			         END AS INCR -- 증가률 : 공식 - ROUND((현재 - 작년)*100/작년, 2)
+			         
+			FROM     TBRE_HEAL_CNTNT A,
+			         (  
+			          /* 검색년도  합 */
+			          SELECT   BUSI_CNTNT_CD, 
+			                   EXEC_YEAR,
+			        
+			                   SUM(PRSN_NUM) AS THIS_YEAR_TOTAL,
+			                   SUM(DECODE(EXEC_MM,'01', PRSN_NUM, 0)) AS M1, 
+			                   SUM(DECODE(EXEC_MM,'02', PRSN_NUM, 0)) AS M2, 
+			                   SUM(DECODE(EXEC_MM,'03', PRSN_NUM, 0)) AS M3, 
+			                   SUM(DECODE(EXEC_MM,'04', PRSN_NUM, 0)) AS M4, 
+			                   SUM(DECODE(EXEC_MM,'05', PRSN_NUM, 0)) AS M5, 
+			                   SUM(DECODE(EXEC_MM,'06', PRSN_NUM, 0)) AS M6, 
+			                   SUM(DECODE(EXEC_MM,'07', PRSN_NUM, 0)) AS M7, 
+			                   SUM(DECODE(EXEC_MM,'08', PRSN_NUM, 0)) AS M8, 
+			                   SUM(DECODE(EXEC_MM,'09', PRSN_NUM, 0)) AS M9, 
+			                   SUM(DECODE(EXEC_MM,'10', PRSN_NUM, 0)) AS M10, 
+			                   SUM(DECODE(EXEC_MM,'11', PRSN_NUM, 0)) AS M11, 
+			                   SUM(DECODE(EXEC_MM,'12', PRSN_NUM, 0)) AS M12
+			                        
+			          FROM     TBRE_HEAL_EXEC           
+			          WHERE    EXEC_YEAR = ?                        -- 1. 년도            
+			          GROUP BY BUSI_CNTNT_CD, EXEC_YEAR          
+			         ) B,
+			         (  
+			          /* 검색년의 전년도  합 */
+			          SELECT   BUSI_CNTNT_CD, 
+			                   SUM(PRSN_NUM) AS LAST_YEAR_TOTAL,
+			                   SUM(DECODE(EXEC_MM,'01', PRSN_NUM, 0)) AS M1, 
+			                   SUM(DECODE(EXEC_MM,'02', PRSN_NUM, 0)) AS M2, 
+			                   SUM(DECODE(EXEC_MM,'03', PRSN_NUM, 0)) AS M3, 
+			                   SUM(DECODE(EXEC_MM,'04', PRSN_NUM, 0)) AS M4, 
+			                   SUM(DECODE(EXEC_MM,'05', PRSN_NUM, 0)) AS M5, 
+			                   SUM(DECODE(EXEC_MM,'06', PRSN_NUM, 0)) AS M6, 
+			                   SUM(DECODE(EXEC_MM,'07', PRSN_NUM, 0)) AS M7, 
+			                   SUM(DECODE(EXEC_MM,'08', PRSN_NUM, 0)) AS M8, 
+			                   SUM(DECODE(EXEC_MM,'09', PRSN_NUM, 0)) AS M9, 
+			                   SUM(DECODE(EXEC_MM,'10', PRSN_NUM, 0)) AS M10, 
+			                   SUM(DECODE(EXEC_MM,'11', PRSN_NUM, 0)) AS M11, 
+			                   SUM(DECODE(EXEC_MM,'12', PRSN_NUM, 0)) AS M12
+			                        
+			          FROM     TBRE_HEAL_EXEC        
+			          WHERE    EXEC_YEAR = TO_CHAR(? - 1)           -- 2. 년도
+			          GROUP BY BUSI_CNTNT_CD       
+			         ) C,
+			         ( 
+			          /* 검색년의 1월부터 현재월까지의   합 */
+			          SELECT   BUSI_CNTNT_CD,         
+			                   SUM(PRSN_NUM) AS THIS_YEAR_MONTH_TOTAL                                      
+			          FROM     TBRE_HEAL_EXEC           
+			          WHERE    EXEC_YEAR = ?                        -- 3. 년도 
+			          AND      EXEC_MM BETWEEN '01' AND TO_CHAR(SYSDATE, 'MM')  -- '01'월부터 현재월까지     
+			          GROUP BY BUSI_CNTNT_CD          
+			         ) D,
+			         ( 
+			          /* 검색년의 전년도의 1월부터 현재월까지의   합 */ 
+			          SELECT   BUSI_CNTNT_CD, 
+			                   SUM(PRSN_NUM) AS LAST_YEAR_MONTH_TOTAL                        
+			          FROM     TBRE_HEAL_EXEC         
+			          WHERE    EXEC_YEAR = TO_CHAR(? - 1)           -- 4. 년도
+			          AND      EXEC_MM BETWEEN '01' AND TO_CHAR(SYSDATE, 'MM')  -- '01'월부터 현재월까지    
+			          GROUP BY BUSI_CNTNT_CD
+			         ) E
+			         
+			WHERE    A.BUSI_CNTNT_CD = B.BUSI_CNTNT_CD(+)       
+			AND      A.BUSI_CNTNT_CD = C.BUSI_CNTNT_CD(+)  
+			AND      A.BUSI_CNTNT_CD = D.BUSI_CNTNT_CD(+)
+			AND      A.BUSI_CNTNT_CD = E.BUSI_CNTNT_CD(+)
+			AND      A.BUSI_STAT_CD LIKE ?                 -- 5. 사업상태 
+						
+			AND      NVL(B.EXEC_YEAR, ?) BETWEEN SUBSTR(A.BUSI_YM_STR,1,4) AND SUBSTR(NVL(A.BUSI_YM_END,'29991231'),1,4) -- 6. 년도  
+			
+			      
+			ORDER BY A.ORD, A.BUSI_CNTNT_CD
+			
+        ]]>
+    </query>       
+        
+</queryMap>

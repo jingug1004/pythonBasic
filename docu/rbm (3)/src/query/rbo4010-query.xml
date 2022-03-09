@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4010(모델관리)">
+    <query id="rbo4010_s01" desc="모델별 부품조회" fetchSize="10">
+      <![CDATA[
+      
+			SELECT     /* rbo4010_S01 */
+			        A.PARTS_CD    -- 부품코드
+			      , A.PARTS_LCD   -- 발매기코드
+			      , FC_CODE_NM('097', A.PARTS_LCD)  AS PARTS_LCD_NM      -- 발매기명
+			      , A.PARTS_MCD   -- 부품그룹코드
+			      , FC_CODE_NM('098', A.PARTS_MCD)  AS PARTS_MCD_NM      -- 부품그룹명
+			      , A.PARTS_NM    -- 부품명
+			      , A.MADE_GBN    -- 생산지여부
+			      , A.USE_YN      -- 사용여부
+			      , A.ATT_FILE_KEY    -- 첨부파일
+			      , '0' CHK
+			      ,(SELECT SUM(B.STK_CNT) 
+			         FROM TBRB_PARTS_STOCK B
+			          WHERE B.PARTS_CD = A.PARTS_CD ) STK_CNT
+			FROM  TBRB_PARTS_MODEL A
+		   WHERE  1=1
+			AND   A.PARTS_LCD LIKE '%' || NVL(?, A.PARTS_LCD) || '%'
+			AND   A.PARTS_MCD LIKE '%' || NVL(?, A.PARTS_MCD) || '%'
+			ORDER BY A.PARTS_LCD, A.PARTS_MCD,A.PARTS_NM
+      
+      ]]>
+    </query>
+
+	<query id="rbo4010_i01" desc="부품정보 등록" fetchSize="10">
+      <![CDATA[
+      
+			INSERT 
+			INTO TBRB_PARTS_MODEL   /* rbo4010_i01 */
+			(
+			        PARTS_CD    -- 부품코드
+			      , PARTS_LCD   -- 발매기코드
+			      , PARTS_MCD   -- 부품그룹코드
+			      , PARTS_NM    -- 부품명			      
+			      , MADE_GBN    -- 생산지여부
+			      , USE_YN      -- 사용여부                 
+
+			      , INST_ID     -- 작성자ID
+			      , INST_DT     -- 작성일자
+			)
+			VALUES
+			(
+				(SELECT
+				         NVL(LPAD(MAX(TO_NUMBER(PARTS_CD)) + 1, 10, '0'), '0000000001')
+				 FROM    TBRB_PARTS_MODEL
+				) 	-- PARTS_CD
+			    , ? -- PARTS_LCD
+			    , ? -- PARTS_MCD
+			    , ? -- PARTS_NM
+			    , ? -- MADE_GBN
+			    , ? -- USE_YN
+
+			    , ? -- 작성자ID
+			    , SYSDATE
+			)
+      
+      ]]>
+    </query>
+
+	<query id="rbo4010_u01" desc="부품정보 수정" fetchSize="10">
+      <![CDATA[
+      
+            UPDATE TBRB_PARTS_MODEL 	/* rbo4010_u01 */
+            SET
+                    PARTS_LCD   = ?		-- 발매기코드
+                  , PARTS_MCD   = ?		-- 부품그룹코드
+                  , PARTS_NM    = ?		-- 부품명
+                  , MADE_GBN    = ?		-- 생산지여부
+                  , USE_YN      = ?		-- 사용여부
+                  
+                  , UPDT_ID     = ?         -- 수정자
+                  , UPDT_DT     = SYSDATE   -- 수정일시
+                  
+            WHERE  PARTS_CD = ?			-- 부품코드
+      
+      ]]>
+    </query>
+    
+    	<query id="rbo4010_u02" desc="첨부파일  정보 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE  TBRB_PARTS_MODEL   /* rbo4010_u02 */ -- 부품모델
+			   SET
+				    ATT_FILE_KEY = ?				
+				   ,UPDT_ID      = ?				
+				   ,UPDT_DT      = SYSDATE
+				
+			 WHERE  1=1
+			   AND  PARTS_CD = ?
+        ]]>
+    </query>
+    
+    <query id="rbo4010_d01" desc="부품정보 삭제" fetchSize="10">
+        <![CDATA[
+
+			DELETE TBRB_PARTS_MODEL /* rbo4010_d01 */
+			
+			WHERE  PARTS_CD = ?     -- 부품코드
+
+        ]]>
+    </query>
+    
+</queryMap>

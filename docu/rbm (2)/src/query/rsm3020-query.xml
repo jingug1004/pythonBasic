@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3020(승식별매출액)">
+    <query id="rsm3020_s01" desc="승식별 매출액" fetchSize="10">
+        <![CDATA[
+			   SELECT                                                                                         
+			     A.MEET_CD,		-- 경륜장코드 
+			     A.STND_YEAR,   -- 기준년도                                                                               
+			     DECODE(GP_TMS,0,A.TMS||'',DECODE(GP_STND_YEAR,0,'TOTAL',1,'AVG')) TMS, -- 회차                     
+			     DECODE(GP_TMS,0,A.MIN_DAY) MIN_DAY, 									-- 최초일                                               
+			     ROUND(DECODE(GP_STND_YEAR,0,WIN,1,WIN/CNT_TMS)) WIN, 			-- 단승식 매출액                                       
+			     TO_CHAR(DECODE(GP_STND_YEAR,0,WIN_RATE),'990.00') WIN_RATE,	-- 단승식 점유율                                                  
+			     ROUND(DECODE(GP_STND_YEAR,0,PLC,1,PLC/CNT_TMS)) PLC,			-- 연승식 매출액                                       
+			     TO_CHAR(DECODE(GP_STND_YEAR,0,PLC_RATE),'990.00') PLC_RATE,    -- 연승식 점유율                                              
+			     ROUND(DECODE(GP_STND_YEAR,0,QU,1,QU/CNT_TMS)) QU,				-- 복승식 매출액                                          
+			     TO_CHAR(DECODE(GP_STND_YEAR,0,QU_RATE),'990.00') QU_RATE,		-- 복승식 점유율                                                    
+			     ROUND(DECODE(GP_STND_YEAR,0,EX,1,EX/CNT_TMS)) EX,              -- 쌍승식 매출액                            
+			     TO_CHAR(DECODE(GP_STND_YEAR,0,EX_RATE),'990.00') EX_RATE,      -- 쌍승식 점유율                                              
+			     ROUND(DECODE(GP_STND_YEAR,0,TLA,1,TLA/CNT_TMS)) TLA,           -- 삼복승식 매출액                            
+			     TO_CHAR(DECODE(GP_STND_YEAR,0,TLA_RATE),'990.00') TLA_RATE,    -- 삼복승식 점유율
+			     ROUND(DECODE(GP_STND_YEAR,0,TRI,1,TRI/CNT_TMS)) TRI,           -- 삼쌍승식 매출액                            
+			     TO_CHAR(DECODE(GP_STND_YEAR,0,TRI_RATE),'990.00') TRI_RATE,    -- 삼쌍승식 점유율
+			     --ROUND(DECODE(GP_STND_YEAR,0,XLA,1,XLA/CNT_TMS)) XLA,           -- 쌍복승식 매출액                            
+			     --TO_CHAR(DECODE(GP_STND_YEAR,0,XLA_RATE),'990.00') XLA_RATE,    -- 쌍복승식 점유율                                              
+			     ROUND(DECODE(GP_STND_YEAR,0,POOL_TOTAL_SUM,POOL_TOTAL_SUM/CNT_TMS)) TOTAL  -- 합계                               
+			 FROM (                                                                                         
+			     SELECT                                                                                     
+			         B.MEET_CD,                                                                             
+			         B.STND_YEAR,                                                                           
+			         GROUPING(B.STND_YEAR) GP_STND_YEAR,                                                    
+			         GROUPING(B.TMS) GP_TMS,                                                                
+			         B.TMS, MIN(B.RACE_DAY) MIN_DAY,                                                        
+			         COUNT(DISTINCT A.TMS) CNT_TMS,                                                         
+			         SUM(DECODE(A.POOL_CD,'001',A.POOL_TOTAL)) WIN,                                             
+			         (SUM(DECODE(A.POOL_CD,'001',A.POOL_TOTAL))/SUM(POOL_TOTAL)*100) WIN_RATE,    
+			         SUM(DECODE(A.POOL_CD,'002',A.POOL_TOTAL)) PLC,                                             
+			         (SUM(DECODE(A.POOL_CD,'002',A.POOL_TOTAL))/SUM(POOL_TOTAL)*100) PLC_RATE,    
+			         SUM(DECODE(A.POOL_CD,'005',A.POOL_TOTAL)) QU,                                              
+			         (SUM(DECODE(A.POOL_CD,'005',A.POOL_TOTAL))/SUM(POOL_TOTAL)*100) QU_RATE,     
+			         SUM(DECODE(A.POOL_CD,'004',A.POOL_TOTAL)) EX,                                              
+			         (SUM(DECODE(A.POOL_CD,'004',A.POOL_TOTAL))/SUM(POOL_TOTAL)*100) EX_RATE,     
+			         SUM(DECODE(A.POOL_CD,'006',A.POOL_TOTAL)) TLA,                                             
+			         (SUM(DECODE(A.POOL_CD,'006',A.POOL_TOTAL))/SUM(POOL_TOTAL)*100) TLA_RATE,
+			         SUM(DECODE(A.POOL_CD,'007',A.POOL_TOTAL)) TRI,                                             
+			         (SUM(DECODE(A.POOL_CD,'007',A.POOL_TOTAL))/SUM(POOL_TOTAL)*100) TRI_RATE,
+			         --SUM(DECODE(A.POOL_CD,'008',A.POOL_TOTAL)) XLA,                                             
+			         --(SUM(DECODE(A.POOL_CD,'008',A.POOL_TOTAL))/SUM(POOL_TOTAL)*100) XLA_RATE,    
+			         SUM(A.POOL_TOTAL) POOL_TOTAL_SUM                                                         
+			     FROM                                                                                       
+			         VW_SDL_PT A,	-- 승식                                                                         
+			         VW_SDL_INFO B  -- 경주일 정보                                                                      
+			     WHERE 1 = 1                                                                                
+			         AND B.RACE_DAY LIKE ? ||'%'	-- 0:STND_YEAR 기준년도                                          
+			         AND B.MEET_CD = ?              -- 1:MEET_CD 경주구분코드                           
+			         AND B.STND_YEAR = ?            -- 2:STND_YEAR 기준년도                                    
+			         AND A.MEET_CD = B.MEET_CD                                                              
+			         AND A.STND_YEAR = B.STND_YEAR                                                          
+			         AND A.TMS = B.TMS                                                                      
+			         AND A.DAY_ORD = B.DAY_ORD                                                              
+			     GROUP BY B.MEET_CD
+			     , B.STND_YEAR, B.TMS
+			     -- , ROLLUP(B.STND_YEAR, B.TMS)	-- 최종 레코드의  TOTAL, SUM 생성용                                              
+			 ) A                                                                                            
+			 WHERE 1 = 1                                                                                    
+			 ORDER BY A.MEET_CD, A.STND_YEAR, A.GP_STND_YEAR, A.GP_TMS, A.TMS                     
+
+                                                                       
+        ]]>
+    </query>
+    
+</queryMap>

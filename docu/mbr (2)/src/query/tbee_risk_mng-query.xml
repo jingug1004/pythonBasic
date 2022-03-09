@@ -1,0 +1,1469 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbee_risk_mng(공정위기관리)">
+	<query id="tbee_risk_mng_fd001" desc="경주조회" fetchSize="10">
+		<![CDATA[
+			SELECT   /* tbee_risk_mng_fd001 IWORK_SFR-008 . */
+					 TR.STND_YEAR          STND_YEAR
+			       , TR.MBR_CD             MBR_CD
+			       , TR.TMS                TMS
+			       , TR.DAY_ORD            DAY_ORD
+			       , TR.RACE_NO            RACE_NO
+			       , TRDO.RACE_DAY         RACE_DAY
+			       , NVL(RISK_INDEX_01,0)
+			       + NVL(RISK_INDEX_02,0)
+			       + NVL(RISK_INDEX_03,0)
+			       + NVL(RISK_INDEX_04,0)
+			       + NVL(RISK_INDEX_05,0)
+			       + NVL(RISK_INDEX_06,0)
+			       + NVL(RISK_INDEX_07,0)
+			       + NVL(RISK_INDEX_08,0)
+			       + NVL(RISK_INDEX_09,0)
+			       + NVL(RISK_INDEX_10,0)
+			       + NVL(RISK_INDEX_11,0) SUM_INDEX
+			       ,RACE_REG_NO_CNT
+			FROM     TBEB_RACE       TR
+			       , TBEB_RACE_DAY_ORD TRDO
+			       , TBEE_RISK_INDEX TRIX
+			WHERE    TR.STND_YEAR       = TRDO.STND_YEAR
+			  AND    TR.MBR_CD          = TRDO.MBR_CD
+			  AND    TR.TMS             = TRDO.TMS
+			  AND    TR.DAY_ORD         = TRDO.DAY_ORD
+			  AND    TR.STND_YEAR       = TRIX.STND_YEAR(+)
+			  AND    TR.MBR_CD          = TRIX.MBR_CD(+)
+			  AND    TR.TMS             = TRIX.TMS(+)
+			  AND    TR.DAY_ORD         = TRIX.DAY_ORD(+)
+			  AND    TR.RACE_NO         = TRIX.RACE_NO(+)
+			  AND    TR.STND_YEAR       = ?
+			  AND    TR.MBR_CD          = ?
+			  AND    TR.TMS             = ?
+			  AND    TR.DAY_ORD         = ?
+			ORDER BY TR.RACE_NO
+		]]>
+	</query> 
+
+	<query id="tbee_risk_mng_fd002" desc="심판판정결과조회" fetchSize="10">
+		<![CDATA[
+			SELECT   TR.STND_YEAR          STND_YEAR
+			       , TR.MBR_CD             MBR_CD
+			       , TR.TMS                TMS
+			       , TR.DAY_ORD            DAY_ORD
+			       , TR.RACE_NO            RACE_NO
+			       , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD  ='E00001' AND CD = TCM.RACE_KINDS_CD) RACE_KINDS
+			       , (SELECT RMK FROM TBEA_SPEC_CD WHERE GRP_CD  ='E00005' AND CD = TR.RACE_DGRE_CD) RACE_DGRE
+			       , SUBSTR(TR.STRT_TIME,1,2)||':'||SUBSTR(TR.STRT_TIME,3,2)          STRT_TIME
+			       , TO_CHAR(TR.RACE_DIST,'9,999')||'m'          RACE_DIST
+			       , DECODE(TR.RACE_END_YN,'Y','확정','미확정')        RACE_END_YN
+			       , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD  ='E00036' AND CD = TR.RACE_STTS_CD) RACE_STTS
+			       , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD  ='E00030' AND CD = TR.WEATH_CD) WEATH
+			       , TR.TEMPT||'℃'              TEMPT
+			       , TR.WIND_SPD||'㎧'           WIND_SPD
+			       , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD  ='E00031' AND CD = TR.WIND_DIRC_CD ) WIND_DIRC
+			       , TR.WATER_TEMPT||'℃'        WATER_TEMPT
+			       , TR.WATER_LVL||'㎝'          WATER_LVL
+			       , TR.HUMIDITY||'%'           HUMIDITY
+			       , SUBSTR(TR.LAPTIME_1,1,1)||':'||SUBSTR(TR.LAPTIME_1,2,2)||':'||SUBSTR(TR.LAPTIME_1,4)          LAPTIME_1
+			       , SUBSTR(TR.LAPTIME_2,1,1)||':'||SUBSTR(TR.LAPTIME_2,2,2)||':'||SUBSTR(TR.LAPTIME_2,4)          LAPTIME_2
+			       , SUBSTR(TR.LAPTIME_3,1,1)||':'||SUBSTR(TR.LAPTIME_3,2,2)||':'||SUBSTR(TR.LAPTIME_3,4)          LAPTIME_3
+			       , (SELECT RMK 
+                        FROM TBED_RACE_VOIL_ACT   TRVA
+                       WHERE TR.STND_YEAR = TRVA.STND_YEAR
+                         AND TR.MBR_CD    = TRVA.MBR_CD
+                         AND TR.TMS       = TRVA.TMS
+                         AND TR.DAY_ORD   = TRVA.DAY_ORD
+                         AND TR.RACE_NO   = TRVA.RACE_NO
+                         AND TRVA.RMK     IS NOT NULL
+                         AND ROWNUM       < 2) RMK
+			FROM     TBEB_CFRNT_METH TCM
+			       , TBEB_RACE_TMS   TRT
+			       , TBEB_RACE       TR
+			WHERE    TCM.CFRNT_CD        = TRT.CFRNT_CD 
+              AND    TCM.STND_YEAR       = TRT.STND_YEAR
+              AND    TR.STND_YEAR     = TRT.STND_YEAR
+              AND    TR.MBR_CD          = TRT.MBR_CD
+              AND    TR.TMS             = TRT.TMS
+              AND    TR.STND_YEAR       = ?
+              AND    TR.MBR_CD          = ?
+              AND    TR.TMS             = ?
+              AND    TR.DAY_ORD         = ?
+              AND    TR.RACE_NO         = ?
+		]]>
+	</query> 
+
+	<query id="tbee_risk_mng_fd003" desc="경주결과조회" fetchSize="10">
+		<![CDATA[
+			SELECT   TOR.RACE_NO
+                   , DECODE(TR.RANK_NOTI_YN, 'Y', DECODE(TOR.RANK, 0, '-', TOR.RANK)) RANK
+                   , TOR.RACE_REG_NO
+                   , TOR.RACER_NO
+                   , TRM.NM_KOR RACER_NM
+                   , MOT_NO
+                   , BOAT_NO
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00086' AND CD = TRT.TILT_CD) TILT
+                   , INTRO_RUN_TM
+                   , DECODE(TR.RACE_END_YN, 'Y', DECODE(TOR.ENTRY_COURSE, 0, '-', TOR.ENTRY_COURSE)) ENTRY_COURSE
+                   , TO_CHAR(DECODE(TR.RACE_END_YN, 'Y', TOR.STAR_TM), '00.00') STAR_TM
+                   , NVL(DECODE( RACE_TM, '' , '', SUBSTR(TOR.RACE_TM,1,1)||':'||SUBSTR(TOR.RACE_TM,2,2)||'.'||SUBSTR(TOR.RACE_TM, 4)),NULL) RACE_TM
+                   , DECODE(TR.RACE_END_YN, 'Y', VOIL_ACT) VOIL_ACT 
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD  ='E00063' AND CD = TOR.STRATEGY_CD ) STRATEGY
+                   , TRM.RACER_GRD_CD
+                   , TRM.RACER_PERIO_NO
+                   , TRI.ENTRY_BODY_WGHT     -- 입소 시 체중
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00085' AND CD = TRI.HEAL_STAT_CD) HEAL_STAT  -- 건강상태
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00085' AND CD = TRI.CONDI_CD) CONDI   -- 컨디션
+                   , TRI.ETC                 -- 기타       
+            FROM     TBEB_ORGAN TOR
+                   , TBEC_RACER_TILT TRT
+                   , TBEB_RACE TR
+                   , TBEC_RACER_MASTER TRM
+                   , TBEC_RACER_INTERVIEW TRI
+                   , (SELECT   STND_YEAR
+                             , MBR_CD
+                             , TMS
+                             , DAY_ORD
+                             , RACE_NO
+                             , RACE_REG_NO
+                             , RACER_NO
+                             , SUBSTR(MAX(SYS_CONNECT_BY_PATH(VOIL_ACT, ',')),2) VOIL_ACT
+                        FROM   (SELECT   STND_YEAR
+                                       , MBR_CD
+                                       , TMS
+                                       , DAY_ORD
+                                       , RACE_NO
+                                       , RACE_REG_NO
+                                       , RACER_NO
+                                       , B.CD_NM VOIL_ACT
+                                       , ROW_NUMBER() OVER(PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, RACER_NO ORDER BY VOIL_CD) ROW_ID 
+                                  FROM   TBED_RACE_VOIL_ACT A
+                                       , TBEA_SPEC_CD B 
+                                 WHERE A.VOIL_CD = B.CD 
+                                   AND GRP_CD = 'E00035' 
+                                   AND STND_YEAR = ?
+                                   AND MBR_CD = ?
+                                   AND TMS = ?
+                                   AND DAY_ORD = ? 
+                                   AND RACE_NO = ?
+                                 GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, RACER_NO, B.CD_NM, VOIL_CD) 
+                      START WITH ROW_ID = 1 
+                      CONNECT BY PRIOR ROW_ID = ROW_ID - 1 
+                             AND PRIOR STND_YEAR = STND_YEAR 
+                             AND PRIOR MBR_CD = MBR_CD 
+                             AND PRIOR TMS = TMS 
+                             AND PRIOR DAY_ORD = DAY_ORD 
+                             AND PRIOR RACE_NO = RACE_NO 
+                             AND PRIOR RACE_REG_NO = RACE_REG_NO 
+                             AND PRIOR RACER_NO = RACER_NO 
+                        GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RACE_REG_NO, RACER_NO) TDVA 
+            WHERE TOR.STND_YEAR = TDVA.STND_YEAR(+) 
+              AND TOR.MBR_CD = TDVA.MBR_CD(+) 
+              AND TOR.TMS = TDVA.TMS(+) 
+              AND TOR.DAY_ORD = TDVA.DAY_ORD(+) 
+              AND TOR.RACE_NO = TDVA.RACE_NO(+) 
+              AND TOR.RACE_REG_NO = TDVA.RACE_REG_NO(+) 
+              AND TOR.STND_YEAR = TRT.STND_YEAR(+) 
+              AND TOR.MBR_CD = TRT.MBR_CD(+) 
+              AND TOR.TMS = TRT.TMS(+) 
+              AND TOR.DAY_ORD = TRT.DAY_ORD(+) 
+              AND TOR.RACE_NO = TRT.RACE_NO(+) 
+              AND TOR.RACE_REG_NO = TRT.RACE_REG_NO(+) 
+              AND TOR.STND_YEAR = TRI.STND_YEAR(+) 
+              AND TOR.MBR_CD = TRI.MBR_CD(+) 
+              AND TOR.TMS = TRI.TMS(+) 
+              AND TOR.RACER_NO = TRI.RACER_NO(+) 
+              AND TOR.RACE_REG_NO = TRT.RACE_REG_NO(+) 
+              AND TOR.RACER_NO = TRM.RACER_NO 
+              AND TOR.STND_YEAR = TR.STND_YEAR 
+              AND TOR.MBR_CD = TR.MBR_CD 
+              AND TOR.TMS = TR.TMS 
+              AND TOR.DAY_ORD = TR.DAY_ORD 
+              AND TOR.RACE_NO = TR.RACE_NO 
+              AND TOR.STND_YEAR = ?
+              AND TOR.MBR_CD = ?
+              AND TOR.TMS = ?
+              AND TOR.DAY_ORD = ? 
+              AND TOR.RACE_NO = ?
+			ORDER BY TOR.RACE_NO
+			       , DECODE(TOR.RANK, 0, 9, TOR.RANK)
+			       , TOR.RACE_REG_NO
+		]]>
+	</query>
+
+	<query id="tbee_risk_mng_fd004" desc="위반판정조회" fetchSize="10">
+		<![CDATA[
+			SELECT   RACE_REG_NO
+			       , SEQ
+                   , RACER_NO
+                   , (SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = TRVA.RACER_NO) RACER_NM
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE CD = TRVA.CIRCUIT_CNT_CD AND GRP_CD = 'E00045') CIRCUIT
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE CD = TRVA.ACDNT_LOC_CD AND GRP_CD = 'E00034') ACDNT_LOC 
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE CD = TRVA.VOIL_JO AND GRP_CD = 'E00048') VOIL_JO
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE CD = TRVA.VOIL_CD AND GRP_CD = 'E00035') VOIL
+                   , VOIL_DESC
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE CD = TRVA.ACDNT_TPE_CD AND GRP_CD = 'E00062') ACDNT_TYPE 
+			FROM     TBED_RACE_VOIL_ACT TRVA 
+			WHERE    STND_YEAR = ?
+			AND      MBR_CD = ?
+			AND      TMS = ?
+			AND      DAY_ORD = ?
+			AND      RACE_NO = ?
+			AND     (SELECT RACE_END_YN 
+                       FROM TBEB_RACE 
+                      WHERE STND_YEAR = TRVA.STND_YEAR 
+                        AND TMS = TRVA.TMS 
+                        AND DAY_ORD = TRVA.DAY_ORD 
+                        AND RACE_NO = TRVA.RACE_NO) = 'Y' 
+			ORDER BY RACE_REG_NO
+			       , SEQ
+		]]>
+	</query> 
+
+	<query id="tbee_risk_mng_fd005" desc="확정배당률조회" fetchSize="10">
+		<![CDATA[
+			SELECT '단승' GUBUN, RUNNER_1ST  BAEBUN, PAYOFF WIN
+			  FROM USRBM.TBES_SDL_RS
+			 WHERE STND_YEAR = ?
+			   AND TMS       = ?
+			   AND DAY_ORD   = ?
+			   AND RACE_NO   = ?
+			   AND POOL_CD   = '001'
+			   AND MEET_CD   = '003' 
+			UNION  ALL 
+			SELECT '연승' GUBUN, RUNNER_1ST  BAEBUN, PAYOFF WIN
+			  FROM USRBM.TBES_SDL_RS
+			 WHERE STND_YEAR = ?
+			   AND TMS       = ?
+			   AND DAY_ORD   = ?
+			   AND RACE_NO   = ?
+			   AND POOL_CD   = '002'
+			   AND MEET_CD   = '003' 
+			UNION  ALL 
+			SELECT '복승' GUBUN, RUNNER_1ST||'/'||RUNNER_2ND  BAEBUN, PAYOFF WIN 
+			  FROM USRBM.TBES_SDL_RS
+			 WHERE STND_YEAR = ?
+			   AND TMS       = ?
+			   AND DAY_ORD   = ?
+			   AND RACE_NO   = ?
+			   AND POOL_CD   = '005'
+			   AND MEET_CD   = '003' 
+			UNION  ALL 
+			SELECT  '쌍승' GUBUN, RUNNER_1ST||'/'||RUNNER_2ND  BAEBUN, PAYOFF WIN
+			  FROM USRBM.TBES_SDL_RS
+			 WHERE STND_YEAR = ?
+			   AND TMS       = ?
+			   AND DAY_ORD   = ?
+			   AND RACE_NO   = ?
+			   AND POOL_CD   = '004'
+			   AND MEET_CD   = '003' 
+			UNION  ALL 
+			SELECT '삼복승' GUBUN, RUNNER_1ST||'-'||RUNNER_2ND||'-'||RUNNER_3RD  BAEBUN, PAYOFF WIN
+			  FROM USRBM.TBES_SDL_RS
+			 WHERE STND_YEAR = ?
+			   AND TMS       = ?
+			   AND DAY_ORD   = ?
+			   AND RACE_NO   = ?
+			   AND POOL_CD   = '006'
+			   AND MEET_CD   = '003' 
+		]]>
+	</query> 
+
+    <query id="tbee_risk_mng_fd006" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   '매출액' STR
+			       , MIN(DECODE(POOL_CD, '001', POOL_TOTAL)) POOL_001
+			       , MIN(DECODE(POOL_CD, '002', POOL_TOTAL)) POOL_002
+			       , MIN(DECODE(POOL_CD, '004', POOL_TOTAL)) POOL_004
+			       , MIN(DECODE(POOL_CD, '005', POOL_TOTAL)) POOL_005
+			       , MIN(DECODE(POOL_CD, '006', POOL_TOTAL)) POOL_006
+			       , SUM(                       POOL_TOTAL ) TOT
+			FROM   (
+			            SELECT
+			                     POOL_CD                     -- 승식
+			                   , SUM(POOL_TOTAL) POOL_TOTAL  -- 발매총액
+			                   , ROUND((RATIO_TO_REPORT(SUM(POOL_TOTAL)) OVER()) * 100, 1)  PERCENTAGE
+			            FROM   USRBM.TBES_SDL_PT
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ?
+			            AND    DAY_ORD    = ?
+			            AND    RACE_NO    = ?
+			            GROUP BY POOL_CD     -- 승식
+			       )
+        ]]>
+    </query> 
+
+    <query id="tbee_risk_mng_fd007" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   1 SEQ
+			       , '이상유무' STR
+			       , CASE WHEN TRIX.RISK_INDEX_01 > 0 THEN '유' ELSE '무' END RISK_01
+			       , ( SELECT COUNT(*)||'건' 
+			           FROM TBEE_BRCH_RTRN
+			          WHERE STND_YEAR = TR.STND_YEAR
+			            AND MBR_CD    = TR.MBR_CD 
+			            AND TMS       = TR.TMS
+			            AND DAY_ORD   = TR.DAY_ORD
+			            AND RACE_NO   = TR.RACE_NO ) RISK_02
+/*			            
+			       , ( SELECT COUNT(*) ||'건'
+			           FROM TBEF_EQUIP_INSP_DETAIL TEID
+			              , TBEB_ORGAN TOR
+			          WHERE TOR.STND_YEAR = TR.STND_YEAR
+			            AND TOR.MBR_CD    = TR.MBR_CD 
+			            AND TOR.TMS       = TR.TMS
+			            AND TOR.DAY_ORD   = TR.DAY_ORD
+			            AND TOR.RACE_NO   = TR.RACE_NO
+			            AND TOR.STND_YEAR = TEID.STND_YEAR
+			            AND TOR.MBR_CD    = TEID.MBR_CD 
+			            AND TOR.TMS       = TEID.TMS
+			            AND TOR.DAY_ORD   = TEID.DAY_ORD
+			            AND TOR.RACER_NO  = TEID.RACER_NO
+			            AND (NVL(TEID.MOT_INSP_STAT_CD, '001')  <> '001' 
+			             OR  NVL(TEID.BOAT_INSP_STAT_CD, '001') <> '001') ) RISK_03
+*/
+			       , ( SELECT COUNT(*) ||'건'
+			           FROM TBEF_EQUIP_INSP_DETAIL
+			          WHERE STND_YEAR = TR.STND_YEAR
+			            AND MBR_CD    = TR.MBR_CD 
+			            AND TMS       = TR.TMS
+			            AND DAY_ORD   = TR.DAY_ORD
+			            AND (NVL(MOT_INSP_STAT_CD, '001')  <> '001' 
+			             OR  NVL(BOAT_INSP_STAT_CD, '001') <> '001') ) RISK_03
+			       , CASE WHEN TRIX.RISK_INDEX_04 > 0 THEN '유' ELSE '무' END RISK_04
+			       , ( SELECT COUNT(*)||'건' 
+			           FROM TBEE_RACER_TREND TRT
+			              , TBEB_ORGAN TOR
+			          WHERE TOR.STND_YEAR = TR.STND_YEAR
+			            AND TOR.MBR_CD    = TR.MBR_CD 
+			            AND TOR.TMS       = TR.TMS
+			            AND TOR.DAY_ORD   = TR.DAY_ORD
+			            AND TOR.RACE_NO   = TR.RACE_NO
+			            AND TOR.STND_YEAR = TRT.STND_YEAR
+			            AND TOR.MBR_CD    = TRT.MBR_CD
+			            AND TOR.TMS       = TRT.TMS
+			            AND TOR.RACER_NO  = TRT.RACER_NO
+			            AND TRT.CHK       = 'Y' ) RISK_05
+			       , CASE WHEN TRIX.RISK_INDEX_06 > 0 THEN '유' ELSE '무' END RISK_06
+			       , ( SELECT COUNT(*)||'건' 
+			           FROM TBEE_SDL_ANALYSIS TSA
+			              , TBEB_RACE_DAY_ORD TRDO
+			          WHERE TRDO.STND_YEAR = TR.STND_YEAR
+			            AND TRDO.MBR_CD    = TR.MBR_CD 
+			            AND TRDO.TMS       = TR.TMS
+			            AND TRDO.DAY_ORD   = TR.DAY_ORD
+			            AND TSA.MBR_CD     = TR.MBR_CD 
+			            AND TSA.RACE_NO    = TR.RACE_NO
+			            AND TSA.RACE_DT    = TRDO.RACE_DAY ) RISK_07
+			       , CASE WHEN TRIX.RISK_INDEX_08 > 0 THEN '유' ELSE '무' END RISK_08
+			       , ( SELECT COUNT(*)||'건' 
+			           FROM TBEE_DOPING_RSLT TDR
+			              , TBEB_ORGAN TOR
+			          WHERE TOR.STND_YEAR   = TR.STND_YEAR
+			            AND TOR.MBR_CD      = TR.MBR_CD 
+			            AND TOR.TMS         = TR.TMS
+			            AND TOR.DAY_ORD     = TR.DAY_ORD
+			            AND TOR.RACE_NO     = TR.RACE_NO
+			            AND TOR.STND_YEAR   = TDR.STND_YEAR
+			            AND TOR.MBR_CD      = TDR.MBR_CD
+			            AND TOR.TMS         = TDR.TMS
+			            AND TOR.RACER_NO    = TDR.RACER_NO
+			            AND TDR.DOPING_RSLT = '002' ) RISK_09
+			       , ( SELECT COUNT(*)||'건' 
+			           FROM TBEE_RACE_ANAL
+			          WHERE STND_YEAR = TR.STND_YEAR
+			            AND MBR_CD    = TR.MBR_CD 
+			            AND TMS       = TR.TMS
+			            AND DAY_ORD   = TR.DAY_ORD
+			            AND RACE_NO   = TR.RACE_NO
+			            AND (MEMO IS NOT NULL OR ETC IS NOT NULL) ) RISK_10
+			       , CASE WHEN TRIX.RISK_INDEX_11 > 0 THEN '유' ELSE '무' END RISK_11
+			       , TO_CHAR(NVL(RISK_INDEX_01,0)
+			               + NVL(RISK_INDEX_02,0)
+			               + NVL(RISK_INDEX_03,0)
+			               + NVL(RISK_INDEX_04,0)
+			               + NVL(RISK_INDEX_05,0)
+			               + NVL(RISK_INDEX_06,0)
+			               + NVL(RISK_INDEX_07,0)
+			               + NVL(RISK_INDEX_08,0)
+			               + NVL(RISK_INDEX_09,0)
+			               + NVL(RISK_INDEX_10,0)
+			               + NVL(RISK_INDEX_11,0) ) SUM_INDEX
+			FROM     TBEB_RACE       TR
+			       , TBEE_RISK_INDEX TRIX
+			WHERE    TR.STND_YEAR       = TRIX.STND_YEAR(+)
+			  AND    TR.MBR_CD          = TRIX.MBR_CD(+)
+			  AND    TR.TMS             = TRIX.TMS(+)
+			  AND    TR.DAY_ORD         = TRIX.DAY_ORD(+)
+			  AND    TR.RACE_NO         = TRIX.RACE_NO(+)
+			  AND    TR.STND_YEAR       = ?
+			  AND    TR.MBR_CD          = ?
+			  AND    TR.TMS             = ?
+			  AND    TR.DAY_ORD         = ?
+			  AND    TR.RACE_NO         = ?
+			UNION
+			SELECT   2 SEQ
+			       , '위험지수' STR
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_01,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_02,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_03,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_04,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_05,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_06,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_07,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_08,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_09,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_10,0))
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_11,0))
+			       , TO_CHAR(NVL(RISK_INDEX_01,0)
+			               + NVL(RISK_INDEX_02,0)
+			               + NVL(RISK_INDEX_03,0)
+			               + NVL(RISK_INDEX_04,0)
+			               + NVL(RISK_INDEX_05,0)
+			               + NVL(RISK_INDEX_06,0)
+			               + NVL(RISK_INDEX_07,0)
+			               + NVL(RISK_INDEX_08,0)
+			               + NVL(RISK_INDEX_09,0)
+			               + NVL(RISK_INDEX_10,0)
+			               + NVL(RISK_INDEX_11,0) )
+			FROM     TBEB_RACE       TR
+			       , TBEE_RISK_INDEX TRIX
+			WHERE    TR.STND_YEAR       = TRIX.STND_YEAR(+)
+			  AND    TR.MBR_CD          = TRIX.MBR_CD(+)
+			  AND    TR.TMS             = TRIX.TMS(+)
+			  AND    TR.DAY_ORD         = TRIX.DAY_ORD(+)
+			  AND    TR.RACE_NO         = TRIX.RACE_NO(+)
+			  AND    TR.STND_YEAR       = ?
+			  AND    TR.MBR_CD          = ?
+			  AND    TR.TMS             = ?
+			  AND    TR.DAY_ORD         = ?
+			  AND    TR.RACE_NO         = ?
+        ]]>
+    </query> 
+
+	<query id="tbee_risk_mng_fd201" desc="경주분석_조치결과조회" fetchSize="10">
+		<![CDATA[
+			SELECT   STND_YEAR
+                   , MBR_CD
+                   , TMS
+                   , DAY_ORD
+                   , RACE_NO
+                   , RACE_REG_NO
+                   , RACER_NO
+                   , RACER_NM
+                   , DECODE(RANK, 0, '-', RANK) RANK
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD  ='E00063' AND CD = STRATEGY_CD ) STRATEGY
+                   , CNT110  -- F/L
+                   , CNT125  -- 반칙실격
+                   , CNT150  -- 반칙경고
+                   , CNT140  -- 실격
+                   , CNT210  -- 경고
+                   , CNT220  -- 주의
+                   , MEASURE_CD -- 조치결과코드
+                   , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE CD = MEASURE_CD AND GRP_CD = 'E00133') MEASURE -- 조치결과
+			FROM     (
+			           SELECT   TOR.STND_YEAR
+                              , TOR.MBR_CD
+                              , TOR.TMS
+                              , TOR.DAY_ORD
+                              , TOR.RACE_NO
+                              , TOR.RACE_REG_NO
+                              , TOR.RACER_NO
+                              , TRM.NM_KOR                                       RACER_NM
+                              , SUM(DECODE(TRVA.VOIL_CD, '110', 1, '120', 1, 0)) CNT110  -- F/L
+                              , SUM(DECODE(TRVA.VOIL_CD, '125', 1, 0))           CNT125  -- 반칙실격
+                              , SUM(DECODE(TRVA.VOIL_CD, '150', 1, 0))           CNT150  -- 반칙경고
+                              , SUM(DECODE(TRVA.VOIL_CD, '140', 1, 0))           CNT140  -- 실격
+                              , SUM(DECODE(TRVA.VOIL_CD, '210', 1, 0))           CNT210  -- 경고
+                              , SUM(DECODE(TRVA.VOIL_CD, '220', 1, 0))           CNT220  -- 주의
+                              , TOR.RANK
+                              , TOR.STRATEGY_CD
+                              , TERM.MEASURE_CD
+			           FROM     TBED_RACE_VOIL_ACT TRVA
+                              , TBEC_RACER_MASTER TRM
+                              , TBEB_ORGAN TOR
+                              , TBEE_RACER_MEASURE TERM
+			           WHERE    TOR.STND_YEAR   = TRVA.STND_YEAR(+)
+			           AND      TOR.MBR_CD      = TRVA.MBR_CD(+)
+			           AND      TOR.TMS         = TRVA.TMS(+)
+			           AND      TOR.DAY_ORD     = TRVA.DAY_ORD(+)
+			           AND      TOR.RACE_NO     = TRVA.RACE_NO(+)
+			           AND      TOR.RACE_REG_NO = TRVA.RACE_REG_NO(+)
+			           AND      TOR.STND_YEAR   = TERM.STND_YEAR(+)
+			           AND      TOR.MBR_CD      = TERM.MBR_CD(+)
+			           AND      TOR.TMS         = TERM.TMS(+)
+			           AND      TOR.DAY_ORD     = TERM.DAY_ORD(+)
+			           AND      TOR.RACE_NO     = TERM.RACE_NO(+)
+			           AND      TOR.RACER_NO    = TERM.RACER_NO(+)
+			           AND      TOR.RACER_NO    = TRM.RACER_NO
+			           AND      TOR.STND_YEAR   = ?
+			           AND      TOR.MBR_CD      = ?
+			           AND      TOR.TMS         = ?
+			           AND      TOR.DAY_ORD     = ?
+			           AND      TOR.RACE_NO     = ?
+			           GROUP BY TOR.STND_YEAR
+                              , TOR.MBR_CD
+                              , TOR.TMS
+                              , TOR.DAY_ORD
+                              , TOR.RACE_NO
+                              , TOR.RACE_REG_NO
+                              , TOR.RACER_NO
+                              , TRM.NM_KOR
+                              , TOR.RANK
+                              , TOR.STRATEGY_CD
+                              , TERM.MEASURE_CD
+                     )
+			ORDER BY RACE_REG_NO
+		]]>
+	</query> 
+
+	<query id="tbee_risk_mng_fd202" desc="경주분석결과조회" fetchSize="10">
+		<![CDATA[
+			SELECT   TR.STND_YEAR
+                   , TR.MBR_CD
+                   , TR.TMS
+                   , TR.DAY_ORD
+                   , TR.RACE_NO
+                   , TERA.RACE_ANAL									-- 경주분석
+                   , TERA.MEASURE_DESC								-- 조치내용
+                   , NVL(TERA.RISK_INDEX, 0) RISK_INDEX				-- 위험지수
+                   , SUM(DECODE(TERM.MEASURE_CD, '001', 1, 0)) CNT1 -- 교육
+                   , SUM(DECODE(TERM.MEASURE_CD, '002', 1, 0)) CNT2 -- 관찰
+                   , SUM(DECODE(TERM.MEASURE_CD, '003', 1, 0)) CNT3 -- 조사
+			FROM     TBEB_RACE TR
+			       , TBEE_RACE_ANAL TERA
+			       , TBEE_RACER_MEASURE TERM
+			WHERE    TR.STND_YEAR   = TERA.STND_YEAR(+)
+			AND      TR.MBR_CD      = TERA.MBR_CD(+)
+			AND      TR.TMS         = TERA.TMS(+)
+			AND      TR.DAY_ORD     = TERA.DAY_ORD(+)
+			AND      TR.RACE_NO     = TERA.RACE_NO(+)
+			AND      TR.STND_YEAR   = TERM.STND_YEAR(+)
+			AND      TR.MBR_CD      = TERM.MBR_CD(+)
+			AND      TR.TMS         = TERM.TMS(+)
+			AND      TR.DAY_ORD     = TERM.DAY_ORD(+)
+			AND      TR.RACE_NO     = TERM.RACE_NO(+)
+			AND      TR.STND_YEAR   = ?
+		    AND      TR.MBR_CD      = ?
+		    AND      TR.TMS         = ?
+			AND      TR.DAY_ORD     = ?
+			AND      TR.RACE_NO     = ?
+			GROUP BY TR.STND_YEAR
+                   , TR.MBR_CD
+                   , TR.TMS
+                   , TR.DAY_ORD
+                   , TR.RACE_NO
+                   , TERA.RACE_ANAL
+                   , TERA.MEASURE_DESC
+                   , TERA.RISK_INDEX
+		]]>
+	</query> 
+	
+	<query id="tbee_risk_mng_fd203" desc="공정위기관리: 조치결과 조회" fetchSize="10">
+		<![CDATA[
+			SELECT /*tbee_risk_mng_fd203 공정위기관리: 조치결과 조회 */
+				RACE_REG_NO,
+				RACER_NO,
+				FC_GET_RACERNAME(RACER_NO) RACER_NM,
+				DECODE(MEASURE_DATE, NULL, '', SEARCH_DATE, '관찰요망', '현재관찰') MEASURE_STAT,
+				MEASURE_NM
+			FROM (
+				SELECT
+					RACE_REG_NO,
+					RACER_NO,
+					SEARCH_DATE,
+					SUBSTR(MEASURE_INFO,0,5) MEASURE_DATE,
+					GET_CD_NM('E00133',SUBSTR(MEASURE_INFO,6,3)) MEASURE_NM
+				FROM (
+					SELECT
+						T1.RACE_REG_NO,
+						T1.RACER_NO,
+						LPAD(T1.TMS,2,'0')||T1.DAY_ORD||T1.RACE_NO SEARCH_DATE,
+						(
+							SELECT MAX(LPAD(TMS,2,'0')||DAY_ORD||RACE_NO||MEASURE_CD)
+							FROM TBEE_RACER_MEASURE S1
+							WHERE 1=1
+							AND RACER_NO = T1.RACER_NO
+							AND STND_YEAR = T1.STND_YEAR
+							AND MBR_CD = T1.MBR_CD
+							AND TMS||DAY_ORD||RACE_NO <= T1.TMS||T1.DAY_ORD||T1.RACE_NO
+							AND TMS||DAY_ORD||RACE_NO > ( --조치결과 : 종료 이후에 등록된 것
+								SELECT NVL(MAX(TMS||DAY_ORD||RACE_NO),'000') FROM TBEE_RACER_MEASURE
+								WHERE 1=1
+								AND RACER_NO  = S1.RACER_NO
+								AND STND_YEAR = S1.STND_YEAR
+								AND MBR_CD    = S1.MBR_CD
+								AND MEASURE_CD = '004'
+							)
+							AND MEASURE_CD IS NOT NULL
+						) MEASURE_INFO
+					FROM TBEB_ORGAN T1, TBEE_RACER_MEASURE T2
+					WHERE 1=1
+					AND T1.STND_YEAR= ?
+					AND T1.MBR_CD 	= ?
+					AND T1.TMS 		= ?
+					AND T1.DAY_ORD 	= ?
+					AND T1.RACE_NO 	= ?
+					AND T1.STND_YEAR= T2.STND_YEAR(+)
+					AND T1.MBR_CD 	= T2.MBR_CD(+)
+					AND T1.TMS 		= T2.TMS(+)
+					AND T1.DAY_ORD 	= T2.DAY_ORD(+)
+					AND T1.RACE_NO 	= T2.RACE_NO(+)
+					AND T1.RACER_NO = T2.RACER_NO(+)
+				)
+			)
+		]]>
+	</query>
+	
+	<query id="tbee_risk_mng_fd204" desc="공정위기관리: 조치내역 조회" fetchSize="10">
+		<![CDATA[
+			SELECT /* tbee_risk_mng_fd204 공정위기관리: 조치내역 조회 */
+				TMS||'회'||DAY_ORD||'일차'||RACE_NO||'경주'||'['||GET_CD_NM('E00133',MEASURE_CD)||']' MEASURE_HIST
+			FROM TBEE_RACER_MEASURE A
+			WHERE 1=1
+			AND STND_YEAR = ?
+			AND RACER_NO = ?
+			AND MEASURE_CD IS NOT NULL
+			ORDER BY TMS DESC, DAY_ORD DESC, RACE_NO DESC
+		]]>
+	</query>
+
+	<query id="tbee_risk_mng_fd301" desc="선수동향내역조회" fetchSize="10">
+		<![CDATA[
+			SELECT   TA.STND_YEAR
+                   , TA.MBR_CD
+                   , TA.TMS
+                   , TA.RACER_NO
+                   , TRM.NM_KOR RACER_NM
+                   , TRT.ROOM_NO
+                   , TRT.SPEC_INFO
+                   , DECODE(TRT.CHK, 'Y', 1, 0) CHK
+                   , TRT.RMK
+			FROM     TBEB_ARRANGE TA
+			       , TBEE_RACER_TREND TRT
+			       , TBEC_RACER_MASTER TRM
+			WHERE    TA.STND_YEAR = TRT.STND_YEAR(+)
+			AND      TA.MBR_CD    = TRT.MBR_CD(+)
+			AND      TA.TMS       = TRT.TMS(+)
+			AND      TA.RACER_NO  = TRT.RACER_NO(+)
+			AND      TA.RACER_NO  = TRM.RACER_NO
+			AND      TA.STND_YEAR = ?
+		    AND      TA.MBR_CD    = ?
+		    AND      TA.TMS       = ?
+			ORDER BY TA.RACER_NO
+		]]>
+	</query> 
+
+	<query id="tbee_risk_mng_fd401" desc="약물검사결과조회" fetchSize="10">
+		<![CDATA[
+			SELECT   TA.STND_YEAR
+                   , TA.MBR_CD
+                   , TA.TMS
+                   , TA.RACER_NO
+                   , TRM.NM_KOR RACER_NM
+                   , TRM.RACER_GRD_CD
+                   , DECODE(TDR.DOPING_GBN, '001', 1, 0) BEFORE_RACE
+                   , DECODE(TDR.DOPING_GBN, '002', 1, 0) AFTER_RACE
+                   , DECODE(TDR.DOPING_RSLT, '001', 1, 0) POSITIVE
+                   , DECODE(TDR.DOPING_RSLT, '002', 1, 0) NEGATIVE
+                   , TDR.RMK
+			FROM     TBEB_ARRANGE TA
+                   , TBEC_RACER_MASTER TRM
+                   , TBEE_DOPING_RSLT TDR
+			WHERE    TA.RACER_NO  = TRM.RACER_NO
+			AND      TA.STND_YEAR = TDR.STND_YEAR(+)
+			AND      TA.MBR_CD    = TDR.MBR_CD(+)
+			AND      TA.TMS       = TDR.TMS(+)
+			AND      TA.RACER_NO  = TDR.RACER_NO(+)
+			AND      TA.STND_YEAR = ?
+		    AND      TA.MBR_CD    = ?
+		    AND      TA.TMS       = ?
+			ORDER BY TA.RACER_NO
+		]]>
+	</query> 
+
+	<query id="tbee_risk_mng_fd402" desc="약물검사결과여부" fetchSize="10">
+		<![CDATA[
+			SELECT   COUNT(*) CNT
+            FROM     TBEE_DOPING_RSLT
+            WHERE    DOPING_GBN IN ('001','002')
+			AND      STND_YEAR = ?
+		    AND      MBR_CD    = ?
+		    AND      TMS       = ?
+		]]>
+	</query> 
+
+	<query id="tbee_risk_mng_fd501" desc="기타 특이사항 조회" fetchSize="10">
+		<![CDATA[
+			SELECT   STND_YEAR
+                   , MBR_CD
+                   , TMS
+                   , DAY_ORD
+                   , RACE_NO
+                   , MEMO
+                   , ETC
+			FROM     TBEE_RACE_ANAL
+			WHERE    STND_YEAR   = ?
+		    AND      MBR_CD      = ?
+		    AND      TMS         = ?
+		    AND      DAY_ORD     = ?
+		    AND      RACE_NO     = ?
+		]]>
+	</query> 
+
+    <query id="tbee_risk_mng_fd601" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   TR.STND_YEAR
+			       , TR.MBR_CD
+                   , TR.TMS
+                   , TR.DAY_ORD
+                   , TR.RACE_NO
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_01,0)) RISK_INDEX_01
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_02,0)) RISK_INDEX_02
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_03,0)) RISK_INDEX_03
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_04,0)) RISK_INDEX_04
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_05,0)) RISK_INDEX_05
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_06,0)) RISK_INDEX_06
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_07,0)) RISK_INDEX_07
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_08,0)) RISK_INDEX_08
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_09,0)) RISK_INDEX_09
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_10,0)) RISK_INDEX_10
+			       , TO_CHAR(NVL(TRIX.RISK_INDEX_11,0)) RISK_INDEX_11
+			       , TO_CHAR(NVL(RISK_INDEX_01,0)
+			               + NVL(RISK_INDEX_02,0)
+			               + NVL(RISK_INDEX_03,0)
+			               + NVL(RISK_INDEX_04,0)
+			               + NVL(RISK_INDEX_05,0)
+			               + NVL(RISK_INDEX_06,0)
+			               + NVL(RISK_INDEX_07,0)
+			               + NVL(RISK_INDEX_08,0)
+			               + NVL(RISK_INDEX_09,0)
+			               + NVL(RISK_INDEX_10,0)
+			               + NVL(RISK_INDEX_11,0) ) SUM_INDEX
+			FROM     TBEB_RACE       TR
+			       , TBEE_RISK_INDEX TRIX
+			WHERE    TR.STND_YEAR       = TRIX.STND_YEAR(+)
+			  AND    TR.MBR_CD          = TRIX.MBR_CD(+)
+			  AND    TR.TMS             = TRIX.TMS(+)
+			  AND    TR.DAY_ORD         = TRIX.DAY_ORD(+)
+			  AND    TR.RACE_NO         = TRIX.RACE_NO(+)
+			  AND    TR.STND_YEAR       = ?
+			  AND    TR.MBR_CD          = ?
+			  AND    TR.TMS             = ?
+			  AND    TR.DAY_ORD         = ?
+			  AND    TR.RACE_NO         = ?
+        ]]>
+    </query> 
+
+    <query id="tbee_risk_mng_ie201" desc="공정 선수 조치사항 등록/수정" fetchSize="10">
+        <![CDATA[
+            /* 공정 선수 조치사항 등록/수정 */
+            MERGE INTO TBEE_RACER_MEASURE TERM
+			USING (
+			        SELECT
+						      ? STND_YEAR
+						    , ? MBR_CD
+						    , ? TMS
+						    , ? DAY_ORD
+			   			    , ? RACE_NO
+						    , ? RACER_NO
+						    , ? MEASURE_CD        -- 조치코드
+			                , ? INST_ID
+			                , SYSDATE INST_DTM
+			                , ? UPDT_ID
+			                , SYSDATE UPDT_DTM
+			        FROM    DUAL
+			      ) TOAS
+			ON (    TERM.STND_YEAR = TOAS.STND_YEAR
+			    AND TERM.MBR_CD    = TOAS.MBR_CD
+			    AND TERM.TMS       = TOAS.TMS
+			    AND TERM.DAY_ORD   = TOAS.DAY_ORD
+			    AND TERM.RACE_NO   = TOAS.RACE_NO
+			    AND TERM.RACER_NO  = TOAS.RACER_NO
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TERM.MEASURE_CD    = TOAS.MEASURE_CD
+			                      , TERM.UPDT_ID       = TOAS.UPDT_ID
+			                      , TERM.UPDT_DTM      = TOAS.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TERM.STND_YEAR
+			                      , TERM.MBR_CD
+			                      , TERM.TMS
+			                      , TERM.DAY_ORD
+			                      , TERM.RACE_NO
+			                      , TERM.RACER_NO
+			                      , TERM.MEASURE_CD    -- 조치코드
+			                      , TERM.INST_ID
+			                      , TERM.INST_DTM
+			                  ) VALUES (
+			                        TOAS.STND_YEAR
+			                      , TOAS.MBR_CD
+			                      , TOAS.TMS
+			                      , TOAS.DAY_ORD
+			                      , TOAS.RACE_NO
+			                      , TOAS.RACER_NO
+			                      , TOAS.MEASURE_CD    -- 조치코드
+			                      , TOAS.INST_ID
+			                      , TOAS.INST_DTM
+			                  )
+        ]]>
+    </query>
+
+    <query id="tbee_risk_mng_ie202" desc="경주분석결과 등록/수정" fetchSize="10">
+        <![CDATA[
+            /* 경주분석결과 등록/수정 */
+            MERGE INTO TBEE_RACE_ANAL TERA
+			USING (
+			        SELECT
+						      ? STND_YEAR
+						    , ? MBR_CD
+						    , ? TMS
+						    , ? DAY_ORD
+			   			    , ? RACE_NO
+						    , ? RACE_ANAL		-- 경주분석
+						    , ? MEASURE_DESC	-- 조치내용
+						    , ? RISK_INDEX		-- 위험지수
+			                , ? INST_ID
+			                , SYSDATE INST_DTM
+			                , ? UPDT_ID
+			                , SYSDATE UPDT_DTM
+			        FROM    DUAL
+			      ) TOAS
+			ON (    TERA.STND_YEAR = TOAS.STND_YEAR
+			    AND TERA.MBR_CD    = TOAS.MBR_CD
+			    AND TERA.TMS       = TOAS.TMS
+			    AND TERA.DAY_ORD   = TOAS.DAY_ORD
+			    AND TERA.RACE_NO   = TOAS.RACE_NO
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TERA.RACE_ANAL     = TOAS.RACE_ANAL
+			                      , TERA.MEASURE_DESC  = TOAS.MEASURE_DESC
+			                      , TERA.RISK_INDEX    = TOAS.RISK_INDEX
+			                      , TERA.UPDT_ID       = TOAS.UPDT_ID
+			                      , TERA.UPDT_DTM      = TOAS.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TERA.STND_YEAR
+			                      , TERA.MBR_CD
+			                      , TERA.TMS
+			                      , TERA.DAY_ORD
+			                      , TERA.RACE_NO
+			                      , TERA.RACE_ANAL		-- 경주분석
+			                      , TERA.MEASURE_DESC	-- 조치내용
+			                      , TERA.RISK_INDEX		-- 위험지수
+			                      , TERA.INST_ID
+			                      , TERA.INST_DTM
+			                  ) VALUES (
+			                        TOAS.STND_YEAR
+			                      , TOAS.MBR_CD
+			                      , TOAS.TMS
+			                      , TOAS.DAY_ORD
+			                      , TOAS.RACE_NO
+			                      , TOAS.RACE_ANAL		-- 경주분석
+			                      , TOAS.MEASURE_DESC	-- 조치내용
+			                      , TOAS.RISK_INDEX		-- 위험지수
+			                      , TOAS.INST_ID
+			                      , TOAS.INST_DTM
+			                  )
+        ]]>
+    </query>
+
+    <query id="tbee_risk_mng_ie301" desc="선수동향 등록/수정" fetchSize="10">
+        <![CDATA[
+            /* 선수동향 등록/수정 */
+            MERGE INTO TBEE_RACER_TREND TRT
+			USING (
+			        SELECT
+						      ? STND_YEAR
+						    , ? MBR_CD
+						    , ? TMS
+						    , ? RACER_NO
+						    , ? ROOM_NO				-- 숙소
+						    , ? SPEC_INFO			-- 특이사항
+						    , DECODE(?, 1, 'Y') CHK	-- 이상유무
+						    , ? RMK        			-- 비고
+			                , ? INST_ID
+			                , SYSDATE INST_DTM
+			                , ? UPDT_ID
+			                , SYSDATE UPDT_DTM
+			        FROM    DUAL
+			      ) TOAS
+			ON (    TRT.STND_YEAR = TOAS.STND_YEAR
+			    AND TRT.MBR_CD    = TOAS.MBR_CD
+			    AND TRT.TMS       = TOAS.TMS
+			    AND TRT.RACER_NO  = TOAS.RACER_NO
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TRT.ROOM_NO    = TOAS.ROOM_NO
+			                      , TRT.SPEC_INFO  = TOAS.SPEC_INFO
+			                      , TRT.CHK        = TOAS.CHK
+			                      , TRT.RMK        = TOAS.RMK
+			                      , TRT.UPDT_ID    = TOAS.UPDT_ID
+			                      , TRT.UPDT_DTM   = TOAS.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TRT.STND_YEAR
+			                      , TRT.MBR_CD
+			                      , TRT.TMS
+			                      , TRT.RACER_NO
+			                      , TRT.ROOM_NO			-- 숙소
+			                      , TRT.SPEC_INFO		-- 특이사항
+			                      , TRT.CHK				-- 이상유무
+			                      , TRT.RMK				-- 비고
+			                      , TRT.INST_ID
+			                      , TRT.INST_DTM
+			                  ) VALUES (
+			                        TOAS.STND_YEAR
+			                      , TOAS.MBR_CD
+			                      , TOAS.TMS
+			                      , TOAS.RACER_NO
+			                      , TOAS.ROOM_NO		-- 숙소
+			                      , TOAS.SPEC_INFO		-- 특이사항
+			                      , TOAS.CHK			-- 이상유무
+			                      , TOAS.RMK			-- 비고
+			                      , TOAS.INST_ID
+			                      , TOAS.INST_DTM
+			                  )
+        ]]>
+    </query>
+
+    <query id="tbee_risk_mng_ie401" desc="약물검사결과 등록/수정" fetchSize="10">
+        <![CDATA[
+            /* 약물검사결과 등록/수정 */
+            MERGE INTO TBEE_DOPING_RSLT TRT
+			USING (
+			        SELECT
+						      ? STND_YEAR
+						    , ? MBR_CD
+						    , ? TMS
+						    , ? RACER_NO
+						    , DECODE(?, 1, '001', DECODE(?, 1, '002', '')) DOPING_GBN	-- 검사여부
+						    , DECODE(?, 1, '001', DECODE(?, 1, '002', '')) DOPING_RSLT	-- 검사결과
+						    , ? RMK        			-- 비고
+			                , ? INST_ID
+			                , SYSDATE INST_DTM
+			                , ? UPDT_ID
+			                , SYSDATE UPDT_DTM
+			        FROM    DUAL
+			      ) TOAS
+			ON (    TRT.STND_YEAR = TOAS.STND_YEAR
+			    AND TRT.MBR_CD    = TOAS.MBR_CD
+			    AND TRT.TMS       = TOAS.TMS
+			    AND TRT.RACER_NO  = TOAS.RACER_NO
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TRT.DOPING_GBN = TOAS.DOPING_GBN
+			                      , TRT.DOPING_RSLT= TOAS.DOPING_RSLT
+			                      , TRT.RMK        = TOAS.RMK
+			                      , TRT.UPDT_ID    = TOAS.UPDT_ID
+			                      , TRT.UPDT_DTM   = TOAS.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TRT.STND_YEAR
+			                      , TRT.MBR_CD
+			                      , TRT.TMS
+			                      , TRT.RACER_NO
+			                      , TRT.DOPING_GBN		-- 검사여부
+			                      , TRT.DOPING_RSLT		-- 검사결과
+			                      , TRT.RMK				-- 비고
+			                      , TRT.INST_ID
+			                      , TRT.INST_DTM
+			                  ) VALUES (
+			                        TOAS.STND_YEAR
+			                      , TOAS.MBR_CD
+			                      , TOAS.TMS
+			                      , TOAS.RACER_NO
+			                      , TOAS.DOPING_GBN		-- 검사여부
+			                      , TOAS.DOPING_RSLT	-- 검사결과
+			                      , TOAS.RMK			-- 비고
+			                      , TOAS.INST_ID
+			                      , TOAS.INST_DTM
+			                  )
+        ]]>
+    </query>
+
+    <query id="tbee_risk_mng_ie501" desc="기타특이사항 등록/수정" fetchSize="10">
+        <![CDATA[
+            /* 기타특이사항 등록/수정 */
+            MERGE INTO TBEE_RACE_ANAL TERA
+			USING (
+			        SELECT
+						      ? STND_YEAR
+						    , ? MBR_CD
+						    , ? TMS
+						    , ? DAY_ORD
+			   			    , ? RACE_NO
+						    , ? MEMO			-- 메모
+						    , ? ETC				-- 기타특이사항
+			                , ? INST_ID
+			                , SYSDATE INST_DTM
+			                , ? UPDT_ID
+			                , SYSDATE UPDT_DTM
+			        FROM    DUAL
+			      ) TOAS
+			ON (    TERA.STND_YEAR = TOAS.STND_YEAR
+			    AND TERA.MBR_CD    = TOAS.MBR_CD
+			    AND TERA.TMS       = TOAS.TMS
+			    AND TERA.DAY_ORD   = TOAS.DAY_ORD
+			    AND TERA.RACE_NO   = TOAS.RACE_NO
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TERA.MEMO          = TOAS.MEMO
+			                      , TERA.ETC           = TOAS.ETC
+			                      , TERA.UPDT_ID       = TOAS.UPDT_ID
+			                      , TERA.UPDT_DTM      = TOAS.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TERA.STND_YEAR
+			                      , TERA.MBR_CD
+			                      , TERA.TMS
+			                      , TERA.DAY_ORD
+			                      , TERA.RACE_NO
+			                      , TERA.MEMO		-- 메모
+			                      , TERA.ETC		-- 기타특이사항
+			                      , TERA.INST_ID
+			                      , TERA.INST_DTM
+			                  ) VALUES (
+			                        TOAS.STND_YEAR
+			                      , TOAS.MBR_CD
+			                      , TOAS.TMS
+			                      , TOAS.DAY_ORD
+			                      , TOAS.RACE_NO
+			                      , TOAS.MEMO		-- 메모
+			                      , TOAS.ETC		-- 기타특이사항
+			                      , TOAS.INST_ID
+			                      , TOAS.INST_DTM
+			                  )
+        ]]>
+    </query>
+
+    <query id="tbee_risk_mng_ie601" desc="위험지수 등록/수정" fetchSize="10">
+        <![CDATA[
+            /* 위험지수 등록/수정 */
+            MERGE INTO TBEE_RISK_INDEX TRI
+			USING (
+			        SELECT
+						      ? STND_YEAR
+						    , ? MBR_CD
+						    , ? TMS
+						    , ? DAY_ORD
+			   			    , ? RACE_NO
+						    , ? RISK_INDEX_01	-- 매출현황
+						    , ? RISK_INDEX_02	-- 고액환급
+						    , ? RISK_INDEX_03	-- 출전장비
+						    , ? RISK_INDEX_04	-- 고객동향
+						    , ? RISK_INDEX_05	-- 선수동향
+						    , ? RISK_INDEX_06	-- 사설단속
+						    , ? RISK_INDEX_07	-- 전산자료
+						    , ? RISK_INDEX_08	-- 제보사항
+						    , ? RISK_INDEX_09	-- 약물검사
+						    , ? RISK_INDEX_10	-- 기타
+						    , ? RISK_INDEX_11	-- 집중베팅
+			                , ? INST_ID
+			                , SYSDATE INST_DTM
+			                , ? UPDT_ID
+			                , SYSDATE UPDT_DTM
+			        FROM    DUAL
+			      ) TOAS
+			ON (    TRI.STND_YEAR = TOAS.STND_YEAR
+			    AND TRI.MBR_CD    = TOAS.MBR_CD
+			    AND TRI.TMS       = TOAS.TMS
+			    AND TRI.DAY_ORD   = TOAS.DAY_ORD
+			    AND TRI.RACE_NO   = TOAS.RACE_NO
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TRI.RISK_INDEX_01 = TOAS.RISK_INDEX_01
+			                      , TRI.RISK_INDEX_02 = TOAS.RISK_INDEX_02
+			                      , TRI.RISK_INDEX_03 = TOAS.RISK_INDEX_03
+			                      , TRI.RISK_INDEX_04 = TOAS.RISK_INDEX_04
+			                      , TRI.RISK_INDEX_05 = TOAS.RISK_INDEX_05
+			                      , TRI.RISK_INDEX_06 = TOAS.RISK_INDEX_06
+			                      , TRI.RISK_INDEX_07 = TOAS.RISK_INDEX_07
+			                      , TRI.RISK_INDEX_08 = TOAS.RISK_INDEX_08
+			                      , TRI.RISK_INDEX_09 = TOAS.RISK_INDEX_09
+			                      , TRI.RISK_INDEX_10 = TOAS.RISK_INDEX_10
+			                      , TRI.RISK_INDEX_11 = TOAS.RISK_INDEX_11
+			                      , TRI.UPDT_ID       = TOAS.UPDT_ID
+			                      , TRI.UPDT_DTM      = TOAS.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TRI.STND_YEAR
+			                      , TRI.MBR_CD
+			                      , TRI.TMS
+			                      , TRI.DAY_ORD
+			                      , TRI.RACE_NO
+			                      , TRI.RISK_INDEX_01
+			                      , TRI.RISK_INDEX_02
+			                      , TRI.RISK_INDEX_03
+			                      , TRI.RISK_INDEX_04
+			                      , TRI.RISK_INDEX_05
+			                      , TRI.RISK_INDEX_06
+			                      , TRI.RISK_INDEX_07
+			                      , TRI.RISK_INDEX_08
+			                      , TRI.RISK_INDEX_09
+			                      , TRI.RISK_INDEX_10
+			                      , TRI.RISK_INDEX_11
+			                      , TRI.INST_ID
+			                      , TRI.INST_DTM
+			                  ) VALUES (
+			                        TOAS.STND_YEAR
+			                      , TOAS.MBR_CD
+			                      , TOAS.TMS
+			                      , TOAS.DAY_ORD
+			                      , TOAS.RACE_NO
+			                      , TOAS.RISK_INDEX_01
+			                      , TOAS.RISK_INDEX_02
+			                      , TOAS.RISK_INDEX_03
+			                      , TOAS.RISK_INDEX_04
+			                      , TOAS.RISK_INDEX_05
+			                      , TOAS.RISK_INDEX_06
+			                      , TOAS.RISK_INDEX_07
+			                      , TOAS.RISK_INDEX_08
+			                      , TOAS.RISK_INDEX_09
+			                      , TOAS.RISK_INDEX_10
+			                      , TOAS.RISK_INDEX_11
+			                      , TOAS.INST_ID
+			                      , TOAS.INST_DTM
+			                  )
+        ]]>
+    </query>
+
+    <query id="tbes_sale_search_se001" desc="당회차_전회차 매출조회" fetchSize="10">
+        <![CDATA[
+			/* 당회차_전회차 매출조회  */
+            SELECT 
+                      A.STND_YEAR,
+                      A.TMS || '회차' AS TMS,
+                      NVL(A.DAY1, 0) AS DAY1,
+                      NVL(A.DAY2, 0) AS DAY2,
+                      NVL(A.DAY3, 0) AS DAY3,
+                      NVL(A.TOTAL,0) AS TOTAL,
+                     (NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0)) AS DIFF_TOTAL,
+                      CASE WHEN (NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0) = 0)   THEN 0          
+                              WHEN NVL(B.TOTAL, 0) = 0                               THEN 100                
+                              ELSE ROUND((NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0)) / NVL(B.TOTAL, 0) * 100, 2) 
+                      END RATE
+            FROM (
+                        SELECT STND_YEAR,
+                                   TMS,
+                                   MIN(DECODE(DAY_ORD, '1', TOTAL)) AS DAY1,
+                                   MIN(DECODE(DAY_ORD, '2', TOTAL)) AS DAY2,
+                                   MIN(DECODE(DAY_ORD, '3', TOTAL)) AS DAY3,
+                                   SUM(TOTAL) AS TOTAL
+                        FROM (           
+                                    SELECT  STND_YEAR, 
+                                                TMS, 
+                                                DAY_ORD,
+                                                NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                                    FROM USRBM.TBES_SDL_PT
+                                    WHERE 1=1
+                                              AND STND_YEAR =  ? 
+                                              AND MEET_CD =  ? 
+                                              AND TMS =  ? 
+                                              AND DAY_ORD <=  ? 
+                                    GROUP BY STND_YEAR, TMS, DAY_ORD          
+                                 )
+                        GROUP BY STND_YEAR, TMS) A, 
+                     (
+                        SELECT  STND_YEAR, 
+                                    TMS, 
+                                    NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                        FROM USRBM.TBES_SDL_PT
+                        WHERE 1=1
+                                  AND STND_YEAR =  ? 
+                                  AND MEET_CD =  ? 
+                                  AND TMS =  ?  -1
+                        GROUP BY STND_YEAR, TMS         
+                     ) B
+            WHERE 1=1
+                      AND A.STND_YEAR = B.STND_YEAR(+)
+            UNION ALL          
+            SELECT 
+                      A.STND_YEAR,
+                      A.TMS || '회차' AS TMS,
+                      NVL(A.DAY1, 0) AS DAY1,
+                      NVL(A.DAY2, 0) AS DAY2,
+                      NVL(A.DAY3, 0) AS DAY3,
+                      NVL(A.TOTAL,0) AS TOTAL,
+                     (NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0)) AS DIFF_TOTAL,
+                      CASE WHEN (NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0) = 0)   THEN 0          
+                              WHEN NVL(B.TOTAL, 0) = 0                               THEN 100                
+                              ELSE ROUND((NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0)) / NVL(B.TOTAL, 0) * 100, 2) 
+                      END RATE
+            FROM (
+                        SELECT STND_YEAR,
+                                   TMS,
+                                   MIN(DECODE(DAY_ORD, '1', TOTAL)) AS DAY1,
+                                   MIN(DECODE(DAY_ORD, '2', TOTAL)) AS DAY2,
+                                   MIN(DECODE(DAY_ORD, '3', TOTAL)) AS DAY3,
+                                   SUM(TOTAL) AS TOTAL
+                        FROM (           
+                                    SELECT  STND_YEAR, 
+                                                TMS, 
+                                                DAY_ORD,
+                                               NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                                    FROM USRBM.TBES_SDL_PT
+                                    WHERE 1=1
+                                              AND STND_YEAR =  ? 
+                                              AND MEET_CD =  ? 
+                                              AND TMS =  ?  -1
+                                    GROUP BY STND_YEAR, TMS, DAY_ORD          
+                                 )
+                        GROUP BY STND_YEAR, TMS) A, 
+                     (
+                        SELECT  STND_YEAR, 
+                                    TMS, 
+                                    NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                        FROM USRBM.TBES_SDL_PT
+                        WHERE 1=1
+                                  AND STND_YEAR =  ? 
+                                  AND MEET_CD =  ? 
+                                  AND TMS =  ?  -2
+                        GROUP BY STND_YEAR, TMS         
+                     ) B
+            WHERE 1=1
+                      AND A.STND_YEAR = B.STND_YEAR(+)
+            UNION ALL
+            SELECT 
+                      A.STND_YEAR,
+                     '전회대비 증감액' AS TMS,
+                      (NVL(A.DAY1, 0) - NVL(B.DAY1, 0)) AS DAY1,
+                      (NVL(A.DAY2, 0) - NVL(B.DAY2, 0)) AS DAY2,
+                      (NVL(A.DAY3, 0) - NVL(B.DAY3, 0)) AS DAY3,
+                      (NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0)) AS TOTAL,
+                      NULL AS DIFF_TOTAL,                  
+                      NULL AS RATE
+            FROM (
+                        SELECT STND_YEAR,
+                                   TMS,
+                                   MIN(DECODE(DAY_ORD, '1', TOTAL)) AS DAY1,
+                                   MIN(DECODE(DAY_ORD, '2', TOTAL)) AS DAY2,
+                                   MIN(DECODE(DAY_ORD, '3', TOTAL)) AS DAY3,
+                                   SUM(TOTAL) AS TOTAL
+                        FROM (           
+                                    SELECT  STND_YEAR, 
+                                                TMS, 
+                                                DAY_ORD,
+                                               NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                                    FROM USRBM.TBES_SDL_PT
+                                    WHERE 1=1
+                                              AND STND_YEAR =  ? 
+                                              AND MEET_CD =  ? 
+                                              AND TMS =  ? 
+                                              AND DAY_ORD <=  ? 
+                                    GROUP BY STND_YEAR, TMS, DAY_ORD          
+                                 )
+                        GROUP BY STND_YEAR, TMS) A, 
+                     (
+                        SELECT STND_YEAR,
+                                   TMS,
+                                   MIN(DECODE(DAY_ORD, '1', TOTAL)) AS DAY1,
+                                   MIN(DECODE(DAY_ORD, '2', TOTAL)) AS DAY2,
+                                   MIN(DECODE(DAY_ORD, '3', TOTAL)) AS DAY3,
+                                   SUM(TOTAL) AS TOTAL
+                        FROM (           
+                                    SELECT  STND_YEAR, 
+                                                TMS, 
+                                                DAY_ORD,
+                                               NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                                    FROM USRBM.TBES_SDL_PT
+                                    WHERE 1=1
+                                              AND STND_YEAR =  ? 
+                                              AND MEET_CD =  ? 
+                                              AND TMS =  ?  -1
+                                    GROUP BY STND_YEAR, TMS, DAY_ORD          
+                                 )
+                        GROUP BY STND_YEAR, TMS)  B
+            WHERE 1=1
+                      AND A.STND_YEAR = B.STND_YEAR(+)
+            UNION ALL
+            SELECT 
+                      A.STND_YEAR,
+                     '전회대비 증감율' AS TMS,
+                      CASE WHEN (NVL(A.DAY1, 0) - NVL(B.DAY1, 0) = 0)   THEN 0          
+                              WHEN NVL(B.DAY1, 0) = 0                               THEN 100                
+                              ELSE ROUND((NVL(A.DAY1, 0) - NVL(B.DAY1, 0)) / NVL(B.DAY1, 0) * 100, 2) 
+                      END DAY1,
+                      CASE WHEN (NVL(A.DAY2, 0) - NVL(B.DAY2, 0) = 0)   THEN 0          
+                              WHEN NVL(B.DAY2, 0) = 0                               THEN 100                
+                              ELSE ROUND((NVL(A.DAY2, 0) - NVL(B.DAY2, 0)) / NVL(B.DAY2, 0) * 100, 2) 
+                      END DAY2,
+                      CASE WHEN (NVL(A.DAY3, 0) - NVL(B.DAY3, 0) = 0)   THEN 0          
+                              WHEN NVL(B.DAY3, 0) = 0                               THEN 100                
+                              ELSE ROUND((NVL(A.DAY3, 0) - NVL(B.DAY3, 0)) / NVL(B.DAY3, 0) * 100, 2) 
+                      END DAY3,
+                      CASE WHEN (NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0) = 0)   THEN 0          
+                              WHEN NVL(B.TOTAL, 0) = 0                               THEN 100                
+                              ELSE ROUND((NVL(A.TOTAL, 0) - NVL(B.TOTAL, 0)) / NVL(B.TOTAL, 0) * 100, 2) 
+                      END TOTAL,
+                      NULL AS DIFF_TOTAL,                  
+                      NULL AS RATE
+            FROM (
+                        SELECT STND_YEAR,
+                                   TMS,
+                                   MIN(DECODE(DAY_ORD, '1', TOTAL)) AS DAY1,
+                                   MIN(DECODE(DAY_ORD, '2', TOTAL)) AS DAY2,
+                                   MIN(DECODE(DAY_ORD, '3', TOTAL)) AS DAY3,
+                                   SUM(TOTAL) AS TOTAL
+                        FROM (           
+                                    SELECT  STND_YEAR, 
+                                                TMS, 
+                                                DAY_ORD,
+                                               NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                                    FROM USRBM.TBES_SDL_PT
+                                    WHERE 1=1
+                                              AND STND_YEAR =  ? 
+                                              AND MEET_CD =  ? 
+                                              AND TMS =  ? 
+                                              AND DAY_ORD <=  ? 
+                                    GROUP BY STND_YEAR, TMS, DAY_ORD          
+                                 )
+                        GROUP BY STND_YEAR, TMS) A, 
+                     (
+                        SELECT STND_YEAR,
+                                   TMS,
+                                   MIN(DECODE(DAY_ORD, '1', TOTAL)) AS DAY1,
+                                   MIN(DECODE(DAY_ORD, '2', TOTAL)) AS DAY2,
+                                   MIN(DECODE(DAY_ORD, '3', TOTAL)) AS DAY3,
+                                   SUM(TOTAL) AS TOTAL
+                        FROM (           
+                                    SELECT  STND_YEAR, 
+                                                TMS, 
+                                                DAY_ORD,
+                                               NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) AS TOTAL
+                                    FROM USRBM.TBES_SDL_PT
+                                    WHERE 1=1
+                                              AND STND_YEAR =  ? 
+                                              AND MEET_CD =  ? 
+                                              AND TMS =  ?  -1
+                                    GROUP BY STND_YEAR, TMS, DAY_ORD          
+                                 )
+                        GROUP BY STND_YEAR, TMS)  B
+            WHERE 1=1
+                      AND A.STND_YEAR = B.STND_YEAR(+)                             
+        ]]>
+    </query>
+ 
+     <query id="tbee_raceresult_search_se001" desc="경주결과 조회" fetchSize="10">
+        <![CDATA[
+			/* 경주결과 조회  */
+			SELECT 
+				    TR.STND_YEAR 
+				   ,TR.MBR_CD 
+				   ,TR.TMS 
+				   ,TR.DAY_ORD 
+				   ,TR.RACE_NO
+				   ,NVL(TOR.RACE_REG_NO1, '-') AS RACE_REG_NO1
+				   ,NVL(TOR.RACE_REG_NO2, '-') AS RACE_REG_NO2
+				   ,NVL(TOR.RACE_REG_NO3, '-') AS RACE_REG_NO3
+				   ,NVL(TOR.RACE_REG_NO4, '-') AS RACE_REG_NO4
+				   ,NVL(TOR.RACE_REG_NO5, '-') AS RACE_REG_NO5
+				   ,NVL(TOR.RACE_REG_NO6, '-') AS RACE_REG_NO6
+                   ,SUBSTR(MBR_RANK123_GUESS('003', TR.STND_YEAR, TR.TMS, TR.DAY_ORD, TR.RACE_NO), 1, 1) AS C_RANK1 
+                   ,SUBSTR(MBR_RANK123_GUESS('003', TR.STND_YEAR, TR.TMS, TR.DAY_ORD, TR.RACE_NO), 2, 1) AS C_RANK2
+                   ,SUBSTR(MBR_RANK123_GUESS('003', TR.STND_YEAR, TR.TMS, TR.DAY_ORD, TR.RACE_NO), 3, 1) AS C_RANK3
+				   , C.RANK1
+				   , C.RANK2
+				   , C.RANK3
+				   ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '004', NULL) FIXMONEY_E
+				   ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '005', NULL) FIXMONEY_Q
+				   ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '006', NULL) FIXMONEY_T
+				   ,TCG.BET_CON
+				   ,TCG.ETC_INFO
+			FROM 
+				     TBEB_RACE TR,
+				     TBEE_CUSTOMER_GUESS TCG,
+				    (  SELECT
+				                  TOR.STND_YEAR
+				                , TOR.MBR_CD
+				                , TOR.TMS
+				                , TOR.DAY_ORD  
+				                , TOR.RACE_NO
+				                , MIN(DECODE(TOR.RACE_REG_NO, '1', NM_KOR)) RACE_REG_NO1
+				                , MIN(DECODE(TOR.RACE_REG_NO, '2', NM_KOR)) RACE_REG_NO2
+				                , MIN(DECODE(TOR.RACE_REG_NO, '3', NM_KOR)) RACE_REG_NO3
+				                , MIN(DECODE(TOR.RACE_REG_NO, '4', NM_KOR)) RACE_REG_NO4
+				                , MIN(DECODE(TOR.RACE_REG_NO, '5', NM_KOR)) RACE_REG_NO5
+				                , MIN(DECODE(TOR.RACE_REG_NO, '6', NM_KOR)) RACE_REG_NO6
+				     FROM  TBEB_ORGAN TOR, TBEC_RACER_MASTER TRM
+				     WHERE   TOR.RACER_NO   = TRM.RACER_NO
+				                 AND    TOR.STND_YEAR  = ? 
+				                 AND    TOR.MBR_CD     = ? 
+				                 AND    TOR.TMS        = ?
+				                 AND    TOR. DAY_ORD   = ?
+				     GROUP BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO
+				     ) TOR, 
+				     ( SELECT
+						      STND_YEAR
+						    , TMS
+						    , DAY_ORD
+						    , RACE_NO
+						    , MIN(DECODE(RANK, '1', NM_KOR)) RANK1
+						    , MIN(DECODE(RANK, '2', NM_KOR)) RANK2
+						    , MIN(DECODE(RANK, '3', NM_KOR)) RANK3
+					FROM   (
+							 SELECT
+							          STND_YEAR
+							        , TMS
+							        , DAY_ORD
+							        , RACE_NO
+							        , RANK
+							        , SUBSTR(MAX(SYS_CONNECT_BY_PATH (RACE_REG_NO, '/')), 2) NM_KOR
+							 FROM   (
+							         SELECT
+							                  TOR.STND_YEAR
+							                , TOR.TMS
+							                , TOR.DAY_ORD
+							                , TOR.RACE_NO
+							                , RACE_REG_NO
+							                , TOR.RACER_NO
+							                , TOR.RANK
+							                , RANK() OVER (PARTITION BY TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO
+							                                          , TOR.RANK
+							                                   ORDER BY TOR.RACER_NO) SEQ
+							         FROM     TBEB_ORGAN        TOR
+							         WHERE  1=1
+							         AND    TOR.STND_YEAR  =   ? 
+							         AND    TOR.MBR_CD     =   ? 
+							         AND    TOR.TMS        =   ?
+							         AND    TOR.DAY_ORD    =   ?
+							        )
+							 START WITH SEQ = 1
+							 CONNECT BY PRIOR SEQ = SEQ - 1 
+							 AND  PRIOR STND_YEAR = STND_YEAR  AND PRIOR TMS = TMS AND PRIOR DAY_ORD = DAY_ORD
+							 AND PRIOR RACE_NO = RACE_NO AND PRIOR  RANK = RANK
+							 GROUP BY STND_YEAR, TMS, DAY_ORD, RACE_NO, RANK
+							)
+					GROUP BY STND_YEAR, TMS, DAY_ORD,  RACE_NO) C
+			WHERE 1=1
+			      AND TR.TMS        = TOR.TMS(+)
+			      AND TR.DAY_ORD = TOR.DAY_ORD(+)
+			      AND TR.RACE_NO = TOR.RACE_NO(+)
+			      AND TR.TMS        = TCG.TMS(+)
+			      AND TR.DAY_ORD = TCG.DAY_ORD(+)
+			      AND TR.RACE_NO = TCG.RACE_NO(+)
+			      AND TR.TMS        = C.TMS(+)
+			      AND TR.DAY_ORD = C.DAY_ORD(+)
+			      AND TR.RACE_NO = C.RACE_NO(+)
+			      AND TR.STND_YEAR  = ? 
+			      AND TR.MBR_CD     = ? 
+			      AND TR.TMS        = ?
+			      AND TR.DAY_ORD    = ?
+			      AND TR.RACE_END_YN = 'Y'
+			ORDER BY RACE_NO
+        ]]>
+    </query>
+
+     <query id="tbee_special_docu_se001" desc="공정관리-경주상황보고 특이사항 조" fetchSize="10">
+        <![CDATA[
+			SELECT * 
+			FROM TBEE_RACE_SPECIAL_DOC
+			WHERE STND_YEAR = ? AND MBR_CD = ? AND TMS = ? AND DAY_ORD = ? 
+        ]]>
+    </query>
+    
+</queryMap>

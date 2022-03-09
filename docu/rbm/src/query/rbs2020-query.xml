@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS2020(건전레저인원등록)">
+    
+    
+    <query id="rbs2020_s_healexec" desc="건전레저인원등록 조회" fetchSize="10">
+        <![CDATA[
+                
+	        SELECT   /* rbs2020_s_healexec */
+			         ABC.BUSI_CNTNT_CD,   -- 사업내역코드         
+			         ABC.HEAL_LEISU_YEAR, -- 건전레저년도
+			         ABC.HEAL_LEISU_CD,   -- 건전레저코드 
+			         ABC.BUSI_NM,         -- 사업명
+			         ABC.DPRT_CD,         -- 부서코드			                   		         
+			         ABC.MNG_ID,          -- 담당자ID
+			         
+			         ABC.DPRT_NAME,       -- 부서명
+			         ABC.MNG_NAME,        -- 담당자 이름
+			         ABC.EXEC_YEAR,       -- 집행년도
+			         ABC.EXEC_MM,         -- 집행월
+			         ABC.PRSN_NUM,        -- 인원
+			         
+			         ABC.IS_NEW,          -- 저장할 때 'Y' 인 데이터는 INSERT, 'N' 인 데이터는 UPDATE 한다.
+			         ABC.BUSI_YM_STR      -- 사업시작년월
+			
+			FROM     (  
+			          SELECT   AB.BUSI_CNTNT_CD,   -- 사업내역코드       
+			                   AB.HEAL_LEISU_YEAR, -- 건전레저년도
+			                   AB.HEAL_LEISU_CD,   -- 건전레저코드
+			                   AB.BUSI_NM,         -- 사업명
+			                   AB.DPRT_CD,	       -- 부서코드			                   		         
+			                   AB.MNG_ID,          -- 담당자ID
+			                   (
+			                    SELECT   GROUP_NAME
+			                    FROM     V_GROUP DEPT
+			                    WHERE    GROUP_ID = AB.DPRT_CD
+			                   )  AS DPRT_NAME,    -- 부서명
+			          			         
+			                   (
+			                    SELECT   USER_NM
+			                    FROM     TBRK_USER
+			                    WHERE    USER_ID = AB.MNG_ID 
+			                   ) AS MNG_NAME,      -- 담당자 이름       
+			                   
+			                   NVL(C.EXEC_YEAR, ? )  EXEC_YEAR,   -- 1. 집행년도
+			                   NVL(C.EXEC_MM,AB.MON) EXEC_MM,     -- 집행월
+			                   NVL(C.PRSN_NUM, 0)    PRSN_NUM,    -- 인원
+			                   DECODE(C.EXEC_MM, NULL, 'T', 'F') AS IS_NEW,  -- 원래 있는 ROW 는 FALSE, 없는 건 TRUE  
+			                   AB.BUSI_YM_STR,   -- 사업시작년월
+			                   AB.ORD
+			          			         
+			          FROM     (
+			                    SELECT   *
+			                    FROM     (
+			                              SELECT   '01' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '02' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '03' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '04' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '05' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '06' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '07' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '08' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '09' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '10' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '11' MON  FROM DUAL                    
+			                              UNION ALL
+			                              SELECT   '12' MON  FROM DUAL                    
+			                             ) A,
+			                             TBRE_HEAL_CNTNT B
+			                    WHERE    B.DPRT_CD = ?  -- 2. 부서코드 
+			                    AND      A.MON LIKE '%' || NVL(?, A.MON) || '%'          -- 3.집행월	
+			                    AND      B.BUSI_STAT_CD = '001'                          -- 진행중  
+			                    AND      DECODE(?,'',1,B.BUSI_CNTNT_CD)  = DECODE(?,'',1,?)  -- 4~6사업명 
+			                   ) AB ,
+			                   (
+			                    SELECT   *
+			                    FROM     TBRE_HEAL_EXEC C
+			                    WHERE    C.EXEC_YEAR    = ?                               -- 7. 집행년도
+			                    AND      C.EXEC_MM LIKE '%' || NVL(?, C.EXEC_MM) || '%'   -- 8.집행월	
+			                   ) C
+			          WHERE    AB.BUSI_CNTNT_CD = C.BUSI_CNTNT_CD(+)
+			          AND      AB.MON = C.EXEC_MM(+)
+			         ) ABC
+			         
+			WHERE    ABC.BUSI_YM_STR <= ABC.EXEC_YEAR || ABC.EXEC_MM          
+			ORDER BY ABC.ORD, ABC.BUSI_CNTNT_CD, ABC.EXEC_MM ASC
+			      
+			
+        ]]>
+    </query>       
+
+	
+	<query id="rbs2020_ins" desc="건전레저인원등록 등록" fetchSize="10">
+        <![CDATA[
+
+			INSERT   /* rbs2020_ins */
+			INTO     TBRE_HEAL_EXEC A
+                     (           
+                      A.BUSI_CNTNT_CD,    -- 사업내역코드
+                      A.HEAL_LEISU_YEAR,  -- 건전레저년도
+                      A.EXEC_YEAR,        -- 집행년도
+                      A.EXEC_MM,          -- 집행월 
+                      A.PRSN_NUM,         -- 인원
+                                                      
+                      A.INST_ID,          -- 등록자ID   
+                      A.INST_DT           -- 등록일자  
+                     ) 
+                
+                     VALUES 
+                     (
+                      ?,       -- 1. 사업내역코드
+                      ?,       -- 2. 건전레저년도                  
+                      ?,       -- 3. 집행년도
+                      ?,       -- 4. 집행월 
+                      ?,       -- 5. 인원
+                      
+                      ?,       -- 6. 사용자 ID
+                      SYSDATE
+                     )
+                        
+    	]]>
+    </query>      
+    
+    <query id="rbs2020_upt" desc="건전레저인원등록 수정" fetchSize="10">
+        <![CDATA[
+        
+			UPDATE   /* rbs2020_upt */
+			         TBRE_HEAL_EXEC A			      
+			SET      A.PRSN_NUM  = ?,         -- 1. 인원
+			         A.UPDT_ID   = ?,         -- 2. 사용자 ID    
+			         A.UPDT_DT   = SYSDATE
+			WHERE    A.BUSI_CNTNT_CD   = ?    -- 3. 사업내역코드
+			AND      A.EXEC_YEAR       = ?    -- 5. 집행년도
+			AND      A.EXEC_MM         = ?    -- 6. 집행월
+        
+        ]]>
+    </query>
+
+	 <query id="rbs2020_s02" desc="건전레저사업명  조회" fetchSize="10">
+	        <![CDATA[
+	            SELECT   /* rbs2020_s02 */
+	                     A.BUSI_CNTNT_CD CD,       -- 사업내역코드
+	                     A.BUSI_NM CD_NM           -- 사업명                            
+	            FROM     TBRE_HEAL_CNTNT A          
+	            WHERE    A.BUSI_STAT_CD = '001' 
+	            AND      A.DPRT_CD      = ?   -- 1. 부서코드 
+	            AND      A.BUSI_YM_STR <= ?
+	            ORDER BY A.ORD, A.BUSI_CNTNT_CD
+	        ]]>
+	    </query>     
+        
+</queryMap>

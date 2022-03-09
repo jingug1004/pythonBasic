@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : mgrPersonnel.xml
+  * @메뉴명 : 부서정보
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="mgrPersonnel"> 
+	<!-- 조직 START -->
+	<select id="getDepartmentList" parameterType="hashmap" resultType="com.hanaph.gw.co.personnel.vo.DepartmentVO">
+		-- 조직정보 리스트 가져온다 / getDepartmentList / @ gmrPersonnel.xml / 전자결재-신규문서작성-스텝1-스텝2
+		SELECT TC.DEPTCODE AS DEPT_CD
+       ,TC.DEPTNAME AS DEPT_KO_NM
+       ,TC.PREDEPTCODE AS UP_DEPT_CD
+       ,TC.SEQ AS SORT_NO
+       ,CONNECT_BY_ISLEAF UP_DEPT_GBN
+		FROM ORAGMP.CMDEPTM TC
+        	START WITH TC.PREDEPTCODE = '9999' AND TC.USEYN = 'Y'
+        	CONNECT BY PRIOR TC.DEPTCODE = TC.PREDEPTCODE AND TC.USEYN = 'Y'
+		ORDER SIBLINGS BY TC.SEQ 
+	</select>
+	
+	<select id="getDepartmentDetail" parameterType="hashmap" resultType="com.hanaph.gw.co.personnel.vo.DepartmentVO">
+		SELECT DEPT0.DEPT_CD, DEPT_KO_NM, DEPT_EN_NM, DEPT_NM1, DEPT_AMT, MEDIA_CD,
+		       USE_YN, DEPT_OWNER, OLD_DEPT_CD, UP_DEPT_CD,
+		       (SELECT DEPT_KO_NM
+		          FROM HANAHR.HR_CO_DEPART_0
+		         WHERE DEPT_CD = DEPT0.UP_DEPT_CD) UP_DEPT_NM, OPRT_CD, LEVEL_CD,
+		       SORT_NO, FIRST_EMP_NO,
+		       TO_CHAR (FIRST_REGDATE, 'yyyy-mm-dd hh24:mi:ss') FIRST_REGDATE,
+		       LAST_EMP_NO,
+		       TO_CHAR (LAST_REGDATE, 'yyyy-mm-dd hh24:mi:ss') LAST_REGDATE, LAST_IP,
+		       HIST_REASON_NM, DEPT3.HIST_REASON_CD SALE_DEPT_CD, DEPT3.HIST_FRDT,
+		       DEPT3.HIST_TODT
+		  FROM HANAHR.HR_CO_DEPART_0 DEPT0,
+		       (SELECT DEPT_CD, HIST_FRDT, HIST_TODT, HIST_REASON_CD, HIST_REASON_NM
+		          FROM (SELECT   DEPT1.DEPT_CD,
+		                         TO_CHAR (TO_DATE (DEPT1.HIST_FRDT, 'yyyymmdd'),
+		                                  'yyyy-mm-dd'
+		                                 ) HIST_FRDT,
+		                         TO_CHAR (TO_DATE (DEPT1.HIST_TODT, 'yyyymmdd'),
+		                                  'yyyy-mm-dd'
+		                                 ) HIST_TODT,
+		                         DEPT1.HIST_REASON_CD, CO.COMN_NM HIST_REASON_NM,
+		                         ROWNUM RNUM
+		                    FROM HANAHR.HR_CO_DEPART_1 DEPT1,
+		                         HANAHR.HR_CO_COMMON_0 CO
+		                   WHERE DEPT1.DEPT_CD = #{dept_cd}
+		                     AND DEPT1.USE_YN = 'Y'
+		                     AND CO.COMN_CD(+) = DEPT1.HIST_REASON_CD
+		                ORDER BY SEQ DESC)
+		         WHERE RNUM = 1) DEPT3
+		 WHERE DEPT3.DEPT_CD = DEPT0.DEPT_CD
+	 </select>
+	 
+	<select id="getDepartmentSubList" parameterType="hashmap" resultType="com.hanaph.gw.co.personnel.vo.DepartmentVO">
+		SELECT DEPTCODE AS DEPT_CD
+		,DEPTNAME AS DEPT_KO_NM
+		,DEPTNAME AS DEPT_EN_NM
+		,SEQ AS SORT_NO
+		FROM ORAGMP.CMDEPTM 
+		WHERE PREDEPTCODE = #{dept_cd} 
+		AND USEYN = 'Y'
+		ORDER BY SEQ		
+	</select>
+	
+	<select id="getDepartmentTerminalList" parameterType="hashmap" resultType="com.hanaph.gw.co.personnel.vo.DepartmentVO">
+		-- 조직정보 터미널 리스트 가져온다 / getDepartmentTerminalList / @ mgrPersonnel.xml / 전자결재-신규문서작성-스텝1-스텝2
+		SELECT DEPT_CD
+		,DEPT_KO_NM
+		,UP_DEPT_CD
+		,SORT_NO
+		,UP_DEPT_GBN
+		FROM (
+		        SELECT TC.DEPTCODE AS DEPT_CD
+		        ,TC.DEPTNAME AS DEPT_KO_NM
+		        ,TC.PREDEPTCODE AS UP_DEPT_CD
+		        ,TC.DEPTCODE AS SORT_NO
+		        ,CONNECT_BY_ISLEAF UP_DEPT_GBN
+		        FROM ORAGMP.CMDEPTM TC
+		<if test="dept_ko_nm != null and dept_ko_nm !=''">		              
+		        WHERE TC.DEPTNAME LIKE '%' || #{dept_ko_nm} || '%'
+		</if>
+		        START WITH TC.DEPTCODE = #{up_dept_cd} AND TC.USEYN = 'Y'
+		        CONNECT BY PRIOR TC.DEPTCODE = TC.PREDEPTCODE AND TC.USEYN = 'Y'
+		        ORDER SIBLINGS BY TC.DEPTCODE        
+		)
+		WHERE UP_DEPT_GBN = '1'
+	</select>
+	<!-- 조직 END -->
+</mapper>
+	

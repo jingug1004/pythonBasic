@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_invw(출주선수면담등록)">
+    <query id="tbec_racer_invw_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+				SELECT  /* tbec_racer_invw_fc001 */
+						TA.STND_YEAR           	-- 기준년도    
+					  , TA.MBR_CD              	-- 경정장코드
+					  , TA.TMS                 	-- 회차
+					  , TA.RACER_NO            	-- 주선된 등록번호
+					  , TRM.NM_KOR             	-- 주선된 선수명
+					  , TRD.WGHT                -- 선수 체중
+					  , TRI.ENTRY_BODY_WGHT     -- 입소 시 체중
+					  , TRI.HEAL_STAT_CD        -- 건강상태코드
+					  , TRI.CONDI_CD            -- 컨디션코드
+					  , TRI.TRNG_STAT           -- 훈련상태
+					  , TRI.ETC                 -- 기타                  
+					  , TRI.ROOM_CD         			-- 방배정 코드
+					  , TRI.PRIV_TURNNING_CNT			-- 개인선회횟수
+					  , TRI.START_CNT					-- 스타트횟수
+					  , TRI.FORM_CNT                 	-- 편대횟수
+                FROM ( SELECT TA.STND_YEAR
+							, TA.MBR_CD
+							, TA.TMS
+							, TA.RACER_NO
+							, TA.BOAT_NO
+							, TA.MOT_NO 
+					   FROM   TBEB_ARRANGE TA
+							, TBEB_RACE_TMS TRT
+					   WHERE  TRT.ARRANGE_CMPL_YN   ='Y'
+					   AND    TRT.STND_YEAR   = TA.STND_YEAR
+					   AND    TRT.TMS         = TA.TMS
+					  ) TA
+					  , TBEC_RACER_MASTER TRM
+					  --, TBEC_RACER_DETAIL TRD
+					  , TBEC_RACER_INTERVIEW TRI
+					  ,(SELECT  RACER_NO
+					           ,ENTRY_BODY_WGHT AS WGHT
+                        FROM (
+                                SELECT  RACER_NO
+                                       ,ENTRY_BODY_WGHT
+                                       ,ROW_NUMBER() OVER (PARTITION BY RACER_NO ORDER BY STND_YEAR DESC, MBR_CD, TMS DESC) AS RNUM
+                                FROM    TBEC_RACER_INTERVIEW
+                                WHERE  STND_YEAR||MBR_CD||TO_CHAR(TMS,'00') < ?||?||TO_CHAR(?,'00')
+                               )    
+                        WHERE RNUM = 1
+                        ) TRD
+                WHERE TA.RACER_NO = TRM.RACER_NO
+                AND TA.RACER_NO = TRD.RACER_NO(+)
+                AND TA.STND_YEAR = ?
+                AND TA.MBR_CD = ?
+                AND TA.TMS = ?
+                AND TRM.NM_KOR LIKE '%' ||NVL(?, TRM.NM_KOR)|| '%'
+                AND TA.RACER_NO = NVL(?, TA.RACER_NO)
+                AND TA.STND_YEAR = TRI.STND_YEAR(+)
+                AND TA.MBR_CD = TRI.MBR_CD(+)
+                AND TA.TMS = TRI.TMS(+)
+                AND TA.RACER_NO = TRI.RACER_NO(+)
+                ORDER BY TRM.RACER_NO, TRM.NM_KOR
+        ]]>
+    </query>
+    <query id="tbec_racer_invw_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBEC_RACER_INTERVIEW TRI
+            USING   DUAL
+			ON		(	TRI.STND_YEAR 		= ? --기준년도
+						AND TRI.MBR_CD 		= ?	--경정장코드
+						AND TRI.TMS			= ?	--회차
+						AND TRI.RACER_NO	= ?	--등록번호
+					)
+			WHEN MATCHED THEN
+					UPDATE  SET
+	                    ENTRY_BODY_WGHT     = NVL(?, ENTRY_BODY_WGHT) -- 입소 시 체중
+	                  , HEAL_STAT_CD        = ?			-- 건강상태코드
+	                  , CONDI_CD            = ?			-- 컨디션코드
+	                  , TRNG_STAT           = NVL(?,TRNG_STAT)		-- 훈련상태
+	                  , ETC                 = NVL(?,ETC)			-- 기타
+	                  
+	                  , ROOM_CD             = NVL(?,ROOM_CD)			-- 방배정 코드
+	                  , PRIV_TURNNING_CNT   = NVL(?,PRIV_TURNNING_CNT)	-- 개인선회횟수
+	                  , START_CNT           = NVL(?,START_CNT)			-- 스타트횟수
+	                  , FORM_CNT            = NVL(?,FORM_CNT)			-- 편대횟수
+	                  
+				      , UPDT_ID   			= ?         -- 수정자ID    
+				      , UPDT_DTM  			= SYSDATE   -- 수정일시    
+			WHEN NOT MATCHED THEN
+					INSERT (
+	                    STND_YEAR           -- 기준년도    
+	                  , MBR_CD              -- 경정장코드
+	                  , TMS                 -- 회차
+	                  , RACER_NO            -- 등록번호
+	                  , ENTRY_BODY_WGHT     -- 입소 시 체중
+	                  , HEAL_STAT_CD        -- 건강상태코드
+	                  , CONDI_CD            -- 컨디션코드
+	                  , TRNG_STAT           -- 훈련상태
+	                  , ETC                 -- 기타
+	                  
+	                  , ROOM_CD             -- 방배정 코드
+	                  , PRIV_TURNNING_CNT   -- 개인선회횟수
+	                  , START_CNT           -- 스타트횟수
+	                  , FORM_CNT            -- 편대횟수
+	                  
+				      , INST_ID          	-- 작성자ID    
+				      , INST_DTM         	-- 작성일시   
+				      , UPDT_ID          	-- 수정자ID    
+				      , UPDT_DTM         	-- 수정일시
+					) VALUES (	
+	                    ?           	-- 기준년도    
+	                  , ?              	-- 경정장코드
+	                  , ?               -- 회차
+	                  , ?            	-- 등록번호
+	                  , ?     			-- 입소 시 체중
+	                  , ?        		-- 건강상태코드
+	                  , ?            	-- 컨디션코드
+	                  , ?           	-- 훈련상태
+	                  , ?               -- 기타
+	                  
+	                  , ?               -- 방배정 코드
+	                  , ?               -- 개인선회횟수
+	                  , ?               -- 스타트횟수
+	                  , ?               -- 편대횟수
+	                  
+				      , ?          		-- 작성자ID    
+				      , SYSDATE         -- 작성일시   
+				      , ?          		-- 수정자ID    
+				      , SYSDATE         -- 수정일시				
+					)
+        ]]>
+    </query> 
+    <query id="tbec_racer_invw_fc002" desc="조회" fetchSize="10">
+        <![CDATA[   
+				SELECT  
+						ROWNUM NO               	-- 순번    
+					  , STND_YEAR               	-- 기준년도    
+					  , MBR_CD                  	-- 경정장코드
+					  , TMS                     	-- 회차
+					  , RACER_NO                	-- 주선된 등록번호
+					  , NM_KOR                 		-- 주선된 선수명
+					  , ENTRY_BODY_WGHT     		-- 입소 시 체중
+					  , SEX_GBN     				-- 성별
+					  , HEAL_STAT_CD        		-- 건강상태코드
+					  , HEAL_STAT_CD_NM				-- 건강상태명
+					  , CONDI_CD            		-- 컨디션코드
+					  , CONDI_CD_NM					-- 컨디션명
+					  , TRNG_STAT           		-- 훈련상태
+					  , ETC                 		-- 기타 
+					  , ROOM_CD         			-- 방배정 코드
+					  , PRIV_TURNNING_CNT			-- 개인선회횟수
+					  , START_CNT					-- 스타트횟수
+					  , FORM_CNT                 	-- 편대횟수
+		        FROM (
+					  SELECT  
+							  TA.STND_YEAR
+							, TA.MBR_CD
+							, TA.TMS
+							, TA.RACER_NO
+							, TRM.NM_KOR
+							, TRI.ENTRY_BODY_WGHT
+							, DECODE(SUBSTR(GET_DEC(TRD.RES_NO),7,1), '2' , 'F', '4', 'F', 'M') SEX_GBN
+							, TRI.HEAL_STAT_CD
+							, (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00085' AND CD = TRI.HEAL_STAT_CD) HEAL_STAT_CD_NM
+							, TRI.CONDI_CD
+							, (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00085' AND CD = TRI.HEAL_STAT_CD) CONDI_CD_NM
+							, TRI.TRNG_STAT
+							, TRI.ETC
+							, TRI.ROOM_CD
+							, TRI.PRIV_TURNNING_CNT
+							, TRI.START_CNT
+							, TRI.FORM_CNT
+					  FROM (
+							SELECT  TA.STND_YEAR
+								  , TA.MBR_CD
+								  , TA.TMS
+								  , TA.RACER_NO
+								  , TA.BOAT_NO
+								  , TA.MOT_NO 
+							FROM    TBEB_ARRANGE TA
+								  , TBEB_RACE_TMS TRT
+							WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+							AND   TRT.STND_YEAR   = TA.STND_YEAR
+							AND   TRT.TMS         = TA.TMS
+							) TA
+							, TBEC_RACER_MASTER TRM
+							, TBEC_RACER_DETAIL TRD
+							, TBEC_RACER_INTERVIEW TRI
+					  WHERE TA.RACER_NO = TRM.RACER_NO
+					  AND   TA.RACER_NO = TRD.RACER_NO
+					  AND   TA.STND_YEAR = ?
+					  AND   TA.MBR_CD = ? 
+					  AND   TA.TMS = ?
+					  AND   TRM.NM_KOR LIKE '%' ||NVL(?, TRM.NM_KOR)|| '%'
+					  AND   TA.RACER_NO = NVL(?, TA.RACER_NO)
+					  AND   TA.STND_YEAR = TRI.STND_YEAR(+)
+					  AND   TA.MBR_CD = TRI.MBR_CD(+)
+					  AND   TA.TMS = TRI.TMS(+)
+					  AND   TA.RACER_NO = TRI.RACER_NO(+)
+					  ORDER BY TRM.RACER_NO, TRM.NM_KOR
+					  )
+        ]]>
+    </query> 
+</queryMap>

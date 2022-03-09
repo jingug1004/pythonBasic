@@ -1,0 +1,794 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : receive.xml
+  * @메뉴명 : 내가받은문서
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="receive"> 
+
+	<!--<select id="getReceiveList" parameterType="hashmap" resultType="com.hanaph.gw.ea.receive.vo.ReceiveVO">-->
+		<!--&#45;&#45; 내가받은문서 리스트를 가져온다 / getReceiveList / @ receive.xml / 전자결재 - 내가받은문서-->
+		<!--<if test="page != null">-->
+			<!--SELECT *-->
+			<!--FROM (SELECT -->
+					<!--T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE-->
+				<!--FROM (-->
+		<!--</if>-->
+				<!--SELECT TF.APPROVAL_SEQ, TJ.DOCU_NM, TF.DOCU_SEQ, TF.SUBJECT, EMP.EMPNAME REQ_NM,-->
+				       <!--TO_CHAR (TF.REQ_DT, 'YYYY-MM-DD') REQ_DT, TF.STATE DOCU_CD, F_GW_GET_CD_NM (TF.STATE) DOCU_STATE,-->
+				       <!--F_GW_GET_CD_NM (TG.STATE) APPROVAL_STATE, TG.STATE, ORAGMP.F_GW_GET_LAST_LINE_NM (TF.APPROVAL_SEQ) LAST_LINE_NM, TG.ORDERING, TG.MAXORDER-->
+				  <!--FROM GW_EA_APPROVAL_MASTER TF, -->
+				       <!--ORAGMP.CMEMPM EMP,-->
+				       <!--GW_EA_DOCU TJ,-->
+				     	 <!--(SELECT   APPROVAL_SEQ, STATE, ORDERING, MAXORDER-->
+				            <!--FROM (-->
+								<!--/*요청중이고 시행부서에의견이 있고 내가 결재 순서인경우*/-->
+								<!--SELECT TE.APPROVAL_SEQ, TE.STATE, ORDERING, MAXORDER-->
+								  <!--FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TC.STATE,-->
+								               <!--ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING) AS ROW_NUMBER, ORDERING,-->
+								               <!--(SELECT MAX (ORDERING)-->
+								                  <!--FROM GW_EA_APPROVAL APP-->
+								                 <!--WHERE APP.APPROVAL_SEQ = TD.APPROVAL_SEQ) MAXORDER-->
+								          <!--FROM GW_EA_APPROVAL TC,-->
+								               <!--GW_EA_APPROVAL_MASTER TD-->
+								         <!--WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ-->
+								           <!--AND TD.STATE = 'E02002'-->
+								           <!--AND TC.APPROVAL_DT IS NULL-->
+								       <!--)TE,-->
+								       <!--(SELECT APPROVAL_SEQ-->
+								          <!--FROM (-->
+								                <!--SELECT APPROVAL_SEQ,-->
+								                  <!--CASE WHEN (SUBSTR(APPROVAL_SEQ,0,6) != 'E01014' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01007' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01004') THEN '1'-->
+								                       <!--ELSE '0'-->
+								                        <!--END DOCU_CHK,-->
+								                  <!--CASE WHEN COUNT(DEPT_CD) = SUM(OPINION_CNT) AND (SUBSTR(APPROVAL_SEQ,0,6) = 'E01014' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01007' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01004') THEN '1'-->
+								                       <!--ELSE '0'-->
+								                        <!--END OPTION_CHK -->
+								                  <!--FROM(-->
+								                       <!--SELECT TA.APPROVAL_SEQ,TA.DEPT_CD,-->
+								                         <!--CASE WHEN COUNT(TB.OPINION_SEQ) >= 1  THEN '1'-->
+								                              <!--ELSE '0'-->
+								                               <!--END AS OPINION_CNT-->
+								                          <!--FROM GW_EA_IMPL_DEPT_EMP TA, -->
+								                               <!--GW_EA_OPINION TB-->
+								                         <!--WHERE TA.APPROVAL_SEQ  = TB.APPROVAL_SEQ(+)-->
+								                           <!--AND TA.EMP_NO = TB.CREATE_NO(+)-->
+								                         <!--GROUP BY  ta.APPROVAL_SEQ,TA.DEPT_CD-->
+								                       <!--)-->
+								                 <!--GROUP BY APPROVAL_SEQ-->
+								                 <!--)-->
+								         <!--WHERE OPTION_CHK = '1'-->
+								            <!--OR DOCU_CHK = '1'-->
+								        <!--)OC        -->
+								 <!--WHERE TE.APPROVAL_SEQ = OC.APPROVAL_SEQ-->
+								   <!--AND TE.ROW_NUMBER = '1' -->
+								   <!--AND TE.EMP_NO = #{emp_no}-->
+								   <!--UNION ALL-->
+								  <!--/*진행중에 내가 결재 순서인경우*/-->
+								    <!--SELECT TE.APPROVAL_SEQ, TE.STATE, ORDERING, MAXORDER-->
+								      <!--FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TC.STATE,-->
+								                   <!--ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING) AS ROW_NUMBER, ORDERING,-->
+								                   <!--(SELECT MAX (ORDERING)-->
+								                      <!--FROM GW_EA_APPROVAL APP-->
+								                     <!--WHERE APP.APPROVAL_SEQ = TD.APPROVAL_SEQ) MAXORDER-->
+								              <!--FROM GW_EA_APPROVAL TC,-->
+								                   <!--GW_EA_APPROVAL_MASTER TD-->
+								             <!--WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ-->
+								               <!--AND TD.STATE ='E02003'-->
+								               <!--AND TC.APPROVAL_DT IS NULL) TE-->
+								     <!--WHERE ROW_NUMBER = '1' -->
+								     <!--AND TE.EMP_NO = #{emp_no}-->
+				                  <!--UNION ALL-->
+				                  <!--/*진행중에 내가 결재를 한경우*/-->
+				                  <!--SELECT TH.APPROVAL_SEQ, TH.STATE, ORDERING,-->
+				                         <!--(SELECT MAX (ORDERING)-->
+				                            <!--FROM GW_EA_APPROVAL APP-->
+				                           <!--WHERE APP.APPROVAL_SEQ = TI.APPROVAL_SEQ) MAXORDER-->
+				                    <!--FROM GW_EA_APPROVAL TH,-->
+				                         <!--GW_EA_APPROVAL_MASTER TI-->
+				                   <!--WHERE TH.APPROVAL_SEQ = TI.APPROVAL_SEQ-->
+				                     <!--AND TI.STATE = 'E02003'-->
+				                     <!--AND TH.EMP_NO = #{emp_no}-->
+				                     <!--AND TH.STATE IN ('E03002', 'E03003')-->
+				                  <!--UNION ALL-->
+				                  <!--/*완료중에 내가 결재라인에 있을경우*/-->
+				                  <!--SELECT TA.APPROVAL_SEQ, TA.STATE, 0, 0-->
+				                    <!--FROM GW_EA_APPROVAL TA,-->
+				                         <!--GW_EA_APPROVAL_MASTER TB-->
+				                   <!--WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ-->
+				                     <!--AND TB.STATE = 'E02004'-->
+				                     <!--AND TA.EMP_NO = #{emp_no}-->
+				                  <!--UNION ALL-->
+				                  <!--/*반려중에 내가 결재한 이후인지*/ -->
+				                  <!--SELECT TA.APPROVAL_SEQ, TA.STATE, 0, 0-->
+				                    <!--FROM GW_EA_APPROVAL TA,-->
+				                         <!--GW_EA_APPROVAL_MASTER TB-->
+				                   <!--WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ-->
+				                     <!--AND TB.STATE = 'E02005'-->
+				                     <!--AND TA.EMP_NO = #{emp_no}-->
+				                     <!--AND TA.STATE IN ('E03002', 'E03003'))-->
+				        <!--GROUP BY APPROVAL_SEQ, STATE, ORDERING, MAXORDER) TG-->
+				 <!--WHERE TF.APPROVAL_SEQ = TG.APPROVAL_SEQ-->
+				   <!--AND TF.DOCU_SEQ = TJ.DOCU_SEQ-->
+				   <!--AND EMP.EMPCODE = TF.CREATE_NO-->
+				   <!--AND TF.DELETE_YN = 'N'-->
+				<!--<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">-->
+				   <!--AND TF.REQ_DT BETWEEN TO_DATE (#{search_start_ymd}, 'yyyy-mm-dd')-->
+				   <!--AND TO_DATE (#{search_end_ymd}, 'yyyy-mm-dd') + 0.99999-->
+				<!--</if>-->
+		       	<!--<if test="search_docu_state != 'all'">-->
+		       	   <!--AND TF.STATE = #{search_docu_state}-->
+		       	<!--</if>-->
+		       	<!--<if test="search_docu_kind != 'all'">-->
+		       	   <!--AND TJ.DOCU_CD = #{search_docu_kind}-->
+		       	<!--</if>-->
+		       	<!--<if test="search_appr_state != 'all'">-->
+		       	   <!--AND TG.STATE = #{search_appr_state}-->
+		       	<!--</if>-->
+				<!--<if test="searchKeyword != ''">-->
+					<!--<choose>-->
+						<!--<when test="searchType == 'approval_seq'">-->
+							<!--AND TF.APPROVAL_SEQ LIKE '%' || #{searchKeyword} || '%'-->
+						<!--</when>-->
+						<!--<when test="searchType == 'subject'">-->
+							<!--AND TF.SUBJECT LIKE '%' || #{searchKeyword} || '%'-->
+						<!--</when>-->
+						<!--<when test="searchType == 'emp_ko_nm'">-->
+							<!--AND EMP.EMPNAME LIKE '%' || #{searchKeyword} || '%'-->
+						<!--</when>-->
+					<!--</choose>-->
+				<!--</if>-->
+				<!--ORDER BY TF.REQ_DT DESC-->
+		<!--<if test="page != null">-->
+					<!--) T0-->
+				<!--)-->
+			<!--WHERE PAGE = #{page,jdbcType=INTEGER}-->
+		<!--</if>-->
+	<!--</select>-->
+	<!-- ml180118.ml09_T31 김진국 - receive.xml에 getReceiveList 맵퍼(select) 수정 - approval_seq가 9인것만 가져와서 출력 -->
+	<select id="getReceiveList" parameterType="hashmap" resultType="com.hanaph.gw.ea.receive.vo.ReceiveVO">
+		-- 내가받은문서 리스트를 가져온다 / getReceiveList / @ receive.xml / 전자결재 - 내가받은문서
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+		SELECT
+		TF.APPROVAL_SEQ,
+		TJ.DOCU_NM,
+		TF.DOCU_SEQ,
+		TF.SUBJECT,
+		EMP.EMPNAME                                   REQ_NM,
+		TO_CHAR(TF.REQ_DT, 'YYYY-MM-DD')              REQ_DT,
+		TF.STATE                                      DOCU_CD,
+		HANAGROUPWARE.F_GW_GET_CD_NM(TF.STATE)        DOCU_STATE,
+		HANAGROUPWARE.F_GW_GET_CD_NM(TG.STATE)        APPROVAL_STATE,
+		TG.STATE,
+		ORAGMP.F_GW_GET_LAST_LINE_NM(TF.APPROVAL_SEQ) LAST_LINE_NM,
+		TG.ORDERING,
+		TG.MAXORDER
+		FROM HANAGROUPWARE.GW_EA_APPROVAL_MASTER TF,
+		ORAGMP.CMEMPM EMP,
+		HANAGROUPWARE.GW_EA_DOCU TJ,
+		(SELECT
+		APPROVAL_SEQ,
+		STATE,
+		ORDERING,
+		MAXORDER
+		FROM (
+		/*요청중이고 시행부서에의견이 있고 내가 결재 순서인경우*/
+		SELECT
+		TE.APPROVAL_SEQ,
+		TE.STATE,
+		ORDERING,
+		MAXORDER
+		FROM (SELECT
+		TC.EMP_NO,
+		TC.APPROVAL_SEQ,
+		TC.STATE,
+		ROW_NUMBER()
+		OVER (
+		PARTITION BY TC.APPROVAL_SEQ
+		ORDER BY TC.ORDERING ) AS                ROW_NUMBER,
+		ORDERING,
+		(SELECT MAX(ORDERING)
+		FROM HANAGROUPWARE.GW_EA_APPROVAL APP
+		WHERE APP.APPROVAL_SEQ = TD.APPROVAL_SEQ) MAXORDER
+		FROM HANAGROUPWARE.GW_EA_APPROVAL TC,
+		HANAGROUPWARE.GW_EA_APPROVAL_MASTER TD
+		WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+		-- 00
+		-- AND TD.STATE = 'E02002'
+
+		AND TC.APPROVAL_DT IS NULL
+		) TE,
+		(SELECT APPROVAL_SEQ
+		FROM (
+		SELECT
+		APPROVAL_SEQ,
+		-- 01
+		CASE WHEN (TEST <![CDATA[<>]]> 'Y')
+
+		THEN '1'
+		ELSE '0'
+		END DOCU_CHK,
+		CASE WHEN COUNT(DEPT_CD) = SUM(OPINION_CNT) AND
+		-- 02
+		(TEST = 'Y')
+
+		THEN '1'
+		ELSE '0'
+		END OPTION_CHK
+		FROM (
+		SELECT
+		TA.APPROVAL_SEQ,
+		TA.DEPT_CD,
+		CASE WHEN COUNT(TB.OPINION_SEQ) >= 1
+		THEN '1'
+		ELSE '0'
+		END AS OPINION_CNT,
+
+		(SELECT HANAGROUPWARE.GW_EA_APPROVAL_MASTER.MUSTOPINION
+		FROM HANAGROUPWARE.GW_EA_APPROVAL_MASTER WHERE HANAGROUPWARE.GW_EA_APPROVAL_MASTER.APPROVAL_SEQ = TA.APPROVAL_SEQ) AS TEST
+
+
+		FROM HANAGROUPWARE.GW_EA_IMPL_DEPT_EMP TA,
+		HANAGROUPWARE.GW_EA_OPINION TB
+		WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ (+)
+		AND TA.EMP_NO = TB.CREATE_NO (+)
+		GROUP BY ta.APPROVAL_SEQ, TA.DEPT_CD
+		)
+		GROUP BY APPROVAL_SEQ, TEST
+		)
+		WHERE OPTION_CHK = '1'
+		OR DOCU_CHK = '1'
+		) OC
+		WHERE TE.APPROVAL_SEQ = OC.APPROVAL_SEQ
+		AND TE.ROW_NUMBER = '1'
+		AND TE.EMP_NO = #{emp_no}
+		UNION ALL
+		/*진행중에 내가 결재 순서인경우*/
+		SELECT
+		TE.APPROVAL_SEQ,
+		TE.STATE,
+		ORDERING,
+		MAXORDER
+		FROM (SELECT
+		TC.EMP_NO,
+		TC.APPROVAL_SEQ,
+		TC.STATE,
+		ROW_NUMBER()
+		OVER (
+		PARTITION BY TC.APPROVAL_SEQ
+		ORDER BY TC.ORDERING ) AS                ROW_NUMBER,
+		ORDERING,
+		(SELECT MAX(ORDERING)
+		FROM HANAGROUPWARE.GW_EA_APPROVAL APP
+		WHERE APP.APPROVAL_SEQ = TD.APPROVAL_SEQ) MAXORDER
+		FROM HANAGROUPWARE.GW_EA_APPROVAL TC,
+		HANAGROUPWARE.GW_EA_APPROVAL_MASTER TD
+		WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+
+
+		AND TD.STATE = 'E02003'
+		AND HANAGROUPWARE.F_GW_GET_MUSTOP(TC.APPROVAL_SEQ) = 'Y'
+		AND TC.APPROVAL_DT IS NULL
+
+
+		) TE
+		WHERE ROW_NUMBER = '1'
+		AND TE.EMP_NO = #{emp_no}
+		UNION ALL
+		/*진행중에 내가 결재를 한경우*/
+		SELECT
+		TH.APPROVAL_SEQ,
+		TH.STATE,
+		ORDERING,
+		(SELECT MAX(ORDERING)
+		FROM HANAGROUPWARE.GW_EA_APPROVAL APP
+		WHERE APP.APPROVAL_SEQ = TI.APPROVAL_SEQ) MAXORDER
+		FROM HANAGROUPWARE.GW_EA_APPROVAL TH,
+		HANAGROUPWARE.GW_EA_APPROVAL_MASTER TI
+		WHERE TH.APPROVAL_SEQ = TI.APPROVAL_SEQ
+		AND TI.STATE = 'E02003'
+		AND TH.EMP_NO = #{emp_no}
+		AND TH.STATE IN ('E03002', 'E03003')
+		UNION ALL
+		/*완료중에 내가 결재라인에 있을경우*/
+		SELECT
+		TA.APPROVAL_SEQ,
+		TA.STATE,
+		0,
+		0
+		FROM HANAGROUPWARE.GW_EA_APPROVAL TA,
+		HANAGROUPWARE.GW_EA_APPROVAL_MASTER TB
+		WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ
+		AND TB.STATE = 'E02004'
+		AND TA.EMP_NO = #{emp_no}
+		UNION ALL
+		/*반려중에 내가 결재한 이후인지*/
+		SELECT
+		TA.APPROVAL_SEQ,
+		TA.STATE,
+		0,
+		0
+		FROM HANAGROUPWARE.GW_EA_APPROVAL TA,
+		HANAGROUPWARE.GW_EA_APPROVAL_MASTER TB
+		WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ
+		AND TB.STATE = 'E02005'
+		AND TA.EMP_NO = #{emp_no}
+		AND TA.STATE IN ('E03002', 'E03003'))
+		GROUP BY APPROVAL_SEQ, STATE, ORDERING, MAXORDER) TG
+		WHERE TF.APPROVAL_SEQ = TG.APPROVAL_SEQ
+		AND TF.DOCU_SEQ = TJ.DOCU_SEQ
+		AND EMP.EMPCODE = TF.CREATE_NO
+		AND TF.DELETE_YN = 'N'
+				<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">
+				   AND TF.REQ_DT BETWEEN TO_DATE (#{search_start_ymd}, 'yyyy-mm-dd')
+				   AND TO_DATE (#{search_end_ymd}, 'yyyy-mm-dd') + 0.99999
+				</if>
+		       	<if test="search_docu_state != 'all'">
+		       	   AND TF.STATE = #{search_docu_state}
+		       	</if>
+		       	<if test="search_docu_kind != 'all'">
+		       	   AND TJ.DOCU_CD = #{search_docu_kind}
+		       	</if>
+		       	<if test="search_appr_state != 'all'">
+		       	   AND TG.STATE = #{search_appr_state}
+		       	</if>
+				<if test="searchKeyword != ''">
+					<choose>
+						<when test="searchType == 'approval_seq'">
+							AND TF.APPROVAL_SEQ LIKE '%' || #{searchKeyword} || '%'
+						</when>
+						<when test="searchType == 'subject'">
+							AND TF.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+						</when>
+						<when test="searchType == 'emp_ko_nm'">
+							AND EMP.EMPNAME LIKE '%' || #{searchKeyword} || '%'
+						</when>
+					</choose>
+				</if>
+
+		<if test='checkMustOpinion == "N"'>
+			AND TF.MUSTOPINION = 'N'
+		</if>
+		<if test='checkMustOpinion == "Y"'>
+			AND TF.MUSTOPINION = 'Y'
+		</if>
+
+				ORDER BY TF.REQ_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+
+	<!--<select id="getReceiveCount" parameterType="hashmap" resultType="int">-->
+		<!--&#45;&#45; 내가받은문서 총 갯수를 가져온다 / getReceiveCount / @ receive.xml / 전자결재 - 내가받은문서-->
+		<!--SELECT COUNT(*)-->
+		  <!--FROM GW_EA_APPROVAL_MASTER TF, GW_EA_DOCU TJ, ORAGMP.CMEMPM EMP,-->
+		       <!--(-->
+		        <!--SELECT APPROVAL_SEQ, STATE-->
+		          <!--FROM (-->
+		                <!--/*요청중에 내가 결재 순서인경우*/-->
+		                <!--SELECT TE.APPROVAL_SEQ , TE.STATE-->
+		                  <!--FROM (-->
+		                        <!--SELECT TC.EMP_NO,TC.APPROVAL_SEQ, TC.STATE-->
+		                                <!--, ROW_NUMBER() OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING) AS ROW_NUMBER-->
+		                          <!--FROM GW_EA_APPROVAL TC,-->
+		                               <!--GW_EA_APPROVAL_MASTER TD-->
+		                         <!--WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ-->
+		                            <!--AND TD.STATE = 'E02002'-->
+		                            <!--AND TC.APPROVAL_DT IS NULL-->
+		                       <!--) TE,-->
+					   <!--(-->
+						<!--SELECT APPROVAL_SEQ-->
+				          <!--FROM (-->
+				                <!--SELECT APPROVAL_SEQ,-->
+				                  <!--CASE WHEN (SUBSTR(APPROVAL_SEQ,0,6) != 'E01014' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01007' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01004') THEN '1'-->
+				                       <!--ELSE '0'-->
+				                        <!--END DOCU_CHK,-->
+				                  <!--CASE WHEN COUNT(DEPT_CD) = SUM(OPINION_CNT) AND (SUBSTR(APPROVAL_SEQ,0,6) = 'E01014' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01007' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01004') THEN '1'-->
+				                       <!--ELSE '0'-->
+				                        <!--END OPTION_CHK -->
+				                  <!--FROM(-->
+				                       <!--SELECT TA.APPROVAL_SEQ,TA.DEPT_CD,-->
+				                         <!--CASE WHEN COUNT(TB.OPINION_SEQ) >= 1  THEN '1'-->
+				                              <!--ELSE '0'-->
+				                               <!--END AS OPINION_CNT-->
+				                          <!--FROM GW_EA_IMPL_DEPT_EMP TA, -->
+				                               <!--GW_EA_OPINION TB-->
+				                         <!--WHERE TA.APPROVAL_SEQ  = TB.APPROVAL_SEQ(+)-->
+				                           <!--AND TA.EMP_NO = TB.CREATE_NO(+)-->
+				                         <!--GROUP BY  ta.APPROVAL_SEQ,TA.DEPT_CD-->
+				                       <!--)-->
+				                 <!--GROUP BY APPROVAL_SEQ-->
+				                 <!--)-->
+				         <!--WHERE OPTION_CHK = '1'-->
+				            <!--OR DOCU_CHK = '1'-->
+					    <!--)OC-->
+					     <!--WHERE TE.APPROVAL_SEQ = OC.APPROVAL_SEQ-->
+						   <!--AND TE.ROW_NUMBER = '1' -->
+						   <!--AND TE.EMP_NO = #{emp_no}-->
+						   <!--UNION ALL-->
+						<!--/*진행중에 내가 결재 순서인경우*/-->
+					    <!--SELECT TE.APPROVAL_SEQ, TE.STATE-->
+					      <!--FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TC.STATE,-->
+					                   <!--ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING) AS ROW_NUMBER					                   -->
+					              <!--FROM GW_EA_APPROVAL TC,-->
+					                   <!--GW_EA_APPROVAL_MASTER TD-->
+					             <!--WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ-->
+					               <!--AND TD.STATE ='E02003'-->
+					               <!--AND TC.APPROVAL_DT IS NULL) TE-->
+					     <!--WHERE ROW_NUMBER = '1' -->
+					       <!--AND TE.EMP_NO = #{emp_no}-->
+		                 <!--UNION ALL-->
+		                 <!--/*진행중에 내가 결재를 한경우*/-->
+		                <!--SELECT TH.APPROVAL_SEQ, TH.STATE-->
+		                  <!--FROM GW_EA_APPROVAL TH, GW_EA_APPROVAL_MASTER TI-->
+		                 <!--WHERE TH.APPROVAL_SEQ = TI.APPROVAL_SEQ-->
+		                   <!--AND TI.STATE = 'E02003'-->
+		                   <!--AND TH.EMP_NO = #{emp_no}-->
+		                   <!--AND TH.STATE IN ('E03002','E03003')-->
+		                 <!--UNION ALL-->
+		                 <!--/*완료중에 내가 결재라인에 있을경우*/-->
+		                <!--SELECT TA.APPROVAL_SEQ, TA.STATE-->
+		                  <!--FROM GW_EA_APPROVAL TA, GW_EA_APPROVAL_MASTER TB-->
+		                 <!--WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ-->
+		                   <!--AND TB.STATE = 'E02004'-->
+		                   <!--AND TA.EMP_NO = #{emp_no}-->
+		                 <!--UNION ALL-->
+		                 <!--/*반려중에 내가 결재한 이후인지*/ -->
+		                <!--SELECT TA.APPROVAL_SEQ, TA.STATE-->
+		                  <!--FROM GW_EA_APPROVAL TA, GW_EA_APPROVAL_MASTER TB-->
+		                 <!--WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ-->
+		                   <!--AND TB.STATE = 'E02005'-->
+		                   <!--AND TA.EMP_NO = #{emp_no}-->
+		                   <!--AND TA.STATE IN ('E03002','E03003')    -->
+		              <!--)-->
+		         <!--GROUP BY APPROVAL_SEQ, STATE-->
+		        <!--) TG-->
+		 <!--WHERE TF.APPROVAL_SEQ = TG.APPROVAL_SEQ-->
+		   <!--AND TF.DOCU_SEQ = TJ.DOCU_SEQ-->
+		   <!--AND EMP.EMPCODE = TF.CREATE_NO-->
+		   <!--AND TF.DELETE_YN = 'N'-->
+		<!--<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">-->
+		   <!--AND TF.REQ_DT BETWEEN TO_DATE (#{search_start_ymd}, 'yyyy-mm-dd')-->
+		   <!--AND TO_DATE (#{search_end_ymd}, 'yyyy-mm-dd') + 0.99999-->
+		<!--</if>-->
+       	<!--<if test="search_docu_state != 'all'">-->
+       	   <!--AND TF.STATE = #{search_docu_state}-->
+       	<!--</if>-->
+       	<!--<if test="search_docu_kind != 'all'">-->
+       	   <!--AND TJ.DOCU_CD = #{search_docu_kind}-->
+       	<!--</if>-->
+       	<!--<if test="search_appr_state != 'all'">-->
+       	   <!--AND TG.STATE = #{search_appr_state}-->
+       	<!--</if>-->
+		<!--<if test="searchKeyword != ''">-->
+			<!--<choose>-->
+				<!--<when test="searchType == 'approval_seq'">-->
+					<!--AND TF.APPROVAL_SEQ LIKE '%' || #{searchKeyword} || '%'-->
+				<!--</when>-->
+				<!--<when test="searchType == 'subject'">-->
+					<!--AND TF.SUBJECT LIKE '%' || #{searchKeyword} || '%'-->
+				<!--</when>-->
+				<!--<when test="searchType == 'emp_ko_nm'">-->
+					<!--AND EMP.EMPNAME LIKE '%' || #{searchKeyword} || '%'-->
+				<!--</when>-->
+			<!--</choose>-->
+		<!--</if>-->
+ 	<!--</select>-->
+	<!--ml180118.ml10_T32 김진국 - receive.xml에 getReceiveCount 맵퍼(select) 수정 - approval_seq가 9인것만 가져와서 카운트 출력-->
+	<select id="getReceiveCount" parameterType="hashmap" resultType="int">
+		-- 내가받은문서 총 갯수를 가져온다 / getReceiveCount / @ receive.xml / 전자결재 - 내가받은문서
+		SELECT COUNT(*)
+		FROM HANAGROUPWARE.GW_EA_APPROVAL_MASTER TF, HANAGROUPWARE.GW_EA_DOCU TJ, ORAGMP.CMEMPM EMP,
+		( SELECT APPROVAL_SEQ, STATE
+		FROM ( /*요청중에 내가 결재 순서인경우*/ SELECT TE.APPROVAL_SEQ , TE.STATE
+		FROM ( SELECT TC.EMP_NO,TC.APPROVAL_SEQ, TC.STATE , ROW_NUMBER() OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING) AS ROW_NUMBER
+		FROM HANAGROUPWARE.GW_EA_APPROVAL TC, HANAGROUPWARE.GW_EA_APPROVAL_MASTER TD WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+		-- 00
+		-- AND TD.STATE = 'E02002'
+
+		AND TC.APPROVAL_DT IS NULL
+		) TE,
+		( SELECT APPROVAL_SEQ
+		-- 03
+		FROM ( SELECT APPROVAL_SEQ, CASE WHEN (TEST <![CDATA[<>]]> 'Y') THEN '1' ELSE '0' END DOCU_CHK,
+		-- 04
+		CASE WHEN COUNT(DEPT_CD) = SUM(OPINION_CNT) AND (TEST = 'Y') THEN '1' ELSE '0' END OPTION_CHK
+		FROM( SELECT TA.APPROVAL_SEQ,TA.DEPT_CD, CASE WHEN COUNT(TB.OPINION_SEQ) >= 1 THEN '1' ELSE '0' END AS OPINION_CNT,
+
+		-- 05
+		(SELECT HANAGROUPWARE.GW_EA_APPROVAL_MASTER.MUSTOPINION
+		FROM HANAGROUPWARE.GW_EA_APPROVAL_MASTER WHERE HANAGROUPWARE.GW_EA_APPROVAL_MASTER.APPROVAL_SEQ = TA.APPROVAL_SEQ) AS TEST
+
+		FROM HANAGROUPWARE.GW_EA_IMPL_DEPT_EMP TA, HANAGROUPWARE.GW_EA_OPINION TB WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ(+) AND TA.EMP_NO = TB.CREATE_NO(+) GROUP BY ta.APPROVAL_SEQ,TA.DEPT_CD ) GROUP BY APPROVAL_SEQ, TEST ) WHERE OPTION_CHK = '1' OR DOCU_CHK = '1' )OC WHERE TE.APPROVAL_SEQ = OC.APPROVAL_SEQ AND TE.ROW_NUMBER = '1' AND TE.EMP_NO = #{emp_no}
+		UNION ALL /*진행중에 내가 결재 순서인경우*/ SELECT TE.APPROVAL_SEQ, TE.STATE FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TC.STATE, ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING) AS ROW_NUMBER FROM HANAGROUPWARE.GW_EA_APPROVAL TC, HANAGROUPWARE.GW_EA_APPROVAL_MASTER TD WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+
+
+
+		AND TD.STATE ='E02003'
+		AND HANAGROUPWARE.F_GW_GET_MUSTOP(TC.APPROVAL_SEQ) = 'Y'
+		AND TC.APPROVAL_DT IS NULL
+
+
+
+		) TE WHERE ROW_NUMBER = '1' AND TE.EMP_NO = #{emp_no}
+		UNION ALL /*진행중에 내가 결재를 한경우*/ SELECT TH.APPROVAL_SEQ, TH.STATE FROM HANAGROUPWARE.GW_EA_APPROVAL TH, HANAGROUPWARE.GW_EA_APPROVAL_MASTER TI WHERE TH.APPROVAL_SEQ = TI.APPROVAL_SEQ AND TI.STATE = 'E02003' AND TH.EMP_NO = #{emp_no} AND TH.STATE IN ('E03002','E03003')
+		UNION ALL /*완료중에 내가 결재라인에 있을경우*/ SELECT TA.APPROVAL_SEQ, TA.STATE FROM HANAGROUPWARE.GW_EA_APPROVAL TA, HANAGROUPWARE.GW_EA_APPROVAL_MASTER TB WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ AND TB.STATE = 'E02004' AND TA.EMP_NO = #{emp_no}
+		UNION ALL /*반려중에 내가 결재한 이후인지*/ SELECT TA.APPROVAL_SEQ, TA.STATE FROM HANAGROUPWARE.GW_EA_APPROVAL TA, HANAGROUPWARE.GW_EA_APPROVAL_MASTER TB WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ AND TB.STATE = 'E02005' AND TA.EMP_NO = #{emp_no} AND TA.STATE IN ('E03002','E03003') ) GROUP BY APPROVAL_SEQ, STATE ) TG WHERE TF.APPROVAL_SEQ = TG.APPROVAL_SEQ AND TF.DOCU_SEQ = TJ.DOCU_SEQ AND EMP.EMPCODE = TF.CREATE_NO AND TF.DELETE_YN = 'N' AND TF.REQ_DT BETWEEN TO_DATE (#{search_start_ymd}, 'yyyy-mm-dd') AND TO_DATE (#{search_end_ymd}, 'yyyy-mm-dd') + 0.99999
+		<if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">
+		   AND TF.REQ_DT BETWEEN TO_DATE (#{search_start_ymd}, 'yyyy-mm-dd')
+		   AND TO_DATE (#{search_end_ymd}, 'yyyy-mm-dd') + 0.99999
+		</if>
+       	<if test="search_docu_state != 'all'">
+       	   AND TF.STATE = #{search_docu_state}
+       	</if>
+       	<if test="search_docu_kind != 'all'">
+       	   AND TJ.DOCU_CD = #{search_docu_kind}
+       	</if>
+       	<if test="search_appr_state != 'all'">
+       	   AND TG.STATE = #{search_appr_state}
+       	</if>
+		<if test="searchKeyword != ''">
+			<choose>
+				<when test="searchType == 'approval_seq'">
+					AND TF.APPROVAL_SEQ LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'subject'">
+					AND TF.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'emp_ko_nm'">
+					AND EMP.EMPNAME LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+
+		<if test='checkMustOpinion == "N"'>
+			AND TF.MUSTOPINION = 'N'
+		</if>
+		<if test='checkMustOpinion == "Y"'>
+			AND TF.MUSTOPINION = 'Y'
+		</if>
+
+ 	</select>
+
+ 	<update id="updateApproval" parameterType="com.hanaph.gw.ea.receive.vo.ReceiveVO">
+		-- 일괄 결재 한다 / updateApproval / @ receive.xml
+		UPDATE GW_EA_APPROVAL
+		   SET 
+		<choose>
+			<when test="gubun == 4 || gubun == 5 || gubun == 6">
+		       STATE = #{state},
+		       APPROVAL_DT = ''
+			</when>
+			<otherwise>
+			   STATE = #{state},
+		       APPROVAL_DT = SYSDATE
+			</otherwise>
+		</choose>
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{create_no} 
+ 	</update>
+
+ 	<update id="updateApprovalMustOpinion" parameterType="com.hanaph.gw.ea.receive.vo.ReceiveVO">
+		-- 결재 오더링 -1 (스텝 -1과 같은 말) / updateApprovalMustOpinion / @ receive.xml
+		UPDATE GW_EA_APPROVAL
+		   SET
+		<choose>
+			<when test="gubun == 4 || gubun == 5 || gubun == 6">
+		       STATE = #{state},
+		       APPROVAL_DT = ''
+			</when>
+			<otherwise>
+			   STATE = #{state},
+		       APPROVAL_DT = SYSDATE
+			</otherwise>
+		</choose>
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND ORDERING =
+				(SELECT ORDERING - 1
+				FROM HANAGROUPWARE.GW_EA_APPROVAL
+				WHERE APPROVAL_SEQ = #{approval_seq} AND EMP_NO = #{create_no})
+ 	</update>
+
+ 	<select id="getReceiveReadYnDetail" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+	 	-- 열람여부 상세정보를 가져온다 / getReceiveReadYnDetail / @ receive.xml / 전자결재 - 내가받은문서 - 결재문서상세페이지
+	 	SELECT READ_DT FROM GW_EA_APPROVAL
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}
+ 	</select>
+ 	
+ 	<update id="updateReceiveReadYn" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+	 	-- 열람여부 업데이트를 한다 / updateReceiveReadYn / @ receive.xml
+	 	UPDATE GW_EA_APPROVAL SET READ_DT = SYSDATE
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{create_no} 	
+ 	</update>
+ 	
+ 	<select id="getApprovalOrdering" parameterType="com.hanaph.gw.ea.receive.vo.ReceiveVO" resultType="com.hanaph.gw.ea.receive.vo.ReceiveVO">
+		-- 결재자가 몇명인지 내가 몇번째 결재순서 인지 가져온다 / getApprovalOrdering / receive.xml
+		SELECT TE.APPROVAL_SEQ, TE.STATE, ORDERING, MAXORDER
+		  FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TC.STATE,
+		             ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING) AS ROW_NUMBER, ORDERING,
+		             (SELECT MAX (ORDERING)
+		                FROM GW_EA_APPROVAL APP
+		               WHERE APP.APPROVAL_SEQ = TD.APPROVAL_SEQ) MAXORDER
+		        FROM GW_EA_APPROVAL TC,
+		             GW_EA_APPROVAL_MASTER TD
+		       WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+		         AND TD.STATE IN ('E02002', 'E02003')
+		         AND TC.APPROVAL_DT IS NULL) TE
+		WHERE ROW_NUMBER = '1' AND TE.EMP_NO = #{create_no}
+		  AND APPROVAL_SEQ = #{approval_seq}
+ 	</select>
+ 	
+	<select id="getMainReceiveCnt" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- 내가받은문서 메인 카운트를 가져온다 / getMainReceiveCnt / @ receive.xml
+		SELECT CC.CD STATE, CC.CD_NM STATE_NM, NVL(SUM(CNT),0) CNT
+		  FROM GW_CO_CODE CC,
+		     (
+		      /*요청중이고 기화기기안서, 샘플신청서에 의견이 달렸을 경우*/
+		      SELECT   TE.STATE, COUNT (TE.APPROVAL_SEQ) CNT
+		        FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TD.STATE, TD.DELETE_YN,
+		                       ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING)
+		                                                            AS ROW_NUMBER
+		                FROM GW_EA_APPROVAL TC,
+		                   GW_EA_APPROVAL_MASTER TD
+		               WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+		                 AND TD.STATE = 'E02002'
+		                 AND TC.APPROVAL_DT IS NULL) TE,
+	                      (SELECT APPROVAL_SEQ
+					         FROM (
+					              SELECT APPROVAL_SEQ,
+					                CASE WHEN (SUBSTR(APPROVAL_SEQ,0,6) != 'E01014' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01007' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01004') THEN '1'
+					                     ELSE '0'
+					                      END DOCU_CHK,
+					                CASE WHEN COUNT(DEPT_CD) = SUM(OPINION_CNT) AND (SUBSTR(APPROVAL_SEQ,0,6) = 'E01014' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01007' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01004') THEN '1'
+					                     ELSE '0'
+					                      END OPTION_CHK 
+					                FROM(
+					                     SELECT TA.APPROVAL_SEQ,TA.DEPT_CD,
+					                       CASE WHEN COUNT(TB.OPINION_SEQ) >= 1  THEN '1'
+					                            ELSE '0'
+					                             END AS OPINION_CNT
+					                        FROM GW_EA_IMPL_DEPT_EMP TA, 
+					                             GW_EA_OPINION TB
+					                       WHERE TA.APPROVAL_SEQ  = TB.APPROVAL_SEQ(+)
+					                         AND TA.EMP_NO = TB.CREATE_NO(+)
+					                       GROUP BY  ta.APPROVAL_SEQ,TA.DEPT_CD
+					                     )
+					               GROUP BY APPROVAL_SEQ
+					              )
+					        WHERE OPTION_CHK = '1'
+					           OR DOCU_CHK = '1') OC
+               WHERE TE.APPROVAL_SEQ = OC.APPROVAL_SEQ
+		         AND TE.ROW_NUMBER = '1'
+		         AND TE.EMP_NO = #{emp_no}
+		         AND TE.DELETE_YN = 'N'
+		       GROUP BY TE.STATE
+              UNION ALL
+          	  /*진행중 */
+		      SELECT   TE.STATE, COUNT (TE.APPROVAL_SEQ) CNT
+		        FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TD.STATE, TD.DELETE_YN,
+		                       ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING)
+		                                                            AS ROW_NUMBER
+		                FROM GW_EA_APPROVAL TC,
+		                   GW_EA_APPROVAL_MASTER TD
+		               WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+		                 AND TD.STATE = 'E02003'
+		                 AND TC.APPROVAL_DT IS NULL) TE	                                     
+		       WHERE TE.ROW_NUMBER = '1'
+		         AND TE.EMP_NO = #{emp_no}
+		         AND TE.DELETE_YN = 'N'
+		       GROUP BY TE.STATE
+		       UNION ALL
+		      /*진행중, 반려*/
+		      SELECT   TI.STATE, COUNT (TH.APPROVAL_SEQ) CNT
+		        FROM GW_EA_APPROVAL TH, GW_EA_APPROVAL_MASTER TI
+		       WHERE TH.APPROVAL_SEQ = TI.APPROVAL_SEQ
+		         AND TI.STATE IN ('E02003', 'E02005')
+		         AND TH.EMP_NO = #{emp_no}
+		         AND TH.STATE IN ('E03002', 'E03003')
+		         AND TI.DELETE_YN = 'N'
+		       GROUP BY TI.STATE
+		       UNION ALL
+		      /*완료*/
+		      SELECT   TB.STATE, COUNT (TB.APPROVAL_SEQ) CNT
+		        FROM GW_EA_APPROVAL TA, GW_EA_APPROVAL_MASTER TB
+		       WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ
+		         AND TB.STATE = 'E02004'
+		         AND TA.EMP_NO = #{emp_no}
+		         AND TB.DELETE_YN = 'N'
+		       GROUP BY TB.STATE) TG
+		 WHERE CC.CD = TG.STATE(+) AND CC.M_CD = 'E02'
+		   AND CC.CD IN('E02002','E02003','E02004','E02005')
+		 GROUP BY CC.CD, CC.CD_NM
+		 ORDER BY CC.CD ASC
+ 	</select>
+ 	
+ 	<select id="getLongTermReceiveCount" parameterType="hashmap" resultType="int">
+		-- 메인페이지 사내공지 리스트의 장기미결재 카운트 가져온다 / getLongTermReceiveCount / @ receive.xml /  시행 문서 조회
+	  SELECT SUM(CNT) 
+        FROM (
+               SELECT COUNT(TA.APPROVAL_SEQ) CNT
+        		 FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TD.STATE, TD.DELETE_YN, TD.REQ_DT,
+                         ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING)
+                                                              AS ROW_NUMBER
+                 FROM GW_EA_APPROVAL TC,
+                      GW_EA_APPROVAL_MASTER TD
+                WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+                  AND TD.STATE = 'E02002'
+                  AND TC.APPROVAL_DT IS NULL) TA,
+                      (
+		               SELECT APPROVAL_SEQ
+		                 FROM (
+		                       SELECT APPROVAL_SEQ,
+		                         CASE WHEN (SUBSTR(APPROVAL_SEQ,0,6) != 'E01014' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01007' AND SUBSTR(APPROVAL_SEQ,0,6) != 'E01004') THEN '1'
+		                              ELSE '0'
+		                               END DOCU_CHK,
+		                         CASE WHEN COUNT(DEPT_CD) = SUM(OPINION_CNT) AND (SUBSTR(APPROVAL_SEQ,0,6) = 'E01014' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01007' OR SUBSTR(APPROVAL_SEQ,0,6) = 'E01004') THEN '1'
+		                              ELSE '0'
+		                               END OPTION_CHK 
+		                         FROM(
+		                              SELECT TA.APPROVAL_SEQ,TA.DEPT_CD,
+		                                CASE WHEN COUNT(TB.OPINION_SEQ) >= 1  THEN '1'
+		                                     ELSE '0'
+		                                      END AS OPINION_CNT
+		                                FROM GW_EA_IMPL_DEPT_EMP TA, 
+		                                     GW_EA_OPINION TB
+		                               WHERE TA.APPROVAL_SEQ  = TB.APPROVAL_SEQ(+)
+		                                 AND TA.EMP_NO = TB.CREATE_NO(+)
+		                               GROUP BY  ta.APPROVAL_SEQ,TA.DEPT_CD
+		                              )
+		                        GROUP BY APPROVAL_SEQ
+                              )
+			            WHERE OPTION_CHK = '1'
+			               OR DOCU_CHK = '1'
+                      ) TB
+           WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ
+             AND TA.ROW_NUMBER = '1'
+             AND TA.EMP_NO = #{emp_no}
+           <if test="gubun == 'long'">
+	       <![CDATA[
+             AND TO_DATE(TA.REQ_DT,'YYYY-MM-DD') <= TO_DATE(SYSDATE-7,'YYYY-MM-DD')
+           ]]>
+           </if>
+        UNION ALL
+        SELECT COUNT(TA.APPROVAL_SEQ) CNT
+	      FROM (SELECT TC.EMP_NO, TC.APPROVAL_SEQ, TD.STATE, TD.DELETE_YN, TD.REQ_DT,
+	                   ROW_NUMBER () OVER (PARTITION BY TC.APPROVAL_SEQ ORDER BY TC.ORDERING)
+	                                                        AS ROW_NUMBER
+	            FROM GW_EA_APPROVAL TC,
+	                 GW_EA_APPROVAL_MASTER TD
+	           WHERE TC.APPROVAL_SEQ = TD.APPROVAL_SEQ
+	             AND TD.STATE = 'E02003'
+	             AND TC.APPROVAL_DT IS NULL) TA
+	     WHERE TA.ROW_NUMBER = '1'
+	       AND TA.EMP_NO = #{emp_no}
+	       AND TA.DELETE_YN = 'N'
+	      <if test="gubun == 'long'">
+	      <![CDATA[
+          AND TO_DATE(TA.REQ_DT,'YYYY-MM-DD') <= TO_DATE(SYSDATE-7,'YYYY-MM-DD')
+          ]]>
+          </if>
+       UNION ALL
+       SELECT COUNT(TA.APPROVAL_SEQ) CNT
+         FROM GW_EA_APPROVAL TA,
+              GW_EA_APPROVAL_MASTER TB
+        WHERE TA.APPROVAL_SEQ = TB.APPROVAL_SEQ
+          AND TB.STATE = 'E02004'
+          AND TA.STATE = 'E03001'
+          AND TA.EMP_NO = #{emp_no}
+         )
+ 	</select>
+ 	
+</mapper>

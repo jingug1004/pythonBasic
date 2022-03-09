@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_blng_cert_mngr(재원증명서)">
+
+	<query id="tbdb_blng_cert_fb001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			SELECT CD_NM AS RACER_PERIO_NO
+			,CD_NM AS RACER_PERIO_NM
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC			
+		]]>
+    </query>     
+    
+    <query id="tbdb_blng_cert_fb002" desc="기수별 후보생 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+					CAND_NO, 
+					NM_KOR 
+			FROM TBDB_CAND_IDENT
+			WHERE RACER_PERIO_NO = ?
+			ORDER BY CAND_NO	
+		]]>
+    </query>   
+    
+    <query id="tbdb_blng_cert_fb003" desc="재원증명서 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	'제 '|| A.RACER_PERIO_NO ||' - '|| TRIM(TO_CHAR(A.ISSUE_NO,'009')) AS ISSUE_NM, 
+					A.RACER_PERIO_NO,
+					A.ISSUE_NO,
+					A.ISSUE_DT,
+					A.CAND_NO,
+					B.NM_KOR,
+					A.USE_PRPS,
+					A.ETC, 
+					A.INST_ID,
+					A.INST_DTM,
+					A.UPDT_ID,
+					A.UPDT_DTM,
+					A.PRINT_YN AS PRINT_YN,
+					(substr(FC_DEC(B.RES_NO),0,6)||' - '||substr(FC_DEC(B.RES_NO),6, 7)) AS RES_NO,
+					(substr(B.POST_NO,0,3)||' - '||substr(B.POST_NO,3,3)) AS POST_NO,
+					B.ADDR1 ||' '|| B.ADDR2 AS ADDR,					
+					'0' CHK,
+					SUBSTR(B.NM_KOR,0,1)||' '||SUBSTR(B.NM_KOR,2,1)||' '||SUBSTR(B.NM_KOR,3,1)||' 귀하' AS REPORT_NM,
+					SUBSTR(B.POST_NO,0,3)||'-'||SUBSTR(B.POST_NO,4,3) AS POST_NO
+			FROM TBDB_BLNG_CERT A, TBDB_CAND_IDENT B
+			WHERE A.CAND_NO = B.CAND_NO
+			AND   A.RACER_PERIO_NO = B.RACER_PERIO_NO
+			AND   A.RACER_PERIO_NO LIKE ?||'%'
+			AND   B.NM_KOR LIKE ?||'%'
+			ORDER BY A.ISSUE_NO 
+        ]]>
+    </query> 
+    
+    <query id="tbdb_blng_cert_fb004" desc="재원증명서 번호 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+				'제 '|| ? ||' - '|| TRIM(TO_CHAR(NVL(MAX(ISSUE_NO), 0) + 1, '009')) AS ISSUE_NM,
+				NVL(MAX(ISSUE_NO), 0) + 1 ISSUE_NO
+			FROM TBDB_BLNG_CERT
+			WHERE RACER_PERIO_NO = ?
+        ]]>
+    </query>
+    <query id="tbdb_blng_cert_fb005" desc="재원증명서 번호 조회" fetchSize="10">
+        <![CDATA[  
+   			SELECT 
+					 MIN(DT) AS EDU_STR_DT
+					,MAX(DT) AS EDU_END_DT
+			FROM	TBDB_DETL_EDU_ASSIGN
+			WHERE	RACER_PERIO_NO = ?
+	        ]]>
+    </query>
+    <query id="tbdb_blng_cert_ib001" desc="재원증명서 등록" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDB_BLNG_CERT (
+				RACER_PERIO_NO,
+				ISSUE_NO,
+				ISSUE_DT,
+				CAND_NO,
+				USE_PRPS,
+				ETC, 
+				INST_ID,
+				INST_DTM
+			) VALUES (
+			    ?,			--RACER_PERIO_NO,
+				(SELECT NVL(MAX(ISSUE_NO)+1,1) SEQ 
+               		   FROM TBDB_BLNG_CERT 
+            		   	WHERE RACER_PERIO_NO = ?),			--ISSUE_NO,
+				?,			--ISSUE_DT,
+				?,			--CAND_NO,
+				?,			--USE_PRPS,
+				?,			--ETC, 
+				?,			--INST_ID,
+				SYSDATE	--INST_DTM
+			)
+        ]]>
+    </query>       
+            
+    <query id="tbdb_blng_cert_ub001" desc="재원증명서 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDB_BLNG_CERT SET 				
+				ISSUE_DT	= ?,
+				CAND_NO		= ?,
+				USE_PRPS	= ?,
+				ETC			= ?, 
+				UPDT_ID 	= ? ,
+				UPDT_DTM	= SYSDATE
+			WHERE RACER_PERIO_NO = ?
+			AND   ISSUE_NO	= ?
+			AND   PRINT_YN = 'N'
+        ]]>
+    </query>  
+       
+    <query id="tbdb_blng_cert_ub002" desc="재원증명서 인쇄 수정" fetchSize="10">
+    <![CDATA[  
+		UPDATE TBDB_BLNG_CERT SET PRINT_YN='Y'
+			WHERE RACER_PERIO_NO = ?
+			AND   ISSUE_NO = ?
+	]]>
+    </query>  
+    
+    <query id="tbdb_blng_cert_db001" desc="재원증명서삭제" fetchSize="10">
+        <![CDATA[
+			DELETE FROM TBDB_BLNG_CERT
+			WHERE RACER_PERIO_NO = ?
+			AND   ISSUE_NO	= ?
+			AND   PRINT_YN = 'N'			
+        ]]>
+    </query>    
+</queryMap>

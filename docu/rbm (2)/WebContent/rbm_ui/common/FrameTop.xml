@@ -1,0 +1,614 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Color="red" Height="76" Id="grdRaceInfo" Left="8" OnLoadCompleted="fcFormLoadSetting" OnSize="FrameTop_OnSize" OnTimer="fcFormOnTimer" PidAttrib="7" Title="FrameTop" Top="8" Ver="1.0" Width="490" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsOutUserMn"></Dataset>
+			<Dataset DataSetType="Dataset" Id="dsOutUserGdsMn"></Dataset>
+			<Dataset DataSetType="Dataset" Id="dsUpdtCnt"></Dataset>
+		</Datasets>
+		<Image Height="75" Id="Image0" ImageID="c_topbg01" LeftMargin="0" TabOrder="1" Width="1998"></Image>
+		<Image Height="14" Id="Image5" ImageID="t_h_icon" Left="30" TabOrder="2" Top="47" Transparent="TRUE" Width="21"></Image>
+		<Static Font="맑은&#32;고딕,18" Height="32" Id="Static1" Left="192" TabOrder="3" Top="6" Width="167"></Static>
+		<Static BindDataset="gdsUser" Color="white" Column="USER_NM" Height="14" Id="Static0" Left="56" TabOrder="4" Top="47" VAlign="Middle" Width="76"></Static>
+		<Image Cursor="HAND" Height="24" Id="Image1" ImageID="t_quick_home2" Left="867" OnClick="TopDiv_Image2_OnClick" Static="FALSE" TabOrder="6" Top="11" Transparent="TRUE" Visible="FALSE" Width="48"></Image>
+		<Image Cursor="HAND" Height="24" Id="imgHelp" ImageID="t_quick_help2" Left="904" OnClick="fcHelpBtnOnClick" Static="FALSE" TabOrder="5" Top="11" Transparent="TRUE" Width="45"></Image>
+		<Image Cursor="HAND" Height="16" Id="imgLogOut" ImageID="t_quick_logout2" Left="948" OnClick="fcImgOnClick" Static="FALSE" TabOrder="7" Top="11" Transparent="TRUE" Width="56"></Image>
+		<Image Cursor="HAND" Height="24" Id="remote" ImageID="btn_top_supp" Left="838" OnClick="TopDiv_remote_OnClick" Static="FALSE" TabOrder="8" Top="7" Width="65"></Image>
+		<Image Cursor="HAND" Height="33" Id="imgLogo" ImageID="TopMenu_logo" Left="33" OnClick="imgLogo_OnClick" Static="FALSE" TabOrder="9" Transparent="TRUE" Width="100"></Image>
+		<Static Align="Right" Color="user60" Font="나눔고딕,14,Bold,Italic" Height="21" Id="st_db_check" Left="632" TabOrder="10" Top="5" Width="216"></Static>
+		<Static Align="Right" Color="steelblue" Height="11" Id="stLastLoginDt" Left="583" TabOrder="11" Top="12" Width="247"></Static>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+#include "lib::rbm_app_script.js";
+#include "lib::rbm_common_script.js";
+
+
+var sTopFocusMenu ="";
+var sTopFirstMenu ="";
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var bRefuEntrNew = false;
+var binitRefuEntr = false;
+var bRefuEntrNotExist = false;
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. 최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj){
+    //alert("1");
+    fcSearch(obj);	
+    
+	// 입장관리 자료 변경 여부(최근 2일자료의 존재여부만 확인)
+	fcRefuManaUpdtCnt("48");	
+	setTimer(1000, 500);	
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. 닫기(close) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcCancel(obj) {	
+    ExecBrowser("http://160.100.1.41/usrbm/miInstall/install_process_web.jsp?INITURL= ^tmp");
+	exit();          					//프로그램 종료
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  02. 조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearchCheck(obj) {
+	
+	return true;
+}
+
+function fcSearch(obj) {
+    if ( !fcSearchCheck(obj) ) return;
+
+	var sServiceName = "common_login-service:searchUserMn";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsOutUserMn=dsOutUserMn";
+    
+    var sUserIp = ext_GetIPAddress();
+	if ( Pos(sUserIp,",") != -1) {
+		sUserIp = mid(sUserIp, 1, Pos(sUserIp,",") -1);
+	} else {
+		sUserIp = Replace(Replace(sUserIp, "["), "]");
+	}
+	
+    fcd_AddParam("USER_ID", gdsUser.getColumn(0, "USER_ID"));
+    fcd_AddParam("USER_IP", Trim(sUserIp));
+    
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+
+function fcTopMenuSearch(obj) {
+	var sServiceName = "common_login-service:searchUserTopMn";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsOutUserGdsMn=dsOutUserGdsMn";
+    
+    //alert("3");
+    var sUserIp = ext_GetIPAddress();
+	if ( Pos(sUserIp,",") != -1) {
+		sUserIp = mid(sUserIp, 1, Pos(sUserIp,",") -1);
+	} else {
+		sUserIp = Replace(Replace(sUserIp, "["), "]");
+	}
+	
+    fcd_AddParam("USER_ID", gdsUser.getColumn(0, "USER_ID"));
+    fcd_AddParam("USER_IP", Trim(sUserIp));
+    
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+	
+	// 조회 후
+	if ( sServiceName == "common_login-service:searchUserMn" ) {
+        //alert("2");
+        gdsMenu.Copy(dsOutUserMn);
+		fcTopMenuSearch();
+	}else if ( sServiceName == "common_login-service:searchUserTopMn" ) {
+		//alert("4");
+		gdsTopMenu.Copy(dsOutUserGdsMn);
+		/*
+			new top 
+		*/
+		fcCreateMenuImg();
+		fcInitSet();
+	} else if ( sServiceName == "rem1010-service:searchUpdtCnt") {
+		if (dsUpdtCnt.rowcount() > 0) {
+			if (dsUpdtCnt.GetColumn(0, "ENT_MNG_DEPT") <> "00") {
+				// 입장관리 관련 부서인 경우
+				if (binitRefuEntr == false) {
+					setTimer(1001, 1800000);	// 30분에 한번씩
+					binitRefuEntr = true;
+				}
+			
+				if (ToNumber(dsUpdtCnt.GetColumn(0, "UPDT_CNT")) > 0) {
+					bRefuEntrNew = true;
+				} else {
+					bRefuEntrNew = false;
+				}
+			}
+		}
+	} 
+}
+
+function FrameTop_OnSize(obj,nCx,nCy,nState){
+	//TopDiv.Left = nCx - TopDiv.Width;
+	//TopDivPro.Left = nCx - TopDivPro.Width;
+}
+
+function btn_process_OnClick(obj)
+{
+	if ( Global.FrameRight.Visible ) {
+		Global.FrameRight.Visible = false;
+	} else {
+		Global.FrameRight.Visible = true;
+	}
+}
+
+//Top 메뉴 클릭 시 Right 트리에 하부메뉴 조회하기
+function MenuBar0_OnMenuClick(strID){
+
+	//alert("7");
+	var objStr = Split(strID,"_");
+	
+	var strID = objStr[1];
+
+	if ( !fnc_IsNull(strID) ) {
+        global.FrameRight.fcSearch(strID);
+        sTopFocusMenu = strID;
+	}
+	
+}
+
+//자동로그인 후 지정 페이지로 자동이동 하도록 하는 부분
+function fcInitSet() {
+	//alert("6");
+	//이부분 변경되어야 하네 --> left 메뉴에 해당 메뉴로 가서 해당 화면 호출
+    var sGlobalVal = getReg("GlobalVal");
+    
+    //setReg("GlobalVal","");
+    
+    var arr = Split(sGlobalVal, "|");
+
+    var sLeftParentMnId = dsOutUserGdsMn.GetColumn(0,"MN_ID");
+
+    if(arr.length >0) {
+      if(trim(arr[0]) != null && trim(arr[0]) != "" ) {  
+		 sLeftParentMnId = gdsMenu.LookUp("MN_ID",arr[0],"TOP_MENU_ID");
+	  }
+    }else{
+		//sLeftParentMnId ="R000008";
+		
+		//20150129 초기 게시판 띄우는거 막음
+		//sTopFirstMenu ="RBB1010";
+    }
+ 
+    MenuBar0_OnMenuClick("_"+sLeftParentMnId);
+}
+
+//>>>>>  home으로 이동
+function TopDiv_Image2_OnClick(obj,nX,nY)
+{
+	global.FrameBottom.fcOpenMdiForm("R000000", "메인화면", "common::comMain.xml");
+}
+
+//>>>>> help 연결
+function TopDiv_Image3_OnClick(obj,nX,nY)
+{
+    //[도움말 연결해야 한다.]
+    //1. 현재 활성화 되어있는 메뉴ID를 알아내는게 관건
+    //2. 메뉴ID를 알아내었다면 해당 메뉴ID_도움말.htm을 호출한다.
+    
+    //var HelpPage    = "http://localhost:8080/rbm/help/"+GBL_MENUID+".htm";
+    //var HelpPage    = "http://localhost:8080/rbm/help/"+GBL_MENUID+".doc";
+    //alert(HelpPage);
+    
+    //ExecBrowser("http://140.100.100.24:8088/UFWeb/public/signContact.jsp?GUBUNID="+varArray[0]+"&BIZ=cy&JOB="+job+"&CREATTYPE=내부&USER_ID=05074&SUBJECT="+subJect+"&ATTNAME="+FileName+"&SEQ="+seq);
+    //ExecBrowser(HelpPage);
+    
+    //rtn = ext_ExecuteProccess(ext_RegGetValue("HKEY_CLASSES_ROOT", "CLSID\\{00020906-0000-0000-C000-000000000046}\\LocalServer32\\", "", "S"), HelpPage,"");
+    //NewWindow("sss","common::cominfoPopup",""); //mdi 형태로 뜨는구나;;;
+    
+    var wObj = global.AllWindows();
+
+    for (var i = 0 ; i < wObj.count; i++ )
+    {
+        if ( wObj[i].id == "comHelpPopup" )
+        {
+            return ; 
+        }
+    }
+    nHandle = Open("common::comHelpPopup.xml", "", 294, 112, "Title=false");
+    
+}
+
+//원격지원 버튼 클릭
+function TopDiv_remote_OnClick(obj,nX,nY)
+{
+    ExecBrowser("http://rsup.net/kspo");	
+}
+
+//홈페이지 버튼 클릭
+function TopDiv_homepage_OnClick(obj,nX,nY)
+{
+    ExecBrowser("http://www.kcycle.or.kr/");	
+}
+
+
+
+/*************************** NEW TOP 메뉴 스크립트*****************************************/
+
+
+function fcCreateMenuImg() {
+	//alert("5");
+    var nBtnWidth = 99;
+    var nBtnHeight = 37;
+    var nBtnPosTop = 33;
+    var nBtnPosLeft = 188;
+    //var nBtnPosLeft = 213;
+
+    var sAttrib;
+    var sImgId;
+    var prefix;
+    var nTopMenuCnt = 0;
+    for(var i=0; i<gdsTopMenu.GetRowCount(); i++) {
+
+        sImgId = fcGetImgId(gdsTopMenu.GetColumn(i, "MN_ID"));
+
+        //if(lFcIsNull(sImgId)) continue;
+        
+        prefix = gdsTopMenu.GetColumn(i, "MN_ID");
+
+        switch(prefix) {    
+            case "R000001" :
+                nBtnWidth = 104; // 시스템관리
+                break;
+            case "R000002" :
+                nBtnWidth = 104; // 지점현황
+                break;
+            case "R000003" :
+                nBtnWidth = 104; // 지점운영
+                break;
+            case "R000004" :
+                nBtnWidth = 104; // 입장관리
+                bRefuEntrNotExist = true;
+                break;
+            case "R000005" :
+                nBtnWidth = 104; // 매출관리
+                break;
+            case "R000006" :
+                nBtnWidth = 104; // 사업지원
+                break;
+            case "R000007" :
+                nBtnWidth = 104; // 계약직평가
+                break;
+                
+             case "R000008" :
+                nBtnWidth = 104; // 계약직평가
+                break;
+            default :
+                break;
+        }        
+
+        //sAttrib = "Left=" + quote(nBtnPosLeft + i*nBtnWidth);
+        sAttrib = "Left=" + quote(nBtnPosLeft);
+        sAttrib += " Top=" + quote(nBtnPosTop);
+        sAttrib += " Width=" + quote(nBtnWidth);
+        sAttrib += " Height=" + quote(nBtnHeight);
+        //sAttrib += " Border=" + quote("Flat");
+        sAttrib += " Static=" + quote("false");
+        //sAttrib += " Text=" + quote(ds_menu.GetColumn(i, "MENU_NAME"));
+        sAttrib += " ImageID=" + quote(sImgId);
+        sAttrib += " OnClick=" + quote("ImageMenu_OnClick");
+
+        create("Image", "img_"+gdsTopMenu.GetColumn(i, "MN_ID"), sAttrib);
+        
+        nTopMenuCnt++;
+        nBtnPosLeft = nBtnPosLeft + nBtnWidth;
+    }
+}
+
+function fcGetImgId(menuId, onoff) {
+
+    if(onoff==null) onoff = false;
+
+    var sImgId;
+    if (menuId == "R000004") {
+		var sNew = iif(bRefuEntrNew, "_new", "");
+		sImgId = iif(onoff, "btn_on_"+menuId+sNew, "btn_off_"+menuId+sNew); 	// 입장관리
+    } else {
+		sImgId = iif(onoff, "btn_on_"+menuId, "btn_off_"+menuId); 	// 시스템관리
+	}
+
+    return sImgId;
+}
+
+function fcImageMenu_OnClick(sObjId)
+{
+	//if (G_ds_subMenu.RowCount() > 0) G_ds_subMenu.row = 0;
+
+    var nMenuLvl;
+    var sMenuName;
+	var sMenuCate = substr(sObjId, 4, 1);
+	
+	
+	/*G_ds_menuAll.Filter("subStr(MENU_ID,0,1) == '" + sMenuCate + "'&&MENU_LEVEL>1");
+
+    G_ds_subMenu.FireEvent = false;
+
+	G_ds_subMenu.CopyF(G_ds_menuAll);
+
+    for (var i=0;i<G_ds_subMenu.RowCountNF();i++) {
+        nMenuLvl = parseInt(G_ds_subMenu.GetColumnNF(i, "MENU_LEVEL"));
+        sMenuName = G_ds_subMenu.GetColumnNF(i, "MENU_NM");
+        if (nMenuLvl >= 3) {
+            G_ds_subMenu.SetColumnNF(i, "MENU_NM", lpad(sMenuName, " ", 4));
+            G_ds_subMenu.SetColumnNF(i, "MENU_NM", lpad(sMenuName, " ", length(sMenuName) + (nMenuLvl - 2) * 3 + 1));
+        }
+    }
+
+	G_ds_subMenu.AddColumn("FILTER", "STRING", 1); // 필터링 처리를 위한 칼럼 추가
+	G_ds_subMenu.AddColumn("IMG_FLAG", "STRING", 1); // 메뉴 레벨에 따른 이미지 처리를 위한 칼럼 추가
+	G_ds_subMenu.AddColumn("DUMMY", "STRING", 1); // 필터링 처리를 위한 칼럼 추가
+
+	for(var i=0; i<G_ds_subMenu.GetRowCount(); i++) {
+
+        if(G_ds_subMenu.GetColumn(i, "MENU_LEVEL")==2) {
+            G_ds_subMenu.SetColumn(i, "FILTER", "Y");
+
+            if(G_ds_subMenu.GetColumn(i, "LOWEST_MENU_YN")=="Y") {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "2");
+            } else {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "1");
+            }
+
+        } else if (G_ds_subMenu.GetColumn(i, "MENU_LEVEL")==3) {
+            G_ds_subMenu.SetColumn(i, "FILTER", "N");
+
+            if(G_ds_subMenu.GetColumn(i, "LOWEST_MENU_YN")=="Y") {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "4");
+            } else {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "3");
+            }
+
+        } else {
+            G_ds_subMenu.SetColumn(i, "FILTER", "N");
+            G_ds_subMenu.SetColumn(i, "IMG_FLAG", "5");
+        }
+
+        if(lFcIsNull(G_ds_subMenu.GetColumn(i, "URL")) && G_ds_subMenu.GetColumn(i, "LOWEST_MENU_YN")=="Y") {
+            G_ds_subMenu.SetColumn(i, "URL", "common::CommReady.xml");
+        }
+	}
+
+	G_ds_subMenu.Filter("FILTER=='Y'");
+
+	//trace(dsSubMenu.SaveXML());
+
+    G_ds_subMenu.FireEvent = true;
+    
+    global.FrameLeft.tab_menu.TabIndex = 0;
+*/
+	fcSetSelMenu(sObjId);
+}
+
+function ImageMenu_OnClick(obj,nX,nY)
+{
+	//if (G_ds_subMenu.RowCount() > 0) G_ds_subMenu.row = 0;
+	
+	/****** admin check start ******/
+	/*
+	if(obj.ID == 'img_R000001') {	
+		var admin = gdsUser.GetColumn(0,"USER_ID");
+		var ipList = ext_GetIPAddress();
+		ip    = ipList[0];
+		var mcList = ext_GetMacAddress();
+		mac    = mcList[0];
+
+		if(admin != '05074' or ip != '160.100.52.321' or mac != '30-5a-3a-7c-12-4e') {
+			alert('시스템 관리자는 지정된 PC에서만 사용이 가능합니다.');
+			exit();
+		}
+	}
+	*/
+	/****** admin check end ******/
+	
+	var nMenuLvl;
+    var sMenuName;
+	var sMenuCate = substr(obj.ID, 4, 1);
+	/*
+	G_ds_menuAll.Filter("subStr(MENU_ID,0,1) == '" + sMenuCate + "'&&MENU_LEVEL>1");
+
+    G_ds_subMenu.FireEvent = false;
+
+	G_ds_subMenu.CopyF(G_ds_menuAll);
+
+    for (var i=0;i<G_ds_subMenu.RowCountNF();i++) {
+        nMenuLvl = parseInt(G_ds_subMenu.GetColumnNF(i, "MENU_LEVEL"));
+        sMenuName = G_ds_subMenu.GetColumnNF(i, "MENU_NM");
+        if (nMenuLvl >= 3) {
+            G_ds_subMenu.SetColumnNF(i, "MENU_NM", lpad(sMenuName, " ", 4));
+            G_ds_subMenu.SetColumnNF(i, "MENU_NM", lpad(sMenuName, " ", length(sMenuName) + (nMenuLvl - 2) * 3 + 1));
+        }
+    }
+
+	G_ds_subMenu.AddColumn("FILTER", "STRING", 1); // 필터링 처리를 위한 칼럼 추가
+	G_ds_subMenu.AddColumn("IMG_FLAG", "STRING", 1); // 메뉴 레벨에 따른 이미지 처리를 위한 칼럼 추가
+	G_ds_subMenu.AddColumn("DUMMY", "STRING", 1); // 필터링 처리를 위한 칼럼 추가
+
+	for(var i=0; i<G_ds_subMenu.GetRowCount(); i++) {
+
+        if(G_ds_subMenu.GetColumn(i, "MENU_LEVEL")==2) {
+            G_ds_subMenu.SetColumn(i, "FILTER", "Y");
+
+            if(G_ds_subMenu.GetColumn(i, "LOWEST_MENU_YN")=="Y") {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "2");
+            } else {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "1");
+            }
+
+        } else if (G_ds_subMenu.GetColumn(i, "MENU_LEVEL")==3) {
+            G_ds_subMenu.SetColumn(i, "FILTER", "N");
+
+            if(G_ds_subMenu.GetColumn(i, "LOWEST_MENU_YN")=="Y") {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "4");
+            } else {
+                G_ds_subMenu.SetColumn(i, "IMG_FLAG", "3");
+            }
+
+        } else {
+            G_ds_subMenu.SetColumn(i, "FILTER", "N");
+            G_ds_subMenu.SetColumn(i, "IMG_FLAG", "5");
+        }
+
+        if(lFcIsNull(G_ds_subMenu.GetColumn(i, "URL")) && G_ds_subMenu.GetColumn(i, "LOWEST_MENU_YN")=="Y") {
+            G_ds_subMenu.SetColumn(i, "URL", "common::CommReady.xml");
+        }
+	}
+
+	G_ds_subMenu.Filter("FILTER=='Y'");
+
+	//trace(dsSubMenu.SaveXML());
+
+    G_ds_subMenu.FireEvent = true;
+    
+    global.FrameLeft.tab_menu.TabIndex = 0;
+*/
+	fcSetSelMenu(obj.ID);
+	MenuBar0_OnMenuClick(obj.ID);
+}
+
+
+function fcSetSelMenu(imgId) {
+
+	var sMenuId;
+	var objImgMenu;
+
+	for(var i=0; i<gdsTopMenu.GetRowCount(); i++) {
+
+        sMenuId = gdsTopMenu.GetColumn(i, "MN_ID");
+
+       // if(sMenuId=="K000000") {
+
+           // continue;
+       // }
+
+        objImgMenu = object("img_" + sMenuId);
+        if(objImgMenu.ID==imgId) {
+            objImgMenu.ImageID = fcGetImgId(sMenuId, true);
+        } else {
+            objImgMenu.ImageID = fcGetImgId(sMenuId);
+        }
+	}
+}
+
+
+
+
+
+function fcImgOnClick(obj,nX,nY)
+{
+	switch ( obj.id ) {
+		case "imgLogOut" :
+				GBL_LOGOUT_GBN = "Y";
+				//ExecBrowser(GBL_SERVER_URL+"miInstall/xssoLogin.jsp?INITURL= ^tmp");
+				exit();   
+			break;
+
+	}
+	         					//프로그램 종료
+}
+
+function fcHelpBtnOnClick(obj,nX,nY)
+{
+    fnc_OpenHelp();
+    // var wObj = global.AllWindows();
+
+    // for (var i = 0 ; i < wObj.count; i++ )
+    // {
+
+        // if ( wObj[i].id == "comHelpPopup" )
+        // {
+            // trace("이미 떠있음");
+            // return ; 
+        // }
+    // }
+    // nHandle = Open("common::comHelpPopup.xml", "", 100, 100, "Title=true CloseFlag=true","50","10");
+
+}
+
+function imgLogo_OnClick(obj,nX,nY)
+{
+	global.FrameBottom.fcOpenMdiForm("R000000", "메인화면", "common::comMain.xml");
+
+}
+
+// 입장관리의 신규 자료 존재 여부 체크
+function fcFormOnTimer(obj,nEventID)
+{
+	if (bRefuEntrNotExist == false) return;
+	if (nEventID == 1001) {
+		fcRefuManaUpdtCnt("1");	// 1시간 이내 변경 여부 조회
+	} else {
+		// 화면 표시
+		var objImgMenu = object("img_R000004");
+		if (bRefuEntrNew == true) {	// 입장관리:R000004
+			// New로 표시
+			if (Mid(objImgMenu.ImageID, length(objImgMenu.ImageID)-4, 4) == "_new") {
+				objImgMenu.ImageID = Mid(objImgMenu.ImageID, 0, length(objImgMenu.ImageID)-4);	// btn_on_R000004_new, btn_off_R000004_new
+			} else {
+				objImgMenu.ImageID = objImgMenu.ImageID + "_new";
+			}
+			
+		} else {
+			// 정상으로 복귀
+			if (Mid(objImgMenu.ImageID, length(objImgMenu.ImageID)-4, 4) == "_new") {
+				objImgMenu.ImageID = Mid(objImgMenu.ImageID, 0, length(objImgMenu.ImageID)-4);	// btn_on_R000004_new, btn_off_R000004_new
+			}
+		}
+	}
+}
+
+
+// 입장관리의 신규 자료 존재 여부 체크
+function fcRefuManaUpdtCnt(sTerm) {
+    
+	var sServiceName = "rem1010-service:searchUpdtCnt";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsUpdtCnt=dsUpdtCnt ";     
+    
+    fcd_AddParam("TERM", sTerm);
+    fcd_AddParam("USER_ID", gdsUser.GetColumn(0, "USER_ID"));
+    
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+	
+}
+
+// 입장관리의 신규 자료 존재 여부 체크
+function fcSetRefuEntNew(bFlag)
+{
+	bRefuEntrNew = bFlag;
+}
+]]></Script>
+</Window>

@@ -1,0 +1,894 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_fst_selt_exam_mngr(1차선발)">
+
+    <query id="tbdb_perio_exam_fst_fb001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			SELECT CD_NM AS RACER_PERIO_NO
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC		
+		]]>
+    </query>
+    <query id="tbdb_perio_exam_fst_fb012" desc="종목구분사용여부" fetchSize="10">
+    <![CDATA[
+   		 SELECT A,B,C,D,E,F
+   		,(SELECT CNT_FST_SELT
+  			FROM TBDB_SELT_BAS A
+		WHERE	A.RACER_PERIO_NO = A1.RACER_PERIO_NO) AS CNT 
+		,(SELECT DT_FST_SELT
+  			FROM TBDB_SELT_BAS A
+		WHERE	A.RACER_PERIO_NO = A1.RACER_PERIO_NO) AS DT_STR
+		,(SELECT DT_FST_SELT_END
+  			FROM TBDB_SELT_BAS A
+		WHERE	A.RACER_PERIO_NO = A1.RACER_PERIO_NO) AS DT_END 
+		FROM(
+		SELECT 
+				MAX(RACER_PERIO_NO) AS RACER_PERIO_NO
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='001' THEN 1 ELSE 0 END)  AS A 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='002' THEN 1 ELSE 0 END)  AS B 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='003' THEN 1 ELSE 0 END)  AS C 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='004' THEN 1 ELSE 0 END)  AS D 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='005' THEN 1 ELSE 0 END)  AS E 
+			   ,SUM(CASE WHEN ITEM_GBN_CD ='006' THEN 1 ELSE 0 END)  AS F
+		FROM TBDB_EXAM_BAS_ITEM 
+		WHERE EXAM_CD = '001'
+		AND RACER_PERIO_NO = ?
+		)A1
+		]]>
+    </query>
+    <query id="tbdb_perio_exam_fst_fb011" desc="종목사용여부" fetchSize="10">
+    	<![CDATA[
+		    SELECT   ITEM_GBN_CD
+		    		,ITEM_CD
+		    		,FST_ESTM_YN FROM TBDB_EXAM_BAS_ITEM
+			WHERE RACER_PERIO_NO = ?
+			AND EXAM_CD = '001'
+		]]>
+    </query> 
+     <query id="tbdb_perio_exam_fst_fb013" desc="1차선발  배점기준 조회" fetchSize="10">
+        <![CDATA[
+			    SELECT 
+				    	ITEM_GBN_CD
+				       ,ITEM_CD	
+				       ,BAS_SCR
+					   ,START_REC
+					   ,END_REC
+					   ,RATE
+					    FROM TBDB_EXAM_BAS_CHNG
+				WHERE RACER_PERIO_NO = ?
+				AND EXAM_CD = '001'
+				ORDER BY ITEM_CD,BAS_SCR DESC  
+    		   ]]>
+    </query>      
+    <query id="tbdb_perio_exam_fst_fb004" desc="1차선발 환산비율 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+					 RACER_PERIO_NO
+					,EXAM_CD
+					,ITEM_GBN_CD
+					,FST_ASSIGN_SCR_RATE
+			FROM TBDB_EXAM_BAS_ITEM_GBN
+			WHERE
+					RACER_PERIO_NO = ?
+				AND EXAM_CD = '001'
+	        ]]>
+    </query>
+    <query id="tbdb_perio_exam_fst_fb003" desc="1차선발 자전거실기 조회" fetchSize="10">
+        <![CDATA[
+					 SELECT 
+					 A2.NM_KOR
+					,A2.RACER_PERIO_NO
+					,A2.CAND_NO
+					,A2.DT
+					,'001' AS EXAM_CD
+					,'003' AS ITEM_GBN_CD
+					,A2.REC_200
+					,A2.SCR_200
+					,A2.REC_333
+					,A2.SCR_333
+					,A2.REC_500
+					,A2.SCR_500
+					,A2.REC_1000
+					,A2.SCR_1000
+					,A2.REC_2000
+					,A2.SCR_2000
+					,M1+M2+M3+M4+M5 AS CNT
+					,TOT_SCR
+					,DECODE((M1+M2+M3+M4+M5),0,0,ROUND(TOT_SCR/(M1+M2+M3+M4+M5),2)) AS AVG_SCR
+					,DECODE((M1+M2+M3+M4+M5),0,0,(ROUND((TOT_SCR/(M1+M2+M3+M4+M5))*
+					    (SELECT FST_ASSIGN_SCR_RATE/100 FROM TBDB_EXAM_BAS_ITEM_GBN
+						 WHERE RACER_PERIO_NO = ?
+						 AND EXAM_CD = '001'
+						 AND ITEM_GBN_CD= '003'),2))) AS CHNG_SCR
+					,RANK() OVER(ORDER BY TOT_SCR DESC ) AS RANK
+			FROM
+			(
+				SELECT 
+					 A1.NM_KOR
+					,A1.RACER_PERIO_NO
+					,A1.CAND_NO
+					,A1.DT
+					,A1.REC_200
+					,A1.SCR_200
+					,A1.REC_333
+					,A1.SCR_333
+					,A1.REC_500
+					,A1.SCR_500
+					,A1.REC_1000
+					,A1.SCR_1000
+					,A1.REC_2000
+					,A1.SCR_2000
+					,CASE WHEN A1.REC_200  IS NULL THEN 0 ELSE 1 END AS M1		
+					,CASE WHEN A1.REC_333  IS NULL THEN 0 ELSE 1 END AS M2		
+					,CASE WHEN A1.REC_500  IS NULL THEN 0 ELSE 1 END AS M3	
+					,CASE WHEN A1.REC_1000 IS NULL THEN 0 ELSE 1 END AS M4	
+					,CASE WHEN A1.REC_2000 IS NULL THEN 0 ELSE 1 END AS M5
+					,SUM(SCR_200+SCR_333+SCR_500+SCR_1000+SCR_2000) AS TOT_SCR
+				FROM
+				(	
+					SELECT 	
+							A.NM_KOR AS NM_KOR
+							,A.RACER_PERIO_NO AS RACER_PERIO_NO 
+							,A.REPT_NO AS CAND_NO						
+							,(	SELECT  NVL(MAX(C.DT), null) AS DT
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS DT
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'301', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS REC_200
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'301', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS SCR_200
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'302', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS REC_333
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'302', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS SCR_333
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'303', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS REC_500
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'303', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS SCR_500
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'304', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS REC_1000
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'304', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS SCR_1000
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'305', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS REC_2000
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'305', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '003'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS SCR_2000
+					FROM	TBDB_SELT_REPT A, TBDB_PERIO_EXAM B
+					WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+					AND		A.REPT_NO = B.CAND_NO(+)
+					AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+					GROUP BY A.RACER_PERIO_NO,A.REPT_NO,A.NM_KOR
+				)A1
+				GROUP BY A1.NM_KOR,A1.RACER_PERIO_NO,A1.CAND_NO,A1.DT,A1.REC_200,A1.SCR_200,
+				A1.REC_333,A1.SCR_333,A1.REC_500,A1.SCR_500,A1.REC_1000,A1.SCR_1000,A1.REC_2000,A1.SCR_2000
+			)A2
+			ORDER BY RANK, CAND_NO	
+	    ]]>
+    </query>
+        
+    <query id="tbdb_perio_exam_fst_fb006" desc="1차선발 체력측정 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+				A2.*
+				,'001' AS EXAM_CD
+				,'004' AS ITEM_GBN_CD
+				,'' AS ITEM_CD
+				,RANK() OVER(ORDER BY AVG_SCR DESC )AS RANK 			
+			FROM
+			(
+				SELECT 
+					A1.NM_KOR
+					,A1.RACER_PERIO_NO
+					,A1.CAND_NO
+					,A1.DT
+					,A1.GRIP_LEFT_REC
+					,A1.GRIP_LEFT_SCR
+					,A1.GRIP_RIGHT_REC
+					,A1.GRIP_RIGHT_SCR
+					,SUM(A1.GRIP_LEFT_SCR + A1.GRIP_RIGHT_SCR) AS GRIP_TOT_SCR
+					,A1.LEG_LEFT_REC
+					,A1.LEG_LEFT_SCR
+					,A1.LEG_RIGHT_REC
+					,A1.LEG_RIGHT_SCR
+					,A1.LEG_LEFT_REC2
+					,A1.LEG_LEFT_SCR2
+					,A1.LEG_RIGHT_REC2
+					,A1.LEG_RIGHT_SCR2
+					,SUM(A1.LEG_LEFT_SCR + A1.LEG_RIGHT_SCR + A1.LEG_LEFT_SCR2 + A1.LEG_RIGHT_SCR2) AS LEG_TOT_SCR
+					,A1.BELLY_REC
+					,A1.BELLY_SCR
+					,A1.MAX_PWR_REC
+					,A1.MAX_PWR_SCR
+					,AVG_PWR_REC
+					,AVG_PWR_SCR
+					,TIRE_IDX_REC
+					,TIRE_IDX_SCR
+					,A1.MAX_PWR_SCR AS MESUR_TOT_SCR
+					,SUM(A1.GRIP_LEFT_SCR+A1.GRIP_RIGHT_SCR+A1.LEG_LEFT_SCR+A1.LEG_RIGHT_SCR+A1.LEG_LEFT_SCR2+A1.LEG_RIGHT_SCR2+A1.BELLY_SCR+A1.MAX_PWR_SCR+A1.AVG_PWR_SCR+A1.TIRE_IDX_SCR) AS TOT_SCR
+					,ROUND(AVG((A1.GRIP_LEFT_SCR+A1.GRIP_RIGHT_SCR+A1.LEG_LEFT_SCR+A1.LEG_RIGHT_SCR+A1.LEG_LEFT_SCR2+A1.LEG_RIGHT_SCR2+A1.BELLY_SCR+A1.MAX_PWR_SCR+A1.AVG_PWR_SCR+A1.TIRE_IDX_SCR)/10), 2) AS AVG_SCR
+					,ROUND(AVG((A1.GRIP_LEFT_SCR+A1.GRIP_RIGHT_SCR+A1.LEG_LEFT_SCR+A1.LEG_RIGHT_SCR+A1.LEG_LEFT_SCR2+A1.LEG_RIGHT_SCR2+A1.BELLY_SCR+A1.MAX_PWR_SCR+A1.AVG_PWR_SCR+A1.TIRE_IDX_SCR)/10) *
+					  (SELECT FST_ASSIGN_SCR_RATE/100 FROM TBDB_EXAM_BAS_ITEM_GBN
+						 WHERE RACER_PERIO_NO = ?
+						 AND EXAM_CD = '001'
+						 AND ITEM_GBN_CD= '004'),2) AS CHNG_SCR
+				FROM
+				(	
+					SELECT 	
+							A.NM_KOR AS NM_KOR
+							,A.RACER_PERIO_NO AS RACER_PERIO_NO 
+							,A.REPT_NO AS CAND_NO
+							,(	SELECT  NVL(MAX(C.DT), null) AS DT
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS DT
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'401', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS GRIP_LEFT_REC	
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'401', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS GRIP_LEFT_SCR
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'402', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS GRIP_RIGHT_REC
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'402', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS GRIP_RIGHT_SCR
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'403', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_LEFT_REC
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'403', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_LEFT_SCR
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'404', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_RIGHT_REC
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'404', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_RIGHT_SCR
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'405', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_LEFT_REC2
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'405', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_LEFT_SCR2
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'406', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_RIGHT_REC2
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'406', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS LEG_RIGHT_SCR2
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'407', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS BELLY_REC
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'407', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS BELLY_SCR
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'408', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS MAX_PWR_REC
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'408', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS MAX_PWR_SCR
+							, ( SELECT	MAX(DECODE(C.ITEM_CD,'409', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS AVG_PWR_REC
+							, ( SELECT	NVL(MAX(DECODE(C.ITEM_CD,'409', C.SCR,'')),0)
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS AVG_PWR_SCR
+							, ( SELECT	MAX(DECODE(C.ITEM_CD,'410', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS TIRE_IDX_REC
+							, ( SELECT	NVL(MAX(DECODE(C.ITEM_CD,'410', C.SCR,'')),0)
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND		C.CAND_NO = A.REPT_NO 
+								AND		C.ITEM_GBN_CD = '004'
+								AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+							) AS TIRE_IDX_SCR
+					FROM	TBDB_SELT_REPT A, TBDB_PERIO_EXAM B
+					WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+					AND		A.REPT_NO = B.CAND_NO(+)
+					AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+					GROUP BY A.RACER_PERIO_NO,A.REPT_NO,A.NM_KOR
+				)A1
+				GROUP BY A1.NM_KOR, A1.RACER_PERIO_NO, A1.CAND_NO, A1.DT
+				, A1.GRIP_LEFT_REC, A1.GRIP_LEFT_SCR
+				,A1.GRIP_RIGHT_REC, A1.GRIP_RIGHT_SCR 
+				,A1.LEG_LEFT_REC, A1.LEG_LEFT_SCR
+				,A1.LEG_RIGHT_REC, A1.LEG_RIGHT_SCR
+				,A1.LEG_LEFT_REC2, A1.LEG_LEFT_SCR2
+				,A1.LEG_RIGHT_REC2, A1.LEG_RIGHT_SCR2
+				,A1.BELLY_REC, A1.BELLY_SCR, A1.MAX_PWR_REC ,A1.MAX_PWR_SCR, AVG_PWR_REC,AVG_PWR_SCR, TIRE_IDX_REC,TIRE_IDX_SCR
+			)A2
+			ORDER BY A2.CAND_NO	 			 
+	    ]]>
+    </query>
+    
+    <query id="tbdb_perio_exam_fst_fb008" desc="1차선발 성적집계표 조회" fetchSize="10">
+		<![CDATA[					
+	SELECT 
+				A4.NM_KOR
+				,A4.RACER_PERIO_NO
+				,A4.CAND_NO
+				,A4.SCR_200
+				,A4.SCR_333
+				,A4.SCR_500
+				,A4.SCR_1000
+				,A4.SCR_2000
+				,A4.GRIP_LEFT_SCR
+				,A4.GRIP_RIGHT_SCR
+				,A4.LEG_LEFT_SCR
+				,A4.LEG_RIGHT_SCR
+				,A4.LEG_LEFT_SCR2
+				,A4.LEG_RIGHT_SCR2
+				,A4.BELLY_SCR
+				,A4.MAX_PWR_SCR
+				,A4.AVG_PWR_SCR
+				,A4.TIRE_IDX_SCR
+				,A4.PERIO_EXAM3
+				,A4.PERIO_EXAM1_TOT_SCR
+				,A4.PERIO_EXAM2_TOT_SCR
+				,A4.PERIO_EXAM1_CNT
+				,A4.PERIO_EXAM2_CNT
+				,A4.PERIO_EXAM1_CHNG_SCR
+				,A4.PERIO_EXAM2_CHNG_SCR
+				,A4.PERIO_EXAM3_CHNG_SCR
+				,A4.TOTAL_CHNG_SCR
+				,'' AS SUCCESS_YN
+				--,DECODE(TOTAL_CHNG_SCR,'0','', RANK() OVER(ORDER BY TOTAL_CHNG_SCR DESC ) ) AS RANK
+				,RANK() OVER(ORDER BY TOTAL_CHNG_SCR DESC ) AS RANK
+			FROM
+			(	
+				SELECT
+					A3.NM_KOR
+					,A3.RACER_PERIO_NO
+					,A3.CAND_NO
+					,A3.SCR_200
+					,A3.SCR_333
+					,A3.SCR_500
+					,A3.SCR_1000
+					,A3.SCR_2000
+					,A3.GRIP_LEFT_SCR
+					,A3.GRIP_RIGHT_SCR
+					,A3.LEG_LEFT_SCR
+					,A3.LEG_RIGHT_SCR
+					,A3.LEG_LEFT_SCR2
+					,A3.LEG_RIGHT_SCR2
+					,A3.BELLY_SCR
+					,A3.MAX_PWR_SCR
+					,A3.AVG_PWR_SCR
+					,A3.TIRE_IDX_SCR
+					,A3.PERIO_EXAM3
+					,A3.PERIO_EXAM1_TOT_SCR
+					,A3.PERIO_EXAM2_TOT_SCR
+					,A3.PERIO_EXAM1_CNT
+					,A3.PERIO_EXAM2_CNT
+					,A3.PERIO_EXAM1_CHNG_SCR
+					,A3.PERIO_EXAM2_CHNG_SCR
+					,A3.PERIO_EXAM3_CHNG_SCR
+					,(DECODE(A3.PERIO_EXAM1_CHNG_SCR,'',0,A3.PERIO_EXAM1_CHNG_SCR)
+					+ DECODE(A3.PERIO_EXAM2_CHNG_SCR,'',0,A3.PERIO_EXAM2_CHNG_SCR)
+					+ DECODE(A3.PERIO_EXAM3_CHNG_SCR,'',0,A3.PERIO_EXAM3_CHNG_SCR)) AS TOTAL_CHNG_SCR
+				FROM
+			    (
+					SELECT 
+						A2.NM_KOR
+						,A2.RACER_PERIO_NO
+						,A2.CAND_NO
+						,A2.SCR_200
+						,A2.SCR_333
+						,A2.SCR_500
+						,A2.SCR_1000
+						,A2.SCR_2000
+						,A2.GRIP_LEFT_SCR
+						,A2.GRIP_RIGHT_SCR
+						,A2.LEG_LEFT_SCR
+						,A2.LEG_RIGHT_SCR
+						,A2.LEG_LEFT_SCR2
+						,A2.LEG_RIGHT_SCR2
+						,A2.BELLY_SCR
+						,A2.MAX_PWR_SCR
+						,A2.AVG_PWR_SCR
+						,A2.TIRE_IDX_SCR
+						,A2.PERIO_EXAM3
+						,ROUND(DECODE(A2.PERIO_EXAM1_CNT,0,0,A2.PERIO_EXAM1_TOT_SCR/PERIO_EXAM1_CNT),2) AS PERIO_EXAM1_TOT_SCR
+						,ROUND(DECODE(A2.PERIO_EXAM2_CNT,0,0,A2.PERIO_EXAM2_TOT_SCR/PERIO_EXAM2_CNT),2) AS PERIO_EXAM2_TOT_SCR
+						,A2.PERIO_EXAM1_CNT
+						,A2.PERIO_EXAM2_CNT
+						,ROUND((DECODE(A2.PERIO_EXAM1_CNT,0,0,A2.PERIO_EXAM1_TOT_SCR/PERIO_EXAM1_CNT) * (SELECT FST_ASSIGN_SCR_RATE/100 
+												 FROM TBDB_EXAM_BAS_ITEM_GBN WHERE EXAM_CD = 001
+												 AND ITEM_GBN_CD = 003
+												 AND RACER_PERIO_NO = ?)),2) AS PERIO_EXAM1_CHNG_SCR
+						,ROUND((DECODE(A2.PERIO_EXAM2_CNT,0,0,A2.PERIO_EXAM2_TOT_SCR/PERIO_EXAM2_CNT) * (SELECT FST_ASSIGN_SCR_RATE/100 
+												 FROM TBDB_EXAM_BAS_ITEM_GBN WHERE EXAM_CD = 001
+												 AND ITEM_GBN_CD = 004
+												 AND RACER_PERIO_NO = ?)),2) AS PERIO_EXAM2_CHNG_SCR
+						,(A2.PERIO_EXAM3 * (SELECT FST_ASSIGN_SCR_RATE/100 
+												 FROM TBDB_EXAM_BAS_ITEM_GBN WHERE EXAM_CD = 001
+												 AND ITEM_GBN_CD = 001
+												 AND RACER_PERIO_NO = ?)) AS PERIO_EXAM3_CHNG_SCR						 
+					FROM
+					(
+						SELECT 
+							A1.NM_KOR
+							,A1.RACER_PERIO_NO
+							,A1.CAND_NO
+							,A1.SCR_200
+							,A1.SCR_333
+							,A1.SCR_500
+							,A1.SCR_1000
+							,A1.SCR_2000
+							,A1.GRIP_LEFT_SCR
+							,A1.GRIP_RIGHT_SCR
+							,A1.LEG_LEFT_SCR
+							,A1.LEG_RIGHT_SCR
+							,A1.LEG_LEFT_SCR2
+							,A1.LEG_RIGHT_SCR2
+							,A1.BELLY_SCR
+							,A1.MAX_PWR_SCR
+							,A1.AVG_PWR_SCR
+							,A1.TIRE_IDX_SCR
+							,A1.PERIO_EXAM3
+							,A1.PERIO_EXAM1_CNT
+							,A1.PERIO_EXAM2_CNT
+							,SUM(A1.SCR_200 + A1.SCR_333 + A1.SCR_500 + A1.SCR_1000 + A1.SCR_2000) AS PERIO_EXAM1_TOT_SCR
+							,SUM(A1.GRIP_LEFT_SCR + A1.GRIP_RIGHT_SCR + A1.LEG_LEFT_SCR + A1.LEG_RIGHT_SCR+A1.LEG_LEFT_SCR2+A1.LEG_RIGHT_SCR2+A1.BELLY_SCR+A1.MAX_PWR_SCR+A1.AVG_PWR_SCR+A1.TIRE_IDX_SCR) AS PERIO_EXAM2_TOT_SCR
+						FROM
+						(	
+							SELECT 	
+									A.NM_KOR AS NM_KOR
+									,A.RACER_PERIO_NO AS RACER_PERIO_NO 
+									,A.REPT_NO AS CAND_NO
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'301', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '003'
+										AND	    C.EXAM_CD = '001'
+									) AS SCR_200
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'302', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '003'
+										AND	    C.EXAM_CD = '001'
+									) AS SCR_333
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'303', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '003'
+										AND	    C.EXAM_CD = '001'
+									) AS SCR_500
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'304', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '003'
+										AND	    C.EXAM_CD = '001'
+									) AS SCR_1000
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'305', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '003'
+										AND	    C.EXAM_CD = '001'
+									) AS SCR_2000
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'401', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+									) AS GRIP_LEFT_SCR	
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'402', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'										
+									) AS GRIP_RIGHT_SCR
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'403', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+									) AS LEG_LEFT_SCR
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'404', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+									) AS LEG_RIGHT_SCR
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'405', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+									) AS LEG_LEFT_SCR2
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'406', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+									) AS LEG_RIGHT_SCR2
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'407', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+									) AS BELLY_SCR
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'408', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+									) AS MAX_PWR_SCR
+									, ( SELECT	NVL(MAX(DECODE(C.ITEM_CD,'409', C.SCR,'')),0)
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+									) AS AVG_PWR_SCR
+								    ,( SELECT	NVL(MAX(DECODE(C.ITEM_CD,'410', C.SCR,'')),0)
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = NVL('001', C.EXAM_CD)
+									) AS TIRE_IDX_SCR
+									,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'101', C.SCR,'')),0) 
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO 
+										AND		C.ITEM_GBN_CD = '001'
+										AND	    C.EXAM_CD = '001'
+									) AS PERIO_EXAM3
+									,(
+									    SELECT  COUNT(SCR)
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO
+										AND		C.ITEM_GBN_CD = '003'
+										AND	    C.EXAM_CD = '001'
+										AND     C.SCR <> 0
+									) PERIO_EXAM1_CNT
+									,(
+									    SELECT  COUNT(SCR)
+										FROM	TBDB_PERIO_EXAM C 
+										WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+										AND		C.CAND_NO = A.REPT_NO
+										AND		C.ITEM_GBN_CD = '004'
+										AND	    C.EXAM_CD = '001'
+										AND     C.SCR <> 0
+									) PERIO_EXAM2_CNT
+							FROM	TBDB_SELT_REPT A, TBDB_PERIO_EXAM B
+							WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+							AND		A.REPT_NO = B.CAND_NO(+)
+					    	AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)	
+						GROUP BY A.RACER_PERIO_NO, A.REPT_NO, A.NM_KOR
+					    )A1
+						GROUP BY A1.NM_KOR, A1.RACER_PERIO_NO, A1.CAND_NO
+						,A1.SCR_200, A1.SCR_333, A1.SCR_500, A1.SCR_1000, A1.SCR_2000
+						,A1.GRIP_LEFT_SCR, A1.GRIP_RIGHT_SCR, A1.LEG_LEFT_SCR, A1.LEG_RIGHT_SCR, A1.LEG_LEFT_SCR2, A1.LEG_RIGHT_SCR2
+						,A1.BELLY_SCR,A1.MAX_PWR_SCR,A1.AVG_PWR_SCR,A1.TIRE_IDX_SCR
+						,A1.PERIO_EXAM3,A1.PERIO_EXAM1_CNT, A1.PERIO_EXAM2_CNT
+				    )A2
+				    GROUP BY A2.NM_KOR,A2.RACER_PERIO_NO,A2.CAND_NO,A2.SCR_200,A2.SCR_333,A2.SCR_500,A2.SCR_1000,A2.SCR_2000
+				    ,A2.GRIP_LEFT_SCR,A2.GRIP_RIGHT_SCR,A2.LEG_LEFT_SCR,A2.LEG_RIGHT_SCR,A2.LEG_LEFT_SCR2,A2.LEG_RIGHT_SCR2
+				    ,A2.BELLY_SCR,A2.MAX_PWR_SCR,A2.AVG_PWR_SCR,A2.TIRE_IDX_SCR
+				    ,A2.PERIO_EXAM3,A2.PERIO_EXAM1_TOT_SCR,A2.PERIO_EXAM2_TOT_SCR, A2.PERIO_EXAM1_CNT, A2.PERIO_EXAM2_CNT
+			    )A3
+			    GROUP BY A3.NM_KOR, A3.RACER_PERIO_NO, A3.CAND_NO, A3.SCR_200, A3.SCR_333, A3.SCR_500, A3.SCR_1000, A3.SCR_2000
+				,A3.GRIP_LEFT_SCR, A3.GRIP_RIGHT_SCR, A3.LEG_LEFT_SCR, A3.LEG_RIGHT_SCR, A3.LEG_LEFT_SCR2, A3.LEG_RIGHT_SCR2
+				,A3.BELLY_SCR,A3.MAX_PWR_SCR,A3.AVG_PWR_SCR,A3.TIRE_IDX_SCR,A3.PERIO_EXAM3
+				,A3.PERIO_EXAM1_TOT_SCR, A3.PERIO_EXAM1_CHNG_SCR, A3.PERIO_EXAM2_TOT_SCR, A3.PERIO_EXAM2_CHNG_SCR,A3.PERIO_EXAM3_CHNG_SCR
+				,A3.PERIO_EXAM1_CNT, A3.PERIO_EXAM2_CNT
+			)A4
+			WHERE 1=1
+			ORDER BY A4.TOTAL_CHNG_SCR	DESC	
+	    ]]>
+    </query>
+    <query id="tbdb_perio_exam_fst_fb009" desc="1차선발시험 필기 조회" fetchSize="10">
+ <![CDATA[ 
+		  SELECT	
+	  		 A1.RACER_PERIO_NO
+			,'001' AS EXAM_CD
+			,'001' AS ITEM_GBN_CD
+			,''    AS ITEM_CD	     
+			,A1.CAND_NO
+			,A1.NM_KOR
+			,A1.REC_NOTE
+			,A1.SCR_NOTE AS TOT_SCR	
+			,(ROUND(A1.SCR_NOTE *	
+			 (SELECT FST_ASSIGN_SCR_RATE/100 FROM TBDB_EXAM_BAS_ITEM_GBN
+						 WHERE RACER_PERIO_NO = ?
+						 AND EXAM_CD = '001'
+						 AND ITEM_GBN_CD= '001'),2)) AS CHNG_SCR
+			,RANK() OVER(ORDER BY SCR_NOTE DESC ) AS RANK			 		 			
+			FROM(
+			      SELECT 	
+				       	 A.RACER_PERIO_NO AS RACER_PERIO_NO 
+						,A.REPT_NO AS CAND_NO
+						,A.NM_KOR         AS NM_KOR	
+						,(	SELECT	MAX(DECODE(C.ITEM_CD,'101', C.REC,''))
+							FROM	TBDB_PERIO_EXAM C 
+							WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+							AND     C.EXAM_CD               = '001'
+							AND	    C.ITEM_GBN_CD           = '001'                               
+		        			AND     C.CAND_NO               = A.REPT_NO
+						) AS REC_NOTE
+						,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'101', C.SCR,'')),0) 
+							FROM	TBDB_PERIO_EXAM C 
+							WHERE 	C.RACER_PERIO_NO = A.RACER_PERIO_NO
+							AND     C.EXAM_CD               = '001'
+							AND		C.ITEM_GBN_CD           = '001'                               
+		        			AND     C.CAND_NO               = A.REPT_NO
+						) AS SCR_NOTE																			
+				FROM	 TBDB_SELT_REPT A,TBDB_PERIO_EXAM B
+				WHERE	 A.RACER_PERIO_NO  = ?
+				AND		 A.REPT_NO  = B.CAND_NO(+)
+				--AND	    (B.EXAM_CD = NVL('001', B.EXAM_CD) OR B.EXAM_CD IS NULL	)
+				--AND	    (B.ITEM_GBN_CD = NVL('001', B.ITEM_GBN_CD) OR B.ITEM_GBN_CD IS NULL	)
+				GROUP BY A.RACER_PERIO_NO,A.REPT_NO,A.NM_KOR
+			)A1
+  ]]> 
+  </query>  
+   <query id="tbdb_perio_exam_fst_ib003" desc="1차선발시험 자전거/체력 실기 입력" fetchSize="10">
+  <![CDATA[  				  
+   				   MERGE INTO TBDB_PERIO_EXAM TPE
+			            USING   DUAL
+			            ON        (     TPE.RACER_PERIO_NO  		= ?     	
+			            			AND TPE.EXAM_CD					= ?		  
+			            			AND TPE.ITEM_GBN_CD   			= ?   	 	
+									AND TPE.ITEM_CD  				= ?  
+									AND TPE.CAND_NO			        = ? 
+			                      )
+						WHEN MATCHED THEN
+						 UPDATE  SET
+							  REC                 = ?
+						    , SCR                 = ?
+						    , UPDT_ID             = ?
+						    , UPDT_DTM            = SYSDATE
+						 WHEN NOT MATCHED THEN
+							INSERT (
+									      RACER_PERIO_NO
+									    , EXAM_CD
+									    , ITEM_GBN_CD
+									    , ITEM_CD
+									    , CAND_NO
+									    , REC
+									    , SCR			   
+									    , INST_ID
+									    , INST_DTM
+										)VALUES (
+											 ?
+											,?
+											,?
+											,?
+											,?
+											,? 
+											,?
+											,?
+											,SYSDATE								
+										)
+  	]]> 
+  </query>					                   
+  <query id="tbdb_perio_exam_fst_ub001" desc="1차선발시험 갱신" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDB_PERIO_EXAM 
+			SET
+			       DT				 = ?	
+			       ,REC              = ?
+			       ,SCR              = ?
+			       ,UPDT_ID          = ?  
+			       ,UPDT_DTM         = SYSDATE
+			WHERE 
+				   RACER_PERIO_NO    = ?
+			AND
+				   EXAM_CD           = ?
+			AND
+				   ITEM_GBN_CD       = ?
+			AND
+				   ITEM_CD           = ?
+			AND
+				   CAND_NO           = ?	   	   	   		   
+				       
+		]]>
+    </query>
+   <query id="d02000007_ib002" desc="1차선발시험 필기 입력" fetchSize="10">
+   <![CDATA[ 
+			INSERT INTO TBDB_PERIO_EXAM (
+			      RACER_PERIO_NO
+			    , EXAM_CD
+			    , ITEM_GBN_CD
+			    , ITEM_CD
+			    , DT
+			    , CAND_NO
+			    , REC
+			    , SCR			   
+			    , INST_ID
+			    , INST_DTM
+			)VALUES (
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,? 
+				,?
+				,?
+				,SYSDATE								
+			)    
+  ]]> 
+  </query>
+ <query id="d02000007_ub002" desc="1차 선발시험 필기 갱신" fetchSize="10">
+ <![CDATA[ 
+			UPDATE TBDB_PERIO_EXAM
+			SET
+				  DT				= ?
+			    ,REC              = ?
+			    ,SCR               = ?
+			    ,UPDT_ID           = ?
+			    ,UPDT_DTM          = SYSDATE
+			WHERE 
+				RACER_PERIO_NO      = ?
+				AND   EXAM_CD       = '001'
+				AND   ITEM_GBN_CD   = '001'
+				AND   ITEM_CD       = '101'
+				AND   CAND_NO       = ?
+			          
+		
+
+  ]]> 
+  </query>   
+ <query id="tbdb_perio_exam_fst_ub002" desc="1차시험 합격여부" fetchSize="10">
+ <![CDATA[   
+		   UPDATE TBDB_SELT_REPT 
+				SET FST_YN = ?
+		   WHERE REPT_NO = ?
+		   AND RACER_PERIO_NO = ?   
+	  ]]> 
+  </query>    
+</queryMap>

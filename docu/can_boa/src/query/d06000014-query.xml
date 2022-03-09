@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdn_trng_diary_mngr(경정교육훈련일지)"> 
+    
+    <query id="tbdn_trng_diary_mst_fb002" desc="기수쿼리" fetchSize="10">
+        <![CDATA[
+			 SELECT  CD  RACER_PERIO_NO
+				 FROM  TBDM_SPEC_CD
+				 WHERE GRP_CD  = 'D10000'
+				 ORDER BY CD DESC
+		]]>
+    </query> 
+    
+    <query id="tbdn_trng_diary_mst_fb000" desc="교육훈련일지마스터 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+				  B.RACER_PERIO_NO
+				, B.DT             -- 일자
+				, A.WEATHER1       -- 날씨1
+				, A.WEATHER2       -- 날씨2
+				, A.WIND_DIRC1     -- 풍향1
+				, A.WIND_DIRC2     -- 풍향2
+				, A.WIND_SPD1      -- 풍속1
+				, A.WIND_SPD2      -- 풍속2
+				, A.TEMPT1         -- 기온1
+				, A.TEMPT2         -- 기온2
+				, A.HUMID1         -- 습도1
+				, A.HUMID2         -- 습도2
+				, A.WAT_TEMP1      -- 수온1
+				, A.WAT_TEMP2      -- 수온
+				, A.WAT_LEV        -- 수위
+				, A.TOT_PERS_NO    -- 총원
+				, A.CURR_PERS_NO   -- 현재원
+				, A.ABS_PERS_NO    -- 결원
+				, A.INSTR          -- 참여교관
+				, A.EDU_PLC        -- 교육장소
+				, A.IND_DESC       -- 지시내용
+				, A.ETC_DESC       -- 기타사항
+				, A.CFG_YN			-- 확정여부
+				,'' AS ABS
+				,'' AS AM
+				,'' AS PM
+			FROM TBDN_TRNG_DIARY_MST A,
+			    (SELECT RACER_PERIO_NO, DT FROM TBDN_WK_SCHE GROUP BY RACER_PERIO_NO, DT) B
+			WHERE 1=1
+			AND A.DT(+) = B.DT
+			AND B.DT BETWEEN ? AND ?
+			ORDER BY B.DT ASC
+	    ]]>
+    </query>
+    
+    <query id="tbdn_trng_diary_mst_fb001" desc="교육훈련일지마스터 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+					RACER_PERIO_NO
+					,DT            
+					,WEATHER1      
+					,B.CD_NM AS WEATHER1_NM    
+					,WEATHER2   
+					,C.CD_NM AS WEATHER2_NM   
+					,WIND_DIRC1  
+					,D.CD_NM AS WIND_DIRC1_NM     
+					,WIND_DIRC2    
+					,E.CD_NM AS WIND_DIRC2_NM  
+					,WIND_SPD1     
+					,WIND_SPD2     
+					,TEMPT1        
+					,TEMPT2        
+					,HUMID1        
+					,HUMID2        
+					,WAT_TEMP1     
+					,WAT_TEMP2     
+					,WAT_LEV       
+                    ,NVL(TOT_CNT, 0) TOT_PERS_NO   
+                    ,NVL(TOT_CNT, 0) - NVL(ABS_CNT, 0) CURR_PERS_NO  
+                    ,NVL(ABS.ABS_CNT, 0) ABS_PERS_NO
+                    ,NVL(ABS.EXP_CNT, 0) EXP_PERS_NO
+                    ,ABS.ABS_RMK ABS_RMK
+                    ,ABS.EXP_RMK EXP_RMK
+                    ,'' AM
+                    ,'' PM
+					,INSTR
+					,EDU_PLC
+					,IND_DESC
+					,ETC_DESC
+			FROM	TBDN_TRNG_DIARY_MST A
+					,(SELECT * FROM TBDA_SPEC_CD WHERE GRP_CD='D10020') B
+					,(SELECT * FROM TBDA_SPEC_CD WHERE GRP_CD='D10020') C
+					,(SELECT * FROM TBDA_SPEC_CD WHERE GRP_CD='D10021') D
+					,(SELECT * FROM TBDA_SPEC_CD WHERE GRP_CD='D10021') E
+                    ,(SELECT COUNT(CAND_NO) TOT_CNT 
+                    	FROM TBDN_CAND_IDENT 
+                    	WHERE RACER_PERIO_NO = ? 
+                    	AND   NVL(DEL_YN,'N') = 'N'
+                    	--휴/복학생에 대한 처리는 추후 협의가 필요
+                    	AND   CAND_NO NOT IN (
+                                    SELECT CAND_NO
+                                    FROM   TBDN_TEMP_ABS
+                                    WHERE  RACER_PERIO_NO  = ?
+                                    AND    GEN_DT          < ?
+                        			AND    GBN            IN ('001', '003')
+                               )
+                      ) TOT
+                    ,(SELECT
+							 SUM(DECODE(ABS_TYPE,'001',1,0)) ABS_CNT
+							,SUM(DECODE(ABS_TYPE,'002',1,0)) EXP_CNT
+							,RTRIM(LTRIM(XMLAGG(XMLELEMENT(ABS_RMK,','||ABS_RMK) ORDER BY ABS_RMK).EXTRACT('//text()'),','),',') ABS_RMK
+							,RTRIM(LTRIM(XMLAGG(XMLELEMENT(EXP_RMK,','||EXP_RMK) ORDER BY EXP_RMK).EXTRACT('//text()'),','),',') EXP_RMK
+						
+						FROM
+						(
+							SELECT
+								 CAND_NO
+								,ABS_TIME
+								,EDU_TIME
+								,CASE WHEN ABS_TIME = EDU_TIME THEN '001' --불참
+								 ELSE '002' END ABS_TYPE                  --제외
+								,CASE WHEN ABS_TIME = EDU_TIME THEN FC_CAND_NM_003(CAND_NO)||'('||RMK||')'
+								 ELSE '' END ABS_RMK
+								,CASE WHEN ABS_TIME != EDU_TIME THEN FC_CAND_NM_003(CAND_NO)||'('||RMK||')'
+								 ELSE '' END EXP_RMK
+							FROM (
+								SELECT
+									 CAND_NO
+									,SUM(ABS_TIME) ABS_TIME
+									,MAX(EDU_TIME) EDU_TIME
+									,RTRIM(LTRIM(MAX(RMK)||','||MIN(RMK),','),',') RMK
+								FROM (
+									SELECT
+										A.CAND_NO,
+										A.EDU_TIME ABS_TIME,
+										A.RMK,
+									    (SELECT SUM(EDU_TIME) FROM TBDN_TRNG_DIARY_DETL
+									     WHERE RACER_PERIO_NO=A.RACER_PERIO_NO AND DT=A.DT
+									     )EDU_TIME
+									FROM  TBDN_TRNG_DIARY_ABS A
+									WHERE A.RACER_PERIO_NO 	= ?
+									AND A.DT 				= ?
+								)
+								GROUP BY CAND_NO
+							)
+						)
+                      ) ABS 
+			WHERE	RACER_PERIO_NO =	?
+			AND		DT 			   =	?
+			AND 	A.WEATHER1 	=	B.CD(+)
+			AND 	A.WEATHER2 	=	C.CD(+)
+			AND 	A.WIND_DIRC1 =	D.CD(+)
+			AND 	A.WIND_DIRC2 =	E.CD(+)
+	    ]]>
+    </query>
+    
+    <query id="tbdn_trng_diary_acdnt_fb001" desc="교육훈련일지사고 조회" fetchSize="10">
+		<![CDATA[
+			SELECT 
+                     T2.RACER_PERIO_NO
+                    ,T2.DT
+                    ,T1.DAY_NO
+                    ,T1.ROUND
+                    ,T1.TEAM_NO
+                    ,T1.RACE_REG_NO
+                    ,T1.ROUND
+                    ,T1.CAND_NO
+                    ,T1.VIOL_SEQ
+					,FC_CODE_NM_003('D10075', T1.VIOL_CD) AS VIOL_NM
+					,T1.VIOL_CNTNT
+					,T1.REPAIT_DESC
+					,C.NM_KOR	
+			FROM	TBDN_CAND_RACE_VIOL T1, TBDN_CAND_RACE T2, TBDN_CAND_IDENT C
+			WHERE	T1.DAY_NO = T2.DAY_NO
+            AND 	T1.RACER_PERIO_NO = T2.RACER_PERIO_NO
+            AND 	T2.RACER_PERIO_NO = ?
+            AND 	T2.DT = ?
+            AND 	T2.CFM_YN = 'Y'	--출주표 확정본에 대해서만
+            AND     T1.RACER_PERIO_NO	= C.RACER_PERIO_NO
+			AND		T1.CAND_NO			= C.CAND_NO
+            AND     T1.VIOL_CD IS NOT NULL
+            ORDER BY T1.DAY_NO, T1.CAND_NO, T1.ROUND, T1.TEAM_NO 
+			
+	    ]]>
+    </query>    
+    
+    <query id="tbdn_trng_diary_acdnt_fb999" desc="교육훈련일지사고 조회_BACKUP" fetchSize="10">
+		<![CDATA[
+			SELECT 
+					A.RACER_PERIO_NO
+					,A.DT
+					,A.GBN
+					,A.ROUND
+					,A.CAND_NO
+					,A.VIOL
+					,A.VIOL_CNTNT
+					,A.RACE_CNTNT
+					,B.REPAIT_DESC
+					,C.NM_KOR	
+			FROM	TBDN_CAND_RACE_DETL A, TBDN_TRNG_DIARY_ACDNT B, TBDN_CAND_IDENT C
+			WHERE	A.RACER_PERIO_NO	= C.RACER_PERIO_NO
+			AND		A.CAND_NO			= C.CAND_NO
+			AND		A.RACER_PERIO_NO 	= NVL(?, A.RACER_PERIO_NO)
+			AND		A.DT 				= NVL(?, A.DT)
+			AND		A.RACER_PERIO_NO	= B.RACER_PERIO_NO(+)
+			AND		A.CAND_NO			= B.CAND_NO(+)
+			AND		A.GBN				= B.GBN(+)
+			AND		A.ROUND				= B.ROUND(+)
+			AND		A.CAND_NO			= B.CAND_NO(+)
+			
+	    ]]>
+    </query>    
+    
+    <query id="tbdn_trng_diary_detl_fb001" desc="교육훈련상세 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+					'0' CHK
+					,RACER_PERIO_NO 
+					,DT   
+					,SEQ  		
+					,STR_END_TIME       
+					,SECTN_CD  
+					,B.CD_NM AS SECTN_CD_NM                
+					,CRS_CD 
+					,C.CD_NM AS CRS_CD_NM                       
+					,EDU_TIME       
+					,EDU_DETL 
+					,AMPM_CD       
+			FROM	TBDN_TRNG_DIARY_DETL A
+					,(SELECT * FROM TBDA_SPEC_CD WHERE GRP_CD='D10027') B
+					,(SELECT CD, CD_NM 
+					    FROM TBDM_SPEC_CD TSC 
+			 		   WHERE TSC.DEL_YN = 'N'
+			 		   AND GRP_CD IN ('D10030','D10064','D10010')) C
+			WHERE	RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND		DT = NVL(?, DT)
+			AND 	A.SECTN_CD =B.CD(+)
+			AND 	A.CRS_CD =C.CD(+)
+			ORDER BY AMPM_CD, SEQ
+	    ]]>
+    </query>  
+    
+    <query id="tbdn_trng_diary_detl_fb002" desc="주차/교육일수 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+				  RACER_PERIO_NO
+				, DT
+				, WK
+			    , (SELECT COUNT(DT) FROM TBDN_TRNG_DIARY_MST
+			       WHERE RACER_PERIO_NO = A.RACER_PERIO_NO
+			       AND DT <= ?
+			       AND CFG_YN = 'Y') AS DAY_CNT
+			FROM TBDN_WK_SCHE A
+			WHERE 1=1
+			AND A.RACER_PERIO_NO = ?
+			AND A.DT = ?
+			AND ROWNUM = '1'
+	    ]]>
+    </query>
+    
+    <query id="tbdn_trng_diary_abs_fb001" desc="교육훈련결원 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+					'0' AS CHK				
+					,RACER_PERIO_NO
+					,CAND_NO
+					,NM_KOR
+					,'' AS DT    
+					,0 AS SEQ
+					,'' AS STR_END_TIME       
+					,'' AS SECTN_CD         
+					,'' AS CRS_CD   					     
+					,0 AS EDU_TIME        
+					,'' AS RMK
+					,'' AS AMPM_CD 
+			FROM	TBDN_CAND_IDENT
+			WHERE	CAND_NO NOT IN 
+					(	 SELECT CAND_NO
+                           FROM  TBDN_TEMP_ABS
+                          WHERE  RACER_PERIO_NO  =  ?
+                            AND    GEN_DT        <  ?
+                        	AND    GBN            IN ('001', '003')
+					  UNION ALL
+				      SELECT 	CAND_NO 
+						FROM 	TBDN_TRNG_DIARY_ABS
+						WHERE	RACER_PERIO_NO 	= ?
+						AND		DT 				= ?
+						AND		SEQ 			=  NVL(?, SEQ)
+					)
+		    AND		RACER_PERIO_NO    = ?
+		    AND     NVL(DEL_YN,'N')   = 'N'
+			UNION 
+			SELECT	
+					'1' AS CHK
+					,A.RACER_PERIO_NO AS RACER_PERIO_NO
+					,A.CAND_NO AS CAND_NO
+					,B.NM_KOR AS NM_KOR				
+					,A.DT AS DT
+					,A.SEQ AS SEQ
+					,A.STR_END_TIME AS STR_END_TIME
+					,A.SECTN_CD AS SECTN_CD
+					,A.CRS_CD AS CRS_CD			     
+					,A.EDU_TIME AS EDU_TIME     
+					,A.RMK AS RMK
+					,A.AMPM_CD AS AMPM_CD
+			FROM	TBDN_TRNG_DIARY_ABS A, TBDN_CAND_IDENT B	
+			WHERE	A.RACER_PERIO_NO 	= B.RACER_PERIO_NO
+			AND		A.CAND_NO 			= B.CAND_NO
+			 AND    NVL(B.DEL_YN,'N')   = 'N'
+			AND		A.RACER_PERIO_NO	= ?
+			AND		A.DT 				= ?
+			AND		A.SEQ 				= NVL(?, A.SEQ) 
+		ORDER BY CAND_NO ASC
+		
+	    ]]>
+    </query>       
+
+    <query id="item_code_d06000014_fn001" desc="종목코드 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			        TGC.GRP_CD      -- 그룹코드
+			      , TGC.GRP_NM      -- 그룹명
+			      , TSC.CD          -- 코드
+			      , TSC.CD_NM       -- 코드명
+			      , TSC.RMK         -- 비고
+			FROM    TBDM_GRP_CD  TGC
+			      , TBDM_SPEC_CD TSC
+			WHERE TGC.GRP_CD = TSC.GRP_CD
+			AND   TSC.DEL_YN = 'N'
+			AND   TGC.GRP_CD IN ('D10030','D10064','D10010')
+        ]]>
+    </query>   
+    
+    
+    <query id="tbdn_trng_diary_mst_fb003" desc="기수카운터 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  COUNT(CAND_NO) AS P_COUNT
+			FROM	TBDN_CAND_IDENT
+			WHERE	RACER_PERIO_NO = ?
+			 AND    NVL(DEL_YN, 'N') = 'N'
+             AND   CAND_NO NOT IN (
+                                    SELECT CAND_NO
+                                    FROM   TBDN_TEMP_ABS
+                                    WHERE  RACER_PERIO_NO  = ?
+                                    AND    GEN_DT          < ?
+                        			AND    GBN            IN ('001', '003')
+                         )
+		]]>
+    </query>      
+  
+    <query id="tbdn_gud_lectr_fb001" desc="지도교사 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  NM_KOR AS LECTR_NM
+			FROM    TBDN_GUD_LECTR
+			WHERE  	RACER_PERIO_NO = ? 
+			  AND 	USE_YN='001'
+			  ORDER BY NM_KOR	
+		]]>
+    </query> 
+                
+    <query id="tbdn_trng_diary_mst_ib001" desc="교육훈련일지마스터 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_TRNG_DIARY_MST (
+				RACER_PERIO_NO
+				,DT            
+				,WEATHER1      
+				,WEATHER2      
+				,WIND_DIRC1    
+				,WIND_DIRC2    
+				,WIND_SPD1     
+				,WIND_SPD2     
+				,TEMPT1        
+				,TEMPT2        
+				,HUMID1        
+				,HUMID2        
+				,WAT_TEMP1     
+				,WAT_TEMP2     
+				,WAT_LEV       
+				,TOT_PERS_NO   
+				,CURR_PERS_NO  
+				,ABS_PERS_NO   
+				,INSTR         
+				,EDU_PLC       
+				,IND_DESC      
+				,ETC_DESC  
+				,INST_ID
+				,INST_DTM 
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+    
+    <query id="tbdn_trng_diary_mst_ub001" desc="교육훈련일지마스터 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_TRNG_DIARY_MST 
+			SET		WEATHER1		= ? 
+					,WEATHER2		= ?
+					,WIND_DIRC1		= ?
+					,WIND_DIRC2		= ?
+					,WIND_SPD1		= ?
+					,WIND_SPD2		= ?
+					,TEMPT1			= ?
+					,TEMPT2			= ?
+					,HUMID1			= ?
+					,HUMID2			= ?
+					,WAT_TEMP1     	= ?
+					,WAT_TEMP2     	= ?
+					,WAT_LEV		= ?
+					,TOT_PERS_NO	= ?
+					,CURR_PERS_NO	= ?
+					,ABS_PERS_NO	= ?
+					,INSTR			= ?
+					,EDU_PLC		= ?
+					,IND_DESC		= ?
+					,ETC_DESC		= ?
+					,UPDT_ID		= ?
+					,UPDT_DTM		= SYSDATE    
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?
+		]]>
+    </query>
+    
+        <query id="tbdn_trng_diary_mst_ub002" desc="교육훈련일지마스터 수정(교육인원)" fetchSize="10">
+        <![CDATA[
+            DECLARE /* tbdn_trng_diary_mst_ub002 */
+            VRACER_PERIO_NO TBDN_TRNG_DIARY_MST.RACER_PERIO_NO%TYPE;
+            VDT      TBDN_TRNG_DIARY_MST.DT%TYPE;
+            VABS_CNT TBDN_TRNG_DIARY_MST.ABS_PERS_NO%TYPE;
+            VTOT_CNT TBDN_TRNG_DIARY_MST.TOT_PERS_NO%TYPE;
+            VRMN_CNT TBDN_TRNG_DIARY_MST.CURR_PERS_NO%TYPE;
+            BEGIN
+            
+                SELECT A.RACER_PERIO_NO,
+                           A.DT,
+                           NVL(B.TOT_CNT, 0) AS TOT_CNT,
+                           NVL(C.ABS_CNT, 0) AS ABS_CNT,
+                           NVL(B.TOT_CNT, 0) - NVL(C.ABS_CNT, 0) AS RMT_CNT 
+                INTO VRACER_PERIO_NO, VDT, VTOT_CNT, VABS_CNT, VRMN_CNT                           
+                FROM TBDN_TRNG_DIARY_MST A, 
+                        (SELECT COUNT(CAND_NO) TOT_CNT 
+                          FROM TBDN_CAND_IDENT 
+                          WHERE RACER_PERIO_NO =  ?
+                                    AND NVL(DEL_YN,'N') = 'N'
+                                    AND CAND_NO NOT IN (SELECT CAND_NO
+                                                                    FROM   TBDN_TEMP_ABS
+                                                                    WHERE  RACER_PERIO_NO  =  ?
+                                                                    AND    GEN_DT          <  ?
+                                                                    AND    GBN            IN ('001', '003'))) B,
+                        (SELECT SUM(DECODE(ABS_TYPE, '001', 1, 0)) ABS_CNT
+                         FROM (SELECT CAND_NO
+                                            ,ABS_TIME
+                                            ,EDU_TIME
+                                            ,CASE WHEN ABS_TIME = EDU_TIME THEN '001' END ABS_TYPE -- 결원
+                                  FROM (SELECT CAND_NO
+                                                      ,SUM(ABS_TIME) ABS_TIME
+                                                      ,MAX(EDU_TIME) EDU_TIME
+                                            FROM (SELECT A.CAND_NO,
+                                                                 A.EDU_TIME ABS_TIME,
+                                                                 A.RMK,
+                                                                 (SELECT SUM(EDU_TIME) FROM TBDN_TRNG_DIARY_DETL
+                                                                  WHERE RACER_PERIO_NO=A.RACER_PERIO_NO AND DT=A.DT)EDU_TIME
+                                                    FROM  TBDN_TRNG_DIARY_ABS A
+                                                    WHERE A.RACER_PERIO_NO     =  ?
+                                                    AND A.DT                 = ?)
+                                            GROUP BY CAND_NO))) C
+                WHERE  A.RACER_PERIO_NO = ?
+                           AND A.DT = ? 
+                ;
+            
+                UPDATE TBDN_TRNG_DIARY_MST
+                SET  TOT_PERS_NO=VTOT_CNT, ABS_PERS_NO=VABS_CNT, CURR_PERS_NO=VRMN_CNT
+                WHERE 1=1
+                AND RACER_PERIO_NO = ?
+                AND DT = ?
+                ;
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN    --결원이 없을 때 
+                    UPDATE TBDN_TRNG_DIARY_MST
+                    SET  ABS_PERS_NO=0, CURR_PERS_NO=TOT_PERS_NO
+                    WHERE 1=1
+                    AND RACER_PERIO_NO = ?
+                    AND DT = ?
+                    ;    
+            END
+            ; 
+		]]>
+    </query>
+          
+    <query id="tbdn_trng_diary_mst_db001" desc="교육훈련일지마스터 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_TRNG_DIARY_MST 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?   
+		]]>
+    </query>
+
+        
+   <query id="tbdn_cand_race_viol_ub004" desc="교육훈련일지사고 수정" fetchSize="10">  
+        <![CDATA[
+			UPDATE TBDN_CAND_RACE_VIOL 
+			SET		REPAIT_DESC		= ?
+					,UPDT_ID		= ?
+					,UPDT_DTM		= SYSDATE    
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DAY_NO			= ?
+			AND		ROUND			= ?
+			AND		TEAM_NO			= ?
+			AND		RACE_REG_NO		= ?
+			AND		VIOL_SEQ		= ?
+			AND		CAND_NO			= ?
+		]]>
+    </query>
+
+    <query id="tbdn_trng_diary_detl_ib001" desc="교육훈련일지상세 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_TRNG_DIARY_DETL (
+				RACER_PERIO_NO
+				,DT               
+				,SEQ  		
+				,STR_END_TIME       
+				,SECTN_CD         
+				,CRS_CD        
+				,EDU_TIME       
+				,EDU_DETL        
+				,INST_ID        
+				,INST_DTM  
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+    
+    <query id="tbdn_trng_diary_detl_ib002" desc="교육훈련일지상세 초기화(주간교육계획 데이터)" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_TRNG_DIARY_DETL (
+				SELECT 
+					 RACER_PERIO_NO
+					,DT
+					,SEQ
+					,''      
+					,SECTN_CD         
+					,CRS_CD        
+					,TIME       
+					,DETL_EDU_CRS        
+					,?        
+					,INST_DTM  
+					,''
+					,''
+					,''
+				FROM TBDN_WK_SCHE
+				WHERE 1=1
+				AND	RACER_PERIO_NO	= ?
+				AND	DT				= ?
+			)
+		]]>
+    </query>
+                 
+    <query id="tbdn_trng_diary_detl_ub001" desc="교육훈련일지상세 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_TRNG_DIARY_DETL 
+			SET		STR_END_TIME	= ?
+					,SECTN_CD		= ?
+					,CRS_CD			= ?
+					,EDU_TIME		= ?
+					,EDU_DETL		= ?
+					,AMPM_CD		= ?
+					,UPDT_ID		= ?
+					,UPDT_DTM		= SYSDATE    
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?
+			AND		SEQ				= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_trng_diary_detl_db001" desc="교육훈련일지상세 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_TRNG_DIARY_DETL 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ? 
+			AND		SEQ				= ?			  
+		]]>
+    </query>  
+    
+    <query id="tbdn_trng_diary_detl_db002" desc="교육훈련일지상세 삭제(전체)" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_TRNG_DIARY_DETL 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ? 
+		  
+		]]>
+    </query>   
+    
+   <query id="tbdn_trng_diary_abs_ib001" desc="교육훈련일지결원 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_TRNG_DIARY_ABS (
+				RACER_PERIO_NO
+				,SEQ
+				,DT
+				,CAND_NO
+				,STR_END_TIME
+				,SECTN_CD
+				,CRS_CD
+				,EDU_TIME
+				,RMK
+				,AMPM_CD
+				,INST_ID
+				,INST_DTM
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+         
+    <query id="tbdn_trng_diary_abs_ub001" desc="교육훈련일지결원 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_TRNG_DIARY_ABS 
+			SET		STR_END_TIME	= ?
+					,SECTN_CD		= ?
+					,CRS_CD			= ?
+					,EDU_TIME		= ?
+					,RMK			= ?
+					,AMPM_CD		= ?
+					,UPDT_ID		= ?
+					,UPDT_DTM		= SYSDATE  
+			WHERE	RACER_PERIO_NO	= ?
+			AND		SEQ				= ?	
+			AND		DT				= ?
+			AND		CAND_NO			= ?	
+		]]>
+    </query>
+    
+    
+    
+          
+    <query id="tbdn_trng_diary_abs_db001" desc="교육훈련일지결원 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_TRNG_DIARY_ABS 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		SEQ				= ?	
+			AND		DT				= ?
+			AND		CAND_NO			= ?	
+		]]>
+    </query>  
+    
+    <query id="tbdn_trng_diary_abs_db002" desc="교육훈련일지결원 삭제2" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_TRNG_DIARY_ABS 
+			WHERE	RACER_PERIO_NO	= ?
+			AND		DT				= ?
+			AND		SEQ				= ?	
+		]]>
+    </query>       
+    
+    <query id="tbdn_trng_diary_mst_db101" desc="교육내역 마스터 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE
+			FROM   TBDN_TRNG_DIARY_MST
+			WHERE  DT       = ?
+	    ]]>
+    </query>
+    <query id="tbdn_trng_diary_detl_db101" desc="교육상세내역 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE
+			FROM   TBDN_TRNG_DIARY_DETL
+			WHERE  DT       = ?
+	    ]]>
+    </query>
+    <query id="tbdn_trng_diary_acdnt_db101" desc="선수조회" fetchSize="10">
+		<![CDATA[
+			DELETE
+			FROM   TBDN_TRNG_DIARY_ACDNT
+			WHERE  DT       = ?
+	    ]]>
+    </query>
+    <query id="tbdn_trng_diary_abs_db101" desc="결원내역 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE
+			FROM   TBDN_TRNG_DIARY_ABS
+			WHERE  DT       = ?
+	    ]]>
+    </query>
+    
+    <query id="tbdn_trng_diary_fb001" desc="확정 조회" fetchSize="10">
+        <![CDATA[
+		    SELECT 	 RACER_PERIO_NO
+		    		,DT
+		    		,CFG_YN 
+		    FROM  TBDN_TRNG_DIARY_MST
+			WHERE RACER_PERIO_NO = ?
+			AND   DT = ?
+        ]]>
+    </query>  
+       
+    <query id="tbdn_trng_diary_ub001" desc="확정 입력" fetchSize="10">
+        <![CDATA[
+ 			UPDATE TBDN_TRNG_DIARY_MST TTDM
+ 	   		   SET	CFG_YN 	= ?
+			 WHERE TTDM.RACER_PERIO_NO = ?
+			  AND  TTDM.DT = ?
+		]]>
+    </query>
+    
+    <query id="tbdn_racer_abs_list_se001" desc="교육훈련참여시간 조회" fetchSize="10">
+        <![CDATA[
+			SELECT A.RACER_PERIO_NO, 
+			           A.DT, 
+			           NVL(B.CAND_NO, '불참후보생 없음') AS CAND_NO,
+			           FC_GET_CANDNAME(B.CAND_NO) AS CAND_NM, 
+			           NVL(A.TOT_TIME, 0) AS TOT_TIME, 
+			           NVL(B.ABS_TIME, 0) AS ABS_TIME,
+			           CASE WHEN NVL(A.TOT_TIME, 0) - NVL(B.ABS_TIME, 0) = 0 THEN '불참(' || B.RMK || ')'
+			           ELSE NULL END AS RMK
+			FROM (SELECT   RACER_PERIO_NO,
+			                      DT,
+			                     SUM(EDU_TIME) AS TOT_TIME 
+			          FROM TBDN_TRNG_DIARY_DETL
+			          GROUP BY RACER_PERIO_NO, DT) A,
+			         (SELECT RACER_PERIO_NO,
+			                     DT,
+			                     CAND_NO,
+			                     SUM(EDU_TIME) AS ABS_TIME,
+			                     TRIM(MAX(RMK)) RMK  
+			          FROM TBDN_TRNG_DIARY_ABS
+			          GROUP BY RACER_PERIO_NO, DT, CAND_NO) B 
+			WHERE 1=1
+			          AND A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+			          AND A.DT = B.DT(+)
+			          AND A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+			          AND A.DT BETWEEN NVL(?, A.DT) AND NVL(?, A.DT) 
+			ORDER BY A.RACER_PERIO_NO, A.DT, B.CAND_NO
+		]]>
+    </query>
+</queryMap>

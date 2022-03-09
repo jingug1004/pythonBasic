@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+
+<queryMap desc="REV2020(근무태도평가)">
+    
+    <query id="rev2020_s01" desc="해당부서조회" fetchSize="10">
+        <![CDATA[		
+        	SELECT   /* rev2020_s01 */
+        	         MNR_FST_SND
+        	FROM     TBRF_EV_EMP
+            WHERE    1 = 1    
+            AND      ESTM_YEAR = ?
+            AND      ESTM_NUM = ?
+            AND      DEPT_CD = ?
+            AND      EMP_NO = ?
+            AND      PERM_TEMP_GBN = '001' 
+            AND      MNR_FST_SND IS NOT NULL 
+        ]]>
+    </query>
+
+	<query id="rev2020_s02" desc="해당부서조회" fetchSize="10">
+        <![CDATA[		
+        	    SELECT   /* rev2020_s02 */  
+                     A.ESTM_YEAR,  
+                     A.ESTM_NUM,  
+                     A.EMP_NO,  
+                     A.ESTM_DEPT,  
+                     A.EMP_NO,  
+                     C.EMP_NM, 
+                     C.ESTM_WK_JOB, 
+                     (SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND WK_JOB_CD = C.ESTM_WK_JOB) AS WK_JOB_NM,  
+                     NVL(A.ESTM_SCR,(SELECT MAX(STND_SCR)   
+                                        FROM TBRF_EV_LARGE_ITEM  
+                                       WHERE 1 = 1 
+                                         AND ESTM_YEAR = A.ESTM_YEAR  
+                                         AND ESTM_NUM = A.ESTM_NUM  
+                                         AND ESTM_ITEM_CD = '2'  
+                                         AND ESTM_LITEM_CD = (SELECT MAX(ESTM_LITEM_CD) FROM TBRF_EV_WK_MNR_DT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND ESTM_DEPT=C.ESTM_DEPT AND EMP_NO = C.EMP_NO)  
+                                    GROUP BY STND_SCR )) AS ESTM_SCR,
+                     DECODE(SIGN((SELECT COUNT(F1.ATT_FILE_KEY)
+                                    FROM TBRF_EV_WK_MNR_DT D1,
+                                         TBRK_FILE_MANA F1
+                                   WHERE 1=1
+                                     AND D1.ESTM_YEAR    = A.ESTM_YEAR
+                                     AND D1.ESTM_NUM     = A.ESTM_NUM
+                                     AND D1.ESTM_DEPT    = A.ESTM_DEPT
+                                     AND D1.EMP_NO       = A.EMP_NO
+                                     AND D1.ATT_FILE_KEY = F1.ATT_FILE_KEY)),1,'유','') AS FILE_CNT                                     
+                     FROM     TBRF_EV_WK_MNR A  
+                             ,TBRF_EV_EMP C 
+            WHERE    1 = 1      
+            AND      A.ESTM_YEAR = C.ESTM_YEAR 
+            AND      A.ESTM_NUM = C.ESTM_NUM 
+            AND      A.ESTM_DEPT = C.ESTM_DEPT 
+            AND      A.EMP_NO = C.EMP_NO 
+            AND      A.ESTM_YEAR = ?
+            AND      A.ESTM_NUM = ?
+            AND      A.ESTM_DEPT = ?
+            /* AND      DECODE( ?, 1, "ESTM_FST_EMP", 2, "ESTM_SND_EMP") = ? */
+        ]]>
+    </query>
+    
+    <query id="rev2020_s03" desc="근무태도평가상세 조회" fetchSize="10">
+        <![CDATA[		
+            SELECT   /* rev2020_s03 */
+		             A.ESTM_YEAR,
+					 A.ESTM_NUM,
+					 A.EMP_NO,
+					 A.ESTM_DEPT,
+					 A.ESTM_EMP,
+                     B.ESTM_LITEM_CD,
+                     B.ESTM_LITEM_NM,
+                     B.ESTM_SCR,
+                     B.FST_SND_GBN,
+                     A.CNT,
+                     B.HI_CNT,
+                     B.BEST_SCR,
+                     B.STND_SCR,
+                     A.ATT_FILE_KEY,
+                     DECODE(SIGN((SELECT COUNT(*) FROM TBRK_FILE_MANA WHERE ATT_FILE_KEY = A.ATT_FILE_KEY)),1,'유','') AS FILE_CNT
+            FROM     TBRF_EV_WK_MNR_DT A,
+                     TBRF_EV_LARGE_ITEM B
+            WHERE    A.ESTM_YEAR = B.ESTM_YEAR 
+            AND      A.ESTM_NUM = B.ESTM_NUM
+            AND      A.ESTM_LITEM_CD = B.ESTM_LITEM_CD
+            AND      B.ESTM_ITEM_CD = '2'	
+            AND      A.ESTM_YEAR = ?
+            AND      A.ESTM_NUM = ?
+            AND      A.ESTM_DEPT = ? 
+            AND      A.EMP_NO = ?
+            ORDER BY B.ESTM_LITEM_CD
+        ]]>
+    </query>
+    
+	<query id="rev2020_u01" desc="평가보직분야 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev2020_u01 */
+			         TBRF_EV_WK_MNR_DT
+			SET      CNT = ?,
+			         UPDT_ID   = ?,		-- 3. 사용자 ID		
+					 UPDT_DT   = SYSDATE
+			WHERE    ESTM_YEAR    = ?     -- 7.평가년도
+			AND      ESTM_NUM     = ?     -- 8.평가회차
+			AND      EMP_NO      = ?
+			AND      ESTM_DEPT   = ?
+			and      ESTM_LITEM_CD = ?
+        ]]>
+    </query>
+
+	<query id="rev2020_u02" desc="평가보직분야 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev2020_u02 */
+			         TBRF_EV_WK_MNR
+			SET      ESTM_SCR = ?,
+			         UPDT_ID   = ?,		-- 3. 사용자 ID		
+					 UPDT_DT   = SYSDATE
+			WHERE    ESTM_YEAR    = ?     -- 7.평가년도
+			AND      ESTM_NUM     = ?     -- 8.평가회차
+			AND      EMP_NO      = ?
+			AND      ESTM_DEPT   = ?
+        ]]>
+    </query>
+    
+    <query id="rev2020_u03" desc="첨부파일  정보 수정" fetchSize="10">
+        <![CDATA[
+            UPDATE  TBRF_EV_WK_MNR_DT   /* rev2020_u03 */
+               SET
+                    ATT_FILE_KEY = ?                
+                   ,UPDT_ID      = ?                
+                   ,UPDT_DT      = SYSDATE
+                
+             WHERE  1=1
+               AND  ESTM_YEAR     = ?
+               AND  ESTM_NUM      = ?
+               AND  ESTM_DEPT     = ?
+               AND  ESTM_LITEM_CD = ?
+               AND  ESTM_EMP      = ?
+               
+               AND  EMP_NO        = ?
+        ]]>
+    </query>
+    
+    <query id="rev2020_s04" desc="근무태도상세조회" fetchSize="10">
+        <![CDATA[		
+            SELECT   /* rev2020_s04 */ 
+          				T.EMP_NO  
+                         ,T.EMP_NM  
+                         ,MAX(ATT_1) AS ATT_1   -- 무단결근   
+                         ,MAX(ATT_2) AS ATT_2   -- 결근  
+                         ,MAX(ATT_3) AS ATT_3   -- 지각  
+                         ,MAX(ATT_4) AS ATT_4   -- 조퇴  
+                         ,MAX(ATT_5) AS ATT_5   -- 외출  
+                    FROM (      
+                      SELECT    B.EMP_NO    
+                               ,B.EMP_NM    
+                               ,CASE WHEN B.ATT_CD = 'A12' THEN B.CNT ELSE 0 END AS ATT_1   -- 무단결근    
+                               ,CASE WHEN B.ATT_CD = 'A11' THEN B.CNT ELSE 0 END AS ATT_2   -- 결근    
+                               ,CASE WHEN B.ATT_CD = 'A02' THEN B.CNT ELSE 0 END AS ATT_3   -- 지각    
+                               ,CASE WHEN B.ATT_CD = 'A03' THEN B.CNT ELSE 0 END AS ATT_4   -- 조퇴    
+                               ,CASE WHEN B.ATT_CD = 'A04' THEN B.CNT ELSE 0 END AS ATT_5   -- 외출    
+                        FROM TBRF_EV_CONDUCT B 
+                        WHERE 1 = 1    
+                          AND B.ESTM_YEAR = ? 
+                          AND B.ESTM_NUM = ? 
+                          AND B.EMP_NO = ?    
+                        ) T  
+                     WHERE 1 = 1     
+                  GROUP BY   T.EMP_NO  
+                            ,T.EMP_NM
+        ]]>
+    </query>
+    
+</queryMap>

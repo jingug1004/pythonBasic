@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM9010(발매원 관리)">
+    <query id="rsm9010_s01" desc="발매원조회" fetchSize="10">
+      <![CDATA[
+		SELECT /* rsm9010_s01 */
+	           '0' AS CHK
+	          ,COMM_NO		--발매원 소속
+	          ,FC_CODE_NM('018', COMM_NO) AS COMM_NM  --지점이름
+	          ,A.TELLER_ID	--발매원 아이디
+	          ,A.EMP_NO		--사번
+	          ,A.PASSWD       --발매원비밀번호
+	          ,TELLER_NM	--발매원 성명
+	          ,SELL_TYPE_CD	--매표구분
+	          ,ETC			--비고
+	          ,REQ_EMP_NO	--승인요청자
+	          ,APRV_EMP_NO	--승인자
+			  ,APRV_DT		--승인일자
+			  ,NVL(PROC_GBN, '001') AS PROC_GBN	 --처리구분
+			  ,APRV_STAS	--승인상태
+			  ,TELLER_GBN   --발매원구분
+			  ,(SELECT USER_NM FROM TBRK_USER WHERE USER_ID = REQ_EMP_NO) AS REQ_EMP_NM			  
+			  ,COMM_NO AS ORG_COMM_NO
+			  ,A.TELLER_ID AS ORG_TELLER_ID
+			  ,A.EMP_NO AS ORG_EMP_NO
+			  ,APRV_STAS AS ORG_APRV_STAS
+			  ,SELL_TYPE_CD AS ORG_SELL_TYPE_CD
+              ,DECODE(SUBSTR(A.TELLER_ID,1,1),'T',B.TELLER_ID ||'/'||B.PASSWD,'') AS PRIOR_TELLER_INFO
+              ,SUBSTR(A.TELLER_ID,1,1) AS IS_NEW
+	      FROM TBJI_TELLER_MANA A, 
+               (SELECT TELLER_ID, EMP_NO, PASSWD, ROW_NUMBER() OVER (PARTITION BY EMP_NO ORDER BY INST_DT DESC) AS RN
+                FROM   TBJI_TELLER_MANA
+                WHERE  TELLER_ID NOT LIKE 'T%'
+                AND    COMM_NO != '98') B
+	     WHERE 1=1
+           AND A.EMP_NO = B.EMP_NO(+)
+           AND B.RN(+) = 1
+	       AND DECODE(?, '', '1', COMM_NO)   = DECODE(?, '', '1', ?)
+	       AND DECODE(?, '', '1', APRV_STAS) = DECODE(?, '', '1', ?)
+	       AND TELLER_NM LIKE '%' || NVL(?, TELLER_NM) || '%'
+        ]]>
+    </query>
+    
+    <query id="rsm9010_s02" desc="발매원 중복 여부 조회(기본키 조회)" fetchSize="10">
+      <![CDATA[
+		SELECT /* rsm9010_s01 */
+	           COUNT(*) AS CNT
+	      FROM TBJI_TELLER_MANA
+	     WHERE 1=1
+	       AND COMM_NO   = ?
+	       AND TELLER_ID = ?
+	       AND EMP_NO    = ?
+        ]]>
+    </query>
+    
+    <query id="rsm9011_s01" desc="계약직 발매원 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rsm9011_s01 */
+				   '0' AS CHK
+			      ,'001' AS TELLER_GBN 
+		          ,COMM_NO 
+		          ,FC_CODE_NM('018', COMM_NO) AS COMM_NM
+		          ,'' AS TELLER_ID 
+		          ,EMP_NO 
+		          ,EMP_NM 
+		          ,WK_JOB_CD 
+		          ,FC_CODE_NM('123', WK_JOB_CD) AS WK_JOB_NM
+		          ,RETIRE_GBN 
+		          ,CO_WRK_GBN 
+		          ,'001' AS SELL_TYPE_CD -- 매표구분 
+		          ,FC_CODE_NM('119', '001') AS SELL_TYPE_NM
+		      FROM  TBRK_USER_TEMP 
+		     WHERE 1 = 1 
+		       AND RETIRE_GBN = '0' 
+		       AND DECODE(?, '', '1', COMM_NO) = DECODE(?, '', '1', ?)
+		       AND EMP_NM LIKE '%' || NVL(?, EMP_NM) || '%' 
+        ]]>
+    </query>
+    
+    <query id="rsm9011_s02" desc="직원 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rsm9011_s02 */
+				   '0' AS CHK
+				  ,'002' AS TELLER_GBN 
+		          ,BRNC_CD AS COMM_NO						--SUBSTR(TEAM_CD, 5, 4) AS COMM_NO 
+		          ,FC_CODE_NM('018', BRNC_CD) AS COMM_NM	--TEAM_NM AS COMM_NM 
+		          ,'' AS TELLER_ID 
+		          ,USER_ID AS EMP_NO 
+		          ,USER_NM AS EMP_NM 
+		          ,'' AS WK_JOB_CD 
+		          ,'0' AS RETIRE_GBN 
+		          ,'' AS CO_WRK_GBN 
+		          ,'' AS SELL_TYPE_CD -- 매표구분 
+		      FROM  TBRK_USER            
+		     WHERE 1 = 1 
+		       AND GBN = '005' 
+		       AND DECODE(?, '', '1', BRNC_CD) = DECODE(?, '', '1', ?)
+		       AND USER_NM LIKE '%' || NVL(?, USER_NM) || '%'
+        ]]>
+    </query>
+    
+    <query id="rsm9010_i01" desc="발매원추가" fetchSize="10">
+      <![CDATA[
+			INSERT /* rsm9010_i01 */ 
+			  INTO TBJI_TELLER_MANA (
+			    COMM_NO
+			   ,TELLER_ID
+			   ,EMP_NO
+			   ,TELLER_NM
+			   ,SELL_TYPE_CD
+			   
+			   ,REQ_EMP_NO
+			   ,PROC_GBN
+			   ,APRV_STAS
+			   ,TELLER_GBN
+			   ,ETC
+			   ,INST_ID
+			   ,INST_DT
+			  )
+			VALUES (
+			    ?  --1.COMM_NO
+			   ,(SELECT 'T' || LPAD(NVL(MAX(SUBSTR(TELLER_ID, 2,4)), 0) + 1, 3, '0')
+			       FROM TBJI_TELLER_MANA
+			      WHERE 1=1
+			        AND SUBSTR(TELLER_ID, 1,1) = 'T')
+			   ,?  --2.EMP_NO
+			   ,?  --3.TELLER_NM
+			   ,?  --4.SELL_TYPE_CD
+			   ,?  --5.REQ_EMP_NO
+			   ,?  --6.PROC_GBN
+			   ,'002'
+			   ,?  --7.TELLER_GBN
+			   ,?  --8.ETC
+			   
+			   ,?  --9.INST_ID
+			   ,SYSDATE
+			)
+        ]]>
+    </query>
+    
+    <query id="rsm9010_u01" desc="발매원관리 승인요청" fetchSize="10">
+      <![CDATA[
+			UPDATE /* rsm9010_u01 */
+			       TBJI_TELLER_MANA	
+			   SET PROC_GBN   = ?      --1.처리여부
+			      ,APRV_STAS  = '002'  --2.-승인요청
+			      ,ETC        = ?      --3.비고
+			      ,REQ_EMP_NO = ?      --4.승인요청
+			      ,UPDT_ID    = ?
+			      ,UPDT_DT    = SYSDATE
+			 WHERE 1=1
+			   AND COMM_NO   = ?	--1.발매원 소속
+			   AND TELLER_ID = ?	--2.발매원 ID
+			   AND EMP_NO    = ?	--3.사번
+        ]]>
+    </query>
+    
+    <query id="rsm9010_u02" desc="발매원관리 승인" fetchSize="10">
+      <![CDATA[
+			UPDATE /* rsm9010_u02 */
+			       TBJI_TELLER_MANA
+			   SET COMM_NO      = ?,
+			       TELLER_ID    = ?,
+			       EMP_NO       = ?,
+			       TELLER_NM    = ?,
+			       SELL_TYPE_CD = ?,
+			       TELLER_GBN   = ?,
+			       ETC          = ?,
+			       PASSWD  = ?,
+			       APRV_EMP_NO  = ?,
+			       APRV_DT      = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			       PROC_GBN     = '001',
+			       APRV_STAS    = '003',
+			       UPDT_ID      = ?,
+			       UPDT_DT      = SYSDATE
+			 WHERE 1=1
+			   AND COMM_NO   = ?
+			   AND TELLER_ID = ?
+			   AND EMP_NO    = ?
+        ]]>
+    </query>
+    
+    <query id="rsm9010_u03" desc="발매원관리 반려" fetchSize="10">
+      <![CDATA[
+			UPDATE /* rsm9010_u03 */
+			       TBJI_TELLER_MANA
+			   SET ETC          = ?,
+			       PROC_GBN     = '001',
+			       APRV_STAS    = '001',
+			       REQ_EMP_NO   = '',
+			       UPDT_ID      = ?,
+			       UPDT_DT      = SYSDATE
+			 WHERE 1=1
+			   AND COMM_NO   = ?
+			   AND TELLER_ID = ?
+			   AND EMP_NO    = ?
+        ]]>
+    </query>
+    
+    
+    <query id="rsm9010_u04" desc="발매원 삭제(삭제상태로 변경)" fetchSize="10">
+      <![CDATA[
+			UPDATE /* rsm9010_u04 */
+			       TBJI_TELLER_MANA
+			   SET ETC          = ?,
+			       PROC_GBN     = '004',
+			       APRV_STAS    = '001',
+			       UPDT_ID      = ?,
+			       UPDT_DT      = SYSDATE
+			 WHERE 1=1
+			   AND COMM_NO   = ?
+			   AND TELLER_ID = ?
+			   AND EMP_NO    = ?
+        ]]>
+    </query>
+    
+    <query id="rsm9010_u05" desc="아이디 및 암호 확인" fetchSize="10">
+      <![CDATA[
+			UPDATE /* rsm9010_u05 */
+			       TBJI_TELLER_MANA	
+			   SET APRV_STAS  = '004'  --2.-승인요청
+			      ,UPDT_ID    = ?
+			      ,UPDT_DT    = SYSDATE
+			 WHERE 1=1
+			   AND COMM_NO   = ?	--1.발매원 소속
+			   AND TELLER_ID = ?	--2.발매원 ID
+			   AND EMP_NO    = ?	--3.사번
+        ]]>
+    </query>
+    
+    <query id="rsm9010_d01" desc="발매원 삭제" fetchSize="10">
+      <![CDATA[
+			DELETE /* rsm9010_u01 */
+			  FROM TBJI_TELLER_MANA	
+			 WHERE 1=1
+			   AND COMM_NO   = ?	--1.발매원 소속
+			   AND TELLER_ID = ?	--2.발매원 ID
+			   AND EMP_NO    = ?	--3.사번
+        ]]>
+    </query>
+</queryMap>

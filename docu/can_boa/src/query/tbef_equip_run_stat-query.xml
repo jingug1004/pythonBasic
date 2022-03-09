@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_equip_run_stat 장비 출주 현황  ">
+	<query id="tbef_equip_run_stat_ff001" desc="장비 출주 현황" fetchSize="50">
+        <![CDATA[
+        	-- Java단에서 Query를 생성해서 처리함.
+			-- 모터/보트 추주 현황     
+			SELECT M1.STND_YEAR, M1.MBR_CD, M1.EQUIP_NO,
+			    SUM(CASE WHEN M1.TMS=1 AND M1.DAY_ORD=0 THEN M2.RUN_CNT ELSE 0 END) AS TMS_1_DAY_0,
+			    SUM(CASE WHEN M1.TMS=1 AND M1.DAY_ORD=1 THEN M2.RUN_CNT ELSE 0 END) AS TMS_1_DAY_1,
+			    SUM(CASE WHEN M1.TMS=1 AND M1.DAY_ORD=2 THEN M2.RUN_CNT ELSE 0 END) AS TMS_1_DAY_2,
+			    SUM(CASE WHEN M1.TMS=2 AND M1.DAY_ORD=0 THEN M2.RUN_CNT ELSE 0 END) AS TMS_2_DAY_0,
+			    SUM(CASE WHEN M1.TMS=2 AND M1.DAY_ORD=1 THEN M2.RUN_CNT ELSE 0 END) AS TMS_2_DAY_1,
+			    SUM(CASE WHEN M1.TMS=2 AND M1.DAY_ORD=2 THEN M2.RUN_CNT ELSE 0 END) AS TMS_2_DAY_2,
+			    SUM(CASE WHEN M1.TMS=3 AND M1.DAY_ORD=0 THEN M2.RUN_CNT ELSE 0 END) AS TMS_3_DAY_0,
+			    SUM(CASE WHEN M1.TMS=3 AND M1.DAY_ORD=1 THEN M2.RUN_CNT ELSE 0 END) AS TMS_3_DAY_1,
+			    SUM(CASE WHEN M1.TMS=3 AND M1.DAY_ORD=2 THEN M2.RUN_CNT ELSE 0 END) AS TMS_3_DAY_2,
+			    ...
+			    ...
+			    ...
+			    SUM(M2.RUN_CNT) AS RUN_TOTAL_CNT
+			FROM (
+			    -- 장비 년도, 회차, 일차 생성     
+			    SELECT T1.STND_YEAR, MBR_CD, EQUIP_NO,  TMS, DAY_ORD FROM (
+			        SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD FROM TBEB_RACE_DAY_ORD WHERE STND_YEAR='2007'
+			        UNION ALL
+			        SELECT STND_YEAR, MBR_CD, TMS  , 0 AS DAY_ORD FROM TBEB_RACE_DAY_ORD WHERE STND_YEAR='2007'
+			        GROUP BY STND_YEAR, MBR_CD, TMS
+			    ) T1, (SELECT STND_YEAR, EQUIP_NO  FROM TBEF_EQUIP WHERE STND_YEAR='2007' AND EQUIP_TPE_CD='B')T2
+			    WHERE T1.STND_YEAR = T2.STND_YEAR
+			)M1,
+			(   
+			    -- 장비 출주 현황 
+			    SELECT 
+			        STND_YEAR, MBR_CD, DECODE('B', 'M', MOT_NO, BOAT_NO) AS EQUIP_NO, 
+			        TMS, DAY_ORD,1 AS RUN_CNT
+			    FROM (
+			        -- 편성 실 경주 
+			        SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, MOT_NO, BOAT_NO  FROM TBEC_APPO_EXERC_ORGAN
+			        WHERE STND_YEAR='2007'
+			        UNION ALL 
+			        -- 주선 지정연습 경주 
+			        SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, MOT_NO, BOAT_NO FROM TBEB_ORGAN
+			        WHERE STND_YEAR='2007' 
+			    )
+			)M2
+			WHERE M1.STND_YEAR = M2.STND_YEAR(+)
+			AND M1.MBR_CD = M2.MBR_CD(+)
+			AND M1.TMS = M2.TMS(+)
+			AND M1.DAY_ORD = M2.DAY_ORD(+)
+			AND M1.EQUIP_NO = M2.EQUIP_NO(+) 
+			GROUP BY (M1.STND_YEAR, M1.MBR_CD, M1.EQUIP_NO)
+			ORDER BY STND_YEAR, MBR_CD, EQUIP_NO
+
+        ]]>
+    </query> 
+    
+    <query id="tbef_race_tms_ff001" desc="시작 회차, 종료회차 조회  " fetchSize="50">
+        <![CDATA[
+            -- 시작 회차, 종료회차 조회 
+			SELECT 
+				MIN(TMS) AS MIN_TMS,  -- 시작 회차 
+				MAX(TMS) AS MAX_TMS 	-- 종료 회차 
+			FROM TBEB_RACE_TMS
+			WHERE STND_YEAR=?
+			AND MBR_CD LIKE ?||'%'
+        ]]>
+    </query> 
+    
+</queryMap>

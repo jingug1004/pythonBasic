@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : personnel.xml
+  * @메뉴명 : 인사현황
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="personnel"> 
+	
+	<!-- 인사현황 -->
+	<select id="getPersonnelCountList" parameterType="hashmap" resultType="com.hanaph.gw.hr.personnel.vo.PersonnelVO">
+		SELECT   *
+		    FROM (SELECT   DEPT_NM, COUNT (*) PERSONNEL_CNT, ORDERING
+		              FROM (SELECT '서울사무소' DEPT_NM, 1 ORDERING
+		                      FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+		                           HANACOMM.CO_US_MEMBER_0 MEM
+		                     WHERE EMP.EMP_NO = MEM.EMP_NO
+		                       AND EMP.DEPT_CD IN (
+		                              SELECT     DEPT_CD
+		                                    FROM HANAHR.HR_CO_DEPART_0
+		                              START WITH UP_DEPT_CD = '0001' AND USE_YN = 'Y'
+		                              CONNECT BY PRIOR DEPT_CD = UP_DEPT_CD
+		                                     AND USE_YN = 'Y')
+		                       AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030')
+		                    UNION ALL
+		                    SELECT '영업부' DEPT_NM, 2 ORDERING
+		                      FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+		                           HANACOMM.CO_US_MEMBER_0 MEM
+		                     WHERE EMP.EMP_NO = MEM.EMP_NO
+		                       AND EMP.DEPT_CD IN (
+		                              SELECT     DEPT_CD
+		                                    FROM HANAHR.HR_CO_DEPART_0
+		                              START WITH UP_DEPT_CD = '0023' AND USE_YN = 'Y'
+		                              CONNECT BY PRIOR DEPT_CD = UP_DEPT_CD
+		                                     AND USE_YN = 'Y')
+		                       AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030')
+		                    UNION ALL
+		                    SELECT '상신공장' DEPT_NM, 3 ORDERING
+		                      FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+		                           HANACOMM.CO_US_MEMBER_0 MEM
+		                     WHERE EMP.EMP_NO = MEM.EMP_NO
+		                       AND DEPT_CD IN (
+		                              SELECT     DEPT_CD
+		                                    FROM HANAHR.HR_CO_DEPART_0
+		                              START WITH UP_DEPT_CD = '0021' AND USE_YN = 'Y'
+		                              CONNECT BY PRIOR DEPT_CD = UP_DEPT_CD
+		                                     AND USE_YN = 'Y')
+		                       AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030')
+		                    UNION ALL
+		                    SELECT '하길공장' DEPT_NM, 4 ORDERING
+		                      FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+		                           HANACOMM.CO_US_MEMBER_0 MEM
+		                     WHERE EMP.EMP_NO = MEM.EMP_NO
+		                       AND EMP.DEPT_CD IN (
+		                              SELECT     DEPT_CD
+		                                    FROM HANAHR.HR_CO_DEPART_0
+		                              START WITH UP_DEPT_CD = '0020' AND USE_YN = 'Y'
+		                              CONNECT BY PRIOR DEPT_CD = UP_DEPT_CD
+		                                     AND USE_YN = 'Y')
+		                       AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030')
+		                    UNION ALL
+		                    SELECT '총인원' DEPT_NM, 5 ORDERING
+		                      FROM HANAHR.HR_HC_EMPBAS_0 EMP,
+		                           HANACOMM.CO_US_MEMBER_0 MEM
+		                     WHERE EMP.EMP_NO = MEM.EMP_NO
+		                       AND EMP.DEPT_CD IN (
+		                              SELECT     DEPT_CD
+		                                    FROM HANAHR.HR_CO_DEPART_0
+		                              START WITH UP_DEPT_CD = '0000' AND USE_YN = 'Y'
+		                              CONNECT BY PRIOR DEPT_CD = UP_DEPT_CD
+		                                     AND USE_YN = 'Y')
+		                       AND (ENGAG_DIV = '70010' OR ENGAG_DIV = '70030'))
+		          GROUP BY DEPT_NM, ORDERING)
+		ORDER BY ORDERING
+	 </select>
+	 <!-- 발령현황 -->
+	<select id="getAppointmentCountList" parameterType="hashmap" resultType="com.hanaph.gw.hr.personnel.vo.PersonnelVO">
+		SELECT '입사(신입)' ENCMPY_CD,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		           AND ENCMPY_CD IN ('06010', '06020')) TODAY_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE TO_CHAR (SYSDATE, 'YYYYMM') || '%'
+		           AND ENCMPY_CD IN ('06010', '06020')) MONTH_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%'
+		           AND ENCMPY_CD IN ('06010', '06020')) YEAR_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE
+		                          TO_CHAR (SYSDATE - 365, 'YYYY')
+		                          || '%'
+		           AND ENCMPY_CD IN ('06010', '06020')) LAST_YEAR_CNT
+		  FROM DUAL
+		UNION
+		SELECT '입사(경력)' ENCMPY_CD,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		           AND ENCMPY_CD IN ('06030', '06040')) TODAY_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE TO_CHAR (SYSDATE, 'YYYYMM') || '%'
+		           AND ENCMPY_CD IN ('06030', '06040')) MONTH_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%'
+		           AND ENCMPY_CD IN ('06030', '06040')) YEAR_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE
+		                          TO_CHAR (SYSDATE - 365, 'YYYY')
+		                          || '%'
+		           AND ENCMPY_CD IN ('06030', '06040')) LAST_YEAR_CNT
+		  FROM DUAL
+		UNION
+		SELECT '입사(기타)' ENCMPY_CD,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		           AND ENCMPY_CD IN ('06050', '06060', '06099')) TODAY_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE TO_CHAR (SYSDATE, 'YYYYMM') || '%'
+		           AND ENCMPY_CD IN ('06050', '06060', '06099')) MONTH_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%'
+		           AND ENCMPY_CD IN ('06050', '06060', '06099')) YEAR_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.ENCMPY_DT LIKE
+		                          TO_CHAR (SYSDATE - 365, 'YYYY')
+		                          || '%'
+		           AND ENCMPY_CD IN ('06050', '06060', '06099')) LAST_YEAR_CNT
+		  FROM DUAL
+		UNION
+		SELECT '퇴사' ENCMPY_CD,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.RETIR_DT = TO_CHAR (SYSDATE, 'YYYYMMDD')) TODAY_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.RETIR_DT LIKE TO_CHAR (SYSDATE, 'YYYYMM') || '%') MONTH_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.RETIR_DT LIKE TO_CHAR (SYSDATE, 'YYYY') || '%') YEAR_CNT,
+		       (SELECT COUNT (*)
+		          FROM HANAHR.HR_HC_EMPBAS_0 A
+		         WHERE A.RETIR_DT LIKE
+		                          TO_CHAR (SYSDATE - 365, 'YYYY')
+		                          || '%') LAST_YEAR_CNT
+		  FROM DUAL
+	
+	</select>	
+</mapper>

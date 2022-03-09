@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdn_edu_abs_mngr(출석부)">
+
+    <query id="tbdn_edu_abs_fn001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			   
+			   SELECT  CD  RACER_PERIO_NO
+				 FROM  TBDM_SPEC_CD
+				 WHERE GRP_CD  = 'D10000'
+				 ORDER BY CD DESC	
+		]]>
+    </query>
+    
+    <query id="tbdn_edu_abs_fn002" desc="년도 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  DISTINCT(YY) YY       
+			FROM    TBDN_WK_ABS
+			ORDER BY YY DESC		
+        ]]>
+    </query>     
+        
+    <query id="tbdn_edu_abs_fn003" desc="반 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  DISTINCT(CLS) CLS        
+			FROM    TBDN_CLS_ORGAN
+			ORDER BY CLS DESC	
+        ]]>
+    </query>
+    
+    
+    <query id="tbdn_edu_abs_fn004" desc="월 교육시간(오전/오후) 조회" fetchSize="10">
+        <![CDATA[
+			SELECT    
+				A.RACER_PERIO_NO  RACER_PERIO_NO
+			   ,A.CAND_NO         CAND_NO
+			   ,A.NM_KOR          NM_KOR
+			   ,B.DT              DT
+			   ,B.AMPM_CD       AMPM_CD  
+			   ,B.EDU_TIME        EDU_TIME
+			FROM TBDN_CAND_IDENT      A
+				,TBDN_TRNG_DIARY_DETL B
+				,TBDN_TRNG_DIARY_MST  C
+			WHERE 1=1
+			AND A.RACER_PERIO_NO   = B.RACER_PERIO_NO
+			AND NVL(A.DEL_YN,'N')  = 'N'	
+			AND A.RACER_PERIO_NO = ?
+			AND B.DT LIKE '%'||?||'%'
+			AND B.RACER_PERIO_NO = C.RACER_PERIO_NO
+			AND B.DT = C.DT
+			AND C.CFG_YN = 'Y'	--교육훈련일지 확정본만
+			ORDER BY A.CAND_NO, B.DT, B.SEQ		 
+		]]>
+    </query>
+    
+    <query id="tbdn_edu_abs_fn005" desc="결석내용 조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+				A.RACER_PERIO_NO  RACER_PERIO_NO
+			   ,A.CAND_NO         CAND_NO
+			   ,A.NM_KOR          NM_KOR
+			   ,B.DT              DT
+			   ,B.AMPM_CD         AMPM_CD
+			   ,NVL(B.RMK,'교육제외') RMK
+			   ,'★'                 MARK
+			   ,B.EDU_TIME		  EDU_TIME
+			FROM TBDN_CAND_IDENT    A
+			   ,TBDN_TRNG_DIARY_ABS B
+			   ,TBDN_TRNG_DIARY_MST C
+			WHERE 1=1
+			AND A.RACER_PERIO_NO = B.RACER_PERIO_NO
+			AND A.CAND_NO        = B.CAND_NO
+			AND	A.RACER_PERIO_NO = ?
+			AND B.DT LIKE '%'||?||'%'
+			AND B.RACER_PERIO_NO = C.RACER_PERIO_NO
+			AND B.DT = C.DT
+			AND C.CFG_YN = 'Y'	--교육훈련일지 확정본만
+			ORDER BY A.CAND_NO, B.DT, B.SEQ				        				
+        ]]>
+    </query>
+    
+    <query id="tbdn_edu_abs_fn006" desc="교육진척사항" fetchSize="10">
+        <![CDATA[
+    		
+				SELECT 
+						A1.RACER_PERIO_NO
+						,A1.EDU_STR_DT
+						,A1.EDU_END_DT		
+						,A1.SUM_1 			        		TOT_1	--  이론 총 시간
+						,SUM(A1.SUM_2 + A1.SUM_4)   		TOT_2	--  실기 총 시간
+						,A1.SUM_3  	 		        		TOT_3	--  기타 총 시간
+						,A1.SUM_01				    		TOT_01  --  이론 진행 시간
+						,SUM(A1.SUM_02 + A1.SUM_04) 		TOT_02  --  실기 진행 시간
+						,A1.SUM_03	   	 							TOT_03	--  기타 진행 시간
+						,SUM(A1.SUM_1 +A1.SUM_2 +A1.SUM_3 +A1.SUM_4)  TOT_4  -- 총 교육시간
+						,SUM(A1.SUM_01+A1.SUM_02+A1.SUM_03+A1.SUM_04) TOT_04  --	총 진행 시간 			
+				FROM
+				(	
+					SELECT
+							A.RACER_PERIO_NO
+							,E.EDU_STR_DT
+							,E.EDU_END_DT
+							,(  
+								SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '001' 
+							) SUM_1
+							,(
+							    SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '002'  		  
+							) SUM_2
+							,(
+							    SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '003'  		  
+							) SUM_3
+							,(
+							    SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '004'  		  
+							) SUM_4
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '001'  		  
+							) SUM_01
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '002'  		  
+							) SUM_02
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '003'  		  
+							) SUM_03
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '004'  		  
+							) SUM_04		     		  
+							
+					FROM	TBDN_CMPT_EDU_ASSIGN A, TBDN_TRNG_DIARY_DETL B, TBDN_CMPT_EDU_OUTL E 
+					WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+					AND		A.RACER_PERIO_NO = E.RACER_PERIO_NO
+					AND 	A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+				)A1
+				GROUP BY A1.RACER_PERIO_NO, A1.EDU_STR_DT, A1.EDU_END_DT
+					  	 ,A1.SUM_1,  A1.SUM_2,  A1.SUM_3,  A1.SUM_4 
+						 ,A1.SUM_01, A1.SUM_02, A1.SUM_03, A1.SUM_04
+		]]>
+    </query>
+    
+    <query id="tbdn_edu_abs_fn007" desc="연간출석현황 조회" fetchSize="10">
+        <![CDATA[
+    		
+				SELECT 
+						 A1.RACER_PERIO_NO
+						,A1.EDU_STR_DT
+						,A1.EDU_END_DT		
+						,A1.SUM_1 			        		TOT_1	--  이론 총 시간
+						,SUM(A1.SUM_2 + A1.SUM_4)   		TOT_2	--  실기 총 시간
+						,A1.SUM_3  	 		        		TOT_3	--  기타 총 시간
+						,A1.SUM_01				    		TOT_01  --  이론 진행 시간
+						,SUM(A1.SUM_02 + A1.SUM_04) 		TOT_02  --  실기 진행 시간
+						,A1.SUM_03	   	 							TOT_03	--  기타 진행 시간
+						,SUM(A1.SUM_1 +A1.SUM_2 +A1.SUM_3 +A1.SUM_4)  TOT_4  -- 총 교육시간
+						,SUM(A1.SUM_01+A1.SUM_02+A1.SUM_03+A1.SUM_04) TOT_04  --	총 진행 시간 			
+				FROM
+				(	
+					SELECT
+							A.RACER_PERIO_NO
+							,E.EDU_STR_DT
+							,E.EDU_END_DT
+							,(  
+								SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '001'
+								    
+							) SUM_1
+							,(
+							    SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '002'  		  
+							) SUM_2
+							,(
+							    SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '003'  		  
+							) SUM_3
+							,(
+							    SELECT NVL(SUM(C.EDU_TIME), 0) 
+								FROM   TBDN_CMPT_EDU_ASSIGN C
+								WHERE  C.SECTN_CD = '004'  		  
+							) SUM_4
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '001'  		  
+							) SUM_01
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '002'  		  
+							) SUM_02
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '003'  		  
+							) SUM_03
+							,(
+							    SELECT NVL(SUM(D.EDU_TIME), 0)
+								FROM   TBDN_TRNG_DIARY_DETL D
+								WHERE  D.RACER_PERIO_NO = A.RACER_PERIO_NO
+								AND    D.SECTN_CD = '004'  		  
+							) SUM_04		     		  
+							
+					FROM	TBDN_CAND_IDENT A, TBDN_TRNG_DIARY_DETL B, TBDN_CMPT_EDU_OUTL E  
+					WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+					AND 	A.RACER_PERIO_NO = NVL('16', A.RACER_PERIO_NO)
+				)A1
+				GROUP BY A1.RACER_PERIO_NO, A1.EDU_STR_DT, A1.EDU_END_DT
+					  	 ,A1.SUM_1,  A1.SUM_2,  A1.SUM_3,  A1.SUM_4 
+						 ,A1.SUM_01, A1.SUM_02, A1.SUM_03, A1.SUM_04
+		]]>
+    </query>				 
+
+</queryMap>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem4070(일자별 입장현황 조회 )">
+  
+    <query id="rem4070_s01" desc="일자별 지점별 입장현황 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem4070_s01 */
+                    S.RACE_DAY AS TRADE_DATE
+                   ,NVL(SUM(T_CNT_1),0) AS T_CNT_1
+                   ,NVL(SUM(T_CNT_4),0) AS T_CNT_4
+                   ,NVL(SUM(P_CNT_1),0) AS P_CNT_1
+                   ,NVL(SUM(P_CNT_4),0) AS P_CNT_4
+                   ,NVL(SUM(T_AMT),0) AS T_AMT
+                   ,NVL(SUM(P_AMT),0) AS P_AMT
+            FROM (
+                  SELECT TRADE_DATE
+                        ,SUM(FEE) AS T_AMT
+                        ,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS T_CNT_1 --무료
+	                    ,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS T_CNT_4 --유료
+                        ,SUM(CNT) AS T_CNT
+                  FROM TBRC_T_TRADE_SUM
+                  WHERE COMM_NO = '00'
+                  GROUP BY TRADE_DATE
+                  ) T,
+                  (
+                  SELECT TRADE_DATE
+                        ,SUM(DECODE(CARD_USER_TYPE, '4', FEE, 0)) AS P_AMT
+	                    ,SUM(DECODE(CARD_USER_TYPE, '4', 0, CNT)) AS P_CNT_1 --무료
+	                    ,SUM(DECODE(CARD_USER_TYPE, '4', CNT, 0)) AS P_CNT_4 --유료
+                  FROM TBRC_T_TRADE_KM_SUM
+                  GROUP BY TRADE_DATE
+                  ) P,
+                  (
+                    SELECT RACE_DAY
+                    FROM  (SELECT RACE_DAY, MIN(MEET_CD) AS MEET_CD
+                           FROM   VW_SDL_INFO
+                           GROUP BY RACE_DAY) S
+                    WHERE 1=1
+                    --AND   S.MEET_CD IN ('001','003')
+                    AND   S.MEET_CD LIKE  ?||'%' 
+                    AND   S.RACE_DAY BETWEEN  ? AND ?
+                  ) S                    
+            WHERE S.RACE_DAY = T.TRADE_DATE
+            AND   S.RACE_DAY = P.TRADE_DATE
+            GROUP BY S.RACE_DAY
+            ORDER BY S.RACE_DAY
+          
+        ]]>
+    </query> 
+    
+</queryMap>

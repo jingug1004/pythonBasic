@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_boat_recd_accu_sum(보트성적)">
+    <query id="tbeb_boat_recd_accu_sum_fb010" desc="보트성적조회" fetchSize="10">
+        <![CDATA[
+            SELECT    /*  tbeb_boat_recd_accu_sum_fb010 보트성적조회 */
+                     DISTINCT(TA   .RACER_NO) RACER_NO
+                   , TA   .NM_KOR
+			       , TA   .BOAT_NO                   -- 모터번호     
+			       , SUBSTR(TA   .BOAT_NO, 6, 3) VIEW_BOAT_NO                   -- 모터번호     
+			       , TBRAS.RUN_CNT                   -- 출전회수     
+			       , TBRAS.RACE_CNT                  -- 출주횟수     
+			       , TBRAS.RACE_DAY_CNT              -- 출전일수     
+			       , TBRAS.RANK_1_CNT                -- 1착회수      
+			       , TBRAS.RANK_2_CNT                -- 2착회수      
+			       , TBRAS.RANK_3_CNT                -- 3착회수      
+			       , TBRAS.RANK_4_CNT                -- 4착회수      
+			       , TBRAS.RANK_5_CNT                -- 5착회수      
+			       , TBRAS.RANK_6_CNT                -- 6착회수  
+			       , TBRAS.RANK_7_CNT                -- 7착회수  
+			       , TBRAS.RANK_8_CNT                -- 8착회수  
+			       , TBRAS.RANK_1_CNT + TBRAS.RANK_1_CNT RANK_12_CNT
+                   , TBRAS.AMU_RANK_SCR              -- 누적착순점             
+                   , TBRAS.AVG_RANK_SCR              -- 평균착순점   
+                   , TBRAS.WIN_RATIO                 -- 연간승률     
+                   , TBRAS.HIGH_RANK_RATIO           -- 연대율       
+                   , TBRAS.HIGH_3_RANK_RATIO         -- 3연대율      
+                   , TBRAS.TMS_3_ITRDT_RUN_TM        -- 3회 소개 타임
+                   , TBRAS.AVG_ITRDT_RUN_TM          -- 평균 소개타임
+                   , TBRAS.MAX_ITRDT_RUN_TM          -- 최고소개타임    
+                   , TBRAS.MIN_ITRDT_RUN_TM          -- 최소소개타임             
+                   , TBRAS.ITRDT_RUN_TM_DVTN         -- 편차소개타임             
+                   , TBRAS.INST_ID                   -- 작성자ID     
+                   , TBRAS.INST_DTM                  -- 작성일시     
+                   , TBRAS.UPDT_ID                   -- 수정자ID     
+                   , TBRAS.UPDT_DTM                  -- 수정일시     
+                   , TA   .DAY_ORD_1
+                   , TA   .DAY_ORD_2
+                   , TA   .DAY_ORD_3
+                   , TA   .DAY_ORD_4
+                   , TA   .DAY_ORD_5
+                   , TA   .DAY_ORD_6
+                   , TA   .DAY_ORD_7
+			FROM     TBEF_EQUIP        TE
+                   , (
+                        SELECT
+                                 MAS.RACER_NO
+                               , MAS.BOAT_NO 
+                               , TRM.NM_KOR
+                               , NVL(TOR.DAY_ORD_1, TA.DAY_ORD_1) DAY_ORD_1
+                               , NVL(TOR.DAY_ORD_2, TA.DAY_ORD_2) DAY_ORD_2
+                               , NVL(TOR.DAY_ORD_3, TA.DAY_ORD_3) DAY_ORD_3
+                               , NVL(TOR.DAY_ORD_4, TA.DAY_ORD_4) DAY_ORD_4
+                               , NVL(TOR.DAY_ORD_5, TA.DAY_ORD_5) DAY_ORD_5
+                               , NVL(TOR.DAY_ORD_6, TA.DAY_ORD_6) DAY_ORD_6
+                               , NVL(TOR.DAY_ORD_7, TA.DAY_ORD_7) DAY_ORD_7
+                        FROM
+			                     TBEC_RACER_MASTER TRM
+                               , (
+                                    SELECT 
+                                             TA.RACER_NO
+                                           , TA.BOAT_NO 
+                                    FROM   TBEB_ARRANGE TA
+                                    WHERE  TA .STND_YEAR = ?
+                                    AND    TA .MBR_CD    = ?
+                                    AND    TA .TMS       = ?
+                                    AND    TA .ST_MTHD_CD= DECODE(?, '000', ST_MTHD_CD, ?) 
+                                    
+                                    UNION
+                                    SELECT 
+                                             TOR.RACER_NO
+                                           , TOR.BOAT_NO 
+                                    FROM   TBEB_ORGAN TOR
+                                    WHERE  TOR.STND_YEAR = ?
+                                    AND    TOR.MBR_CD    = ?
+                                    AND    TOR.TMS       = ?
+                                    AND    TOR.ST_MTHD_CD= DECODE(?, '000', ST_MTHD_CD, ?)
+                                    GROUP BY 
+                                             TOR.RACER_NO
+                                           , TOR.BOAT_NO 
+                                 ) MAS -- 해당 회차 출전배정된 모터 조회
+                               , (
+                                    SELECT 
+                                             TOR.RACER_NO
+                                           , TOR.BOAT_NO 
+                                           , MIN(DECODE(TOR.DAY_ORD, 1, BOAT_CNT)) DAY_ORD_1
+                                           , MIN(DECODE(TOR.DAY_ORD, 2, BOAT_CNT)) DAY_ORD_2
+                                           , MIN(DECODE(TOR.DAY_ORD, 3, BOAT_CNT)) DAY_ORD_3
+                                           , MIN(DECODE(TOR.DAY_ORD, 4, BOAT_CNT)) DAY_ORD_4
+                                           , MIN(DECODE(TOR.DAY_ORD, 5, BOAT_CNT)) DAY_ORD_5
+                                           , MIN(DECODE(TOR.DAY_ORD, 6, BOAT_CNT)) DAY_ORD_6
+                                           , MIN(DECODE(TOR.DAY_ORD, 7, BOAT_CNT)) DAY_ORD_7
+                                    FROM   (
+                                                SELECT 
+                                                         TOR.STND_YEAR
+                                                       , TOR.MBR_CD
+                                                       , TOR.TMS
+                                                       , TOR.DAY_ORD
+                                                       , TOR.RACER_NO
+                                                       , TOR.BOAT_NO
+                                                       , COUNT(*) BOAT_CNT
+                                                FROM   TBEB_ORGAN            TOR
+                                                WHERE  TOR.STND_YEAR = ?
+                                                AND    TOR.MBR_CD    = ?
+                                                AND    TOR.TMS       = ?
+                                                AND    TOR.ST_MTHD_CD= DECODE(?, '000', ST_MTHD_CD, ?)
+                                                GROUP BY
+                                                         TOR.STND_YEAR
+                                                       , TOR.MBR_CD
+                                                       , TOR.TMS
+                                                       , TOR.DAY_ORD
+                                                       , TOR.RACER_NO
+                                                       , TOR.BOAT_NO
+                        			       ) TOR
+                        			GROUP BY 
+                                             TOR.RACER_NO
+                                           , TOR.BOAT_NO 
+                                 ) TOR -- 일차별 실제 출주수 조회
+                               , (
+                                    SELECT 
+                                             TA .RACER_NO
+                                           , TA .BOAT_NO 
+                                           , MIN(DECODE(TRRA.DAY_ORD, 1, RACE_ALLOC_CNT)) DAY_ORD_1
+                                           , MIN(DECODE(TRRA.DAY_ORD, 2, RACE_ALLOC_CNT)) DAY_ORD_2
+                                           , MIN(DECODE(TRRA.DAY_ORD, 3, RACE_ALLOC_CNT)) DAY_ORD_3
+                                           , MIN(DECODE(TRRA.DAY_ORD, 4, RACE_ALLOC_CNT)) DAY_ORD_4
+                                           , MIN(DECODE(TRRA.DAY_ORD, 5, RACE_ALLOC_CNT)) DAY_ORD_5
+                                           , MIN(DECODE(TRRA.DAY_ORD, 6, RACE_ALLOC_CNT)) DAY_ORD_6
+                                           , MIN(DECODE(TRRA.DAY_ORD, 7, RACE_ALLOC_CNT)) DAY_ORD_7
+                                    FROM     TBEB_ARRANGE          TA
+                        			       , TBEB_RACER_RACE_ALLOC TRRA
+                                    WHERE  TA .STND_YEAR = TRRA.STND_YEAR(+)
+                                    AND    TA .MBR_CD    = TRRA.MBR_CD   (+)
+                                    AND    TA .TMS       = TRRA.TMS      (+)
+                                    AND    TA .RACER_NO  = TRRA.RACER_NO (+)
+                                    AND    TA .STND_YEAR = ?
+                                    AND    TA .MBR_CD    = ?
+                                    AND    TA .TMS       = ?
+                                    AND    TA .ST_MTHD_CD= DECODE(?, '000', ST_MTHD_CD, ?)
+                                    GROUP BY
+                                             TA .RACER_NO
+                                           , TA .BOAT_NO 
+                                 ) TA  -- 출주 배정 횟수 조회
+                        WHERE  MAS.RACER_NO = TOR.RACER_NO(+)
+                        AND    MAS.BOAT_NO  = TOR.BOAT_NO (+)
+                        AND    MAS.RACER_NO = TA .RACER_NO(+)
+                        AND    MAS.BOAT_NO  = TA .BOAT_NO (+)
+                        AND    MAS.RACER_NO = TRM.RACER_NO
+                     ) TA
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO 
+                                                            ORDER BY TBRAS.STND_YEAR DESC
+                                                                   , TBRAS.TMS DESC 
+                                                       ) RANK
+                                         , TBRAS.*
+                                  FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                  WHERE  TBRAS.MBR_CD = ?
+                                  AND    TBRAS.STND_YEAR || LPAD(TBRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+                                  AND    TBRAS.ST_MTHD_CD = ? --ST방식전체설정
+			                   )
+			            WHERE  RANK = 1
+			         ) TBRAS -- 보트 최근 성적
+			WHERE  TE.EQUIP_NO     = TA   .BOAT_NO 
+			AND    TE.EQUIP_NO     = TBRAS.BOAT_NO(+)
+			AND    TE.MBR_CD       = ?
+			AND    TE.EQUIP_TPE_CD = 'B'
+            AND    TE.EQUIP_NO  LIKE '%' || NVL(?, TE.EQUIP_NO) || '%'
+			ORDER BY TA.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_boat_recd_accu_sum_fb011" desc="보트성적(전체) 조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbeb_boat_recd_accu_sum_fb011  보트성적(전체) 조회 */
+			         DISTINCT(TBRAS.STND_YEAR) STND_YEAR -- 기준년도     
+			       , TBRAS.MBR_CD                   -- 경정장코드   
+			       , TBRAS.TMS                      -- 회차         
+			       , TE   .EQUIP_NO BOAT_NO         -- 보터번호     
+			       , SUBSTR(TE   .EQUIP_NO, 6, 3) VIEW_BOAT_NO                   -- 모터번호     
+			       , TBRAS.RUN_CNT                  -- 출전회수     
+			       , TBRAS.RACE_CNT                 -- 출주횟수     
+			       , TBRAS.RACE_DAY_CNT             -- 출전일수     
+			       , TBRAS.RANK_1_CNT               -- 1착회수      
+			       , TBRAS.RANK_2_CNT               -- 2착회수      
+			       , TBRAS.RANK_3_CNT               -- 3착회수      
+			       , TBRAS.RANK_4_CNT               -- 4착회수      
+			       , TBRAS.RANK_5_CNT               -- 5착회수      
+			       , TBRAS.RANK_6_CNT               -- 6착회수      
+			       , TBRAS.RANK_7_CNT               -- 7착회수      
+			       , TBRAS.RANK_8_CNT               -- 8착회수      
+                   , TBRAS.AMU_RANK_SCR              -- 누적착순점      
+                   , TBRAS.AVG_RANK_SCR              -- 평균착순점   
+                   , TBRAS.WIN_RATIO                 -- 연간승률     
+                   , TBRAS.HIGH_RANK_RATIO           -- 연대율       
+                   , TBRAS.HIGH_3_RANK_RATIO         -- 3연대율      
+                   , TBRAS.TMS_3_ITRDT_RUN_TM        -- 3회 소개 타임
+                   , TBRAS.AVG_ITRDT_RUN_TM          -- 평균 소개타임
+                   , TBRAS.MAX_ITRDT_RUN_TM          -- 최고소개타임    
+                   , TBRAS.MIN_ITRDT_RUN_TM          -- 최소소개타임             
+                   , TBRAS.ITRDT_RUN_TM_DVTN         -- 편차소개타임             
+                   , TBRAS.INST_ID                   -- 작성자ID     
+                   , TBRAS.INST_DTM                  -- 작성일시     
+                   , TBRAS.UPDT_ID                   -- 수정자ID     
+                   , TBRAS.UPDT_DTM                  -- 수정일시     
+			FROM     TBEF_EQUIP TE
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO 
+                                                            ORDER BY TBRAS.STND_YEAR DESC
+                                                                   , TBRAS.TMS DESC 
+                                                       ) RANK
+                                         , TBRAS.*
+                                  FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                  WHERE  TBRAS.MBR_CD = ?
+                                  AND    TBRAS.ST_MTHD_CD = ?
+                                  AND    TBRAS.STND_YEAR || LPAD(TBRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+			                   )
+			            WHERE  RANK = 1
+			         ) TBRAS
+			WHERE TE.EQUIP_NO     = TBRAS.BOAT_NO(+)
+			AND   TE.STND_YEAR    = ?
+			AND   TE.EQUIP_TPE_CD = 'B'
+			AND   TE.MBR_CD       = ?
+            AND   TE.EQUIP_NO LIKE '%' || NVL(?, TE.EQUIP_NO) || '%'
+			ORDER BY TE.EQUIP_NO
+
+        ]]>
+    </query> 
+    <query id="tbeb_boat_recd_accu_sum_fb012" desc="보트성적조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbeb_boat_recd_accu_sum_fb012 보트성적조회 */
+			         DISTINCT(TBRAS.STND_YEAR) STND_YEAR -- 기준년도     
+			       , TBRAS.MBR_CD                   -- 경정장코드   
+			       , TBRAS.TMS                      -- 회차         
+			       , TE   .EQUIP_NO BOAT_NO         -- 보터번호     
+			       , SUBSTR(TE   .EQUIP_NO, 6, 3) VIEW_BOAT_NO                   -- 모터번호     
+			       , TBRAS.RUN_CNT                  -- 출전회수     
+			       , TBRAS.RACE_CNT                 -- 출주횟수     
+			       , TBRAS.RACE_DAY_CNT             -- 출전일수     
+			       , TBRAS.RANK_1_CNT               -- 1착회수      
+			       , TBRAS.RANK_2_CNT               -- 2착회수      
+			       , TBRAS.RANK_3_CNT               -- 3착회수      
+			       , TBRAS.RANK_4_CNT               -- 4착회수      
+			       , TBRAS.RANK_5_CNT               -- 5착회수      
+			       , TBRAS.RANK_6_CNT               -- 6착회수      
+			       , TBRAS.RANK_7_CNT               -- 7착회수      
+			       , TBRAS.RANK_8_CNT               -- 8착회수      
+                   , TBRAS.AMU_RANK_SCR              -- 누적착순점      
+                   , TBRAS.AVG_RANK_SCR              -- 평균착순점   
+                   , TBRAS.WIN_RATIO                 -- 연간승률     
+                   , TBRAS.HIGH_RANK_RATIO           -- 연대율       
+                   , TBRAS.HIGH_3_RANK_RATIO         -- 3연대율      
+                   , TBRAS.TMS_3_ITRDT_RUN_TM        -- 3회 소개 타임
+                   , TBRAS.AVG_ITRDT_RUN_TM          -- 평균 소개타임
+                   , TBRAS.MAX_ITRDT_RUN_TM          -- 최고소개타임    
+                   , TBRAS.MIN_ITRDT_RUN_TM          -- 최소소개타임             
+                   , TBRAS.ITRDT_RUN_TM_DVTN         -- 편차소개타임             
+                   , TBRAS.INST_ID                   -- 작성자ID     
+                   , TBRAS.INST_DTM                  -- 작성일시     
+                   , TBRAS.UPDT_ID                   -- 수정자ID     
+                   , TBRAS.UPDT_DTM                  -- 수정일시     
+			FROM     TBEF_EQUIP TE
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO 
+                                                            ORDER BY TBRAS.STND_YEAR DESC
+                                                                   , TBRAS.TMS DESC 
+                                                       ) RANK
+                                         , TBRAS.*
+                                  FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                  WHERE  TBRAS.MBR_CD = ?
+                                  AND    TBRAS.ST_MTHD_CD = ?
+                                  AND    TBRAS.STND_YEAR || LPAD(TBRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+			                   )
+			            WHERE  RANK = 1
+			         ) TBRAS -- 보트 최근 성적
+			WHERE  TE.EQUIP_NO   IN (
+                                        SELECT DISTINCT BOAT_NO FROM (
+					                        SELECT
+					                               TA.BOAT_NO, ST_MTHD_CD
+					                        FROM   TBEB_ARRANGE TA
+					                        WHERE  TA.STND_YEAR = ?
+					                        AND    TA.MBR_CD    = ?
+					                        AND    TA.TMS       = ?
+					                        AND    MOT_NO LIKE '%' || NVL(?, MOT_NO) || '%'
+					
+					                        UNION
+					                        
+					                        SELECT
+					                               TOR.BOAT_NO, ST_MTHD_CD
+					                        FROM   TBEB_ORGAN   TOR
+					                        WHERE  TOR.STND_YEAR = ?
+					                        AND    TOR.MBR_CD    = ?
+					                        AND    TOR.TMS       = ?
+					                        AND    MOT_NO LIKE '%' || NVL(?, MOT_NO) || '%'
+										) 
+			                            WHERE ST_MTHD_CD = (
+			                        	  CASE WHEN ? = '000' THEN ST_MTHD_CD
+			                        	  ELSE ? END
+			                            )    
+			                        )
+			AND    TE.EQUIP_NO     = TBRAS.BOAT_NO(+)
+			AND    TE.EQUIP_TPE_CD = 'B'
+			AND    TE.MBR_CD       = ?
+			ORDER BY TE.EQUIP_NO
+        ]]>
+    </query>
+    <query id="tbeb_boat_recd_accu_sum_ib001" desc="보트성적입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_BOAT_RECD_ACCU_SUM /* tbeb_boat_recd_accu_sum_ib001 보트성적입력 */
+			(
+			         STND_YEAR                -- 기준년도     
+			       , MBR_CD                   -- 경정장코드   
+			       , TMS                      -- 회차         
+			       , BOAT_NO                  -- 보트번호     
+			       , RUN_CNT                  -- 출전회수     
+			       , RACE_CNT                 -- 출주횟수     
+			       , RACE_DAY_CNT             -- 출전일수     
+			       , RANK_1_CNT               -- 1착회수      
+			       , RANK_2_CNT               -- 2착회수      
+			       , RANK_3_CNT               -- 3착회수      
+			       , RANK_4_CNT               -- 4착회수      
+			       , RANK_5_CNT               -- 5착회수      
+			       , RANK_6_CNT               -- 6착회수      
+			       , AMU_RANK_SCR             -- 누적착순점   
+			       , AVG_RANK_SCR             -- 평균착순점   
+			       , WIN_RATIO                -- 연간승률     
+			       , HIGH_RANK_RATIO          -- 연대율       
+			       , HIGH_3_RANK_RATIO        -- 3연대율      
+			       , TMS_3_ITRDT_RUN_TM       -- 3회 소개 타임
+			       , AVG_ITRDT_RUN_TM         -- 평균 소개타임
+			       , MAX_ITRDT_RUN_TM         -- 최고소개타임 
+			       , MIN_ITRDT_RUN_TM         -- 최소소개타임 
+			       , ITRDT_RUN_TM_DVTN        -- 편차소개타임 
+			       , INST_ID                  -- 작성자ID     
+			       , INST_DTM                 -- 작성일시     
+			       , UPDT_ID                  -- 수정자ID     
+			       , UPDT_DTM                 -- 수정일시     
+			       , ST_MTHD_CD               -- ST구분
+			) VALUES (
+			         ?                        -- 기준년도     
+			       , ?                        -- 경정장코드   
+			       , ?                        -- 회차         
+			       , ?                        -- 보트번호     
+			       , ?                        -- 출전회수     
+			       , ?                        -- 출주횟수     
+			       , ?                        -- 출전일수     
+			       , ?                        -- 1착회수      
+			       , ?                        -- 2착회수      
+			       , ?                        -- 3착회수      
+			       , ?                        -- 4착회수      
+			       , ?                        -- 5착회수      
+			       , ?                        -- 6착회수      
+			       , ?                        -- 누적착순점   
+			       , ?                        -- 평균착순점   
+			       , ?                        -- 연간승률     
+			       , ?                        -- 연대율       
+			       , ?                        -- 3연대율      
+			       , ?                        -- 3회 소개 타임
+			       , ?                        -- 평균 소개타임
+			       , ?                        -- 최고소개타임 
+			       , ?                        -- 최소소개타임 
+			       , ?                        -- 편차소개타임 
+			       , ?                        -- 작성자ID     
+			       , SYSDATE                  -- 작성일시     
+			       , ?                        -- 수정자ID     
+			       , SYSDATE                  -- 수정일시     
+			       , ?                        -- ST구분
+			)
+        ]]>
+    </query>
+    <query id="tbeb_boat_recd_accu_sum_ub001" desc="보트성적수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_BOAT_RECD_ACCU_SUM SET /* tbeb_boat_recd_accu_sum_ub001 보트성적수정 */
+			         RUN_CNT            = ?            -- 출전회수     
+			       , RACE_CNT           = ?            -- 출주횟수     
+			       , RACE_DAY_CNT       = ?            -- 출전일수     
+			       , RANK_1_CNT         = ?            -- 1착회수      
+			       , RANK_2_CNT         = ?            -- 2착회수      
+			       , RANK_3_CNT         = ?            -- 3착회수      
+			       , RANK_4_CNT         = ?            -- 4착회수      
+			       , RANK_5_CNT         = ?            -- 5착회수      
+			       , RANK_6_CNT         = ?            -- 6착회수      
+			       , AMU_RANK_SCR       = ?            -- 누적착순점   
+			       , AVG_RANK_SCR       = ?            -- 평균착순점   
+			       , WIN_RATIO          = ?            -- 연간승률     
+			       , HIGH_RANK_RATIO    = ?            -- 연대율       
+			       , HIGH_3_RANK_RATIO  = ?            -- 3연대율      
+			       , TMS_3_ITRDT_RUN_TM = ?            -- 3회 소개 타임
+			       , AVG_ITRDT_RUN_TM   = ?            -- 평균 소개타임
+			       , MAX_ITRDT_RUN_TM   = ?            -- 최고소개타임 
+			       , MIN_ITRDT_RUN_TM   = ?            -- 최소소개타임 
+			       , ITRDT_RUN_TM_DVTN  = ?            -- 편차소개타임 
+			       , UPDT_ID            = ?            -- 수정자ID     
+			       , UPDT_DTM           = SYSDATE      -- 수정일시
+			       , ST_MTHD_CD         = ?            -- ST구분     
+			WHERE  STND_YEAR            = ?            -- 기준년도     
+			AND    MBR_CD               = ?            -- 경정장코드   
+			AND    TMS                  = ?            -- 회차         
+			AND    BOAT_NO              = ?            -- 보트번호     
+			AND    ST_MTHD_CD           = ?            -- ST구분
+        ]]>
+    </query>
+</queryMap>

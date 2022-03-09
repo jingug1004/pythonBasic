@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="rsm3011(월별 전체매출액)">    
+    <query id="rsm3011_s01" desc="경륜/경정 월별 매출액" fetchSize="10">
+        <![CDATA[	
+		WITH X AS
+		(        		
+            SELECT /* rsm3011_s01 */
+                   STND_YEAR, 
+                   DECODE(STND_YEAR, MIN_YEAR, '합계', RACE_MONTH) AS RACE_MONTH,
+                   SUM(DECODE(MEET_CD, '001', GREEN_AMT)) AS CYCLE_GREEN_SALES,
+                   SUM(DECODE(MEET_CD, '003', GREEN_AMT)) AS BOAT_GREEN_SALES,
+                   SUM(GREEN_AMT) AS TOT_GREEN_SALES,
+                   SUM(DECODE(MEET_CD, '001', DIV_TOTAL)) AS CYCLE_SALES,
+                   SUM(DECODE(MEET_CD, '003', DIV_TOTAL)) AS BOAT_SALES,
+                   SUM(DIV_TOTAL) AS TOT_SALES
+            FROM (                   
+                    SELECT A.MEET_CD, A.STND_YEAR, 
+                           ? -1 AS MIN_YEAR,
+                           SUBSTR(B.RACE_DAY,5,2) AS RACE_MONTH, 
+                           SUM(A.DIV_TOTAL) DIV_TOTAL,
+                           SUM(CASE WHEN A.SELL_CD IN ('01','03') AND A.COMM_NO = '06' THEN A.DIV_TOTAL END) GREEN_AMT        -- 마이켓 계좌                    FROM   VW_SDL_DT_SUM A,
+                           VW_SDL_INFO B
+                    WHERE 
+                          A.MEET_CD IN ('001','003')
+                      AND A.STND_YEAR BETWEEN ? -1 AND ?
+                      AND A.MEET_CD = B.MEET_CD
+                      AND A.STND_YEAR = B.STND_YEAR
+                      AND A.TMS = B.TMS
+                      AND A.DAY_ORD = B.DAY_ORD
+                    GROUP BY A.MEET_CD, A.STND_YEAR, SUBSTR(B.RACE_DAY,5,2)     
+                    )
+            GROUP BY STND_YEAR, DECODE(STND_YEAR, MIN_YEAR, '합계', RACE_MONTH)
+            ORDER BY 1,2
+		)
+		SELECT *
+		FROM X
+		UNION ALL
+		SELECT TO_CHAR(ROUND(SUM(TOT_GREEN_SALES)/SUM(TOT_SALES)*100,2),'0.00')||'%', '합계',
+		       SUM(CYCLE_GREEN_SALES) CYCLE_GREEN_SALES_SUM,
+		       SUM(BOAT_GREEN_SALES) BOAT_GREEN_SALES_SUM,
+		       SUM(TOT_GREEN_SALES) TOT_GREEN_SALES_SUM,
+		       SUM(CYCLE_SALES) CYCLE_SALES_SUM,
+		       SUM(BOAT_SALES) BOAT_SALES_SUM,
+		       SUM(TOT_SALES) TOT_SALES_SUM
+		FROM X
+		WHERE STND_YEAR = ?
+		GROUP BY STND_YEAR
+        ]]>
+    </query>
+    
+    <query id="rsm3011_s02" desc="연도별 그린카드 매출액" fetchSize="10">
+        <![CDATA[	
+		WITH X AS  /* rsm3011_s02 */
+		(        		
+			SELECT STND_YEAR
+			      ,MEET_CD
+			      ,DECODE(COMM_NO,'06','G','A') GUBN
+			      ,SUM(DIV_TOTAL) DIV_TOTAL
+			      ,? AS UNIT
+			FROM VW_SDL_DT_SUM
+			WHERE MEET_CD IN ('001','003')
+			AND   STND_YEAR BETWEEN ? - 5 AND ?
+			GROUP BY STND_YEAR, MEET_CD, DECODE(COMM_NO,'06','G','A')
+		)
+		SELECT  STND_YEAR
+		       ,ROUND(ALL_1 / UNIT) AS ALL_1
+		       ,ROUND(GRN_1 / UNIT) AS GRN_1
+		       ,ROUND(GRN_1/ALL_1*100,2) AS GRN_1_RATE
+		       ,ROUND(ALL_3 / UNIT) AS ALL_3
+		       ,ROUND(GRN_3 / UNIT) AS GRN_3
+		       ,ROUND(GRN_3/ALL_3*100,2) AS GRN_3_RATE
+		FROM (       
+		SELECT  STND_YEAR
+		       ,SUM(CASE WHEN MEET_CD = '001' THEN DIV_TOTAL END) AS ALL_1
+		       ,SUM(CASE WHEN MEET_CD = '001' AND  GUBN = 'G' THEN DIV_TOTAL END) AS GRN_1
+		       ,SUM(CASE WHEN MEET_CD = '003' THEN DIV_TOTAL END)  AS ALL_3
+		       ,SUM(CASE WHEN MEET_CD = '003' AND  GUBN = 'G' THEN DIV_TOTAL END) AS GRN_3
+		       ,MIN(UNIT) AS UNIT
+		FROM X
+		GROUP BY STND_YEAR
+		)
+		ORDER BY 1
+        ]]>
+
+    </query>
+    
+</queryMap>

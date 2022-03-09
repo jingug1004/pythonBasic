@@ -1,0 +1,2427 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : business_customerLedger.xml
+  * @메뉴명 : 거래처원장조회
+  * @최초작성일 : 2014/11/14
+  * @author : 윤범진          
+  * @수정내역 :
+ -->
+<mapper namespace="customerLedger"> 
+	
+	<select id="getCustomerGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+		/*거래처 조회*/
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+    	</if>
+    					SELECT CUST_ID , CUST_NM , DEPT_NM , SAWON_NM
+    					  FROM(
+				    	SELECT A.CUSTCODE AS CUST_ID
+						     , A.CUSTNAME AS CUST_NM
+						     , oragmp.fncommonnm('dept',C.DEPTCODE,'') AS DEPT_NM
+						     , C.EMPNAME AS SAWON_NM
+						  FROM ORAGMP.CMCUSTM A,ORAGMP.SLPROMPRCM B,ORAGMP.CMEMPM C
+						 WHERE A.EMPCODE = C.EMPCODE
+						   AND A.CUSTCODE = B.CUSTCODE
+						<if test="as_fr_cust != ''">
+						   AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						   AND C.EMPCODE IN(
+								                    SELECT EMPCODE
+								                      FROM ORAGMP.CMEMPM
+								                     WHERE OUTYN = 'N'
+													   AND DEPTCODE IN( 
+											                            SELECT DEPTCODE
+											                              FROM ORAGMP.CMDEPTM 
+											                             WHERE USEYN = 'Y'
+											                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+											                           CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+											                             START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+											                                                         FROM ORAGMP.CMEMPM A 
+											                                                            , ORAGMP.CMDEPTM B
+											                                                        WHERE A.EMPCODE = #{as_emp_cd}
+											                                                          AND A.DEPTCODE = B.DEPTCODE                        
+											                                                      )
+											                                                      
+											                           UNION ALL
+											                            SELECT DEPTCODE 
+											                              FROM ORAGMP.CMEMPM
+											                             WHERE DEPTCODE = #{as_dept_cd}
+											                               AND #{as_assgnCode} in ('27027','27030','27035') 
+										                         	)
+						                             UNION ALL
+						                            SELECT #{as_emp_cd}
+						                              FROM DUAL
+						                             WHERE #{as_assgnCode} IN ('27040','27050') 
+						                    )
+						     UNION
+						    SELECT A.CUSTCODE AS CUST_ID
+							     , A.CUSTNAME AS CUST_NM
+							     , oragmp.fncommonnm('dept',C.DEPTCODE,'') AS DEPT_NM
+							     , C.EMPNAME AS SAWON_NM
+						      FROM ORAGMP.CMCUSTM A,ORAGMP.CMEMPM C
+						     WHERE A.CUSTCODE NOT IN( SELECT CUSTCODE FROM ORAGMP.SLPROMPRCM UNION SELECT ECUSTCODE FROM ORAGMP.SLPROMPRCM)
+						       AND A.EMPCODE = C.EMPCODE
+						<if test="as_fr_cust != ''">
+						   AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						   AND C.EMPCODE IN(
+								                    SELECT EMPCODE
+								                      FROM ORAGMP.CMEMPM
+								                     WHERE OUTYN = 'N'
+													   AND DEPTCODE IN( 
+											                            SELECT DEPTCODE
+											                              FROM ORAGMP.CMDEPTM 
+											                             WHERE USEYN = 'Y'
+											                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+											                           CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+											                             START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+											                                                         FROM ORAGMP.CMEMPM A 
+											                                                            , ORAGMP.CMDEPTM B
+											                                                        WHERE A.EMPCODE = #{as_emp_cd}
+											                                                          AND A.DEPTCODE = B.DEPTCODE                        
+											                                                      )
+											                                                      
+											                           UNION ALL
+											                            SELECT DEPTCODE 
+											                              FROM ORAGMP.CMEMPM
+											                             WHERE DEPTCODE = #{as_dept_cd}
+											                               AND #{as_assgnCode} in ('27027','27030','27035') 
+										                         	)
+						                             UNION ALL
+						                            SELECT #{as_emp_cd}
+						                              FROM DUAL
+						                             WHERE #{as_assgnCode} IN ('27040','27050') 
+						                    )
+						)						 
+						 GROUP BY CUST_ID
+						     , CUST_NM
+						     , DEPT_NM
+						     , SAWON_NM
+    	<!-- 
+		<![CDATA[
+						SELECT C.CUST_ID                     CUST_ID,
+						       C.CUST_NM                     CUST_NM,
+						       F_DEPT_NM2(C.SAWON_ID)               AS DEPT_NM ,
+						       F_GET_NAME('SALE0007',C.SAWON_ID,'') AS SAWON_NM 
+						  FROM (SELECT 1                             SEQ,
+						               A.CUST_ID                     CUST_ID,
+						               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT
+						          FROM SALE.SALE0207 A, 
+						               SALE.SALE0208 B, 
+						               SALE.SALE0004 D,
+						               SALE.SALE0203 E
+						         WHERE A.DEAL_NO = B.DEAL_NO
+						           AND A.YMD     = B.YMD
+						           AND B.ITEM_ID = D.ITEM_ID
+						           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           ]]>
+								<if test="as_fr_cust != ''">
+								   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+								</if>
+								<![CDATA[
+						           AND A.GUMAE_NO = E.GUMAE_NO(+)
+						        UNION ALL /*  수금(할인) 내역 */
+						        SELECT 2                             SEQ,
+						               A.CUST_ID                     CUST_ID,
+						               NVL(-(CASH_AMT),0)            TOT
+						          FROM SALE.SALE0401  A
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           ]]>
+								<if test="as_fr_cust != ''">
+								   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+								</if>
+								<![CDATA[
+						           AND A.CASH_AMT      <> 0
+						        UNION ALL
+						        SELECT 2                             SEQ,
+						               A.CUST_ID                     CUST_ID,
+						               NVL(-(AMT),0)                 TOT
+						          FROM SALE.SALE0402  B,
+						               SALE.SALE0401  A,
+						               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.JUNPYO_NO   = B.JUNPYO_NO
+						           ]]>
+								<if test="as_fr_cust != ''">
+								   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+								</if>
+								<![CDATA[
+						           AND B.BILL_GB = C.CODE1(+))  A,
+						       (SELECT CUST_ID                  CUST_ID,
+						               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+						          FROM (SELECT CUST_ID,                   /*전월 잔액 */
+						                       BEFORE_AMT      BEFORE_AMT
+						                  FROM SALE.SALE0306
+						                 WHERE YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   ]]>
+										<if test="as_fr_cust != ''">
+										   AND CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+										</if>
+										<![CDATA[
+						                 UNION ALL
+						                SELECT CUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+						                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0207  B,
+						                       SALE.SALE0208  A
+						                 WHERE A.DEAL_NO    = B.DEAL_NO
+						                   AND A.YMD        = B.YMD
+						                   ]]>
+										<if test="as_fr_cust != ''">
+										   AND B.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+										</if>
+										<![CDATA[
+						                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+						                     UNION all
+						                SELECT CUST_ID,     
+						                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0401  A
+						                 WHERE A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+						                   ]]>
+										<if test="as_fr_cust != ''">
+										   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+										</if>
+										<![CDATA[
+										)
+						         GROUP BY CUST_ID          )  B,
+						      SALE.SALE0003 C
+						WHERE C.CUST_ID    = A.CUST_ID(+)
+						  AND C.CUST_ID    = B.CUST_ID(+)
+						  ]]>
+						<if test="as_fr_cust != ''">
+						  AND C.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						
+						<choose>
+						<when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+						  AND C.SAWON_ID IN (SELECT SAWON_ID 
+											   FROM SALE.SALE0007 
+										      WHERE DEPT_CD IN (
+												                select sale_dept_cd 
+				                                                  from hr_co_depart_0 
+				                                                  connect by prior dept_cd = up_dept_cd
+				                                                  start with dept_cd = (    select dept_cd 
+				                                                                              from hr_co_depart_0 
+				                                                                             where level = 2
+				                                                                              connect by  dept_cd = prior up_dept_cd
+				                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}))
+				                                                                       )
+													             )													 
+								            )
+					    </when>
+						<when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' ">
+						  AND C.SAWON_ID IN (SELECT SAWON_ID FROM SALE.SALE0007 WHERE DEPT_CD = #{as_dept_cd})
+						</when>  
+						<when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+						  AND C.SAWON_ID = #{as_emp_cd} 
+						</when>  
+						</choose>
+						
+		<![CDATA[		            
+						  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+						GROUP BY C.CUST_ID, C.CUST_NM,F_DEPT_NM2(C.SAWON_ID),F_GET_NAME('SALE0007',C.SAWON_ID,'')
+		]]>
+		 -->
+		 
+					<if test="sidx != ''">
+						ORDER BY ${sidx} ${sord}
+					</if>
+		
+				<if test="page != null">
+					) T0
+				)
+				WHERE PAGE = #{page,jdbcType=INTEGER}
+				</if>
+	</select>
+	
+	<select id="getCustomerGridTotalCount" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+		/* 거래처 총수*/
+	    	SELECT COUNT(DISTINCT(CUST_ID)) AS total_cnt
+    					  FROM(
+				    	SELECT A.CUSTCODE AS CUST_ID
+						     , A.CUSTNAME AS CUST_NM
+						     , oragmp.fncommonnm('dept',C.DEPTCODE,'') AS DEPT_NM
+						     , C.EMPNAME AS SAWON_NM
+						  FROM ORAGMP.CMCUSTM A,ORAGMP.SLPROMPRCM B,ORAGMP.CMEMPM C
+						 WHERE A.EMPCODE = C.EMPCODE
+						   AND A.CUSTCODE = B.CUSTCODE
+						<if test="as_fr_cust != ''">
+						   AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						   AND C.EMPCODE IN(
+								                    SELECT EMPCODE
+								                      FROM ORAGMP.CMEMPM
+								                     WHERE OUTYN = 'N'
+													   AND DEPTCODE IN( 
+											                            SELECT DEPTCODE
+											                              FROM ORAGMP.CMDEPTM 
+											                             WHERE USEYN = 'Y'
+											                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+											                           CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+											                             START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+											                                                         FROM ORAGMP.CMEMPM A 
+											                                                            , ORAGMP.CMDEPTM B
+											                                                        WHERE A.EMPCODE = #{as_emp_cd}
+											                                                          AND A.DEPTCODE = B.DEPTCODE                        
+											                                                      )
+											                                                      
+											                           UNION ALL
+											                            SELECT DEPTCODE 
+											                              FROM ORAGMP.CMEMPM
+											                             WHERE DEPTCODE = #{as_dept_cd}
+											                               AND #{as_assgnCode} in ('27027','27030','27035') 
+										                         	)
+						                             UNION ALL
+						                            SELECT #{as_emp_cd}
+						                              FROM DUAL
+						                             WHERE #{as_assgnCode} IN ('27040','27050') 
+						                    )
+						     UNION
+						    SELECT A.CUSTCODE AS CUST_ID
+							     , A.CUSTNAME AS CUST_NM
+							     , oragmp.fncommonnm('dept',C.DEPTCODE,'') AS DEPT_NM
+							     , C.EMPNAME AS SAWON_NM
+						      FROM ORAGMP.CMCUSTM A,ORAGMP.CMEMPM C
+						     WHERE A.CUSTCODE NOT IN( SELECT CUSTCODE FROM ORAGMP.SLPROMPRCM UNION SELECT ECUSTCODE FROM ORAGMP.SLPROMPRCM)
+						       AND A.EMPCODE = C.EMPCODE
+						<if test="as_fr_cust != ''">
+						   AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						   AND C.EMPCODE IN(
+								                    SELECT EMPCODE
+								                      FROM ORAGMP.CMEMPM
+								                     WHERE OUTYN = 'N'
+													   AND DEPTCODE IN( 
+											                            SELECT DEPTCODE
+											                              FROM ORAGMP.CMDEPTM 
+											                             WHERE USEYN = 'Y'
+											                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+											                           CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+											                             START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+											                                                         FROM ORAGMP.CMEMPM A 
+											                                                            , ORAGMP.CMDEPTM B
+											                                                        WHERE A.EMPCODE = #{as_emp_cd}
+											                                                          AND A.DEPTCODE = B.DEPTCODE                        
+											                                                      )
+											                                                      
+											                           UNION ALL
+											                            SELECT DEPTCODE 
+											                              FROM ORAGMP.CMEMPM
+											                             WHERE DEPTCODE = #{as_dept_cd}
+											                               AND #{as_assgnCode} in ('27027','27030','27035') 
+										                         	)
+						                             UNION ALL
+						                            SELECT #{as_emp_cd}
+						                              FROM DUAL
+						                             WHERE #{as_assgnCode} IN ('27040','27050') 
+						                    )
+						)						 
+
+	
+	
+	<!-- 
+	<![CDATA[
+		SELECT COUNT(DISTINCT(C.CUST_ID)) AS total_cnt
+		  FROM (SELECT 1                             SEQ,
+		               A.CUST_ID                     CUST_ID,
+		               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT
+		          FROM SALE.SALE0207 A, 
+		               SALE.SALE0208 B, 
+		               SALE.SALE0004 D,
+		               SALE.SALE0203 E
+		         WHERE A.DEAL_NO = B.DEAL_NO
+		           AND A.YMD     = B.YMD
+		           AND B.ITEM_ID = D.ITEM_ID
+		           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           ]]>
+				<if test="as_fr_cust != ''">
+				   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				<![CDATA[
+		           AND A.GUMAE_NO = E.GUMAE_NO(+)
+		        UNION ALL /*  수금(할인) 내역 */
+		        SELECT 2                             SEQ,
+		               A.CUST_ID                     CUST_ID,
+		               NVL(-(CASH_AMT),0)            TOT
+		          FROM SALE.SALE0401  A
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           ]]>
+				<if test="as_fr_cust != ''">
+				   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				<![CDATA[
+		           AND A.CASH_AMT      <> 0
+		        UNION ALL
+		        SELECT 2                             SEQ,
+		               A.CUST_ID                     CUST_ID,
+		               NVL(-(AMT),0)                 TOT
+		          FROM SALE.SALE0402  B,
+		               SALE.SALE0401  A,
+		               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.JUNPYO_NO   = B.JUNPYO_NO
+		           ]]>
+				<if test="as_fr_cust != ''">
+				   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				<![CDATA[
+		           AND B.BILL_GB = C.CODE1(+))  A,
+		       (SELECT CUST_ID                  CUST_ID,
+		               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+		          FROM (SELECT CUST_ID,                   /*전월 잔액 */
+		                       BEFORE_AMT      BEFORE_AMT
+		                  FROM SALE.SALE0306
+		                 WHERE YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   ]]>
+						<if test="as_fr_cust != ''">
+						   AND CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						<![CDATA[
+		                 UNION ALL
+		                SELECT CUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+		                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0207  B,
+		                       SALE.SALE0208  A
+		                 WHERE A.DEAL_NO    = B.DEAL_NO
+		                   AND A.YMD        = B.YMD
+		                   ]]>
+						<if test="as_fr_cust != ''">
+						   AND B.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						<![CDATA[
+		                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+		                     UNION all
+		                SELECT CUST_ID,     
+		                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0401  A
+		                 WHERE A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+		                   ]]>
+						<if test="as_fr_cust != ''">
+						   AND A.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						<![CDATA[
+		                   )
+		         GROUP BY CUST_ID          )  B,
+		      SALE.SALE0003 C
+		WHERE C.CUST_ID    = A.CUST_ID(+)
+		  AND C.CUST_ID    = B.CUST_ID(+)
+		  ]]>
+		<if test="as_fr_cust != ''">
+		  AND C.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+		</if> 	
+		<choose>
+		<when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+		  AND C.SAWON_ID IN (SELECT SAWON_ID 
+							   FROM SALE.SALE0007 
+						      WHERE DEPT_CD IN (
+								                select sale_dept_cd 
+                                                  from hr_co_depart_0 
+                                                  connect by prior dept_cd = up_dept_cd
+                                                  start with dept_cd = (    select dept_cd 
+                                                                              from hr_co_depart_0 
+                                                                             where level = 2
+                                                                              connect by  dept_cd = prior up_dept_cd
+                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}))
+                                                                       )
+									             )													 
+				            )
+	    </when>
+		<when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' ">
+		  AND C.SAWON_ID IN (SELECT SAWON_ID FROM SALE.SALE0007 WHERE DEPT_CD = #{as_dept_cd})
+		</when>  
+		<when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+		  AND C.SAWON_ID = #{as_emp_cd} 
+		</when>  
+		</choose>
+								
+		
+		<![CDATA[
+		  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+	    ]]>
+	     -->
+	</select>
+	
+	<select id="getIndirectGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+		/*거래처 별 원장 목록 상단 Grid */
+	
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+    	</if>
+				    	SELECT A.CUSTCODE AS CUST_ID
+						     , A.CUSTNAME AS CUST_NM
+						     , oragmp.fncommonnm('dept',C.DEPTCODE,'') AS DEPT_NM
+						     , C.EMPNAME AS SAWON_NM
+						  FROM ORAGMP.CMCUSTM A,ORAGMP.SLPROMPRCM B,ORAGMP.CMEMPM C
+						 WHERE A.EMPCODE = C.EMPCODE
+						   AND A.CUSTCODE = B.ECUSTCODE
+						<if test="as_fr_cust != ''">
+						   AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						   AND C.EMPCODE IN(
+						                    SELECT EMPCODE
+						                      FROM ORAGMP.CMEMPM
+						                     WHERE OUTYN = 'N'
+											   AND DEPTCODE IN( 
+									                            SELECT DEPTCODE
+									                              FROM ORAGMP.CMDEPTM 
+									                             WHERE USEYN = 'Y'
+									                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+									                           CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+									                             START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+									                                                         FROM ORAGMP.CMEMPM A 
+									                                                            , ORAGMP.CMDEPTM B
+									                                                        WHERE A.EMPCODE = #{as_emp_cd}
+									                                                          AND A.DEPTCODE = B.DEPTCODE                        
+									                                                      )
+									                                                      
+									                           UNION ALL
+									                            SELECT DEPTCODE 
+									                              FROM ORAGMP.CMEMPM
+									                             WHERE DEPTCODE = #{as_dept_cd}
+									                               AND #{as_assgnCode} in ('27027','27030','27035') 
+								                         	)
+				                             UNION ALL
+				                            SELECT #{as_emp_cd}
+				                              FROM DUAL
+				                             WHERE #{as_assgnCode} IN ('27040','27050') 
+						                    )
+						 GROUP BY A.CUSTCODE
+						     , A.CUSTNAME
+						     , C.DEPTCODE
+						     , C.EMPNAME
+		    	
+    	<!-- 
+		<![CDATA[
+						SELECT C.CUST_ID                     CUST_ID,
+						       C.CUST_NM                     CUST_NM
+						  FROM (SELECT 1                             SEQ,
+						               A.RCUST_ID                    CUST_ID,
+						               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT
+						          FROM SALE.SALE0207 A, 
+						               SALE.SALE0208 B, 
+						               SALE.SALE0004 D,
+						               SALE.SALE0203 E
+						         WHERE A.DEAL_NO = B.DEAL_NO
+						           AND A.YMD     = B.YMD
+						           AND B.ITEM_ID = D.ITEM_ID
+						           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           ]]>
+								<if test="as_fr_cust != ''">
+								   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+								</if>
+								<![CDATA[
+						           AND A.GUMAE_NO = E.GUMAE_NO(+)
+						        UNION ALL /*  수금(할인) 내역 */
+						        SELECT 2                             SEQ,
+						               A.RCUST_ID                    CUST_ID,
+						               NVL(-(CASH_AMT),0)            TOT
+						          FROM SALE.SALE0401  A
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           ]]>
+								<if test="as_fr_cust != ''">
+								   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+								</if>
+								<![CDATA[
+						           AND A.CASH_AMT      <> 0
+						        UNION ALL
+						        SELECT 2                             SEQ,
+						               A.RCUST_ID                    CUST_ID,
+						               NVL(-(AMT),0)                 TOT
+						          FROM SALE.SALE0402  B,
+						               SALE.SALE0401  A,
+						               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.JUNPYO_NO   = B.JUNPYO_NO
+						           ]]>
+								<if test="as_fr_cust != ''">
+								   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+								</if>
+								<![CDATA[
+						           AND B.BILL_GB = C.CODE1(+))  A,
+						       (SELECT RCUST_ID                 CUST_ID,
+						               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+						          FROM (SELECT RCUST_ID,                   /*전월 잔액 */
+						                       BEFORE_AMT      BEFORE_AMT
+						                  FROM SALE.SALE0306
+						                 WHERE YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   ]]>
+										<if test="as_fr_cust != ''">
+										   AND RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+										</if>
+										<![CDATA[
+						                 UNION ALL
+						                SELECT RCUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+						                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0207  B,
+						                       SALE.SALE0208  A
+						                 WHERE A.DEAL_NO    = B.DEAL_NO
+						                   AND A.YMD        = B.YMD
+						                   ]]>
+										<if test="as_fr_cust != ''">
+										   AND B.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+										</if>
+										<![CDATA[
+						                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+						                     UNION all
+						                SELECT RCUST_ID,     
+						                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0401  A
+						                 WHERE A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+						                   ]]>
+										<if test="as_fr_cust != ''">
+										   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+										</if>
+										<![CDATA[
+						                   )
+						         GROUP BY RCUST_ID          )  B,
+						      SALE.SALE0003 C
+						WHERE C.CUST_ID    = A.CUST_ID(+)
+						  AND C.CUST_ID    = B.CUST_ID(+)
+						  ]]>
+						<if test="as_fr_cust != ''">
+						  AND C.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+
+
+						<choose>
+						<when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+						  AND C.SAWON_ID IN (SELECT SAWON_ID 
+											   FROM SALE.SALE0007 
+										      WHERE DEPT_CD IN (
+												                select sale_dept_cd 
+				                                                  from hr_co_depart_0 
+				                                                  connect by prior dept_cd = up_dept_cd
+				                                                  start with dept_cd = (    select dept_cd 
+				                                                                              from hr_co_depart_0 
+				                                                                             where level = 2
+				                                                                              connect by  dept_cd = prior up_dept_cd
+				                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}))
+				                                                                       )
+													             )													 
+								            )
+					    </when>
+						<when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' ">
+						  AND C.SAWON_ID IN (SELECT SAWON_ID FROM SALE.SALE0007 WHERE DEPT_CD = #{as_dept_cd})
+						</when>  
+						<when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+						  AND C.SAWON_ID = #{as_emp_cd} 
+						</when>  
+						</choose>
+						
+						<![CDATA[
+						  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+						GROUP BY C.CUST_ID, C.CUST_NM
+		                ]]>
+		  -->
+					<if test="sidx != ''">
+						ORDER BY ${sidx} ${sord}
+					</if>
+		
+				<if test="page != null">
+					) T0
+				)
+				WHERE PAGE = #{page,jdbcType=INTEGER}
+				</if>
+	</select>
+	
+	<select id="getIndirectGridTotalCount" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+		/*거래처별 원장목록 상단 Grid 총 수 */
+		    SELECT COUNT(DISTINCT(A.CUSTCODE)) AS total_cnt
+			  FROM ORAGMP.CMCUSTM A,ORAGMP.SLPROMPRCM B,ORAGMP.CMEMPM C
+			 WHERE A.EMPCODE = C.EMPCODE
+			   AND A.CUSTCODE = B.ECUSTCODE
+			<if test="as_fr_cust != ''">
+			   AND A.CUSTCODE = #{as_fr_cust,jdbcType=VARCHAR}
+			</if>
+			   AND C.EMPCODE IN(
+			                    SELECT EMPCODE
+			                      FROM ORAGMP.CMEMPM
+			                     WHERE OUTYN = 'N'
+								   AND DEPTCODE IN( 
+						                            SELECT DEPTCODE
+						                              FROM ORAGMP.CMDEPTM 
+						                             WHERE USEYN = 'Y'
+						                               AND #{as_assgnCode} in ('27010','27018','27023','27025','27026')
+						                           CONNECT BY PRIOR DEPTCODE = PREDEPTCODE 
+						                             START WITH PREDEPTCODE = (SELECT B.PREDEPTCODE 
+						                                                         FROM ORAGMP.CMEMPM A 
+						                                                            , ORAGMP.CMDEPTM B
+						                                                        WHERE A.EMPCODE = #{as_emp_cd}
+						                                                          AND A.DEPTCODE = B.DEPTCODE                        
+						                                                      )
+						                                                      
+						                           UNION ALL
+						                            SELECT DEPTCODE 
+						                              FROM ORAGMP.CMEMPM
+						                             WHERE DEPTCODE = #{as_dept_cd}
+						                               AND #{as_assgnCode} in ('27027','27030','27035') 
+					                         	)
+	                             UNION ALL
+	                            SELECT #{as_emp_cd}
+	                              FROM DUAL
+	                             WHERE #{as_assgnCode} IN ('27040','27050') 
+			                    )
+	
+	
+	<!-- 
+	<![CDATA[
+		SELECT COUNT(DISTINCT(C.CUST_ID)) AS total_cnt
+		  FROM (SELECT 1                             SEQ,
+		               A.RCUST_ID                    CUST_ID,
+		               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT
+		          FROM SALE.SALE0207 A, 
+		               SALE.SALE0208 B, 
+		               SALE.SALE0004 D,
+		               SALE.SALE0203 E
+		         WHERE A.DEAL_NO = B.DEAL_NO
+		           AND A.YMD     = B.YMD
+		           AND B.ITEM_ID = D.ITEM_ID
+		           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           ]]>
+				<if test="as_fr_cust != ''">
+				   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				<![CDATA[
+		           AND A.GUMAE_NO = E.GUMAE_NO(+)
+		        UNION ALL /*  수금(할인) 내역 */
+		        SELECT 2                             SEQ,
+		               A.RCUST_ID                    CUST_ID,
+		               NVL(-(CASH_AMT),0)            TOT
+		          FROM SALE.SALE0401  A
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           ]]>
+				<if test="as_fr_cust != ''">
+				   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				<![CDATA[
+		           AND A.CASH_AMT      <> 0
+		        UNION ALL
+		        SELECT 2                             SEQ,
+		               A.RCUST_ID                    CUST_ID,
+		               NVL(-(AMT),0)                 TOT
+		          FROM SALE.SALE0402  B,
+		               SALE.SALE0401  A,
+		               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.JUNPYO_NO   = B.JUNPYO_NO
+		           ]]>
+				<if test="as_fr_cust != ''">
+				   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+				</if>
+				<![CDATA[
+		           AND B.BILL_GB = C.CODE1(+))  A,
+		       (SELECT RCUST_ID                 CUST_ID,
+		               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+		          FROM (SELECT RCUST_ID,                   /*전월 잔액 */
+		                       BEFORE_AMT      BEFORE_AMT
+		                  FROM SALE.SALE0306
+		                 WHERE YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   ]]>
+						<if test="as_fr_cust != ''">
+						   AND RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						<![CDATA[
+		                 UNION ALL
+		                SELECT RCUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+		                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0207  B,
+		                       SALE.SALE0208  A
+		                 WHERE A.DEAL_NO    = B.DEAL_NO
+		                   AND A.YMD        = B.YMD
+		                   ]]>
+						<if test="as_fr_cust != ''">
+						   AND B.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						<![CDATA[
+		                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+		                     UNION all
+		                SELECT RCUST_ID,     
+		                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0401  A
+		                 WHERE A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+		                   ]]>
+						<if test="as_fr_cust != ''">
+						   AND A.RCUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+						</if>
+						<![CDATA[
+		                   )
+		         GROUP BY RCUST_ID          )  B,
+		      SALE.SALE0003 C
+		WHERE C.CUST_ID    = A.CUST_ID(+)
+		  AND C.CUST_ID    = B.CUST_ID(+)
+		  ]]>
+		<if test="as_fr_cust != ''">
+		  AND C.CUST_ID = #{as_fr_cust,jdbcType=VARCHAR}
+		</if>
+
+		<choose>
+		<when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+		  AND C.SAWON_ID IN (SELECT SAWON_ID 
+							   FROM SALE.SALE0007 
+						      WHERE DEPT_CD IN (
+								                select sale_dept_cd 
+                                                  from hr_co_depart_0 
+                                                  connect by prior dept_cd = up_dept_cd
+                                                  start with dept_cd = (    select dept_cd 
+                                                                              from hr_co_depart_0 
+                                                                             where level = 2
+                                                                              connect by  dept_cd = prior up_dept_cd
+                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}))
+                                                                       )
+									             )													 
+				            )
+	    </when>
+		<when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' ">
+		  AND C.SAWON_ID IN (SELECT SAWON_ID FROM SALE.SALE0007 WHERE DEPT_CD = #{as_dept_cd})
+		</when>  
+		<when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+		  AND C.SAWON_ID = #{as_emp_cd} 
+		</when>  
+		</choose>
+
+		<![CDATA[ 
+		  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+	    ]]>
+	    -->
+	</select>
+	
+	<select id="getCustomerLedgerGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+		/*거래처별 원장 목록*/
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+    	</if>
+		<![CDATA[
+    	   SELECT A.GB         AS GB        ,  --자료순서
+		          A.APPDATE    AS YMD   ,  --거래일자
+		          A.ECUSTNAME  AS RCUST_NM ,  --간납처명
+		          A.ITEMNAME   AS ITEM_NM  ,  --제품명
+		          A.UNIT       AS STANDARD      ,  --규격
+		          A.SALQTY     AS QTY    ,  --수량
+		          A.SALPRC     AS DANGA    ,  --단가
+		          A.SALAMT     AS AMT    ,  --공급가액
+		          A.SALVAT     AS VAT    ,  --브가세
+		          A.TOTAMT     AS TOT    ,  --합계
+		          A.COLAMT     AS SUKUM    ,  --수금액
+		          SUM(A.REMAMT) OVER(ORDER BY A.GB, A.SALDIV, A.ORDERNO, A.SEQ, A.ITEMCODE) AS REM_AMT ,  --잔고
+		          0            AS DC_AMT  ,
+		          A.REMARK     AS BIGO,      --비고
+		          B.BUSINESSNO AS VOU_NO,
+		          B.CEONAME    AS PRESIDENT,
+		          NVL(B.CUSTEMPNAME,'정보없음') AS SAWON_NM,
+		          B.TELNO      AS TEL
+		          
+		     FROM
+		        ( SELECT '0' || TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')     AS gb       ,  --자료순서
+		                 TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')            AS appdate  ,  --거래일자
+		                 '0'                                                                  AS orderno  ,  --전표번호
+		                 0                                                                    AS seq      ,  --거래순번
+		                 ''                                                                   AS saldiv   ,  --영업구분
+		                 ''                                                                   AS saldivnm ,  --영업구분명
+		                 ''                                                                   AS ecustcode,  --간납처코드
+		                 ''                                                                   AS ecustname,  --간납처명
+		                 ''                                                                   AS itemcode ,  --제품코드
+		                 '전기이월'                                                           AS itemname ,  --제품명
+		                 ''                                                                   AS unit     ,  --규격
+		                 0                                                                    AS salqty   ,  --수량
+		                 0                                                                    AS salprc   ,  --단가
+		                 0                                                                    AS salvat   ,  --공급가액
+		                 0                                                                    AS salamt   ,  --부가세
+		                 0                                                                    AS totamt   ,  --합계
+		                 0                                                                    AS colamt   ,  --수금액
+		                 ''                                                                   AS orderdiv ,  --영업영역
+		                 ''                                                                   AS ordername,  --영업영역명
+		                 ''                                                                   AS remark   ,  --비고
+		                 SUM(A.REMAMT)                                                        AS remamt   ,  --잔고산출용
+		                 0                                                                    AS turncnt  ,
+		                 #{as_cust_id}                                                        AS CUSTCODE
+		            FROM
+		               ( --전월잔고
+		                 SELECT NVL(SUM(A.BALANCE),0) AS REMAMT
+		                   FROM ORAGMP.SLRESULTM A
+		                  WHERE A.YEARMONTH = TO_CHAR(TO_DATE(substr(#{ad_fr_date},1,7)||'-01','YYYY/MM/DD') - 1,'YYYY-MM')
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 --1일부터 시작전일까지의 판매 금액산출
+		                 SELECT NVL(SUM(CASE WHEN SUBSTR(A.SALDIV,1,1) = 'A'
+		                                     THEN  B.TOTAMT
+		                                     ELSE -B.TOTAMT
+		                                END),0) AS AMT
+		                   FROM ORAGMP.SLORDM A,
+		                        ORAGMP.SLORDD B
+		                  WHERE A.STATEDIV   = '09'
+		                    AND A.ORDERNO    = B.ORDERNO
+		                    AND A.APPDATE >= substr(#{ad_fr_date},1,7)||'-01'
+		                    AND A.APPDATE <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+		                    AND A.CUSTCODE   = #{as_cust_id}
+		              UNION ALL
+		                 --1일부터 시작전일까지의 수금 금액산출
+		                 SELECT NVL(SUM(-A.COLAMT),0) AS AMT
+		                   FROM ORAGMP.SLCOLM A
+		                  WHERE A.STATEDIV   = '09'
+		                    AND A.APPDATE   >= substr(#{ad_fr_date},1,7)||'-01'
+		                    AND A.APPDATE   <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+		                    AND A.CUSTCODE   = #{as_cust_id}
+		               ) A
+		       UNION ALL
+		          SELECT '1' || A.APPDATE                                                   AS gb       ,  --자료순서
+		                 A.APPDATE                                                          AS appdate  ,  --거래일자
+		                 A.ORDERNO                                                            AS orderno  ,  --전표번호
+		                 B.SEQ                                                                AS seq      ,  --거래순번
+		                 A.SALDIV                                                             AS saldiv   ,  --영업구분
+		                 S.DIVNAME                                                            AS saldivnm ,  --영업구분명
+		                 A.ECUSTCODE                                                          AS ecustcode,  --간납처코드
+		                 H.CUSTNAME                                                           AS ecustname,  --간납처명
+		                 B.ITEMCODE                                                           AS itemcode ,  --제품코드
+		                 I.ITEMNAME                                                           AS itemname ,  --제품명
+		                 I.ITEMUNIT                                                           AS unit     ,  --규격
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALQTY ELSE -B.SALQTY END  AS salqty   ,  --수량
+		                 B.SALPRC                                                             AS salprc   ,  --단가
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END  AS salvat   ,  --부가세
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END  AS salamt   ,  --공급가액
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS totamt   ,  --합계
+		                 0                                                                    AS colamt   ,  --수금액
+		                 A.ORDERDIV                                                           AS orderdiv ,  --영업영역
+		                 T.DIVNAME                                                            AS ordername,  --영업영역명
+		                 A.REMARK                                                             AS remark   ,  --비고
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS remamt   ,   --잔고산출용
+		                 0                                                                    AS turncnt  ,
+		                 #{as_cust_id}                                                        AS CUSTCODE
+		            FROM ORAGMP.SLORDM    A,
+		                 ORAGMP.SLORDD    B,
+		                 ORAGMP.CMCUSTM   H,
+		                 ORAGMP.CMITEMM   I,
+		                 ORAGMP.CMCOMMONM S,
+		                 ORAGMP.CMCOMMONM T
+		           WHERE A.STATEDIV  = '09'
+		             AND A.ORDERNO   = B.ORDERNO
+		             AND A.ECUSTCODE = H.CUSTCODE
+		             AND 'SL10'      = S.CMMCODE (+)
+		             AND A.SALDIV    = S.DIVCODE (+)
+		             AND 'SL43'      = T.CMMCODE (+)
+		             AND A.ORDERDIV  = T.DIVCODE (+)
+		             AND B.ITEMCODE  = I.ITEMCODE(+)
+		             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		             AND A.CUSTCODE  = #{as_cust_id}
+		       UNION ALL
+		          SELECT '1' || A.APPDATE                                                            AS gb       ,  --자료순서
+		                 A.APPDATE                                                                   AS appdate  ,  --거래일자
+		                 A.COLNO                                                                     AS orderno  ,  --전표번호
+		                 TO_NUMBER(A.COLSEQ)                                                         AS seq      ,  --거래순번
+		                 A.COLDIV                                                                    AS saldiv   ,  --영업구분
+		                 S.DIVNAME                                                                   AS saldivnm ,  --영업구분명
+		                 A.ECUSTCODE                                                                 AS ecustcode,  --간납처코드
+		                 H.CUSTNAME                                                                  AS ecustname,  --간납처명
+		                 ''                                                                          AS itemcode ,  --제품코드
+		                 CASE WHEN A.COLDIV LIKE '3%' THEN NVL(A.BILLNO, 'unknown') || ':' || A.EXPDATE                                                          --어음번호와 만기일자
+		                      WHEN SUBSTR(A.COLDIV, 1, 1) = '1' THEN I.ACCREMARK || ':' || NVL(A.ACCOUNTNO,'')                                                   --계좌은행
+		                      WHEN SUBSTR(A.COLDIV, 1, 1) = '2' THEN (CASE WHEN (NVL (A.DIVMONTH, 0) = 0) THEN U.DIVNAME                                         --카드사
+		                                                                   WHEN (NVL (A.DIVMONTH, 0) > 0) THEN U.DIVNAME || ' ' || TO_CHAR(A.DIVMONTH) || '개월' --카드사
+		                                                                                                  ELSE ''
+		                                                              END)
+		                      ELSE ''
+		                 END                                                                            AS itemname ,  --제품명
+		                 ''                                                                             AS unit     ,  --규격
+		                 0                                                                              AS salqty   ,  --수량
+		                 0                                                                              AS salprc   ,  --단가
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END   AS salvat   ,  --부가세
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END   AS salamt   ,  --공급가액
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END   AS totamt   ,  --합계
+		                 CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END   AS colamt   ,  --수금액
+		                 A.ORDERDIV                                                                     AS orderdiv ,  --영업영역
+		                 T.DIVNAME                                                                      AS ordername,  --영업영역명
+		                 A.REMARK                                                                       AS remark   ,  --비고
+		                 -A.COLAMT                                                                      AS remamt   ,  --잔고산출용
+		                 0                                                                              AS turncnt  ,
+		                 #{as_cust_id}                                                                  AS CUSTCODE
+		            FROM ORAGMP.SLCOLM     A,
+		                 ORAGMP.CMCUSTM    H,
+		                 ORAGMP.CMACCOUNTM I,
+		                 ORAGMP.CMCOMMONM  S,
+		                 ORAGMP.CMCOMMONM  T,
+		                 ORAGMP.CMCOMMONM  U
+		           WHERE A.STATEDIV  = '09'
+		             AND A.ECUSTCODE = H.CUSTCODE
+		             AND A.ACCOUNTNO = I.ACCOUNTNO(+)
+		             AND 'SL18'      = S.CMMCODE  (+)
+		             AND A.COLDIV    = S.DIVCODE  (+)
+		             AND 'SL43'      = T.CMMCODE  (+)
+		             AND A.ORDERDIV  = T.DIVCODE  (+)
+		             AND 'AC17'      = U.CMMCODE  (+)
+		             AND A.CARDCOMP  = U.DIVCODE  (+)
+		             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		             AND A.CUSTCODE  = #{as_cust_id}
+		       UNION ALL
+		          SELECT '1' || a.appdate || '-98-99'                                                      AS gb       ,  --자료순서
+		                 ''                                                                                AS appdate  ,  --거래일자
+		                 '0'                                                                               AS orderno  ,  --전표번호
+		                 0                                                                                 AS seq      ,  --거래순번
+		                 'Z99'                                                                             AS saldiv   ,  --영업구분
+		                 ''                                                                                AS saldivnm ,  --영업구분명
+		                 ''                                                                                AS ecustcode,  --간납처코드
+		                 ''                                                                                AS ecustname,  --간납처명
+		                 ''                                                                                AS itemcode ,  --제품코드
+		                 REPLACE(A.appdate, '-', '/') || ' 월 계'                                          AS itemname ,  --제품명
+		                 ''                                                                                AS unit     ,  --규격
+		                 0                                                                                 AS salqty   ,  --수량
+		                 0                                                                                 AS salprc   ,  --단가
+		                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+		                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+		                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+		                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+		                 ''                                                                                AS orderdiv ,  --영업영역
+		                 ''                                                                                AS ordername,  --영업영역명
+		                 ''                                                                                AS remark   ,  --비고
+		                 0                                                                                 AS remamt   ,  --잔고산출용
+		                 NVL(B.TURNCNT,0)                                                                  AS turncnt  ,
+		                 #{as_cust_id}                                                                     AS CUSTCODE
+		            FROM
+		               ( SELECT A.CUSTCODE                                                                 AS CUSTCODE ,  --거래처코드
+		                        SUBSTR(A.APPDATE,1,7)                                                    AS appdate  ,  --거래일자
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+		                        0                                                                          AS COLAMT      --수금액
+		                   FROM ORAGMP.SLORDM     A,
+		                        ORAGMP.SLORDD     B
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.ORDERNO   = B.ORDERNO
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 SELECT A.CUSTCODE                                                                    AS CUSTCODE ,  --거래처코드
+		                        SUBSTR(A.APPDATE,1,7)                                                         AS appdate  ,  --거래일자
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세  
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+		                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+		                   FROM ORAGMP.SLCOLM     A
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		               ) A,
+		                 ORAGMP.SLTURNCUSTM B
+		           WHERE A.appdate  = B.YEARMONTH(+)
+		             AND A.CUSTCODE = B.CUSTCODE (+)
+		        GROUP BY A.appdate, B.TURNCNT
+		       UNION ALL
+		          SELECT '1' || a.appdate || '-99-99'                                                      AS gb       ,  --자료순서
+		                 ''                                                                                AS appdate  ,  --거래일자
+		                 '0'                                                                               AS orderno  ,  --전표번호
+		                 0                                                                                 AS seq      ,  --거래순번
+		                 'Z99'                                                                             AS saldiv   ,  --영업구분
+		                 ''                                                                                AS saldivnm ,  --영업구분명
+		                 ''                                                                                AS ecustcode,  --간납처코드
+		                 ''                                                                                AS ecustname,  --간납처명
+		                 ''                                                                                AS itemcode ,  --제품코드
+		                 REPLACE(A.appdate, '-', '/') || ' 년 계'                                          AS itemname ,  --제품명
+		                 ''                                                                                AS unit     ,  --규격
+		                 0                                                                                 AS salqty   ,  --수량
+		                 0                                                                                 AS salprc   ,  --단가
+		                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+		                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+		                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+		                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+		                 ''                                                                                AS orderdiv ,  --영업영역
+		                 ''                                                                                AS ordername,  --영업영역명
+		                 ''                                                                                AS remark   ,  --비고
+		                 0                                                                                 AS remamt   ,   --잔고산출용
+		                 0                                                                                 AS turncnt  ,
+		                 #{as_cust_id}                                                                     AS CUSTCODE
+		            FROM
+		               ( SELECT SUBSTR(A.APPDATE,1,4)                                                    AS appdate  ,  --거래일자
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+		                        0                                                                          AS COLAMT      --수금액
+		                   FROM ORAGMP.SLORDM     A,
+		                        ORAGMP.SLORDD     B
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.ORDERNO   = B.ORDERNO
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 SELECT SUBSTR(A.APPDATE,1,4)                                                         AS appdate  ,  --거래일자
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+		                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+		                   FROM ORAGMP.SLCOLM     A
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		               ) A
+		        GROUP BY A.appdate
+		         ) A,ORAGMP.CMCUSTM B
+		  WHERE A.CUSTCODE = B.CUSTCODE
+		  ORDER BY A.GB, A.SALDIV, A.ORDERNO, A.SEQ, A.ITEMCODE		    	
+    	]]>
+    	<!-- 
+		<![CDATA[
+						SELECT TO_CHAR(A.YMD,'YYYYMM')       YM,
+						       TO_CHAR (A.YMD, 'YYYY-MM-DD') YMD,
+						       C.CUST_ID                     CUST_ID,
+						       A.RCUST_ID                    RCUST_ID,
+						       C.VOU_NO                      VOU_NO,
+						       C.CUST_NM||'('||C.CUST_ID||')' CUST_NM,
+						       RTRIM(C.ADDR1)||' '||RTRIM(C.ADDR2)  ADDR,
+						       C.PRESIDENT                    PRESIDENT,
+						       E.SAWON_ID                     SAWON_ID,
+						       E.SAWON_NM                     SAWON_NM,
+						       D.CUST_NM                      RCUST_NM,
+						       A.ITEM_ID                      ITEM_ID,
+						       DECODE(A.YMD,null,'****  거래내역 없음  ****',A.ITEM_NM) ITEM_NM,
+						       A.STANDARD                    STANDARD,
+						       A.QTY                         QTY,
+						       A.DANGA                       DANGA,
+						       NVL(A.AMT,0)                  AMT,
+						       NVL(A.VAT,0)                  VAT,
+						       NVL(A.SUKUM,0)                SUKUM,
+						       NVL(A.AMT,0) + NVL(A.VAT,0)   TOT,
+						       NVL(B.BEFORE_AMT,0)           BEFORE_AMT,
+						       A.DEAL_NO                     DEAL_NO,
+						       A.DC_AMT                      DC_AMT,
+						       A.DC_QTY                      DC_QTY,
+						       DECODE(A.DC_EN_YN,'Y',A.DC_AMT) 
+						                                     DC_EN_AMT,
+						       A.DC_EN_YN                    DC_EN_YN,
+						       C.TEL                         TEL,
+						       SUM(NVL(A.AMT,0)+NVL(A.VAT,0)-NVL(A.SUKUM,0)) OVER (PARTITION BY C.CUST_ID ORDER BY C.CUST_ID, A.YMD, A.RCUST_ID
+						       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)+NVL(B.BEFORE_AMT,0) AS REM_AMT,
+						       A.BIGO                        BIGO
+						  FROM (SELECT 1                             SEQ,
+						               A.YMD                         YMD,
+						               A.CUST_ID                     CUST_ID,
+						               A.RCUST_ID                    RCUST_ID,
+						               B.ITEM_ID                     ITEM_ID,
+						               D.ITEM_NM                     ITEM_NM,
+						               D.STANDARD                    STANDARD,
+						               B.QTY                         QTY,
+						               B.DANGA                       DANGA,
+						               B.AMT                         AMT,
+						               B.VAT                         VAT,
+						               B.DC_AMT                      DC_AMT,
+						               B.DC_QTY                      DC_QTY,
+						               B.DC_EN_YN                    DC_EN_YN,
+						               0                             SUKUM,
+						               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT,
+						               A.DEAL_NO                     DEAL_NO,
+						               DECODE(E.GUMAE_GB,'12',E.BIGO,'13',E.BIGO,'') BIGO
+						          FROM SALE.SALE0207 A, 
+						               SALE.SALE0208 B, 
+						               SALE.SALE0004 D,
+						               SALE.SALE0203 E
+						         WHERE A.DEAL_NO = B.DEAL_NO
+						           AND A.YMD     = B.YMD
+						           AND B.ITEM_ID = D.ITEM_ID
+						           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.CUST_ID = #{as_cust_id,jdbcType=VARCHAR}
+						           AND A.GUMAE_NO = E.GUMAE_NO(+)
+						        UNION ALL /*  수금(할인) 내역 */
+						        SELECT 2                             SEQ,
+						               A.YMD                         YMD,
+						               A.CUST_ID                     CUST_ID,
+						               A.RCUST_ID                    RCUST_ID,
+						               DECODE(A.JUNPYO_GB,'01','현금','10','매출할인','20','부실채권','30','거래이관','35','대손상각','40','잡수익','45','손실정리'
+						                                 ,'50','부도어음대체','55','폐업상품입고','기타수금')
+						                                             ITEM_ID,
+						               BIGO                          ITEM_NM,
+						               ''                            STANDARD,
+						               0                             QTY,
+						               0                             DANGA,
+						               0                             AMT,
+						               0                             VAT,
+						               0                             DC_AMT,
+						               0                             DC_QTY,
+						               ''                            DC_EN_YN,
+						               CASH_AMT                      SUKUM,
+						               NVL(-(CASH_AMT),0)            TOT,
+						               ''                            DEAL_NO,
+						               ''                            BIGO
+						          FROM SALE.SALE0401  A
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						           AND A.CASH_AMT      <> 0
+						        UNION ALL
+						        SELECT 2                             SEQ,
+						               A.YMD                         YMD,
+						               A.CUST_ID                     CUST_ID,
+						               A.RCUST_ID                    RCUST_ID,
+						               C.CODE1_NM                    ITEM_ID,                                             
+						               B.BILL_NO                     ITEM_NM,
+						               ''                            STANDARD,
+						               0                             QTY,
+						               0                             DANGA,
+						               0                             AMT,
+						               0                             VAT,
+						               0                             DC_AMT,
+						               0                             DC_QTY,
+						               ''                            DC_EN_YN,
+						               AMT                           SUKUM,
+						               NVL(-(AMT),0)                 TOT,
+						               ''                            DEAL_NO,
+						               DECODE(C.CODE1,'100','',B.END_YMD) BIGO
+						          FROM SALE.SALE0402  B,
+						               SALE.SALE0401  A,
+						               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.JUNPYO_NO   = B.JUNPYO_NO
+						           AND A.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						           AND B.BILL_GB = C.CODE1(+))  A,
+						       (SELECT CUST_ID                  CUST_ID,
+						               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+						          FROM (SELECT CUST_ID,                   /*전월 잔액 */
+						                       BEFORE_AMT      BEFORE_AMT
+						                  FROM SALE.SALE0306
+						                 WHERE CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						                   AND YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                 UNION ALL
+						                SELECT CUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+						                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0207  B,
+						                       SALE.SALE0208  A
+						                 WHERE A.DEAL_NO    = B.DEAL_NO
+						                   AND A.YMD        = B.YMD
+						                   AND B.CUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+						                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+						                     UNION all
+						                SELECT CUST_ID,     
+						                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0401  A
+						                 WHERE A.CUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+						                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR})
+						         GROUP BY CUST_ID          )  B,
+						      SALE.SALE0003 C,
+						      SALE.SALE0003 D,
+						      (SELECT B.SAWON_ID, B.SAWON_NM, B.DEPT_CD, C.DEPT_NM 
+						         FROM SALE.SALE0007 B, SALE.SALE0008 C  
+						        WHERE B.DEPT_CD = C.DEPT_CD) E
+						WHERE C.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						  AND C.CUST_ID    = A.CUST_ID(+)
+						  AND C.CUST_ID    = B.CUST_ID(+)
+						  AND A.RCUST_ID   = D.CUST_ID(+)
+						  AND C.SAWON_ID   = E.SAWON_ID(+)
+						  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+		]]>
+		 -->
+		 
+					<if test="sidx != ''">
+						ORDER BY ${sidx} ${sord}
+					</if>
+		
+				<if test="page != null">
+					) T0
+				)
+				WHERE PAGE = #{page,jdbcType=INTEGER}
+				</if>
+	</select>
+	
+	<select id="getCustomerLedgerGridTotalCount" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+	
+	/*거래처별 원장 목록 하단 Grid 총 수*/
+	<![CDATA[
+	       SELECT COUNT(*) AS total_cnt,
+   	       		  MAX(A.SALAMT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_amt, 
+				  MAX(A.SALVAT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_vat,
+			  	  MAX(A.TOTAMT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_tot, 
+			   	  MAX(A.COLAMT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_sukum,
+			   	  0 total_dc_amt
+		     FROM
+		        ( SELECT '0' || TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')     AS gb       ,  --자료순서
+		                 TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')            AS appdate  ,  --거래일자
+		                 '0'                                                                  AS orderno  ,  --전표번호
+		                 0                                                                    AS seq      ,  --거래순번
+		                 ''                                                                   AS saldiv   ,  --영업구분
+		                 ''                                                                   AS saldivnm ,  --영업구분명
+		                 ''                                                                   AS ecustcode,  --간납처코드
+		                 ''                                                                   AS ecustname,  --간납처명
+		                 ''                                                                   AS itemcode ,  --제품코드
+		                 '전기이월'                                                           AS itemname ,  --제품명
+		                 ''                                                                   AS unit     ,  --규격
+		                 0                                                                    AS salqty   ,  --수량
+		                 0                                                                    AS salprc   ,  --단가
+		                 0                                                                    AS salvat   ,  --공급가액
+		                 0                                                                    AS salamt   ,  --부가세
+		                 0                                                                    AS totamt   ,  --합계
+		                 0                                                                    AS colamt   ,  --수금액
+		                 ''                                                                   AS orderdiv ,  --영업영역
+		                 ''                                                                   AS ordername,  --영업영역명
+		                 ''                                                                   AS remark   ,  --비고
+		                 SUM(A.REMAMT)                                                        AS remamt   ,  --잔고산출용
+		                 0                                                                    AS turncnt
+		            FROM
+		               ( --전월잔고
+		                 SELECT NVL(SUM(A.BALANCE),0) AS REMAMT
+		                   FROM ORAGMP.SLRESULTM A
+		                  WHERE A.YEARMONTH = TO_CHAR(TO_DATE(substr(#{ad_fr_date},1,7)||'-01','YYYY/MM/DD') - 1,'YYYY-MM')
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 --1일부터 시작전일까지의 판매 금액산출
+		                 SELECT NVL(SUM(CASE WHEN SUBSTR(A.SALDIV,1,1) = 'A'
+		                                     THEN  B.TOTAMT
+		                                     ELSE -B.TOTAMT
+		                                END),0) AS AMT
+		                   FROM ORAGMP.SLORDM A,
+		                        ORAGMP.SLORDD B
+		                  WHERE A.STATEDIV   = '09'
+		                    AND A.ORDERNO    = B.ORDERNO
+		                    AND A.APPDATE >= substr(#{ad_fr_date},1,7)||'-01'
+		                    AND A.APPDATE <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+		                    AND A.CUSTCODE   = #{as_cust_id}
+		              UNION ALL
+		                 --1일부터 시작전일까지의 수금 금액산출
+		                 SELECT NVL(SUM(-A.COLAMT),0) AS AMT
+		                   FROM ORAGMP.SLCOLM A
+		                  WHERE A.STATEDIV   = '09'
+		                    AND A.APPDATE   >= substr(#{ad_fr_date},1,7)||'-01'
+		                    AND A.APPDATE   <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+		                    AND A.CUSTCODE   = #{as_cust_id}
+		               ) A
+		       UNION ALL
+		          SELECT '1' || A.APPDATE                                                   AS gb       ,  --자료순서
+		                 A.APPDATE                                                          AS appdate  ,  --거래일자
+		                 A.ORDERNO                                                            AS orderno  ,  --전표번호
+		                 B.SEQ                                                                AS seq      ,  --거래순번
+		                 A.SALDIV                                                             AS saldiv   ,  --영업구분
+		                 S.DIVNAME                                                            AS saldivnm ,  --영업구분명
+		                 A.ECUSTCODE                                                          AS ecustcode,  --간납처코드
+		                 H.CUSTNAME                                                           AS ecustname,  --간납처명
+		                 B.ITEMCODE                                                           AS itemcode ,  --제품코드
+		                 I.ITEMNAME                                                           AS itemname ,  --제품명
+		                 I.ITEMUNIT                                                           AS unit     ,  --규격
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALQTY ELSE -B.SALQTY END  AS salqty   ,  --수량
+		                 B.SALPRC                                                             AS salprc   ,  --단가
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END  AS salvat   ,  --부가세
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END  AS salamt   ,  --공급가액
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS totamt   ,  --합계
+		                 0                                                                    AS colamt   ,  --수금액
+		                 A.ORDERDIV                                                           AS orderdiv ,  --영업영역
+		                 T.DIVNAME                                                            AS ordername,  --영업영역명
+		                 A.REMARK                                                             AS remark   ,  --비고
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS remamt   ,   --잔고산출용
+		                 0                                                                    AS turncnt
+		            FROM ORAGMP.SLORDM    A,
+		                 ORAGMP.SLORDD    B,
+		                 ORAGMP.CMCUSTM   H,
+		                 ORAGMP.CMITEMM   I,
+		                 ORAGMP.CMCOMMONM S,
+		                 ORAGMP.CMCOMMONM T
+		           WHERE A.STATEDIV  = '09'
+		             AND A.ORDERNO   = B.ORDERNO
+		             AND A.ECUSTCODE = H.CUSTCODE
+		             AND 'SL10'      = S.CMMCODE (+)
+		             AND A.SALDIV    = S.DIVCODE (+)
+		             AND 'SL43'      = T.CMMCODE (+)
+		             AND A.ORDERDIV  = T.DIVCODE (+)
+		             AND B.ITEMCODE  = I.ITEMCODE(+)
+		             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		             AND A.CUSTCODE  = #{as_cust_id}
+		       UNION ALL
+		          SELECT '1' || A.APPDATE                                                            AS gb       ,  --자료순서
+		                 A.APPDATE                                                                   AS appdate  ,  --거래일자
+		                 A.COLNO                                                                     AS orderno  ,  --전표번호
+		                 TO_NUMBER(A.COLSEQ)                                                         AS seq      ,  --거래순번
+		                 A.COLDIV                                                                    AS saldiv   ,  --영업구분
+		                 S.DIVNAME                                                                   AS saldivnm ,  --영업구분명
+		                 A.ECUSTCODE                                                                 AS ecustcode,  --간납처코드
+		                 H.CUSTNAME                                                                  AS ecustname,  --간납처명
+		                 ''                                                                          AS itemcode ,  --제품코드
+		                 CASE WHEN A.COLDIV LIKE '3%' THEN NVL(A.BILLNO, 'unknown') || ':' || A.EXPDATE                                                          --어음번호와 만기일자
+		                      WHEN SUBSTR(A.COLDIV, 1, 1) = '1' THEN I.ACCREMARK || ':' || NVL(A.ACCOUNTNO,'')                                                   --계좌은행
+		                      WHEN SUBSTR(A.COLDIV, 1, 1) = '2' THEN (CASE WHEN (NVL (A.DIVMONTH, 0) = 0) THEN U.DIVNAME                                         --카드사
+		                                                                   WHEN (NVL (A.DIVMONTH, 0) > 0) THEN U.DIVNAME || ' ' || TO_CHAR(A.DIVMONTH) || '개월' --카드사
+		                                                                                                  ELSE ''
+		                                                              END)
+		                      ELSE ''
+		                 END                                                                            AS itemname ,  --제품명
+		                 ''                                                                             AS unit     ,  --규격
+		                 0                                                                              AS salqty   ,  --수량
+		                 0                                                                              AS salprc   ,  --단가
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END   AS salvat   ,  --부가세
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END   AS salamt   ,  --공급가액
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END   AS totamt   ,  --합계
+		                 CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END   AS colamt   ,  --수금액
+		                 A.ORDERDIV                                                                     AS orderdiv ,  --영업영역
+		                 T.DIVNAME                                                                      AS ordername,  --영업영역명
+		                 A.REMARK                                                                       AS remark   ,  --비고
+		                 -A.COLAMT                                                                      AS remamt   ,  --잔고산출용
+		                 0                                                                              AS turncnt
+		            FROM ORAGMP.SLCOLM     A,
+		                 ORAGMP.CMCUSTM    H,
+		                 ORAGMP.CMACCOUNTM I,
+		                 ORAGMP.CMCOMMONM  S,
+		                 ORAGMP.CMCOMMONM  T,
+		                 ORAGMP.CMCOMMONM  U
+		           WHERE A.STATEDIV  = '09'
+		             AND A.ECUSTCODE = H.CUSTCODE
+		             AND A.ACCOUNTNO = I.ACCOUNTNO(+)
+		             AND 'SL18'      = S.CMMCODE  (+)
+		             AND A.COLDIV    = S.DIVCODE  (+)
+		             AND 'SL43'      = T.CMMCODE  (+)
+		             AND A.ORDERDIV  = T.DIVCODE  (+)
+		             AND 'AC17'      = U.CMMCODE  (+)
+		             AND A.CARDCOMP  = U.DIVCODE  (+)
+		             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		             AND A.CUSTCODE  = #{as_cust_id}
+		       UNION ALL
+		          SELECT '1' || a.appdate || '-98-99'                                                      AS gb       ,  --자료순서
+		                 ''                                                                                AS appdate  ,  --거래일자
+		                 '0'                                                                               AS orderno  ,  --전표번호
+		                 0                                                                                 AS seq      ,  --거래순번
+		                 'Z99'                                                                             AS saldiv   ,  --영업구분
+		                 ''                                                                                AS saldivnm ,  --영업구분명
+		                 ''                                                                                AS ecustcode,  --간납처코드
+		                 ''                                                                                AS ecustname,  --간납처명
+		                 ''                                                                                AS itemcode ,  --제품코드
+		                 REPLACE(A.appdate, '-', '/') || ' 월 계'                                          AS itemname ,  --제품명
+		                 ''                                                                                AS unit     ,  --규격
+		                 0                                                                                 AS salqty   ,  --수량
+		                 0                                                                                 AS salprc   ,  --단가
+		                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+		                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+		                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+		                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+		                 ''                                                                                AS orderdiv ,  --영업영역
+		                 ''                                                                                AS ordername,  --영업영역명
+		                 ''                                                                                AS remark   ,  --비고
+		                 0                                                                                 AS remamt   ,  --잔고산출용
+		                 NVL(B.TURNCNT,0)                                                                  AS turncnt
+		            FROM
+		               ( SELECT A.CUSTCODE                                                                 AS CUSTCODE ,  --거래처코드
+		                        SUBSTR(A.APPDATE,1,7)                                                    AS appdate  ,  --거래일자
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+		                        0                                                                          AS COLAMT      --수금액
+		                   FROM ORAGMP.SLORDM     A,
+		                        ORAGMP.SLORDD     B
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.ORDERNO   = B.ORDERNO
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 SELECT A.CUSTCODE                                                                    AS CUSTCODE ,  --거래처코드
+		                        SUBSTR(A.APPDATE,1,7)                                                         AS appdate  ,  --거래일자
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세  
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+		                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+		                   FROM ORAGMP.SLCOLM     A
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		               ) A,
+		                 ORAGMP.SLTURNCUSTM B
+		           WHERE A.appdate  = B.YEARMONTH(+)
+		             AND A.CUSTCODE = B.CUSTCODE (+)
+		        GROUP BY A.appdate, B.TURNCNT
+		       UNION ALL
+		          SELECT '1' || a.appdate || '-99-99'                                                      AS gb       ,  --자료순서
+		                 ''                                                                                AS appdate  ,  --거래일자
+		                 '0'                                                                               AS orderno  ,  --전표번호
+		                 0                                                                                 AS seq      ,  --거래순번
+		                 'Z99'                                                                             AS saldiv   ,  --영업구분
+		                 ''                                                                                AS saldivnm ,  --영업구분명
+		                 ''                                                                                AS ecustcode,  --간납처코드
+		                 ''                                                                                AS ecustname,  --간납처명
+		                 ''                                                                                AS itemcode ,  --제품코드
+		                 REPLACE(A.appdate, '-', '/') || ' 년 계'                                          AS itemname ,  --제품명
+		                 ''                                                                                AS unit     ,  --규격
+		                 0                                                                                 AS salqty   ,  --수량
+		                 0                                                                                 AS salprc   ,  --단가
+		                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+		                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+		                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+		                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+		                 ''                                                                                AS orderdiv ,  --영업영역
+		                 ''                                                                                AS ordername,  --영업영역명
+		                 ''                                                                                AS remark   ,  --비고
+		                 0                                                                                 AS remamt   ,   --잔고산출용
+		                 0                                                                                 AS turncnt
+		            FROM
+		               ( SELECT SUBSTR(A.APPDATE,1,4)                                                    AS appdate  ,  --거래일자
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+		                        0                                                                          AS COLAMT      --수금액
+		                   FROM ORAGMP.SLORDM     A,
+		                        ORAGMP.SLORDD     B
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.ORDERNO   = B.ORDERNO
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 SELECT SUBSTR(A.APPDATE,1,4)                                                         AS appdate  ,  --거래일자
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+		                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+		                   FROM ORAGMP.SLCOLM     A
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.CUSTCODE  = #{as_cust_id}
+		               ) A
+		        GROUP BY A.appdate
+		         ) A
+	]]>
+	<!-- 
+	<![CDATA[
+		SELECT COUNT(*) AS total_cnt, SUM(NVL(A.AMT, 0)) total_amt, SUM(NVL(A.VAT, 0)) total_vat,
+			   SUM(NVL(A.TOT, 0)) total_tot, SUM(NVL(A.SUKUM, 0)) total_sukum, SUM(NVL(A.DC_AMT, 0)) total_dc_amt
+		  FROM (SELECT 1                             SEQ,
+		               A.YMD                         YMD,
+		               A.CUST_ID                     CUST_ID,
+		               A.RCUST_ID                    RCUST_ID,
+		               B.ITEM_ID                     ITEM_ID,
+		               D.ITEM_NM                     ITEM_NM,
+		               D.STANDARD                    STANDARD,
+		               B.QTY                         QTY,
+		               B.DANGA                       DANGA,
+		               B.AMT                         AMT,
+		               B.VAT                         VAT,
+		               B.DC_AMT                      DC_AMT,
+		               B.DC_QTY                      DC_QTY,
+		               B.DC_EN_YN                    DC_EN_YN,
+		               0                             SUKUM,
+		               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT,
+		               A.DEAL_NO                     DEAL_NO,
+		               DECODE(E.GUMAE_GB,'12',E.BIGO,'13',E.BIGO,'') BIGO
+		          FROM SALE.SALE0207 A, 
+		               SALE.SALE0208 B, 
+		               SALE.SALE0004 D,
+		               SALE.SALE0203 E
+		         WHERE A.DEAL_NO = B.DEAL_NO
+		           AND A.YMD     = B.YMD
+		           AND B.ITEM_ID = D.ITEM_ID
+		           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.CUST_ID = #{as_cust_id,jdbcType=VARCHAR}
+		           AND A.GUMAE_NO = E.GUMAE_NO(+)
+		        UNION ALL /*  수금(할인) 내역 */
+		        SELECT 2                             SEQ,
+		               A.YMD                         YMD,
+		               A.CUST_ID                     CUST_ID,
+		               A.RCUST_ID                    RCUST_ID,
+		               DECODE(A.JUNPYO_GB,'01','현금','10','매출할인','20','부실채권','30','거래이관','35','대손상각','40','잡수익','45','손실정리'
+		                                 ,'50','부도어음대체','55','폐업상품입고','기타수금')
+		                                             ITEM_ID,
+		               BIGO                          ITEM_NM,
+		               ''                            STANDARD,
+		               0                             QTY,
+		               0                             DANGA,
+		               0                             AMT,
+		               0                             VAT,
+		               0                             DC_AMT,
+		               0                             DC_QTY,
+		               ''                            DC_EN_YN,
+		               CASH_AMT                      SUKUM,
+		               NVL(-(CASH_AMT),0)            TOT,
+		               ''                            DEAL_NO,
+		               ''                            BIGO
+		          FROM SALE.SALE0401  A
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		           AND A.CASH_AMT      <> 0
+		        UNION ALL
+		        SELECT 2                             SEQ,
+		               A.YMD                         YMD,
+		               A.CUST_ID                     CUST_ID,
+		               A.RCUST_ID                    RCUST_ID,
+		               C.CODE1_NM                    ITEM_ID,                                             
+		               B.BILL_NO                     ITEM_NM,
+		               ''                            STANDARD,
+		               0                             QTY,
+		               0                             DANGA,
+		               0                             AMT,
+		               0                             VAT,
+		               0                             DC_AMT,
+		               0                             DC_QTY,
+		               ''                            DC_EN_YN,
+		               AMT                           SUKUM,
+		               NVL(-(AMT),0)                 TOT,
+		               ''                            DEAL_NO,
+		               DECODE(C.CODE1,'100','',B.END_YMD) BIGO
+		          FROM SALE.SALE0402  B,
+		               SALE.SALE0401  A,
+		               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.JUNPYO_NO   = B.JUNPYO_NO
+		           AND A.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		           AND B.BILL_GB = C.CODE1(+))  A,
+		       (SELECT CUST_ID                  CUST_ID,
+		               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+		          FROM (SELECT CUST_ID,                   /*전월 잔액 */
+		                       BEFORE_AMT      BEFORE_AMT
+		                  FROM SALE.SALE0306
+		                 WHERE CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		                   AND YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                 UNION ALL
+		                SELECT CUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+		                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0207  B,
+		                       SALE.SALE0208  A
+		                 WHERE A.DEAL_NO    = B.DEAL_NO
+		                   AND A.YMD        = B.YMD
+		                   AND B.CUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+		                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+		                     UNION all
+		                SELECT CUST_ID,     
+		                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0401  A
+		                 WHERE A.CUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+		                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR})
+		         GROUP BY CUST_ID          )  B,
+		      SALE.SALE0003 C,
+		      SALE.SALE0003 D,
+		      (SELECT B.SAWON_ID, B.SAWON_NM, B.DEPT_CD, C.DEPT_NM 
+		         FROM SALE.SALE0007 B, SALE.SALE0008 C  
+		        WHERE B.DEPT_CD = C.DEPT_CD) E
+		WHERE C.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		  AND C.CUST_ID    = A.CUST_ID(+)
+		  AND C.CUST_ID    = B.CUST_ID(+)
+		  AND A.RCUST_ID   = D.CUST_ID(+)
+		  AND C.SAWON_ID   = E.SAWON_ID(+)
+		  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+	]]>
+	-->
+	</select>
+	
+	<select id="getIndirectLedgerGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+		/*간납처별 원장목록 하단 Grid 목록*/
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+    	</if>
+    	<![CDATA[
+    	    	   SELECT A.GB         AS GB        ,  --자료순서
+				          A.APPDATE    AS YMD   ,  --거래일자
+				          A.CUSTNAME   AS RCUST_NM ,  --거래처명
+				          A.ITEMNAME   AS ITEM_NM  ,  --제품명
+				          A.UNIT       AS STANDARD      ,  --규격
+				          A.SALQTY     AS QTY    ,  --수량
+				          A.SALPRC     AS DANGA    ,  --단가
+				          A.SALAMT     AS AMT    ,  --공급가액
+				          A.SALVAT     AS VAT    ,  --브가세
+				          A.TOTAMT     AS TOT    ,  --합계
+				          A.COLAMT     AS SUKUM    ,  --수금액
+				          SUM(A.REMAMT) OVER(ORDER BY A.GB, A.SALDIV, A.ORDERNO, A.SEQ, A.ITEMCODE) AS REM_AMT ,  --잔고
+				          0            AS DC_AMT  ,
+				          A.REMARK     AS BIGO,      --비고
+				          B.BUSINESSNO AS VOU_NO,
+				          B.CEONAME    AS PRESIDENT,
+				          NVL(B.CUSTEMPNAME,'정보없음') AS SAWON_NM,
+				          B.TELNO      AS TEL
+				          
+				     FROM
+				        ( SELECT '0' || TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')     AS gb       ,  --자료순서
+				                 TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')            AS appdate  ,  --거래일자
+				                 '0'                                                                  AS orderno  ,  --전표번호
+				                 0                                                                    AS seq      ,  --거래순번
+				                 ''                                                                   AS saldiv   ,  --영업구분
+				                 ''                                                                   AS saldivnm ,  --영업구분명
+				                 ''                                                                   AS custcode,  --거래처코드
+				                 ''                                                                   AS custname,  --거래처명
+				                 ''                                                                   AS itemcode ,  --제품코드
+				                 '전기이월'                                                            AS itemname ,  --제품명
+				                 ''                                                                   AS unit     ,  --규격
+				                 0                                                                    AS salqty   ,  --수량
+				                 0                                                                    AS salprc   ,  --단가
+				                 0                                                                    AS salvat   ,  --공급가액
+				                 0                                                                    AS salamt   ,  --부가세
+				                 0                                                                    AS totamt   ,  --합계
+				                 0                                                                    AS colamt   ,  --수금액
+				                 ''                                                                   AS orderdiv ,  --영업영역
+				                 ''                                                                   AS ordername,  --영업영역명
+				                 ''                                                                   AS remark   ,  --비고
+				                 SUM(A.REMAMT)                                                        AS remamt   ,  --잔고산출용
+				                 0                                                                    AS turncnt
+				            FROM
+				               ( --전월잔고
+				                 SELECT NVL(SUM(A.BALANCE),0) AS REMAMT
+				                   FROM ORAGMP.SLRESULTM A
+				                  WHERE A.YEARMONTH = TO_CHAR(TO_DATE(substr(#{ad_fr_date},1,7)||'-01','YYYY/MM/DD') - 1,'YYYY-MM')
+				                    AND A.ECUSTCODE  = #{as_cust_id}
+				              UNION ALL
+				                 --1일부터 시작전일까지의 판매 금액산출
+				                 SELECT NVL(SUM(CASE WHEN SUBSTR(A.SALDIV,1,1) = 'A'
+				                                     THEN  B.TOTAMT
+				                                     ELSE -B.TOTAMT
+				                                END),0) AS AMT
+				                   FROM ORAGMP.SLORDM A,
+				                        ORAGMP.SLORDD B
+				                  WHERE A.STATEDIV   = '09'
+				                    AND A.ORDERNO    = B.ORDERNO
+				                    AND A.APPDATE >= substr(#{ad_fr_date},1,7)||'-01'
+				                    AND A.APPDATE <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+				                    AND A.ECUSTCODE   = #{as_cust_id}
+				              UNION ALL
+				                 --1일부터 시작전일까지의 수금 금액산출
+				                 SELECT NVL(SUM(-A.COLAMT),0) AS AMT
+				                   FROM ORAGMP.SLCOLM A
+				                  WHERE A.STATEDIV   = '09'
+				                    AND A.APPDATE   >= substr(#{ad_fr_date},1,7)||'-01'
+				                    AND A.APPDATE   <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+				                    AND A.ECUSTCODE   = #{as_cust_id}
+				               ) A
+				       UNION ALL
+				          SELECT '1' || A.APPDATE                                                   AS gb       ,  --자료순서
+				                 A.APPDATE                                                          AS appdate  ,  --거래일자
+				                 A.ORDERNO                                                            AS orderno  ,  --전표번호
+				                 B.SEQ                                                                AS seq      ,  --거래순번
+				                 A.SALDIV                                                             AS saldiv   ,  --영업구분
+				                 S.DIVNAME                                                            AS saldivnm ,  --영업구분명
+				                 A.CUSTCODE                                                           AS custcode,  --거래처코드
+				                 H.CUSTNAME                                                           AS custname,  --거래처명
+				                 B.ITEMCODE                                                           AS itemcode ,  --제품코드
+				                 I.ITEMNAME                                                           AS itemname ,  --제품명
+				                 I.ITEMUNIT                                                           AS unit     ,  --규격
+				                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALQTY ELSE -B.SALQTY END  AS salqty   ,  --수량
+				                 B.SALPRC                                                             AS salprc   ,  --단가
+				                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END  AS salvat   ,  --부가세
+				                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END  AS salamt   ,  --공급가액
+				                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS totamt   ,  --합계
+				                 0                                                                    AS colamt   ,  --수금액
+				                 A.ORDERDIV                                                           AS orderdiv ,  --영업영역
+				                 T.DIVNAME                                                            AS ordername,  --영업영역명
+				                 A.REMARK                                                             AS remark   ,  --비고
+				                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS remamt   ,   --잔고산출용
+				                 0                                                                    AS turncnt
+				            FROM ORAGMP.SLORDM    A,
+				                 ORAGMP.SLORDD    B,
+				                 ORAGMP.CMCUSTM   H,
+				                 ORAGMP.CMITEMM   I,
+				                 ORAGMP.CMCOMMONM S,
+				                 ORAGMP.CMCOMMONM T
+				           WHERE A.STATEDIV  = '09'
+				             AND A.ORDERNO   = B.ORDERNO
+				             AND A.CUSTCODE  = H.CUSTCODE
+				             AND 'SL10'      = S.CMMCODE (+)
+				             AND A.SALDIV    = S.DIVCODE (+)
+				             AND 'SL43'      = T.CMMCODE (+)
+				             AND A.ORDERDIV  = T.DIVCODE (+)
+				             AND B.ITEMCODE  = I.ITEMCODE(+)
+				             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				             AND A.ECUSTCODE  = #{as_cust_id}
+				       UNION ALL
+				          SELECT '1' || A.APPDATE                                                            AS gb       ,  --자료순서
+				                 A.APPDATE                                                                   AS appdate  ,  --거래일자
+				                 A.COLNO                                                                     AS orderno  ,  --전표번호
+				                 TO_NUMBER(A.COLSEQ)                                                         AS seq      ,  --거래순번
+				                 A.COLDIV                                                                    AS saldiv   ,  --영업구분
+				                 S.DIVNAME                                                                   AS saldivnm ,  --영업구분명
+				                 A.ECUSTCODE                                                                 AS ecustcode,  --거래처코드
+				                 H.CUSTNAME                                                                  AS ecustname,  --거래처명
+				                 ''                                                                          AS itemcode ,  --제품코드
+				                 CASE WHEN A.COLDIV LIKE '3%' THEN NVL(A.BILLNO, 'unknown') || ':' || A.EXPDATE                                                          --어음번호와 만기일자
+				                      WHEN SUBSTR(A.COLDIV, 1, 1) = '1' THEN I.ACCREMARK || ':' || NVL(A.ACCOUNTNO,'')                                                   --계좌은행
+				                      WHEN SUBSTR(A.COLDIV, 1, 1) = '2' THEN (CASE WHEN (NVL (A.DIVMONTH, 0) = 0) THEN U.DIVNAME                                         --카드사
+				                                                                   WHEN (NVL (A.DIVMONTH, 0) > 0) THEN U.DIVNAME || ' ' || TO_CHAR(A.DIVMONTH) || '개월' --카드사
+				                                                                                                  ELSE ''
+				                                                              END)
+				                      ELSE ''
+				                 END                                                                            AS itemname ,  --제품명
+				                 ''                                                                             AS unit     ,  --규격
+				                 0                                                                              AS salqty   ,  --수량
+				                 0                                                                              AS salprc   ,  --단가
+				                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END   AS salvat   ,  --부가세
+				                 CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END   AS salamt   ,  --공급가액
+				                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END   AS totamt   ,  --합계
+				                 CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END   AS colamt   ,  --수금액
+				                 A.ORDERDIV                                                                     AS orderdiv ,  --영업영역
+				                 T.DIVNAME                                                                      AS ordername,  --영업영역명
+				                 A.REMARK                                                                       AS remark   ,  --비고
+				                 -A.COLAMT                                                                      AS remamt   ,  --잔고산출용
+				                 0                                                                              AS turncnt
+				            FROM ORAGMP.SLCOLM     A,
+				                 ORAGMP.CMCUSTM    H,
+				                 ORAGMP.CMACCOUNTM I,
+				                 ORAGMP.CMCOMMONM  S,
+				                 ORAGMP.CMCOMMONM  T,
+				                 ORAGMP.CMCOMMONM  U
+				           WHERE A.STATEDIV  = '09'
+				             AND A.ECUSTCODE = H.CUSTCODE
+				             AND A.ACCOUNTNO = I.ACCOUNTNO(+)
+				             AND 'SL18'      = S.CMMCODE  (+)
+				             AND A.COLDIV    = S.DIVCODE  (+)
+				             AND 'SL43'      = T.CMMCODE  (+)
+				             AND A.ORDERDIV  = T.DIVCODE  (+)
+				             AND 'AC17'      = U.CMMCODE  (+)
+				             AND A.CARDCOMP  = U.DIVCODE  (+)
+				             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				             AND A.CUSTCODE  = #{as_cust_id}
+				       UNION ALL
+				          SELECT '1' || a.appdate || '-98-99'                                                      AS gb       ,  --자료순서
+				                 ''                                                                                AS appdate  ,  --거래일자
+				                 '0'                                                                               AS orderno  ,  --전표번호
+				                 0                                                                                 AS seq      ,  --거래순번
+				                 'Z99'                                                                             AS saldiv   ,  --영업구분
+				                 ''                                                                                AS saldivnm ,  --영업구분명
+				                 ''                                                                                AS custcode,  --거래처코드
+				                 ''                                                                                AS custname,  --거래처명
+				                 ''                                                                                AS itemcode ,  --제품코드
+				                 REPLACE(A.appdate, '-', '/') || ' 월 계'                                          AS itemname ,  --제품명
+				                 ''                                                                                AS unit     ,  --규격
+				                 0                                                                                 AS salqty   ,  --수량
+				                 0                                                                                 AS salprc   ,  --단가
+				                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+				                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+				                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+				                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+				                 ''                                                                                AS orderdiv ,  --영업영역
+				                 ''                                                                                AS ordername,  --영업영역명
+				                 ''                                                                                AS remark   ,  --비고
+				                 0                                                                                 AS remamt   ,  --잔고산출용
+				                 NVL(B.TURNCNT,0)                                                                  AS turncnt
+				            FROM
+				               ( SELECT A.ECUSTCODE                                                                 AS ECUSTCODE ,  --거래처코드
+				                        SUBSTR(A.APPDATE,1,7)                                                    AS appdate  ,  --거래일자
+				                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+				                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+				                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+				                        0                                                                          AS COLAMT      --수금액
+				                   FROM ORAGMP.SLORDM     A,
+				                        ORAGMP.SLORDD     B
+				                  WHERE A.STATEDIV  = '09'
+				                    AND A.ORDERNO   = B.ORDERNO
+				                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				                    AND A.ECUSTCODE  = #{as_cust_id}
+				              UNION ALL
+				                 SELECT A.ECUSTCODE                                                                    AS ECUSTCODE ,  --거래처코드
+				                        SUBSTR(A.APPDATE,1,7)                                                         AS appdate  ,  --거래일자
+				                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세  
+				                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+				                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+				                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+				                   FROM ORAGMP.SLCOLM     A
+				                  WHERE A.STATEDIV  = '09'
+				                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				                    AND A.ECUSTCODE  = #{as_cust_id}
+				               ) A,
+				                 ORAGMP.SLTURNCUSTM B
+				           WHERE A.appdate  = B.YEARMONTH(+)
+				             AND A.ECUSTCODE = B.CUSTCODE (+)
+				        GROUP BY A.appdate, B.TURNCNT
+				       UNION ALL
+				          SELECT '1' || a.appdate || '-99-99'                                                      AS gb       ,  --자료순서
+				                 ''                                                                                AS appdate  ,  --거래일자
+				                 '0'                                                                               AS orderno  ,  --전표번호
+				                 0                                                                                 AS seq      ,  --거래순번
+				                 'Z99'                                                                             AS saldiv   ,  --영업구분
+				                 ''                                                                                AS saldivnm ,  --영업구분명
+				                 ''                                                                                AS custcode,  --거래처코드
+				                 ''                                                                                AS custname,  --거래처명
+				                 ''                                                                                AS itemcode ,  --제품코드
+				                 REPLACE(A.appdate, '-', '/') || ' 년 계'                                          AS itemname ,  --제품명
+				                 ''                                                                                AS unit     ,  --규격
+				                 0                                                                                 AS salqty   ,  --수량
+				                 0                                                                                 AS salprc   ,  --단가
+				                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+				                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+				                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+				                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+				                 ''                                                                                AS orderdiv ,  --영업영역
+				                 ''                                                                                AS ordername,  --영업영역명
+				                 ''                                                                                AS remark   ,  --비고
+				                 0                                                                                 AS remamt   ,   --잔고산출용
+				                 0                                                                                 AS turncnt
+				            FROM
+				               ( SELECT SUBSTR(A.APPDATE,1,4)                                                    AS appdate  ,  --거래일자
+				                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+				                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+				                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+				                        0                                                                          AS COLAMT      --수금액
+				                   FROM ORAGMP.SLORDM     A,
+				                        ORAGMP.SLORDD     B
+				                  WHERE A.STATEDIV  = '09'
+				                    AND A.ORDERNO   = B.ORDERNO
+				                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				                    AND A.ECUSTCODE  = #{as_cust_id}
+				              UNION ALL
+				                 SELECT SUBSTR(A.APPDATE,1,4)                                                         AS appdate  ,  --거래일자
+				                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세
+				                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+				                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+				                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+				                   FROM ORAGMP.SLCOLM     A
+				                  WHERE A.STATEDIV  = '09'
+				                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+				                    AND A.ECUSTCODE  = #{as_cust_id}
+				               ) A
+				        GROUP BY A.appdate
+				         ) A
+				  ORDER BY A.GB, A.SALDIV, A.ORDERNO, A.SEQ, A.ITEMCODE		    	
+	    	
+    	
+    	]]>
+    	<!-- 
+		<![CDATA[
+						SELECT TO_CHAR(A.YMD,'YYYYMM')       YM,
+						       TO_CHAR (A.YMD, 'YYYY-MM-DD') YMD,
+						       C.CUST_ID                     RCUST_ID,
+						       A.CUST_ID                     CUST_ID,
+						       C.VOU_NO                      VOU_NO,
+						       D.CUST_NM                     RCUST_NM,
+						       RTRIM(C.ADDR1)||' '||RTRIM(C.ADDR2)
+						                                      ADDR,
+						       C.PRESIDENT                    PRESIDENT,
+						       E.SAWON_ID                     SAWON_ID,
+						       E.SAWON_NM                     SAWON_NM,
+						       D.CUST_NM                      CUST_NM,
+						       A.ITEM_ID                      ITEM_ID,
+						       DECODE(A.YMD,null,'****  거래내역 없음  ****',A.ITEM_ID||' '||A.ITEM_NM)
+						                                     ITEM_NM,
+						       A.STANDARD                    STANDARD,
+						       A.QTY                         QTY,
+						       A.DANGA                       DANGA,
+						       NVL(A.AMT,0)                  AMT,
+						       NVL(A.VAT,0)                  VAT,
+						       NVL(A.SUKUM,0)                SUKUM,
+						       NVL(A.AMT,0) + NVL(A.VAT,0)   TOT,
+						       NVL(B.BEFORE_AMT,0)           BEFORE_AMT,
+						       A.DEAL_NO                     DEAL_NO,
+						       A.DC_AMT                      DC_AMT,
+						       A.DC_QTY                      DC_QTY,
+						       DECODE(A.DC_EN_YN,'Y',A.DC_AMT) 
+						                                     DC_EN_AMT,
+						       A.DC_EN_YN                    DC_EN_YN,
+						       C.TEL                         TEL,
+						       SUM(NVL(A.AMT,0)+NVL(A.VAT,0)-NVL(A.SUKUM,0)) OVER (PARTITION BY C.CUST_ID ORDER BY C.CUST_ID, A.YMD, A.RCUST_ID
+						       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)+NVL(B.BEFORE_AMT,0) AS REM_AMT,
+						       A.BIGO                        BIGO
+						  FROM (SELECT 1                             SEQ,
+						               A.YMD                         YMD,
+						               A.CUST_ID                     CUST_ID,
+						               A.RCUST_ID                    RCUST_ID,
+						               B.ITEM_ID                     ITEM_ID,
+						               D.ITEM_NM                     ITEM_NM,
+						               D.STANDARD                    STANDARD,
+						               B.QTY                         QTY,
+						               B.DANGA                       DANGA,
+						               B.AMT                         AMT,
+						               B.VAT                         VAT,
+						               B.DC_AMT                      DC_AMT,
+						               B.DC_QTY                      DC_QTY,
+						               B.DC_EN_YN                    DC_EN_YN,
+						               0                             SUKUM,
+						               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT,
+						               A.DEAL_NO                     DEAL_NO,
+						               DECODE(E.GUMAE_GB,'12',E.BIGO,'13',E.BIGO,'') BIGO
+						          FROM SALE.SALE0207 A, 
+						               SALE.SALE0208 B, 
+						               SALE.SALE0004 D,
+						               SALE.SALE0203 E
+						         WHERE A.DEAL_NO = B.DEAL_NO
+						           AND A.YMD     = B.YMD
+						           AND B.ITEM_ID = D.ITEM_ID
+						           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.RCUST_ID = #{as_cust_id,jdbcType=VARCHAR}
+						           AND A.GUMAE_NO = E.GUMAE_NO(+)
+						        UNION ALL /*  수금(할인) 내역 */
+						        SELECT 2                             SEQ,
+						               A.YMD                         YMD,
+						               A.CUST_ID                     CUST_ID,
+						               A.RCUST_ID                    RCUST_ID,
+						               DECODE(A.JUNPYO_GB,'01','현금','10','매출할인','20','부실채권','30','거래이관','35','대손상각','40','잡수익','45','손실정리'
+						                                 ,'50','부도어음대체','55','폐업상품입고','기타수금')
+						                                             ITEM_ID,
+						               BIGO                          ITEM_NM,
+						               ''                            STANDARD,
+						               0                             QTY,
+						               0                             DANGA,
+						               0                             AMT,
+						               0                             VAT,
+						               0                             DC_AMT,
+						               0                             DC_QTY,
+						               ''                            DC_EN_YN,
+						               CASH_AMT                      SUKUM,
+						               NVL(-(CASH_AMT),0)            TOT,
+						               ''                            DEAL_NO,
+						               ''                            BIGO
+						          FROM SALE.SALE0401  A
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.RCUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						           AND A.CASH_AMT      <> 0
+						        UNION ALL
+						        SELECT 2                             SEQ,
+						               A.YMD                         YMD,
+						               A.CUST_ID                     CUST_ID,
+						               A.RCUST_ID                    RCUST_ID,
+						               C.CODE1_NM                    ITEM_ID,                                             
+						               B.BILL_NO                     ITEM_NM,
+						               ''                            STANDARD,
+						               0                             QTY,
+						               0                             DANGA,
+						               0                             AMT,
+						               0                             VAT,
+						               0                             DC_AMT,
+						               0                             DC_QTY,
+						               ''                            DC_EN_YN,
+						               AMT                           SUKUM,
+						               NVL(-(AMT),0)                 TOT,
+						               ''                            DEAL_NO,
+						               DECODE(C.CODE1,'100','',B.END_YMD) BIGO
+						          FROM SALE.SALE0402  B,
+						               SALE.SALE0401  A,
+						               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+						         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+						           AND A.JUNPYO_NO   = B.JUNPYO_NO
+						           AND A.RCUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						           AND B.BILL_GB = C.CODE1(+))  A,
+						       (SELECT RCUST_ID                 RCUST_ID,
+						               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+						          FROM (SELECT RCUST_ID,                   /*전월 잔액 */
+						                       BEFORE_AMT      BEFORE_AMT
+						                  FROM SALE.SALE0306
+						                 WHERE RCUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						                   AND YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                 UNION ALL
+						                SELECT RCUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+						                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0207  B,
+						                       SALE.SALE0208  A
+						                 WHERE A.DEAL_NO    = B.DEAL_NO
+						                   AND A.YMD        = B.YMD
+						                   AND B.RCUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+						                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+						                     UNION all
+						                SELECT RCUST_ID,     
+						                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+						                       BEFORE_AMT
+						                  FROM SALE.SALE0401  A
+						                 WHERE A.RCUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+						                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+						                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR})
+						         GROUP BY RCUST_ID          )  B,
+						      SALE.SALE0003 C,
+						      SALE.SALE0003 D,
+						      (SELECT B.SAWON_ID, B.SAWON_NM, B.DEPT_CD, C.DEPT_NM 
+						         FROM SALE.SALE0007 B, SALE.SALE0008 C  
+						        WHERE B.DEPT_CD = C.DEPT_CD) E
+						WHERE C.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+						  AND C.CUST_ID    = A.RCUST_ID(+)
+						  AND C.CUST_ID    = B.RCUST_ID(+)
+						  AND A.CUST_ID    = D.CUST_ID(+)
+						  AND C.SAWON_ID   = E.SAWON_ID(+)
+						  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+		]]>
+		-->
+					<if test="sidx != ''">
+						ORDER BY ${sidx} ${sord}
+					</if>
+		
+				<if test="page != null">
+					) T0
+				)
+				WHERE PAGE = #{page,jdbcType=INTEGER}
+				</if>
+	</select>
+	
+	<select id="getIndirectLedgerGridTotalCount" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.CustomerLedgerVO">
+	/*간납처별 원장목록 하단 Grid 총 수*/
+	<![CDATA[
+   	       SELECT COUNT(*) AS total_cnt,
+   	       		  MAX(A.SALAMT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_amt, 
+				  MAX(A.SALVAT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_vat,
+			  	  MAX(A.TOTAMT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_tot, 
+			   	  MAX(A.COLAMT)KEEP(DENSE_RANK FIRST ORDER BY GB DESC) total_sukum,
+			   	  0 total_dc_amt
+		     FROM
+		        ( SELECT '0' || TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')     AS gb       ,  --자료순서
+		                 TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') - 1,'YYYY-MM-DD')            AS appdate  ,  --거래일자
+		                 '0'                                                                  AS orderno  ,  --전표번호
+		                 0                                                                    AS seq      ,  --거래순번
+		                 ''                                                                   AS saldiv   ,  --영업구분
+		                 ''                                                                   AS saldivnm ,  --영업구분명
+		                 ''                                                                   AS custcode,  --거래처코드
+		                 ''                                                                   AS custname,  --거래처명
+		                 ''                                                                   AS itemcode ,  --제품코드
+		                 '전기이월'                                                            AS itemname ,  --제품명
+		                 ''                                                                   AS unit     ,  --규격
+		                 0                                                                    AS salqty   ,  --수량
+		                 0                                                                    AS salprc   ,  --단가
+		                 0                                                                    AS salvat   ,  --공급가액
+		                 0                                                                    AS salamt   ,  --부가세
+		                 0                                                                    AS totamt   ,  --합계
+		                 0                                                                    AS colamt   ,  --수금액
+		                 ''                                                                   AS orderdiv ,  --영업영역
+		                 ''                                                                   AS ordername,  --영업영역명
+		                 ''                                                                   AS remark   ,  --비고
+		                 SUM(A.REMAMT)                                                        AS remamt   ,  --잔고산출용
+		                 0                                                                    AS turncnt
+		            FROM
+		               ( --전월잔고
+		                 SELECT NVL(SUM(A.BALANCE),0) AS REMAMT
+		                   FROM ORAGMP.SLRESULTM A
+		                  WHERE A.YEARMONTH = TO_CHAR(TO_DATE(substr(#{ad_fr_date},1,7)||'-01','YYYY/MM/DD') - 1,'YYYY-MM')
+		                    AND A.ECUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 --1일부터 시작전일까지의 판매 금액산출
+		                 SELECT NVL(SUM(CASE WHEN SUBSTR(A.SALDIV,1,1) = 'A'
+		                                     THEN  B.TOTAMT
+		                                     ELSE -B.TOTAMT
+		                                END),0) AS AMT
+		                   FROM ORAGMP.SLORDM A,
+		                        ORAGMP.SLORDD B
+		                  WHERE A.STATEDIV   = '09'
+		                    AND A.ORDERNO    = B.ORDERNO
+		                    AND A.APPDATE >= substr(#{ad_fr_date},1,7)||'-01'
+		                    AND A.APPDATE <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+		                    AND A.ECUSTCODE   = #{as_cust_id}
+		              UNION ALL
+		                 --1일부터 시작전일까지의 수금 금액산출
+		                 SELECT NVL(SUM(-A.COLAMT),0) AS AMT
+		                   FROM ORAGMP.SLCOLM A
+		                  WHERE A.STATEDIV   = '09'
+		                    AND A.APPDATE   >= substr(#{ad_fr_date},1,7)||'-01'
+		                    AND A.APPDATE   <  TO_CHAR(TO_DATE(#{ad_fr_date},'YYYY-MM-DD') ,'YYYY-MM-DD')
+		                    AND A.ECUSTCODE   = #{as_cust_id}
+		               ) A
+		       UNION ALL
+		          SELECT '1' || A.APPDATE                                                   AS gb       ,  --자료순서
+		                 A.APPDATE                                                          AS appdate  ,  --거래일자
+		                 A.ORDERNO                                                            AS orderno  ,  --전표번호
+		                 B.SEQ                                                                AS seq      ,  --거래순번
+		                 A.SALDIV                                                             AS saldiv   ,  --영업구분
+		                 S.DIVNAME                                                            AS saldivnm ,  --영업구분명
+		                 A.CUSTCODE                                                           AS custcode,  --거래처코드
+		                 H.CUSTNAME                                                           AS custname,  --거래처명
+		                 B.ITEMCODE                                                           AS itemcode ,  --제품코드
+		                 I.ITEMNAME                                                           AS itemname ,  --제품명
+		                 I.ITEMUNIT                                                           AS unit     ,  --규격
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALQTY ELSE -B.SALQTY END  AS salqty   ,  --수량
+		                 B.SALPRC                                                             AS salprc   ,  --단가
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END  AS salvat   ,  --부가세
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END  AS salamt   ,  --공급가액
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS totamt   ,  --합계
+		                 0                                                                    AS colamt   ,  --수금액
+		                 A.ORDERDIV                                                           AS orderdiv ,  --영업영역
+		                 T.DIVNAME                                                            AS ordername,  --영업영역명
+		                 A.REMARK                                                             AS remark   ,  --비고
+		                 CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END  AS remamt   ,   --잔고산출용
+		                 0                                                                    AS turncnt
+		            FROM ORAGMP.SLORDM    A,
+		                 ORAGMP.SLORDD    B,
+		                 ORAGMP.CMCUSTM   H,
+		                 ORAGMP.CMITEMM   I,
+		                 ORAGMP.CMCOMMONM S,
+		                 ORAGMP.CMCOMMONM T
+		           WHERE A.STATEDIV  = '09'
+		             AND A.ORDERNO   = B.ORDERNO
+		             AND A.CUSTCODE  = H.CUSTCODE
+		             AND 'SL10'      = S.CMMCODE (+)
+		             AND A.SALDIV    = S.DIVCODE (+)
+		             AND 'SL43'      = T.CMMCODE (+)
+		             AND A.ORDERDIV  = T.DIVCODE (+)
+		             AND B.ITEMCODE  = I.ITEMCODE(+)
+		             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		             AND A.ECUSTCODE  = #{as_cust_id}
+		       UNION ALL
+		          SELECT '1' || A.APPDATE                                                            AS gb       ,  --자료순서
+		                 A.APPDATE                                                                   AS appdate  ,  --거래일자
+		                 A.COLNO                                                                     AS orderno  ,  --전표번호
+		                 TO_NUMBER(A.COLSEQ)                                                         AS seq      ,  --거래순번
+		                 A.COLDIV                                                                    AS saldiv   ,  --영업구분
+		                 S.DIVNAME                                                                   AS saldivnm ,  --영업구분명
+		                 A.ECUSTCODE                                                                 AS ecustcode,  --거래처코드
+		                 H.CUSTNAME                                                                  AS ecustname,  --거래처명
+		                 ''                                                                          AS itemcode ,  --제품코드
+		                 CASE WHEN A.COLDIV LIKE '3%' THEN NVL(A.BILLNO, 'unknown') || ':' || A.EXPDATE                                                          --어음번호와 만기일자
+		                      WHEN SUBSTR(A.COLDIV, 1, 1) = '1' THEN I.ACCREMARK || ':' || NVL(A.ACCOUNTNO,'')                                                   --계좌은행
+		                      WHEN SUBSTR(A.COLDIV, 1, 1) = '2' THEN (CASE WHEN (NVL (A.DIVMONTH, 0) = 0) THEN U.DIVNAME                                         --카드사
+		                                                                   WHEN (NVL (A.DIVMONTH, 0) > 0) THEN U.DIVNAME || ' ' || TO_CHAR(A.DIVMONTH) || '개월' --카드사
+		                                                                                                  ELSE ''
+		                                                              END)
+		                      ELSE ''
+		                 END                                                                            AS itemname ,  --제품명
+		                 ''                                                                             AS unit     ,  --규격
+		                 0                                                                              AS salqty   ,  --수량
+		                 0                                                                              AS salprc   ,  --단가
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END   AS salvat   ,  --부가세
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END   AS salamt   ,  --공급가액
+		                 CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END   AS totamt   ,  --합계
+		                 CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END   AS colamt   ,  --수금액
+		                 A.ORDERDIV                                                                     AS orderdiv ,  --영업영역
+		                 T.DIVNAME                                                                      AS ordername,  --영업영역명
+		                 A.REMARK                                                                       AS remark   ,  --비고
+		                 -A.COLAMT                                                                      AS remamt   ,  --잔고산출용
+		                 0                                                                              AS turncnt
+		            FROM ORAGMP.SLCOLM     A,
+		                 ORAGMP.CMCUSTM    H,
+		                 ORAGMP.CMACCOUNTM I,
+		                 ORAGMP.CMCOMMONM  S,
+		                 ORAGMP.CMCOMMONM  T,
+		                 ORAGMP.CMCOMMONM  U
+		           WHERE A.STATEDIV  = '09'
+		             AND A.ECUSTCODE = H.CUSTCODE
+		             AND A.ACCOUNTNO = I.ACCOUNTNO(+)
+		             AND 'SL18'      = S.CMMCODE  (+)
+		             AND A.COLDIV    = S.DIVCODE  (+)
+		             AND 'SL43'      = T.CMMCODE  (+)
+		             AND A.ORDERDIV  = T.DIVCODE  (+)
+		             AND 'AC17'      = U.CMMCODE  (+)
+		             AND A.CARDCOMP  = U.DIVCODE  (+)
+		             AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		             AND A.CUSTCODE  = #{as_cust_id}
+		       UNION ALL
+		          SELECT '1' || a.appdate || '-98-99'                                                      AS gb       ,  --자료순서
+		                 ''                                                                                AS appdate  ,  --거래일자
+		                 '0'                                                                               AS orderno  ,  --전표번호
+		                 0                                                                                 AS seq      ,  --거래순번
+		                 'Z99'                                                                             AS saldiv   ,  --영업구분
+		                 ''                                                                                AS saldivnm ,  --영업구분명
+		                 ''                                                                                AS custcode,  --거래처코드
+		                 ''                                                                                AS custname,  --거래처명
+		                 ''                                                                                AS itemcode ,  --제품코드
+		                 REPLACE(A.appdate, '-', '/') || ' 월 계'                                          AS itemname ,  --제품명
+		                 ''                                                                                AS unit     ,  --규격
+		                 0                                                                                 AS salqty   ,  --수량
+		                 0                                                                                 AS salprc   ,  --단가
+		                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+		                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+		                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+		                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+		                 ''                                                                                AS orderdiv ,  --영업영역
+		                 ''                                                                                AS ordername,  --영업영역명
+		                 ''                                                                                AS remark   ,  --비고
+		                 0                                                                                 AS remamt   ,  --잔고산출용
+		                 NVL(B.TURNCNT,0)                                                                  AS turncnt
+		            FROM
+		               ( SELECT A.ECUSTCODE                                                                 AS ECUSTCODE ,  --거래처코드
+		                        SUBSTR(A.APPDATE,1,7)                                                    AS appdate  ,  --거래일자
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+		                        0                                                                          AS COLAMT      --수금액
+		                   FROM ORAGMP.SLORDM     A,
+		                        ORAGMP.SLORDD     B
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.ORDERNO   = B.ORDERNO
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.ECUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 SELECT A.ECUSTCODE                                                                    AS ECUSTCODE ,  --거래처코드
+		                        SUBSTR(A.APPDATE,1,7)                                                         AS appdate  ,  --거래일자
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세  
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+		                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+		                   FROM ORAGMP.SLCOLM     A
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.ECUSTCODE  = #{as_cust_id}
+		               ) A,
+		                 ORAGMP.SLTURNCUSTM B
+		           WHERE A.appdate  = B.YEARMONTH(+)
+		             AND A.ECUSTCODE = B.CUSTCODE (+)
+		        GROUP BY A.appdate, B.TURNCNT
+                
+                
+                /** 여기서부터 바꿔야 함. **/
+                
+		       UNION ALL
+		          SELECT '1' || a.appdate || '-99-99'                                                      AS gb       ,  --자료순서
+		                 ''                                                                                AS appdate  ,  --거래일자
+		                 '0'                                                                               AS orderno  ,  --전표번호
+		                 0                                                                                 AS seq      ,  --거래순번
+		                 'Z99'                                                                             AS saldiv   ,  --영업구분
+		                 ''                                                                                AS saldivnm ,  --영업구분명
+		                 ''                                                                                AS custcode,  --거래처코드
+		                 ''                                                                                AS custname,  --거래처명
+		                 ''                                                                                AS itemcode ,  --제품코드
+		                 REPLACE(A.appdate, '-', '/') || ' 년 계'                                          AS itemname ,  --제품명
+		                 ''                                                                                AS unit     ,  --규격
+		                 0                                                                                 AS salqty   ,  --수량
+		                 0                                                                                 AS salprc   ,  --단가
+		                 SUM(A.SALVAT)                                                                     AS salvat   ,  --부가세  
+		                 SUM(A.SALAMT)                                                                     AS salamt   ,  --공급가액
+		                 SUM(A.TOTAMT)                                                                     AS totamt   ,  --합계
+		                 SUM(A.COLAMT)                                                                     AS colamt   ,  --수금액
+		                 ''                                                                                AS orderdiv ,  --영업영역
+		                 ''                                                                                AS ordername,  --영업영역명
+		                 ''                                                                                AS remark   ,  --비고
+		                 0                                                                                 AS remamt   ,   --잔고산출용
+		                 0                                                                                 AS turncnt
+		            FROM
+		               ( SELECT SUBSTR(A.APPDATE,1,4)                                                    AS appdate  ,  --거래일자
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALVAT ELSE -B.SALVAT END        AS SALVAT   ,  --부가세  
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.SALAMT ELSE -B.SALAMT END        AS SALAMT   ,  --공급가액
+		                        CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE -B.TOTAMT END        AS TOTAMT   ,  --합계
+		                        0                                                                          AS COLAMT      --수금액
+		                   FROM ORAGMP.SLORDM     A,
+		                        ORAGMP.SLORDD     B
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.ORDERNO   = B.ORDERNO
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.ECUSTCODE  = #{as_cust_id}
+		              UNION ALL
+		                 SELECT SUBSTR(A.APPDATE,1,4)                                                         AS appdate  ,  --거래일자
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLVAT              ELSE 0 END  AS salvat   ,  --부가세
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -(A.COLAMT - A.COLVAT) ELSE 0 END  AS salamt   ,  --공급가액
+		                        CASE WHEN A.COLDIV     IN ('52','59') THEN -A.COLAMT              ELSE 0 END  AS totamt   ,  --합계
+		                        CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT               ELSE 0 END  AS colamt      --수금액
+		                   FROM ORAGMP.SLCOLM     A
+		                  WHERE A.STATEDIV  = '09'
+		                    AND A.APPDATE BETWEEN #{ad_fr_date} AND #{ad_to_date}
+		                    AND A.ECUSTCODE  = #{as_cust_id}
+		               ) A
+		        GROUP BY A.appdate
+		         ) A
+	]]>
+	<!-- 
+	<![CDATA[
+		SELECT COUNT(*) AS total_cnt, SUM(NVL(A.AMT, 0)) total_amt, SUM(NVL(A.VAT, 0)) total_vat,
+			   SUM(NVL(A.TOT, 0)) total_tot, SUM(NVL(A.SUKUM, 0)) total_sukum, SUM(NVL(A.DC_AMT, 0)) total_dc_amt
+		  FROM (SELECT 1                             SEQ,
+		               A.YMD                         YMD,
+		               A.CUST_ID                     CUST_ID,
+		               A.RCUST_ID                    RCUST_ID,
+		               B.ITEM_ID                     ITEM_ID,
+		               D.ITEM_NM                     ITEM_NM,
+		               D.STANDARD                    STANDARD,
+		               B.QTY                         QTY,
+		               B.DANGA                       DANGA,
+		               B.AMT                         AMT,
+		               B.VAT                         VAT,
+		               B.DC_AMT                      DC_AMT,
+		               B.DC_QTY                      DC_QTY,
+		               B.DC_EN_YN                    DC_EN_YN,
+		               0                             SUKUM,
+		               (NVL(B.AMT,0) + NVL(B.VAT,0)) TOT,
+		               A.DEAL_NO                     DEAL_NO,
+		               DECODE(E.GUMAE_GB,'12',E.BIGO,'13',E.BIGO,'') BIGO
+		          FROM SALE.SALE0207 A, 
+		               SALE.SALE0208 B, 
+		               SALE.SALE0004 D,
+		               SALE.SALE0203 E
+		         WHERE A.DEAL_NO = B.DEAL_NO
+		           AND A.YMD     = B.YMD
+		           AND B.ITEM_ID = D.ITEM_ID
+		           AND A.YMD BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.RCUST_ID = #{as_cust_id,jdbcType=VARCHAR}
+		           AND A.GUMAE_NO = E.GUMAE_NO(+)
+		        UNION ALL /*  수금(할인) 내역 */
+		        SELECT 2                             SEQ,
+		               A.YMD                         YMD,
+		               A.CUST_ID                     CUST_ID,
+		               A.RCUST_ID                    RCUST_ID,
+		               DECODE(A.JUNPYO_GB,'01','현금','10','매출할인','20','부실채권','30','거래이관','35','대손상각','40','잡수익','45','손실정리'
+		                                 ,'50','부도어음대체','55','폐업상품입고','기타수금')
+		                                             ITEM_ID,
+		               BIGO                          ITEM_NM,
+		               ''                            STANDARD,
+		               0                             QTY,
+		               0                             DANGA,
+		               0                             AMT,
+		               0                             VAT,
+		               0                             DC_AMT,
+		               0                             DC_QTY,
+		               ''                            DC_EN_YN,
+		               CASH_AMT                      SUKUM,
+		               NVL(-(CASH_AMT),0)            TOT,
+		               ''                            DEAL_NO,
+		               ''                            BIGO
+		          FROM SALE.SALE0401  A
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.RCUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		           AND A.CASH_AMT      <> 0
+		        UNION ALL
+		        SELECT 2                             SEQ,
+		               A.YMD                         YMD,
+		               A.CUST_ID                     CUST_ID,
+		               A.RCUST_ID                    RCUST_ID,
+		               C.CODE1_NM                    ITEM_ID,                                             
+		               B.BILL_NO                     ITEM_NM,
+		               ''                            STANDARD,
+		               0                             QTY,
+		               0                             DANGA,
+		               0                             AMT,
+		               0                             VAT,
+		               0                             DC_AMT,
+		               0                             DC_QTY,
+		               ''                            DC_EN_YN,
+		               AMT                           SUKUM,
+		               NVL(-(AMT),0)                 TOT,
+		               ''                            DEAL_NO,
+		               DECODE(C.CODE1,'100','',B.END_YMD) BIGO
+		          FROM SALE.SALE0402  B,
+		               SALE.SALE0401  A,
+		               (SELECT CODE1, CODE1_NM FROM  SALE.SALE0001 WHERE CODE_GB = '0007') C
+		         WHERE A.YMD         BETWEEN #{ad_fr_date,jdbcType=VARCHAR} AND #{ad_to_date,jdbcType=VARCHAR}
+		           AND A.JUNPYO_NO   = B.JUNPYO_NO
+		           AND A.RCUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		           AND B.BILL_GB = C.CODE1(+))  A,
+		       (SELECT RCUST_ID                 RCUST_ID,
+		               NVL(SUM(BEFORE_AMT),0)   BEFORE_AMT
+		          FROM (SELECT RCUST_ID,                   /*전월 잔액 */
+		                       BEFORE_AMT      BEFORE_AMT
+		                  FROM SALE.SALE0306
+		                 WHERE RCUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		                   AND YMD         = TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                 UNION ALL
+		                SELECT RCUST_ID,                  /*금월의 조회조건 기간까지의 잔액*/
+		                       NVL(A.AMT,0) + NVL(A.VAT,0)  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0207  B,
+		                       SALE.SALE0208  A
+		                 WHERE A.DEAL_NO    = B.DEAL_NO
+		                   AND A.YMD        = B.YMD
+		                   AND B.RCUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+		                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR}
+		                     UNION all
+		                SELECT RCUST_ID,     
+		                       (NVL(A.bill_amt,0) + NVL(A.cash_amt,0))*-1  
+		                       BEFORE_AMT
+		                  FROM SALE.SALE0401  A
+		                 WHERE A.RCUST_ID    = #{as_cust_id,jdbcType=VARCHAR}
+		                   AND A.YMD        >= TO_DATE(SUBSTR(#{ad_fr_date}, 1, 7) || '-01','YYYY/MM/DD')
+		                   AND A.YMD        <  #{ad_fr_date,jdbcType=VARCHAR})
+		         GROUP BY RCUST_ID          )  B,
+		      SALE.SALE0003 C,
+		      SALE.SALE0003 D,
+		      (SELECT B.SAWON_ID, B.SAWON_NM, B.DEPT_CD, C.DEPT_NM 
+		         FROM SALE.SALE0007 B, SALE.SALE0008 C  
+		        WHERE B.DEPT_CD = C.DEPT_CD) E
+		WHERE C.CUST_ID     = #{as_cust_id,jdbcType=VARCHAR}
+		  AND C.CUST_ID    = A.RCUST_ID(+)
+		  AND C.CUST_ID    = B.RCUST_ID(+)
+		  AND A.CUST_ID    = D.CUST_ID(+)
+		  AND C.SAWON_ID   = E.SAWON_ID(+)
+		  AND (NVL(A.TOT,0) <> 0 OR NVL(B.BEFORE_AMT,0) <> 0)
+	]]>
+	 -->
+	</select>
+	
+</mapper>
+	

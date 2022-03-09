@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="commonMain(메인화면)">
+    <query id="commonMain_s01" desc="공지사항 조회" fetchSize="10">
+      <![CDATA[
+			SELECT
+			   TITLE             --제목
+			  ,TO_CHAR(INST_DT,'YYYY-MM-DD')     INST_DT      --작성일시
+			  ,MAKE_MAN          --등록자
+			  ,CLS_CD            --구분
+			  ,SEQ_NO
+			FROM TBRK_BORD A
+			WHERE 1 =1
+			    AND DEL_YN = 'N'
+			    AND CLS_CD = ?
+			    AND TITLE     LIKE NVL('%' || ? || '%', TITLE)
+                AND BORD_DESC   LIKE NVL('%' || ? || '%', BORD_DESC)
+			ORDER BY INST_DT DESC            
+        ]]>
+    </query>  
+    <query id="commonMain_s02" desc="처리업무 조회" fetchSize="10">
+      <![CDATA[
+			SELECT    /*commonMain_s02*/
+			     MN_ID
+			    ,WORK_NM
+			    ,TITLE
+			FROM(
+			         SELECT 
+			                MAX(PUBL_DT)  ORD_NO
+			                ,'RSM6060' MN_ID
+			                ,'지불정지관리' WORK_NM  
+			                ,'지불정지 만기도래 ' || COUNT(MISS_REPO_NO) || ' 건' AS TITLE  
+			                               
+			         FROM   TBRD_STOPPAY_CNCL_CNTNT    
+			         WHERE  CNCL_CD IS NULL 
+			           AND  TIC_STAS = '004'            
+			           AND  BRNC_CD = ?      
+			           AND  PUBL_DT BETWEEN  TO_CHAR(SYSDATE-364,'YYYYMMDD') AND TO_CHAR(SYSDATE-351,'YYYYMMDD')
+			        HAVING COUNT(MISS_REPO_NO) > 0 
+			           UNION ALL
+			           SELECT /* commonMain_s02 */
+			                 SUBM_LIMIT_DT ORD_NO
+			                ,'RBS4020'     MN_ID
+			                ,'보고서관리'    WORK_NM
+			                ,B.REPORT_NM   TITLE        -- 제목 
+			            FROM  TBRE_REPORT_MNG A         --보고서담당자
+			                ,TBRE_REPORT_MANA B
+			            WHERE 1 = 1
+			                AND A.DEPT_CD = B.DEPT_CD
+			                AND A.STND_YEAR = B.STND_YEAR
+			                AND A.SEQ = B.SEQ
+			                AND A.DEL_YN = 'N'
+			                AND B.DEL_YN = 'N'
+			                
+			                AND A.MNG_DEPT_CD = ?  --부서코드
+			                AND A.SUBM_DT IS NULL
+			           UNION ALL
+			          SELECT REQ_DT 
+					       , 'RBS3030'
+					       , '소모품신청'
+					       , REQ_CNTNT
+					  FROM TBRE_SUPPL_REQ	 
+					 WHERE PROG_STAT_CD = '001'
+					   AND ?  IN (SELECT RECV_ID
+					                  FROM TBRK_ALARM
+					               WHERE 1 = 1 
+					                AND ALARM_CD = '002') -- 소모품관리자
+					UNION ALL
+					SELECT TO_CHAR(UPDT_DT,'YYYYMMDD') 
+					       , 'RBS3020'
+					       , '소모품신청승인'
+					       , REQ_CNTNT
+					  FROM TBRE_SUPPL_REQ	 
+					 WHERE PROG_STAT_CD = '003'
+					   AND REQ_ID = ? 
+					   AND TO_CHAR(UPDT_DT,'YYYYMMDD') = TO_CHAR(SYSDATE,'YYYYMMDD')
+					   UNION ALL 
+					SELECT DISTINCT REQ_DT  
+					       , 'REM3070'
+					       , '체류인원'
+					       , FC_CODE_NM('018',BRNC_CD) || '지점 마감취소 요청'
+					  FROM TBRC_STAY_END_MANA	-- 체류인원마감관리	 
+					 WHERE STAY_END_STAT_CD = '001'
+					   AND ? IN (SELECT RECV_ID
+					                  FROM TBRK_ALARM
+					                 WHERE 1 = 1 
+					                AND ALARM_CD = '001') -- 체류인원관리자
+					UNION ALL 
+					SELECT DISTINCT REQ_DT  
+					       , 'REM3010'
+					       , '체류인원'
+					       , '마감취소 승인'
+					  FROM TBRC_STAY_END_MANA	-- 체류인원마감관리	 
+					 WHERE STAY_END_STAT_CD = '002'
+					   AND INST_ID = ?
+					   AND PROC_DT  = TO_CHAR(SYSDATE,'YYYYMMDD')
+					UNION ALL
+					SELECT  /* 종사원평가 승인*/
+							TO_CHAR(INST_DT, 'YYYYMMDD'), 
+							CASE WHEN APRV_SEQ = '1'  THEN 'REV1070' 
+					             WHEN APRV_SEQ = '2'  THEN 'REV2020'
+					             WHEN APRV_SEQ = '3'  THEN 'REV2030'
+					             WHEN APRV_SEQ = '13' THEN 'REV1080'
+					        END MN_ID,
+					        CASE WHEN APRV_SEQ = '1'  THEN '부서별평가자선정' 
+					             WHEN APRV_SEQ = '2'  THEN '근무태도평가'
+					             WHEN APRV_SEQ = '3'  THEN '서비스평가'
+					             WHEN APRV_SEQ = '13' THEN '다면평가자그룹선정'
+					        END WORK_NM,
+					        CASE WHEN APRV_SEQ = '1'  THEN '평가자선정 승인결재' 
+					             WHEN APRV_SEQ = '2'  THEN '근무태도평가 승인결재'
+					             WHEN APRV_SEQ = '3'  THEN '서비스평가 승인결재'
+					             WHEN APRV_SEQ = '13' THEN '다면평가자그룹선정 승인결재'
+					        END TITLE
+					  FROM  TBRF_EV_APRV
+					 WHERE  1=1
+                       AND  ESTM_YEAR = TO_CHAR(SYSDATE, 'YYYY') 
+                       AND  ESTM_NUM  = (SELECT MAX(ESTM_NUM) FROM TBRF_EV_MASTER WHERE ESTM_YEAR = TO_CHAR(SYSDATE, 'YYYY'))
+					   AND  APRV_SEQ IN (1, 2, 3, 13) 
+					   AND  APRV_STAS = '002'
+					   AND  APRV_OFIR_NO = ?        
+			 )  
+			 ORDER BY ORD_NO          
+        ]]>
+    </query>
+    
+    
+    <query id="commonMain_s03" desc="지점별 매출액 조회" fetchSize="10">
+      <![CDATA[
+      WITH RAC_DY AS (/* commonMain_s03 */
+			SELECT STND_YEAR, MEET_CD, TMS,(TMS-1) AS B_TMS, DAY_ORD, RACE_YOIL
+			FROM VW_SDL_INFO
+			WHERE 1=1
+			AND RACE_DAY > TO_CHAR(SYSDATE - 7,'YYYYMMDD')
+			AND MEET_CD IN ('001','003')
+			AND RACE_DAY = (
+			                 SELECT MAX(RACE_DAY)
+                                        FROM VW_SDL_INFO
+                                        WHERE RACE_DAY < TO_CHAR(SYSDATE,'YYYYMMDD')
+			                 )
+		)		
+		SELECT /* commonMain_s03 */
+			     AA.MEET_CD	-- 경주구분 코드
+			    ,DECODE(AA.TDIV_NO, NULL, '000', AA.TDIV_NO) TDIV_NO --지점 코드
+		    	,AA.NO_ORDER
+				,CD_NM AS BRNCH_NM       -- 지점명
+				,AA.N_DIV_TOTAL	-- 금회 금액
+				,AA.B_DIV_TOTAL   -- 전회 매출
+				,CASE WHEN AA.B_DIV_TOTAL > AA.N_DIV_TOTAL THEN '▼'  --감소
+				     WHEN AA.B_DIV_TOTAL = AA.N_DIV_TOTAL THEN '-'   --같음
+				     WHEN AA.B_DIV_TOTAL < AA.N_DIV_TOTAL THEN '▲'    --증가
+				END B_DIV_TOTAL_SIGN    -- 증감율 사인
+				,DECODE(AA.B_DIV_TOTAL,0,0,ROUND(ABS(AA.B_DIV_TOTAL-AA.N_DIV_TOTAL)/AA.B_DIV_TOTAL*100,1)) B_DIV_TOTAL_RATE -- 증감율
+				,ROWNUM CNT
+		FROM (
+				SELECT
+				        MEET_CD
+				       ,TDIV_NO				       
+                       ,'A'||DECODE(TDIV_NO, '00','999',TDIV_NO) AS NO_ORDER  -- old - 'A'||TDIV_NO AS NO_ORDER				       
+				        ,ROUND(SUM(N_DIV_TOTAL)/1000000,0) N_DIV_TOTAL
+				        ,DECODE(SUM(B_DIV_TOTAL),0,0,ROUND(SUM(B_DIV_TOTAL)/1000000,0)) B_DIV_TOTAL -- 증감율
+				FROM (
+					SELECT
+						MEET_CD,
+						SELL_CD,
+						COMM_NO,
+						DIV_NO,
+						-- old - CASE WHEN SELL_CD IN ('01','03') AND COMM_NO <= '10' THEN '01'  
+						CASE WHEN SELL_CD IN ('01','03') AND COMM_NO <> '00' AND COMM_NO <= '10' THEN '01'
+				        	 WHEN SELL_CD NOT IN('01','03') THEN '29' 
+			            ELSE COMM_NO
+						END TDIV_NO,					
+						SUM(N_DIV_TOTAL) N_DIV_TOTAL,
+						SUM(B_DIV_TOTAL) B_DIV_TOTAL
+					FROM
+					(
+						SELECT
+							A.MEET_CD,
+							A.SELL_CD,
+							A.COMM_NO,
+							A.DIV_NO,
+							A.DIV_TOTAL N_DIV_TOTAL,
+							0 B_DIV_TOTAL
+						FROM VW_SDL_DT_SUM_GSUM A,
+					                  (SELECT * FROM RAC_DY) B
+						WHERE 1=1
+						AND A.STND_YEAR = B.STND_YEAR
+						AND A.MEET_CD = B.MEET_CD
+						AND A.TMS = B.TMS
+						AND A.DAY_ORD = B.DAY_ORD
+						UNION ALL
+						SELECT
+							A.MEET_CD,
+							A.SELL_CD,
+							A.COMM_NO,
+							A.DIV_NO,
+							0 N_DIV_TOTAL,
+							A.DIV_TOTAL B_DIV_TOTAL
+						FROM VW_SDL_DT_SUM_GSUM A,
+					                  (SELECT * FROM RAC_DY) B
+						WHERE 1=1
+						AND A.MEET_CD = B.MEET_CD
+						AND A.STND_YEAR = B.STND_YEAR
+						AND A.TMS = B.B_TMS				-- 지난회차 조인
+						AND A.DAY_ORD = B.DAY_ORD
+                        UNION ALL
+                        -- new - 총계(금주)
+                        SELECT
+                            A.MEET_CD,
+                            A.SELL_CD,
+                            '00' COMM_NO,
+                            '00' DIV_NO,
+                            sum(A.DIV_TOTAL) N_DIV_TOTAL,
+                            0 B_DIV_TOTAL
+                        FROM VW_SDL_DT_SUM_GSUM A,
+                                      (SELECT * FROM RAC_DY) B
+                        WHERE 1=1
+                        AND A.STND_YEAR = B.STND_YEAR
+                        AND A.MEET_CD = B.MEET_CD
+                        AND A.TMS = B.TMS
+                        AND A.DAY_ORD = B.DAY_ORD   
+                        AND sell_cd IN ('01','03') 
+                        GROUP BY A.meet_cd, A.sell_cd 
+                        UNION ALL
+                        -- new - 총계(전주)
+                        SELECT
+                            A.MEET_CD,
+                            A.SELL_CD,
+                            '00' COMM_NO,
+                            '00' DIV_NO,
+                            0 N_DIV_TOTAL,
+                            sum(A.DIV_TOTAL) B_DIV_TOTAL
+                        FROM VW_SDL_DT_SUM_GSUM A,
+                                      (SELECT * FROM RAC_DY) B
+                        WHERE 1=1
+                        AND A.MEET_CD = B.MEET_CD
+                        AND A.STND_YEAR = B.STND_YEAR
+                        AND A.TMS = B.B_TMS                -- 지난회차 조인
+                        AND A.DAY_ORD = B.DAY_ORD
+                        AND sell_cd IN ('01','03') 
+                        GROUP BY A.meet_cd, A.sell_cd                                   					
+					) GROUP BY MEET_CD, SELL_CD, COMM_NO, DIV_NO
+				) GROUP BY MEET_CD, TDIV_NO
+		 	 )AA,
+		     (
+		     -- 지점명 호출 하기 위한 공통 코드 조회
+		     	SELECT  CD,
+		     	    DECODE(CD,'01','본장','06','그린카드',CD_NM) AS CD_NM
+		     	FROM 	TBRK_SPEC_CD A
+		     	WHERE 	1=1
+		     	AND     A.GRP_CD = 060
+		     	-- old - AND     A.CD <> '00'
+		     ) BB
+		WHERE 1=1
+		AND AA.TDIV_NO= BB.CD
+		AND AA.TDIV_NO <> '999'
+        ORDER BY AA.NO_ORDER
+        ]]>
+    </query>
+    
+    
+    <query id="commonMain_s04" desc="지점별 매출액 일자정보" fetchSize="10">
+      <![CDATA[
+		SELECT /* commonMain_s04 */
+			STND_YEAR, MEET_CD, DECODE(MEET_CD,'003','경정','경륜') AS MEET_NM,
+			TMS, DAY_ORD,
+			TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') AS RACE_DAY,
+			RACE_YOIL,
+			DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') AS RACE_YOIL_KOR -- 요일
+		FROM VW_SDL_INFO
+		WHERE 1=1
+		AND RACE_DAY > TO_CHAR(SYSDATE - 7,'YYYYMMDD')
+        AND RACE_DAY = (
+                        SELECT MAX(RACE_DAY)
+						FROM VW_SDL_INFO
+						WHERE RACE_DAY < TO_CHAR(SYSDATE,'YYYYMMDD')
+                        )
+        ]]>
+    </query>
+    <query id="commonMain_s05" desc="회차별 총 매출액" fetchSize="10">
+      <![CDATA[
+		WITH CUR AS   /* commonMain_s05 */
+		(
+		
+		    SELECT S.MEET_CD, S.STND_YEAR, S.TMS
+		    FROM   (
+		             SELECT MEET_CD, STND_YEAR, TMS, (STND_YEAR -1) AS STND_YEAR2
+		             FROM VW_SDL_INFO
+		             WHERE 1=1
+		             --AND   RACE_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		             AND   RACE_DAY = (
+         		                        SELECT MAX(RACE_DAY)
+                                        FROM VW_SDL_INFO
+                                        WHERE RACE_DAY <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                                      )
+		             AND   MEET_CD IN ('001','003')
+		           ) A, VW_SDL_INFO S
+		    WHERE S.MEET_CD = A.MEET_CD
+		      AND S.DAY_ORD = '1'
+		      AND S.STND_YEAR IN (A.STND_YEAR, A.STND_YEAR2)    
+		      AND S.TMS < A.TMS      
+		     
+		)
+		SELECT MEET_CD, DECODE(MEET_CD, '001','경륜','경정') AS MEET_NM, TMS, NULL AS MAX_TMS, 
+		       TO_CHAR(SYSDATE, 'YYYY') N_STND_YEAR,
+		       ROUND(SUM(N_DIV_TOTAL)/1000000,0) AS N_DIV_TOTAL, 
+		       TO_CHAR(SYSDATE, 'YYYY') -1 B_STND_YEAR,
+		       ROUND(SUM(B_DIV_TOTAL)/1000000,0) AS B_DIV_TOTAL
+		FROM  (
+		        SELECT MEET_CD, TMS, 
+		               DECODE(STND_YEAR, TO_CHAR(SYSDATE, 'YYYY'), DIV_SUM, 0) AS N_DIV_TOTAL,
+		               DECODE(STND_YEAR, TO_CHAR(SYSDATE, 'YYYY'), 0, DIV_SUM) AS B_DIV_TOTAL
+		        FROM   (                   
+		            SELECT S.MEET_CD, S.STND_YEAR, S.TMS, SUM(DIV_TOTAL) DIV_SUM
+		            FROM   VW_SDL_DT_SUM S, CUR
+		            WHERE  S.STND_YEAR = CUR.STND_YEAR
+		            AND    S.MEET_CD   = CUR.MEET_CD
+		            AND    S.TMS       = CUR.TMS
+		            GROUP BY S.MEET_CD, S.STND_YEAR, S.TMS
+		        )
+		    )
+		GROUP BY MEET_CD, TMS    
+		ORDER BY TMS
+
+
+
+        ]]>
+    </query> 
+    <query id="commonMain_s05_X" desc="회차별 총 매출액" fetchSize="10">
+      <![CDATA[
+      
+         WITH RACYDY AS ( SELECT MEET_CD,STND_YEAR,TMS -5 TMS, STND_YEAR-1 B_STND_YEAR
+                FROM VW_SDL_INFO A
+                 WHERE RACE_DAY > TO_CHAR(SYSDATE - 7,'YYYYMMDD')
+                AND RACE_DAY = (
+                            SELECT MAX(RACE_DAY) 
+                             FROM VW_SDL_INFO B
+                            WHERE RACE_DAY > TO_CHAR(SYSDATE - 7,'YYYYMMDD')
+                            )
+                GROUP BY MEET_CD,STND_YEAR,TMS 
+              )
+
+ 			SELECT    /* commonMain_s05 */
+                   CC.MEET_CD,       -- 경륜 경정 구분 코드
+                   DECODE(CC.MEET_CD,'003','경정','경륜') AS MEET_NM,       -- 경륜 경정 구분 코드
+                   CC.TMS,           -- 회차
+                   '' MAX_TMS,
+                   CC.N_STND_YEAR,   -- 현재년도
+                   CC.N_DIV_TOTAL,   -- 회차별 합계
+                   CC.B_STND_YEAR,   -- 작년
+                   CC.B_DIV_TOTAL   -- 작년 회차
+            FROM
+            (
+                SELECT AA.MEET_CD,
+                       AA.TMS,  
+                       AA.STND_YEAR AS N_STND_YEAR,
+                       BB.STND_YEAR AS B_STND_YEAR,
+                       ROUND(SUM(AA.DIV_TOTAL)/1000000,0) AS N_DIV_TOTAL,
+                       DECODE(SUM(BB.DIV_TOTAL),0,0,ROUND(SUM(BB.DIV_TOTAL)/1000000,0)) AS B_DIV_TOTAL
+                 FROM
+                (
+                    -- 현재년도 회차
+                    SELECT A.MEET_CD,
+                         A.STND_YEAR,
+                         A.TMS, 
+                         SUM(A.POOL_TOTAL) AS DIV_TOTAL
+                    FROM
+                    (
+                    SELECT
+                         DECODE(A.MEET_CD,'003','003','001') AS MEET_CD,        -- 0:경륜 경정 구분 코드
+                         A.STND_YEAR,
+                         A.TMS,
+                         A.POOL_TOTAL
+                     FROM TBES_SDL_PT A,(       -->>>>>>>>>>>>>>>>현회차
+                           SELECT * FROM RACYDY
+                        ) B
+                     WHERE 1 = 1
+                          AND (A.MEET_CD = B.MEET_CD                               -- 1:경륜 경정 구분 코드
+                               OR A.MEET_CD = DECODE(B.MEET_CD,'001','002')        -- 2:경륜 경정 구분 코드
+                               OR A.MEET_CD = DECODE(B.MEET_CD,'001','004')        -- 3:경륜 경정 구분 코드
+                         )
+                         AND A.STND_YEAR = b.STND_YEAR                              -- 4:현재년도
+                         AND A.TMS       > B.TMS
+                     )A
+                     GROUP BY A.MEET_CD,
+                         A.STND_YEAR,
+                         A.TMS
+                )AA,
+                (
+
+                     -- 작년 회차
+                     SELECT A.MEET_CD,
+                         A.STND_YEAR,
+                         A.TMS, 
+                         SUM(A.DIV_TOTAL) AS DIV_TOTAL
+                    FROM
+                    (
+                    SELECT
+                         DECODE(A.MEET_CD,'003','003','001') AS MEET_CD,        -- 5:경륜 경정 구분 코드
+                         A.STND_YEAR,
+                         A.TMS,
+                         A.DIV_TOTAL
+                     FROM
+                         TBES_SDL_DT_SUM A,
+                         (       -->>>>>>>>>>>>>>>>현회차
+                               SELECT * FROM RACYDY
+
+                            ) B
+                     WHERE 1 = 1
+                          AND (A.MEET_CD = B.MEET_CD                          -- 6:경륜 경정 구분 코드
+                               OR A.MEET_CD = DECODE(B.MEET_CD,'001','002')     -- 7:경륜 경정 구분 코드
+                               OR A.MEET_CD = DECODE(B.MEET_CD,'001','004')     -- 8:경륜 경정 구분 코드
+                         )
+                         AND A.STND_YEAR = b.b_STND_YEAR                              -- 9:작년
+                         AND A.TMS       > B.TMS                         
+                     )A
+                     GROUP BY A.MEET_CD,
+                         A.STND_YEAR,
+                         A.TMS
+                )BB
+                WHERE 1=1
+                AND AA.MEET_CD = BB.MEET_CD
+                AND AA.TMS = BB.TMS
+                GROUP BY AA.MEET_CD,
+                       AA.TMS,
+                       AA.STND_YEAR,
+                       BB.STND_YEAR
+            )CC
+            WHERE 1=1 
+            ORDER BY CC.TMS
+
+        ]]>
+    </query>
+    
+    <query id="commonMain_s06" desc="알림이력  조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rsy7010_s01 */
+                 'RSY7010' MN_ID
+                ,'['||(SELECT  CD_NM
+                    FROM  TBRK_SPEC_CD
+                   WHERE  1=1
+                     AND  GRP_CD = '081'
+                     AND  CD     = A.ALARM_GBN) ||']' ALARM_GBN_NM
+                ,( SELECT USER_NM 
+                      FROM TBRK_USER
+                      WHERE USER_ID = A.INST_ID) WORK_NM -- 보낸사람 
+                ,DECODE(ALARM_GBN,'001',TITLE,'002',CNTNT,'') TITLE   -- 내용
+        
+              FROM  TBRK_ALARM_HIST  A --알림전송이력
+             WHERE  1=1
+               AND  A.RECV_ID  = ?
+             
+               AND  A.INST_DT  >= SYSDATE-5
+          ORDER BY  INST_DT DESC ,ALARM_GBN
+        ]]>
+    </query> 
+</queryMap>

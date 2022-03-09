@@ -1,0 +1,712 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="COM CODE">
+
+	<query id="common_sysdate" desc="조회" fetchSize="10">
+
+		<![CDATA[
+
+			SELECT
+					  TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') DATETIME
+					, TO_CHAR(SYSDATE, 'YYYYMMDD'        ) YYYYMMDD
+					, TO_CHAR(SYSDATE, 'HH24MISS'        ) TIME
+					, TO_CHAR(SYSDATE, 'YYYY'            ) YEAR
+					, TO_CHAR(SYSDATE, 'MM'              ) MONTH
+					, TO_CHAR(SYSDATE, 'DD'              ) DAY
+					, TO_CHAR(SYSDATE, 'HH24'            ) HOUR
+					, TO_CHAR(SYSDATE, 'MI'              ) MINUTE
+					, TO_CHAR(SYSDATE, 'SS'              ) SECOND
+					, TO_CHAR(SYSDATE, NVL(?, 'YYYYMMDD')) CUSTOM
+			FROM    DUAL
+
+		]]>
+
+	</query>
+
+	<query id="common_code" desc="조회" fetchSize="10">
+
+		<![CDATA[
+			SELECT /* common_code */
+					TGC.GRP_CD      -- 그룹코드
+				  , TGC.GRP_NM      -- 그룹명
+				  , TSC.CD          -- 코드
+				  , TSC.CD_NM       -- 코드명
+				  , TSC.CD_NM2      -- 코드명
+				  , TSC.RMK         -- 비고
+				  , TSC.CD_TERM1
+				  , TSC.CD_TERM2
+				  , TSC.CD_TERM3
+				  , TSC.CD_TERM4
+				  , TSC.CD_TERM5
+			FROM    TBRK_GRP_CD  TGC
+				  , TBRK_SPEC_CD TSC
+			WHERE TGC.GRP_CD = TSC.GRP_CD
+			AND   TSC.DEL_YN = 'N'
+			AND   TGC.GRP_CD = ?
+		]]>
+
+	</query>
+
+
+
+	<query id="tbjk_sample" desc="조회" fetchSize="10">
+
+		<![CDATA[
+
+			SELECT
+					TGC.GRP_CD      -- 그룹코드
+				  , TGC.GRP_NM      -- 그룹명
+				  , TSC.CD          -- 코드
+				  , TSC.CD_NM       -- 코드명
+				  , TSC.RMK         -- 비고
+			FROM    TBRK_GRP_CD  TGC
+				  , TBRK_SPEC_CD TSC
+			WHERE TGC.GRP_CD = TSC.GRP_CD
+			AND   TSC.DEL_YN = 'N'
+			AND   TGC.GRP_CD = '022'
+		]]>
+
+	</query>
+
+
+
+	<query id="common_year" desc="년도 조회" fetchSize="10">
+
+		<![CDATA[
+
+			 SELECT DISTINCT(RACE_YY) AS YY
+
+			 FROM TBDB_DETL_RACE_SCHE
+
+			 ORDER BY RACE_YY DESC
+
+		]]>
+
+	</query>
+
+
+	<query id="common_user" desc="USERLIST쿼리" fetchSize="10">
+		<![CDATA[
+			SELECT
+				 rownum row_id
+				, USER_ID      --  user id
+				, PSWD         --  password
+				, USER_NM      --  user name
+				, EMAIL        --  email
+				, TEL_NO       --  tel no.
+				, FLOC         --  직위
+				, FGRADE       --  직급
+				, DEPT_CD      --  부서(실) 코드
+				, TEAM_CD      --  부서(팀) 코드
+				, DEPT_NM      --  부서(실) 명
+				, TEAM_NM      --  부서(팀) 명
+			FROM (SELECT
+						  USER_ID      --  user id
+						, PSWD         --  password
+						, USER_NM      --  user name
+						, EMAIL        --  email
+						, TEL_NO       --  tel no.
+						, FLOC         --  직위
+						, FGRADE       --  직급
+						, DEPT_CD      --  부서(실) 코드
+						, TEAM_CD      --  부서(팀) 코드
+						, DEPT_NM      --  부서(실) 명
+						, TEAM_NM      --  부서(팀) 명
+					FROM TBRK_USER
+					WHERE USER_NM LIKE NVL('%' || ? || '%', USER_NM)
+					AND   TEAM_NM LIKE NVL('%' || ? || '%', TEAM_NM)
+					ORDER BY USER_ID
+				)
+		]]>
+	</query>
+
+
+	<query id="common_organ" desc="조직도쿼리" fetchSize="10">
+		<![CDATA[
+            SELECT   /** common_organ */
+                     GROUP_ID       AS DEPT_CD              
+                   , GROUP_NAME     AS DEPT_NM      
+                   , GROUP_PARENT   AS HQ_CD
+                   , GROUP_INDENT-2 AS LEVL
+                   , GROUP_ORDER    AS HQ_FULL_NM
+                   , ROWNUM         AS SEQ
+                   , USER_ID 
+                   , USER_NM
+                   , GROUP_NM
+                   , '0' CHK
+                   , HP_NO
+            FROM     (
+                        SELECT
+                               DISTINCT ORGN.*
+                        FROM   (
+                                SELECT  GROUP_ID, GROUP_NAME, GROUP_INDENT, GROUP_PARENT, GROUP_ORDER||'' AS GROUP_ORDER
+                                         , '' USER_ID, ''  USER_NM, GROUP_NAME GROUP_NM, '' AS HP_NO  
+                                FROM V_GROUP
+                                UNION ALL
+                                SELECT  TEAM_CD,
+                                        FLOC || ' ' || USER_NM AS GROUP_NAME,
+                                         GROUP_INDENT+1   AS GROUP_INDENT,
+                                         GROUP_PARENT AS GROUP_PARENT,
+                                         GROUP_ORDER  || NVL(ORD_NO,999) AS GROUP_ORDER
+                                        , USER_ID
+                                        , USER_NM
+                                        , GROUP_NAME
+                                        , HP_NO
+                                 FROM  TBRK_USER  EMPT,
+                                       (SELECT GROUP_INDENT,GROUP_PARENT,GROUP_ORDER,GROUP_NAME,GROUP_ID
+                                         FROM V_GROUP
+                                         ) DEPT 
+                                 WHERE EMPT.TEAM_CD =DEPT.GROUP_ID
+                                ) ORGN
+                        START  WITH ORGN.GROUP_ID = ?
+                        CONNECT BY PRIOR  ORGN.GROUP_ID =  ORGN.GROUP_PARENT                                    
+                        ORDER SIBLINGS BY ORGN.GROUP_PARENT, ORGN.GROUP_ORDER, TO_NUMBER(ORGN.GROUP_INDENT)
+
+                     ) T1 
+            ORDER BY GROUP_ORDER, SEQ
+           
+		]]>
+	</query>
+
+
+	<query id="common_user1" desc="USERLIST쿼리" fetchSize="10">
+		<![CDATA[
+			SELECT
+				 rownum row_id
+				, USER_ID      --  user id
+				, PSWD         --  password
+				, USER_NM      --  user name
+				, EMAIL        --  email
+				, TEL_NO       --  tel no.
+				, FLOC         --  직위
+				, FGRADE       --  직급
+				, DEPT_CD      --  부서(실) 코드
+				, TEAM_CD      --  부서(팀) 코드
+				, DEPT_NM      --  부서(실) 명
+				, TEAM_NM      --  부서(팀) 명
+			FROM (SELECT
+						  USER_ID      --  user id
+						, PSWD         --  password
+						, USER_NM      --  user name
+						, EMAIL        --  email
+						, TEL_NO       --  tel no.
+						, FLOC         --  직위
+						, FGRADE       --  직급
+						, DEPT_CD      --  부서(실) 코드
+						, TEAM_CD      --  부서(팀) 코드
+						, DEPT_NM      --  부서(실) 명
+						, TEAM_NM      --  부서(팀) 명
+					FROM TBRK_USER
+				)
+		]]>
+	</query>
+
+
+	<query id="common_div_code" desc="공통코드 팝업 조회" fetchSize="10">
+
+		<![CDATA[
+				SELECT GRP_CD, CD, CD_NM,
+					   CD_NM2, CD_TERM1, CD_TERM2,
+					   CD_TERM3, CD_TERM4, CD_TERM5,
+					   ORD_NO, RMK, DEL_YN, ORD_NO
+				  FROM TBRK_SPEC_CD
+				 WHERE DEL_YN = 'N'
+				   AND GRP_CD = ?
+				   AND (CD LIKE '%' || NVL(?, CD) || '%' OR CD_NM LIKE '%' || NVL(?, CD_NM)  || '%')
+				 ORDER BY ORD_NO, CD
+		]]>
+
+	</query>
+
+	<query id="common_div_code1" desc="공통코드 팝업 조회" fetchSize="10">
+
+		<![CDATA[
+				SELECT GRP_CD, CD, CD_NM,
+					   CD_NM2, CD_TERM1, CD_TERM2,
+					   CD_TERM3, CD_TERM4, CD_TERM5,
+					   ORD_NO, RMK, DEL_YN
+				  FROM TBRK_SPEC_CD
+				 WHERE DEL_YN = 'N'
+		]]>
+
+	</query>
+
+	<query id="common_stnd_year" desc="년도 조회" fetchSize="10">
+
+		<![CDATA[
+				SELECT DISTINCT STND_YEAR
+				  FROM TBJB_TMS_SCHE
+				 UNION ALL
+				SELECT TO_CHAR(TO_CHAR(SYSDATE, 'YYYY')+1)
+				  FROM DUAL
+				 ORDER BY 1 DESC
+		]]>
+
+	</query>
+
+
+    <query id="tbjk_mn_grp" desc="메뉴그룹조회(조건)" fetchSize="10">
+		<![CDATA[
+			SELECT
+					 T1.MN_ID               -- 메뉴아이디
+				   , MN_NM                  -- 메뉴명
+				   , ORD_NO                 -- 순서번호
+				   , UP_MN_ID               -- 상위메뉴ID
+				   , PROGRAM_ID AS SCRN_ID  -- 화면ID
+				   , URL                    -- 메뉴URL
+				   , RMK                    -- 비고
+				   , LVL                    -- 메뉴 레벨
+			FROM     (
+						SELECT
+							   TM.* ,LEVEL - 1 AS LVL
+						FROM   TBRK_MN TM
+						START  WITH TM.MN_ID ='R000000'
+						CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID
+						ORDER SIBLINGS BY UP_MN_ID, ORD_NO
+					 ) T1
+			WHERE  LVL = 1
+			ORDER BY ORD_NO, MN_LEVEL
+		]]>
+	</query>
+
+	<query id="common_approval_seq_no" desc="결재일련번호 조회" fetchSize="10">
+		<![CDATA[
+			SELECT  DECODE(COUNT(*), 0, '0000', TRIM(TO_CHAR(MAX(SEQ)+1, '0000'))) AS SEQ
+			  FROM  (SELECT  TO_CHAR(SUBSTR(GUBUNID, 17, 4), '0000') AS SEQ
+					   FROM  TBRK_APPROVAL
+					  WHERE  JOB         = ?            --업무구분
+						AND  STND_YEAR   = ?            --기준년도
+						AND  TMS         = ?            --회차
+						AND  DAY_ORD     = ?            --일차
+						AND  RACE_NO     = ?            --경주번호
+						AND  REPORT_ID   = ?            --기안자
+		)
+		]]>
+	</query>
+
+	<query id="common_approval_ins" desc="결재관리 INSERT" fetchSize="10">
+
+		<![CDATA[
+				INSERT INTO TBRK_APPROVAL (
+					   GUBUNID, JOB, STND_YEAR,
+					   TMS, DAY_ORD, RACE_NO,
+					   SEQ, REPORT_ID, SUBJECT,
+					   RTNFLAG,
+					   INST_ID,
+					   INST_DT,
+					   UPDT_ID,
+					   UPDT_DT
+				) VALUES (?, ?, ?,
+						  ?, ?, ?,
+						  ?, ?, ?,
+						  'N',
+						  ?,
+						  SYSDATE,
+						  ?,
+						  SYSDATE
+				)
+		]]>
+
+	</query>
+
+
+	<query id="common_Alarm_List_Search" desc="확정관리 대상 리스트 조회" fetchSize="10">
+		<![CDATA[
+			SELECT  A.*,
+					B.CD_TERM1 MENU_ID
+			  FROM
+					(SELECT ?           ALARM_CD,
+							C.USER_ID   RECV_ID,
+							C.USER_NM   RECV_NM,
+							A.SUBJECT,
+							A.CONTENT,
+							C.TEAM_NM   DEPT_NM,
+							C.HP_NO,
+							--E.CD_TERM1,
+							DECODE(SUBJECT, NULL, '0', '1') AS CHK
+					  FROM  TBRK_ALARM      A,
+							TBRK_USER         C,
+							(SELECT DISTINCT USER_ID
+							  FROM TBRK_MN_AUTH) D
+					 WHERE  A.RECV_ID   (+)= C.USER_ID
+					   AND  C.USER_ID   = D.USER_ID
+					   AND  A.ALARM_CD  (+)= ?
+					)               A,
+					TBRK_SPEC_CD    B
+			WHERE   B.GRP_CD    (+)= '106'
+			  AND   A.ALARM_CD  = B.CD(+)
+			ORDER BY A.CHK DESC, A.DEPT_NM, A.RECV_NM
+		]]>
+	</query>
+
+	<query id="common_Alarm_List_Insert" desc="확정관리 대상 리스트 입력" fetchSize="10">
+		<![CDATA[
+			INSERT INTO TBRK_ALARM (
+				  ALARM_CD
+				, RECV_ID
+				, SUBJECT
+				, CONTENT
+				, INST_ID
+				, INST_DT
+				, UPDT_ID
+				, UPDT_DT
+			) VALUES (
+				  ?             -- ALARM_CD
+				, ?             -- RECV_ID
+				, ?             -- SUBJECT
+				, ?             -- CONTENT
+				, ?             -- INST_ID
+				, SYSDATE       -- INST_DT
+				, ?             -- UPDT_ID
+				, SYSDATE       -- UPDT_DT
+			)
+		]]>
+	</query>
+
+	<query id="common_Alarm_List_Delete" desc="확정관리 대상 리스트 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE FROM TBRK_ALARM
+			 WHERE ALARM_CD = ?
+		]]>
+	</query>
+
+
+	<query id="common_search_bz_info" desc="사업자정보 조회" fetchSize="10">
+		<![CDATA[
+			SELECT   MAX (DECODE (CD, '001', CD_NM)) BZ_INFO0,
+					 MAX (DECODE (CD, '002', CD_NM)) BZ_INFO1,
+					 MAX (DECODE (CD, '003', CD_NM)) BZ_INFO2,
+					 MAX (DECODE (CD, '004', CD_NM)) BZ_INFO3,
+					 MAX (DECODE (CD, '005', CD_NM)) BZ_INFO4
+				FROM TBRK_SPEC_CD
+			   WHERE GRP_CD = '111'
+			GROUP BY GRP_CD
+		]]>
+	</query>
+	
+	
+	<query id="common_search_post" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			         TZ.ZIP_CD   -- 우편번호
+			       , TZ.SIDO      -- 시도    
+			       , TZ.GUGUN     -- 시군구  
+			       , TZ.DONG      -- 읍면동  
+			       , TZ.BUNJI     -- 번지
+			       , TZ.SIDO || ' ' || TZ.GUGUN || ' ' || TZ.DONG || ' ' || TZ.BUNJI AS ADDR
+			       , TZ.SIDO || ' ' || TZ.GUGUN || ' ' || TZ.DONG  AS D_ADDR
+			FROM   TBRK_ZIPCD TZ
+			WHERE  TZ.DONG LIKE ? || '%'
+			ORDER BY TZ.SEQ
+        ]]>
+    </query> 
+	
+	<query id="common_search_emp" desc="사원 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* common_search_emp */
+                      '0' AS CHK
+                     ,JOB_TIT_NM
+                     ,EMP_NO
+                     ,EMP_NM                    
+              FROM   TBRF_EV_EMP 
+             WHERE   1=1
+               AND   EMP_NO LIKE '%' || NVL(? , EMP_NO) || '%'
+               AND   EMP_NM LIKE '%' || NVL(? , EMP_NM) || '%'
+          ORDER BY   JOB_TIT_CD
+        ]]>
+    </query>
+    
+    
+	<query id="common_search_emp_all" desc="사원 세부내역 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* common_search_emp_all */
+                      '0' AS CHK
+                      ,USER_ID AS EMP_NO
+			          ,USER_NM AS EMP_NM
+			          ,EMAIL
+			          ,TEL_NO
+			          ,HP_NO
+			          ,FLOC
+			          ,FGRADE
+			          ,ASSO_CD
+			          ,DEPT_CD
+			          ,TEAM_CD
+			          ,ASSO_NM
+			          ,DEPT_NM
+			          ,TEAM_NM
+			          ,RETIRE_GBN
+			          ,JOIN_DATE	--입사일자
+				FROM TBRK_USER
+				WHERE 1=1
+	               AND ( DEPT_NM LIKE '%' || NVL(? , DEPT_NM) || '%' OR
+	                     TEAM_NM LIKE '%' || NVL(? , TEAM_NM) || '%'  ) 
+	               AND   USER_NM LIKE '%' || NVL(? , USER_NM) || '%'
+	               AND   GBN = '005'
+	          ORDER BY   DISP_ORDER
+        ]]>
+    </query>
+    
+    
+	<query id="common_search_emp_temp" desc="사원(지원직 및 일용직) 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* common_search_emp_temp */
+                      '0' AS CHK
+                     ,A.EMP_NO
+                     ,A.EMP_NM    
+                     ,A.DEPT_CD
+                     ,A.DEPT_NM        
+                     ,A.WK_JOB_CD
+                     ,B.CD_NM AS WK_JOB_NM         
+              FROM    TBRK_USER_TEMP A
+                     ,TBRK_SPEC_CD B 
+             WHERE   1=1
+               AND   A.CO_WRK_GBN = '001'
+               AND   A.WK_JOB_CD = B.CD
+               AND   B.GRP_CD = '156'
+               AND   A.COMM_NO LIKE ? || '%'
+               AND   A.WK_JOB_CD LIKE ? || '%'
+               AND   A.EMP_NO LIKE '%' || NVL(? , EMP_NO) || '%'
+               AND   A.EMP_NM LIKE '%' || NVL(? , EMP_NM) || '%'                              
+          ORDER BY   A.WK_JOB_CD
+        ]]>
+    </query>
+    
+    
+	<query id="common_search_emp_HolOff" desc="퇴사자 세부내역 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* common_search_emp_HolOff */  
+                      '0' AS CHK
+                      ,EMP_NO AS EMP_NO
+                      ,EMP_NM AS EMP_NM
+                      ,EMAIL
+                      ,TEL_OFFC AS TEL_NO
+                      ,CELPON_NO AS HP_NO
+                      ,FLOC_NM AS FLOC
+                      ,FGRADE_NM AS FGRADE
+                      ,'GA'||HQ_CD||'0000' AS ASSO_CD
+                      ,'GA'||HQ_CD||DEPT_CD AS DEPT_CD
+                      ,NULL AS TEAM_CD
+                      ,NULL AS ASSO_NM
+                      ,DEPT_NM AS DEPT_NM
+                      ,NULL AS TEAM_NM
+                      ,'1' RETIRE_GBN
+                      ,NVL(FST_ENTR_DT,HQ_APT_DT) AS FST_ENTR_DT 
+                      ,RESIGN_DT
+                FROM MYROLE.VW_EMP A
+                WHERE 1=1                
+                   AND   NVL(HOLOFF_STAT,'1') <>  '0'
+                   AND   RESIGN_DT BETWEEN TO_CHAR(SYSDATE -500, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND ( DEPT_NM LIKE '%' || NVL(? , DEPT_NM) || '%'  ) 
+	               AND   EMP_NM LIKE '%' || NVL(? , EMP_NM) || '%'
+	          ORDER BY  DEPT_EMP_SEQ
+        ]]>
+    </query>
+    
+    <query id="common_search_tms" desc="회차 조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			  A.STND_YEAR
+			 ,A.TMS TMS_CD
+			 ,A.TMS || '회' TMS_NM
+			 ,(SELECT MAX(TMS) FROM VW_SDL_INFO WHERE STND_YEAR = ?) CUR_TMS
+			 ,MIN(RACE_DAY) RACE_STR_DAY
+			 ,MAX(RACE_DAY) RACE_END_DAY
+			 ,MAX(MEET_CD)  MEET_CD
+			FROM VW_SDL_INFO A
+			WHERE  1 =1
+			    AND A.MEET_CD LIKE '%' || NVL(? , A.MEET_CD) || '%'
+			    AND A.STND_YEAR LIKE '%' || NVL(? , A.STND_YEAR) || '%'
+			    AND A.RACE_DAY LIKE '%' || NVL(? , A.RACE_DAY) || '%'
+			GROUP BY A.STND_YEAR,A.TMS
+			ORDER BY A.STND_YEAR DESC,A.TMS DESC 
+        ]]>
+    </query>
+    <query id="common_menu_grp" desc="메뉴그룹조회" fetchSize="10">
+
+        <![CDATA[
+        WITH MN_LOGIN AS ( /*common_menu_grp*/
+            SELECT   T1.MN_ID               -- 메뉴아이디
+                   , MN_NM                  -- 메뉴명
+                   , ORD_NO                 -- 순서번호
+                   , UP_MN_ID               -- 상위메뉴ID
+                   , PROGRAM_ID AS SCRN_ID  -- 화면ID
+                   , URL                    -- 메뉴URL
+                   , RMK                    -- 비고
+                   , LVL                    -- 메뉴 레벨                   
+                   , '0' AS CHK
+                   , ' ' AS CLOLR
+                   , MN_LEVEL               -- 메뉴순
+                   , RN
+                   , ?   AS TOP_MN_ID
+                   ,'' as IMGPT
+                   ,'' as DIVID
+                   ,SRCH_YN
+            FROM     (
+                        SELECT
+                               TM.* ,LEVEL - 1 AS LVL,ROWNUM AS RN
+                        FROM   TBRK_MN TM
+                        START  WITH TM.MN_ID = ?
+                        CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID                                    
+                        ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+                     ) T1,
+                     (SELECT *
+                        FROM (
+		                        SELECT
+								    DISTINCT MN_ID, 'T' SRCH_YN
+								FROM(
+								    SELECT
+								         MN_ID
+								    FROM TBRK_MN TM
+								    WHERE BASE_SRCH_YN ='Y'
+								         AND 'NORM' = (          -- NORN: 일반사용자/임시사용자,  ESTM:평가사용자
+		                                          DECODE((SELECT MAX(GBN) FROM TBRK_USER WHERE USER_ID = ?),'002','TEMP','003','ESTM','NORM')
+		                                 )
+								    UNION ALL
+								    SELECT 
+								             MN_ID
+								    FROM   TBRK_MN_AUTH_HIST A
+								           ,TBRK_AUTH_APLY_DEPT B
+								           ,TBRK_USER C
+								    WHERE  A.USER_ID = ?
+								        AND A.USER_ID  = B.USER_ID
+								        AND B.AUTH_GBN = '001'
+								        AND B.USER_ID = C.USER_ID
+								        AND B.TEAM_CD = C.TEAM_CD
+		                                AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM                                
+		                                AND A.SRCH_YN = 'Y'   
+								    ORDER BY MN_ID
+								) A
+							)
+						 WHERE MN_ID NOT IN( SELECT MN_ID 
+                                         FROM TBRK_MN 
+                                        WHERE PERSONAL_DATA_MN = 'Y' 
+                                          AND MN_ID NOT IN (SELECT MN_ID 
+                                                              FROM TBRK_MN_AUTH_HIST 
+                                                             WHERE USER_ID = ?
+                                                               AND PERSONAL_YN = 'Y'  
+                                                               AND PERSONAL_AUTH_CHK='Y'
+                                                               AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM 
+                                                               AND PERSONAL_MN_IP LIKE '%' || ? || '%'
+                                                           )
+                                      ) 		 
+                     ) T2
+            WHERE  T1.LVL > 0
+              AND  T1.MN_ID = T2.MN_ID(+) 
+            ORDER BY ORD_NO, RN
+            )
+            SELECT *
+            FROM   MN_LOGIN
+            WHERE  MN_ID IN (SELECT UP_MN_ID FROM MN_LOGIN WHERE SRCH_YN = 'T' GROUP BY UP_MN_ID)
+            OR     SRCH_YN IS NOT NULL
+            ORDER BY ORD_NO, RN 
+
+        ]]>
+
+    </query>       
+    
+    
+    <query id="common_alarm" desc="알림담당자  조회" fetchSize="10">
+        <![CDATA[
+                SELECT 
+                         A.ALARM_CD
+                        ,C.USER_ID
+                        
+                        ,MAX(C.USER_NM) USER_NM
+                        ,MAX(C.HP_NO)  HP_NO
+                        
+                        ,(CASE WHEN SUM(DECODE(A.ALARM_GBN,'001',1,'003',1,0)) > 0 THEN 'Y' ELSE 'N' END)  MSG_SEND_YN
+                        ,(CASE WHEN SUM(DECODE(A.ALARM_GBN,'002',1,'003',1,0)) > 0 THEN 'Y' ELSE 'N' END)  SMS_SEND_YN
+                        
+                  FROM  TBRK_ALARM      A,
+                        TBRK_USER       C
+                 WHERE  A.RECV_ID   = C.USER_ID
+                   AND  A.ALARM_CD  = ?
+                 GROUP BY  A.ALARM_CD,C.USER_ID
+        ]]>
+    </query>
+    
+    
+   <query id="common_alram_user" desc="사용자 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  
+                    '1' AS CHK
+                    ,A.GBN          --구분코드
+                    ,A.USER_ID      --사용자ID
+                    ,A.PSWD         --비밀번호
+                    ,A.USER_NM      --사용자명
+                    ,A.EMAIL        --이메일
+                    ,A.HP_NO        --이동전화번호
+                    ,A.TEL_NO       --전화번호
+                    ,A.FLOC         --직위
+                    ,A.FGRADE       --직급
+                    ,A.BRNC_CD      --지점코드
+                    ,A.ASSO_CD      --대분류코드
+                    ,A.DEPT_CD      --부서코드
+                    ,A.TEAM_CD      --팀코드
+                    ,A.TEAM_DETL_CD      --팀상세코드
+                    ,A.ASSO_NM      --대분류명
+                    ,A.DEPT_NM      --부서명
+                    ,A.TEAM_NM      --팀명
+                    ,A.INST_ID      --작성자
+                    ,A.INST_DT      --작성일시
+                    ,A.UPDT_ID      --수정자
+                    ,A.UPDT_DT      --수정일시
+              FROM  TBRK_USER A       --사용자 관리
+             WHERE  1 = 1 
+
+            
+        ]]>
+    </query>
+    
+    
+    <query id="common_stay_brnc" desc="체류인원지점코드" fetchSize="10">
+
+        <![CDATA[
+            SELECT
+                    TGC.GRP_CD      -- 그룹코드
+                  , TGC.GRP_NM      -- 그룹명
+                  , TSC.CD          -- 코드
+                  , TSC.CD_NM       -- 코드명
+                  , TSC.CD_NM2      -- 코드명
+                  , TSC.RMK         -- 비고
+                  , TSC.CD_TERM1
+                  , TSC.CD_TERM2
+                  , TSC.CD_TERM3
+                  , TSC.CD_TERM4
+                  , TSC.CD_TERM5
+            FROM    TBRK_GRP_CD  TGC
+                  , TBRK_SPEC_CD TSC
+            WHERE TGC.GRP_CD = TSC.GRP_CD
+            AND   TSC.DEL_YN = 'N'
+            AND   TGC.GRP_CD IN ('018' ,'032')
+        ]]>
+
+    </query>
+    
+    
+    <query id="personal_mn" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT PERSONAL_DATA_MN,
+			       ? AS PERSONAL_MN_ID
+			  FROM TBRK_MN
+			 WHERE MN_ID = ?
+        ]]>
+    </query> 
+    
+    
+    <query id="personal_id_chk" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT PERSONAL_AUTH_CHK, USER_ID, concat(concat('[',PERSONAL_MN_IP),']') AS PERSONAL_MN_IP  
+			  FROM (
+			        SELECT SEQ_NO, PERSONAL_AUTH_CHK, USER_ID, PERSONAL_MN_IP
+			          FROM TBRK_PERSONAL_MN_AUTH_HIST
+			         WHERE PERSONAL_MN_ID = ?
+			           AND USER_ID = ?
+			        ORDER BY SEQ_NO DESC    
+			       )
+			 WHERE ROWNUM = 1 
+        ]]>
+    </query>
+
+</queryMap>
+

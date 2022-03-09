@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!-- Meta, title, CSS, favicons, etc. -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+   	#parse ("/admin/layout/common_css.vm")	
+   	
+   	<link href="https://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/buttons/1.2.4/css/buttons.dataTables.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/buttons/1.2.4/css/buttons.bootstrap.min.css" rel="stylesheet">
+   	<link href="https://cdn.datatables.net/select/1.2.1/css/select.dataTables.min.css" rel="stylesheet">
+	<link href="https://cdn.datatables.net/responsive/2.0.2/css/responsive.dataTables.min.css" rel="stylesheet" />
+</head>
+
+<body class="nav-md footer_fixed">
+	<div class="container body">
+		<div class="main_container">
+			#parse ("/admin/layout/header.vm")
+			<!-- page content -->
+			<div class="right_col" role="main">
+				<div class="col-md-12 col-sm-12 col-xs-12">
+                <div class="x_panel">
+                  <div class="x_title">
+                    <h2>브랜드 <small>목록</small></h2>
+                    <ul class="nav navbar-right">
+                    </ul>
+                    <div class="clearfix"></div>
+                  </div>
+                  <div class="x_content">
+                    <table id="datatables" class="table table-striped table-bordered dt-responsive nowrap" cellspacing="0" width="100%">
+                      <thead>
+                        <tr>
+                        	<th>ID</th>
+                        	<th>이미지</th>
+            			    <th>브랜드명</th>
+            			    <th>노출여부</th>
+                        </tr>
+                      </thead>
+                      <tbody>	
+                      	<tr>
+                      		<td></td>
+                      		<td></td>
+            			    <td></td>
+            			    <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+              </div>
+			</div>
+			</div>
+		</div>
+		<!-- page content end-->
+		#parse ("/admin/layout/footer.vm")
+	</div>
+</div>
+		#parse ("/admin/layout/common_js.vm")
+	<script src="https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js"></script>
+	<script src="https://cdn.datatables.net/buttons/1.2.4/js/dataTables.buttons.min.js"></script>
+	<script src="https://cdn.datatables.net/select/1.2.1/js/dataTables.select.min.js"></script>
+	<script src="https://cdn.datatables.net/responsive/2.0.2/js/dataTables.responsive.min.js"></script>
+    <script>
+    var myTable;
+    $(document).ready(function() {
+        myTable = $('#datatables').DataTable({
+        	 dom: 'Bfrtip',
+			stateSave: true,	
+          	"processing": true,
+          	"serverSide": true,
+          	"order": [],
+          	"ajax": {
+          		"url": "list_processing",
+          		"data": function(data) {
+          			planify(data);
+                }
+          	},
+          	select:true,
+          	columns: [
+					{"data": "brandId", "name": "brandId"},
+					{"data": "banner", "name": "banner"},
+					{"data": "brandName", "name": "brandName"},
+					{"data": "brandVisible", "name": "brandVisible"}
+				],   
+			"columnDefs": [
+					{
+					"targets": 1,//index of column starting from 0	
+					"data": "thumbnail", //this name should exist in your JSON response
+					"render": function ( data, type, full, meta ) {
+						console.log(data);
+						if(data) {
+							return '<img src="' + "${image_url}" + data + '" height="70" />';	
+						} else {
+							return '';
+						}
+							
+					}
+				}
+			],
+			buttons: [
+				        {
+				              text: '등록',
+				              action: function ( e, dt, button, config ) {
+				                  //addBrand();
+				                  location.href="write";
+				              }
+				          },
+				          {
+				              text: '수정',
+				              enabled: false,
+				              action: function ( e, dt, button, config ) {
+									var rowData = myTable.rows( '.selected' ).data().toArray();
+			            	  		location.href="write?brandId="+rowData[0].brandId;
+				                  //updateBrand(rowData[0]);
+				              }
+				          },
+				          {
+				              text: '노출',
+				              enabled: false,
+				              action: function ( e, dt, button, config ) {
+				            	  var rowData = myTable.rows( '.selected' ).data().toArray();
+				                  deleteBrand(rowData, "Y");
+				              }
+				          },
+				          {
+				              text: '비노출',
+				              enabled: false,
+				              action: function ( e, dt, button, config ) {
+				            	  var rowData = myTable.rows( '.selected' ).data().toArray();
+				                  deleteBrand(rowData, "N");
+				              }
+				          }
+				      ],
+			responsive: true
+        });
+        
+        myTable.on( 'select', function () {
+            var selectedRows = myTable.rows( { selected: true } ).count();
+            myTable.button( 3 ).enable( selectedRows > 0 );
+            myTable.button( 2 ).enable( selectedRows > 0 );
+            myTable.button( 1 ).enable( selectedRows === 1 );
+        } );
+        
+        myTable.on( 'deselect', function () {
+            var selectedRows = myTable.rows( { selected: true } ).count();
+            console.log(selectedRows);
+            if(selectedRows == 0) {
+            	myTable.button( 3 ).disable();
+            	myTable.button( 2 ).disable();
+           		myTable.button( 1 ).disable();
+            }
+            
+            if(selectedRows == 1) 
+            	myTable.button( 1 ).enable();
+            
+        } );
+    } );
+    
+    function planify(data) {
+        for (var i = 0; i < data.columns.length; i++) {
+            column = data.columns[i];
+            column.searchRegex = column.search.regex;
+            column.searchValue = column.search.value;
+            delete(column.search);
+        }
+    }
+   
+    function addBrand() {
+		var formData = new FormData();
+    	bootbox.prompt("등록할 브랜드명을 입력하세요.",function(result){
+    		if(result) {
+    			formData.append("brandName", result);
+    			$.ajax({
+    				url: "add",
+    				processData: false,
+    				contentType: false,
+    				data: formData,
+    				type: 'POST',
+    				success: function(result){
+    					if(result.resultCode == 200) {
+    						bootbox.alert(result.message, function() {
+    							myTable.ajax.reload();
+    						});
+    					} else {
+    						bootbox.alert(result.message, function() {});
+    					}
+    				},
+    				error: function(){
+    					bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+    				}
+    			});
+    			
+    		}
+    		 
+    	});
+    }
+    
+    function updateBrand(data) {
+    	bootbox.prompt({
+    		title: "수정할 브랜드명을 입력하세요.",
+    		value: data.brandName,
+    		callback: function (result) {
+    			if(result) {
+	    			data.brandName = result;
+	    			$.ajax({
+	    				url: "update",
+	    				contentType: 'application/json',
+	    			    mimeType: 'application/json',
+	    			    dataType: 'json', 
+	    				data: JSON.stringify(data),
+	    				type: 'POST',
+	    				success: function(result){
+	    					if(result.resultCode == 200) {
+	    						bootbox.alert(result.message, function() {
+	    							myTable.ajax.reload();
+	    						});
+	    					} else {
+	    						bootbox.alert(result.message, function() {});
+	    					}
+	    				},
+	    				error: function(){
+	    					bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+	    				}
+	    			});
+    			}
+   			}
+		});
+    }
+    
+    function deleteBrand(rowData, flag) {
+    	var message;
+    	if(flag == 'Y') {
+    		message = "선택한 브랜드를 사용하시겠습니까?";
+    	} else {
+    		message = "선택한 브랜드를 사용 안 하시겠습니까?";
+    	}
+    	bootbox.confirm({
+    	    message: message,
+    	    buttons: {
+    	        confirm: {
+    	            label: 'Yes',
+    	            className: 'btn-success'
+    	        },
+    	        cancel: {
+    	            label: 'No',
+    	            className: 'btn-danger'
+    	        }
+    	    },
+    	    callback: function (result) {
+    	    	if(result) {
+    	    		$.ajax({
+        				url: "delete?flag="+flag,
+        				contentType: 'application/json',
+        			    mimeType: 'application/json',
+        			    dataType: 'json', 
+        			    data: JSON.stringify(rowData), 
+        				type: 'POST',
+        				success: function(result){
+        					if(result.resultCode == 200) {
+        						bootbox.alert(result.message, function() {
+        							myTable.ajax.reload();
+        						});
+        					} else {
+        						bootbox.alert(result.message, function() {});
+        					}
+        				},
+        				error: function(){
+        					bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+        				}
+        			});
+    	    	}
+    	    }
+    	});
+    }
+    </script>
+    <!-- /Datatables -->
+</body>
+</html>

@@ -1,0 +1,505 @@
+<html>
+<script>
+
+var elements= [
+	"CANVAS","ARTICLE","ASISE","B","BDI","BDO", "BLOCKQUOTE","BR","BUTTON","CANVAS","CAPTION","CITE","COL","CODE","COMMAND","DATALIST","DD","DEL","DETAILS",
+	"DFN","DL","DT", "EM","STYLE","FIELDSET","FIGCAPTION","SCRIPT", "EMBED","FIGURE","FOOTER","HEADER","HGROUP","HR","I","INPUT","INS","KBD",
+	"LEGEND","MARK","MENU","METER","NAV","NOSCRIPT","OPTGROUP","OUTPUT","P","PARAM","PRE","PROGRESS","Q","RP","RT","RUBY","S","SAMP","SECTION","SELECT",
+	"SMALL","SOURCE","SPAN","SUP","TH","THEAD","TIME","OBJECT","IFRAME","TEXTAREA","TRACK","U","VAR","WBR","FORM","A","BODY","HTML","DIV","TABLE","AREA",
+	"TD","TR","LINK","BASE","FONT","HEAD","IMG","MAP","META","OL","LI","TBODY","TITLE","H1","BLINK","AREA","COL","SPAN","FRAMESET","FRAME","UL",
+	"OPTION","NOFRAMES","TFOOT","XMP","ISINDEX","CENTER","HR","LABEL","OPTGROUP","AUDIO","VIDEO","TEMPLATE","SVG"
+	];
+var itst_events=[      
+	'abort','afterprint','audioprocess','beforeprint','beforeunload','beginEvent','blocked','blur','cached','canplay','canplaythrough','change','chargingchange',
+	'chargingtimechange','checking','click','close','complete','compositionend','compositionstart','contextmenu','copy','custom','cut','dblclick','devicelight',
+	'devicemotion','deviceorientation','deviceproxymity','dischargingtimechange','DOMActivate','DOMAttributeNameChanged','DOMAttrModified','DOMCharacterDataModified',
+	'DOMContentLoaded','DOMElementNameChanged','DOMFocusIn','DOMFocusOut','DOMNodeInserted','DOMNodeInsertedIntoDocument','DOMNodeRemoved','DOMNodeRemovedFromDocument',
+	'DOMSubtreeModified','downloading','drag','dragend','dragenter','dragleave','dragover','dragstart','drop','durationchange','emptied','ended','endEvent','error',
+	'focus','focusin','focusout','fullscreenchange','fullscreenerror','hashchange','input','invalid','keydown','keypress','keyup','levelchange','load','loadeddata',
+	'loadedmetadata','loadend','loadstart','message','mousedown','mouseenter','mouseleave','mousemove','mouseout','mouseover','mouseup','noupdate','obsolete','offline',
+	'online','offline','open','orientationchange','pagehide','pageshow','paste','pause','pointerlockchange','pointerlockerror','play','playing','popstate','progress',
+	'ratechange','readystatechange','repeatEvent','resize','reset','scroll','seeked','seeking','select','show','stalled','storage','submit','success','suspend','timeout',
+	'timeupdate','touchcancel','touchend','touchenter','touchleave','touchmove','touchstart','transitionend','unload','updaterady','upgradeneeded','userproximity',
+	'versionchange','visibilitychange','volumechange','waiting'
+	];
+var itst_mutationEvents=[
+	'DOMAttributeNameChanged','DOMAttrModified','DOMCharacterDataModified','DOMContentLoaded','DOMElementNameChanged','DOMNodeInserted','DOMNodeInsertedIntoDocument',
+	'DOMNodeRemoved','DOMNodeRemovedFromDocument','DOMSubtreeModified'
+	];	
+var itst_vals = [
+	0, 1, 1e6, -1e6, 1e-6, 1e100, null, undefined, 'pink', 'screen', 'Infinity', false, true, 4500000000, 2200000000, -2200000000, -4500000000,  "undefined", 
+	"null", "true", "false", "'green'", "'tuesday'", "[]", "{}", "<foo/>", "n1","n1.length", "n1.length-1", "n1.__proto__","n1.__parent__","n1.prototype",  
+	"n1.constructor", "n1.call","n1.apply","n1.toSource()","n1.toString()","n1.toSource","n1.toString","('' + n1)","eval(n1)","eval(n1, $)",   "(n1 instanceof $)", 
+	"0",  "1", "0xffffffff", "0x10000000", "0x04000000", "0x01000000", "-1", "-4", "-10000000", "10000000", "\"0%\"", "\"100%\"",  "\"1000%\"", "\"-1%\"", "(3/0)", 
+	"(0/0)", "(-3/0)", "\"%s%s%s%s%s%s%s%s%s\"","\"%n%n%n%n%n%n%n%n%n\"", "\"\\0\"","\"\\n\"", "\"\"",  "doc.createTextNode(n1)"
+	];
+var itst_commands=[
+	"2D-Position","backColor","bold","clearAuthenticationCache","contentReadOnly","createBookmark","decreaseFontSize","delete","enableInlineTableEditing",
+	"enableObjectResizing","fontName","fontSize","foreColor","formatBlock","heading","hiliteColor","increaseFontSize","indent","insertBrOnReturn","insertButton",
+	"insertFieldset","insertHorizontalRule","insertHTML","insertIFrame","insertInputButton","insertInputCheckbox","insertInputFileUpload","insertInputHidden",
+	"insertInputImage","insertInputPassword","insertInputRadio","insertInputReset","insertInputSubmit","insertInputText","insertMarquee","insertOrderedList",
+	"insertParagraph","insertSelectDropdown","insertSelectListbox","insertTextArea","insertUnorderedList","italic","justifyCenter","justifyFull","justifyLeft",
+	"justifyRight","liveResize","multipleSelection","outdent","overWrite","removeFormat",,"strikeThrough","styleWithCSS","subscript","superscript","underline","unlink","useCSS"
+	//"redo","refresh",
+	
+	];	
+	
+var gCounts  	  = [ 1, 4, 6, 8, 10 ];	
+var gIcnt    	  = 100;							//생성할 iframe의 갯수
+var gIprefix 	  = "if_";						//iframe 아이디의 처음 문자, 나머지는 숫자의 결합
+var gDomDepth 	  = 10;							//iframe안에 생성할 노드갯수
+var gPropA 		  = new Array(gIcnt, gDomDepth);	//iframe이 가지고 있는 전체 property
+var gPropB   	  = new Array(gIcnt, gDomDepth);	//iframe이 가지고 있는 element
+var gEventList    = new Array(gIcnt, gDomDepth);	//element가 가지고 있는 event
+var gMutateCnt    = 50;							//mutation  횟수
+var gFuzzTypeCnt  = 14;					//fuzz함수에서 사용한 퍼징 종류
+var gEventHandleCnt = 8;				//event handler에서 사용할 퍼징 종류
+var gFuzzLoopCnt  = 100;					//iframeFuzz함수 반복 횟수
+var gLoggable     = true;				//개발자 도구에 로그 남기기
+var gReloadable   = true;				//퍼징 완료 후 페이지 다시 로딩하기
+
+function makeIframe() {
+	for(var i=0; i<gIcnt; i++) {	
+		try {
+			var iframe = document.createElement("iframe");
+			iframe.setAttribute("id",gIprefix+i);
+			document.body.appendChild(iframe);
+	
+			var elementA  = rand_item(elements);
+			var doc = iframe.contentDocument || iframe.contentWindow.document;
+			var eId = doc.createElement(elementA);	
+			setAttributes(eId);
+			doc.body.appendChild(eId);
+			
+			for(var j=0; j<gDomDepth-1; j++) {
+							
+				elementA  = rand_item(elements);
+				eId = doc.createElement(elementA);	
+				var node = doc.body.lastChild;
+				setAttributes(eId);
+				node.appendChild(eId);
+				gPropB[i,j]=eId;
+				setEvents(i,j);	//event 등록
+
+				var propC = [];	//각 element의 property 갯수
+				for( var p in eId ) propC.push( p );
+				gPropA[i,j]=propC;
+			}    	
+	
+		} catch( exception ) {
+			 if(gLoggable) console.log(">>>>>>> makeIframe exception:" + exception);
+		}	
+	}
+	
+}    
+
+function setAttributes(eId) {	//element의 attribute에 value 설정
+	try {
+		for(var attr in eId) {
+			eId.setAttribute(attr, itst_vals[rand(itst_vals.length)]);
+		}
+	} catch( exception ) {
+		 if(gLoggable) console.log(">>>>>>> setAttributes exception:" + exception);
+	}		
+}
+
+function setEvents(i,j) {
+	try {
+			var eId = gPropB[i,j];
+			// console.log("[setEvents] ******** selNode:"+ selNode);
+			var ri=rand(itst_events.length);
+			var rEvent=itst_events[ri];
+			var rndb=RBool();
+			var e = document.createEvent('Event');
+			e.initEvent(rEvent, rndb, rndb);
+			eId.addEventListener (rEvent, evEH, rndb);
+			gEventList[i,j] = e;	//배열에 event 등록
+
+	} catch( exception ) {
+		 if(gLoggable) console.log(">>>>>>> setEvents exception:" + exception);
+	}	
+}
+
+function evEH(event) {
+	fuzzIframe(gMutateCnt%5+1, gFuzzTypeCnt-1, "evEH");
+	/*
+	try{
+		var el=event.target;
+		var classSelectIframe = new ClassSelectIframe();
+		switch(rand(gEventHandleCnt)){
+			case 0:
+				console.log("[evEH] >>>> *0* stopPropagation ");
+				event.stopPropagation();
+				break;
+			case 1:
+				console.log("[evEH] >>>> *1* removeEventListener ");
+				rndb=RBool();
+				el.removeEventListener(event, evEH, rndb);
+				break;
+			case 2:
+				console.log("[evEH] >>>> *2* preventDefault ");
+				event.preventDefault();
+				break;
+			case 3:
+				console.log("[evEH] >>>> *3* classSelectIframe.getNode(randnum) ");
+				var randnum = rand(gIcnt);
+				var selNode = classSelectIframe.getNode(randnum);
+				event.currentTarget=selNode;
+				break;
+			case 4:
+				console.log("[evEH] >>>> *4* el=null ");
+				el=null;
+				break;
+			case 5:
+				console.log("[evEH] >>>> *5* dispatchEvent ");
+				el.dispatchEvent(event);
+				break;
+			case 6:
+				console.log("[evEH] >>>> *6* selNode.dispatchEvent(event) ");
+				var randnum = rand(gIcnt);
+				var selNode = classSelectIframe.getNode(randnum);
+				selNode.dispatchEvent(event);
+				break;
+			case 7:
+				console.log("[evEH] >>>> *7* event.eventPhase=rand(3) ");
+				event.eventPhase=rand(3);
+				break;
+		}
+	
+	} catch( exception ) {
+		 console.log(">>>>>>> evEH exception:" + exception);
+	}
+	*/
+}
+
+function fuzzIframe(inMutateCnt, inFuzzTypeCnt, inSource) {
+	for(var i=0; i<inMutateCnt; i++) {
+		try {
+
+			var classSelectIframe = new ClassSelectIframe();
+			var count = rand_item( gCounts );
+			
+			switch( rand(inFuzzTypeCnt) ) {
+			//switch(13) {
+				// Set some iframe to NULL...
+				case 0:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(0): iframe = null, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selIfrm = classSelectIframe.getIfrm(randnum);
+						selIfrm = null;
+					}	
+					break;
+				// Set some element of iframe to NULL...
+				case 1:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(1): node = null, count:"+ count  + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selNode = classSelectIframe.getNode(randnum);
+						selNode = null;
+					}	
+					break;	
+				// Set some contentDocument of iframe to NULL...
+				case 2:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(2): doc = null, count:"+ count  + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selDoc = classSelectIframe.getDoc(randnum);
+						selDoc = null;
+					}	
+					break;		
+				// Set some property to NULL...
+				case 3:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(3): prop = null;, count:"+ count  + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selProp = classSelectIframe.getProp(randnum);
+						selProp = null;
+					}	
+					break;
+				// Perhaps we can call this (we have performed no validation if gPropA is for a function of not)
+				case 4:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(4) : node1[selProp]();, count:"+ count  + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selNode = classSelectIframe.getNode(randnum);
+						var selProp = classSelectIframe.getProp(randnum);
+						selNode[selProp]();
+					}	
+					break;
+				// Perform a call and pass in object B as a parameter...
+				case 5:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(5) : node1[selProp1](node2);, count:"+ count  + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selNode1 = classSelectIframe.getNode(randnum);
+						var selNode2 = classSelectIframe.getNode(randnum);
+						var selProp1 = classSelectIframe.getProp(randnum);
+						var selProp2 = classSelectIframe.getProp(randnum);
+						
+						selNode1[selProp1]( selProp1 );
+						selNode1[selProp1]( selProp1, selProp2 );
+					}	
+					break;
+				// Set some value from one object to the value of another (although we havent verified if the other property even exists)...
+				case 6:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(6) : node1[selProp1] = node1[selProp2];, count:"+ count  + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ )
+						var randnum = rand(gIcnt);
+						var selNode1 = classSelectIframe.getNode(randnum);
+						var selNode2 = classSelectIframe.getNode(randnum);
+						var selProp1 = classSelectIframe.getProp(randnum);
+						var selProp2 = classSelectIframe.getProp(randnum);
+						selNode1[selProp1] = selNode2[selProp2];
+						selNode2[selProp2] = selNode1[selProp1];
+					break;
+				// Heap spary			
+				case 7:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(7) : execCommand, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ )
+						document.execCommand(itst_commands[rand(itst_commands.length)], true, itst_vals[rand(itst_vals.length)]);
+					break;
+				// Walk Tree
+				case 8:
+					 if(gLoggable) console.log( "[fuzzIframe] mutate(8) : Walk Tree, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selNode = classSelectIframe.getNode(randnum);
+						//treeWalking(selNode);
+					}	
+					break;
+				// insert another element property
+				case 9: //****************************
+					if(gLoggable) console.log( "[fuzzIframe] mutate(9) : insert another element property, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selProp1 = classSelectIframe.getProp(randnum);
+						var selIfrm1 = classSelectIframe.getIfrm(randnum);
+						randnum = rand(gIcnt);
+						var selProp2 = classSelectIframe.getProp(randnum);
+						var selIfrm2 = classSelectIframe.getIfrm(randnum);
+						selIfrm1.selProp1 = selIfrm2.selProp2;
+					}
+					break;	
+				// call element property
+				case 10://****************************
+					if(gLoggable) console.log( "[fuzzIframe] mutate(10) : call element property, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selProp = classSelectIframe.getProp(randnum);
+						var selIfrm = classSelectIframe.getIfrm(randnum);
+						selIfrm.selProp = itst_vals[rand(itst_vals.length)];
+					}
+					break;	
+				// remove element property	
+				case 11:
+					if(gLoggable) console.log( "[fuzzIframe] mutate(11) : remove element property	, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selProp = classSelectIframe.getProp(randnum);
+						var selIfrm = classSelectIframe.getIfrm(randnum);
+						selIfrm.removeAttribute(selProp);
+					}
+					break;	
+				// remove element's parents property		
+				case 12:
+					if(gLoggable) console.log( "[fuzzIframe] mutate(12) : remove element's parents property, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum = rand(gIcnt);
+						var selIfrm = classSelectIframe.getIfrm(randnum);
+						var selNode = classSelectIframe.getNode(randnum);
+						var nodesList = selIfrm.childNodes;
+						//var randnum = rand(nodesList.length);
+						//selIfrm.parentNode.removeChild(nodesList[randnum]);
+						selNode.removeChild(nodesList[rand(nodesList.length)]);
+					}
+					break;
+				// call element's parents node property
+				case 13://****************************
+					if(gLoggable) console.log( "[fuzzIframe] mutate(13) : dispatch event, count:"+ count + "[" +inSource + "]");
+					for( var c=0 ; c<count ; c++ ) {
+						var randnum1 = rand(gIcnt);
+						var selIfrm = classSelectIframe.getIfrm(randnum1);
+						var doc = selIfrm.contentDocument || selIfrm.contentWindow.document;
+						var nodesList = doc.body.childNodes;
+						var randnum2 = rand(nodesList.length);
+						//var selNode = nodesList[randnum2];
+						var eId = gPropB[randnum1, randnum2];
+			
+						//console.log( "[fuzzIframe] ************gEventList:" + gEventList[randnum1, randnum2]);
+						eId.dispatchEvent(gEventList[randnum1, randnum2]);
+					}	
+					break;				
+				default:
+					break;
+			}
+			
+		} catch( exception ) {
+			 if(gLoggable) console.log(">>>>>>> fuzzIframe exception:" + exception);
+		}	
+	}
+}
+
+function treeWalking(node){
+	try{
+		if (node!=null){
+			rMoves=rand(10);
+			for (i=0; i<rMoves; i++){
+				switch(rand(7)){
+					case 0:
+						node.nextNode;
+						break;
+					case 1:
+						node.previousNode;
+						break;
+					case 2:
+						node.previousSibling;
+						break;
+					case 3:
+						node.nextSibling;
+						break;
+					case 4:
+						node.firstChild;
+						break;
+					case 5:
+						node.lastChild;
+						break;
+					case 6:
+						node.parentNode;
+						break;	
+				}
+			}
+		}
+	} catch (exception) {
+		 if(gLoggable) console.log(">>>>>>> treeWalking exception:" + exception);
+	}
+}
+
+function spray() {
+	try {
+		h1=document.createElement("h1");
+		var k=[];
+		for(var i=0; i<20; i++){
+			var attr = document.createAttribute("attr"+i);
+			h1.setAttributeNode(attr);
+			val="\u4444\u4444";
+			if (i==0){
+				k[i]=val;
+			}	
+			else{
+				a=k.join("");
+				k[i]=a;
+			}
+			// console.log(">>>>>>> K["+ i +"]:"+ k[i]);
+			h1.setAttribute("attr"+i,k[i]);
+		}	
+	} catch( exception ) {
+		if(gLoggable) console.log(">>>>>>> spray exception:" + exception);
+	}
+}
+
+function ClassSelectIframe() {
+	try {
+	  this.getIfrm = function(idx) {													//select iframe with index
+			var randnum = rand(gIcnt);
+			return document.getElementById(gIprefix+idx);
+	  };
+	  
+	  this.getDoc = function(idx) {													//select document with index
+			var el = document.getElementById(gIprefix+idx);
+			return doc = el.contentDocument || el.contentWindow.document;
+	  };
+	  
+	  this.getNode = function(idx) {												//select node with index
+			var el = document.getElementById(gIprefix+idx);
+			var doc = el.contentDocument || el.contentWindow.document;
+			var nodesList = doc.body.childNodes;
+			var randnum = rand(nodesList.length);
+			return nodesList[randnum];
+	  };
+	  
+	  this.getNode2 = function(idx1, idx2) {												//지정된 node를 select
+			var el = document.getElementById(gIprefix+idx1);
+			var doc = el.contentDocument || el.contentWindow.document;
+			var nodesList = doc.body.childNodes;
+			return nodesList[idx2];
+	  };
+	  
+	  this.getProp = function(idx) {												//select properties with index
+			return rand_item(gPropA[idx,rand(gDomDepth)]);
+	  };
+	  
+	} catch( exception ) {
+		if(gLoggable) console.log(">>>>>>> ClassSelectIframe exception:" + exception);
+	}
+}	
+
+function fireFuzz1(){ 
+	fuzzIframe(gMutateCnt, gFuzzTypeCnt, "fire1");
+	gFuzzLoopCnt--;
+	if(gFuzzLoopCnt>0) {
+		document.title = "F Count " + gFuzzLoopCnt;
+		setTimeout('try { fireFuzz1() } catch (exception) {  console.log(">>>>>>> fireFuzz1 exception:" + exception); }', rand(50));
+	} else {
+		reload();
+	}
+}
+
+function fireFuzz2(){ 
+	fuzzIframe(gMutateCnt, gFuzzTypeCnt, "fire2");
+	gFuzzLoopCnt--;
+	if(gFuzzLoopCnt>0) {
+		document.title = "F Count " + gFuzzLoopCnt;
+		setTimeout('try { fireFuzz2() } catch (exception) {  console.log(">>>>>>> fireFuzz2 exception:" + exception); }', rand(50));
+	} else {
+		reload();
+	}
+}
+
+function fireFuzz3(){ 
+	fuzzIframe(gMutateCnt, gFuzzTypeCnt, "fire3");
+	gFuzzLoopCnt--;
+	if(gFuzzLoopCnt>0) {
+		document.title = "F Count " + gFuzzLoopCnt;
+		setTimeout('try { fireFuzz3() } catch (exception) {  console.log(">>>>>>> fireFuzz3 exception:" + exception); }', rand(50));
+	} else {
+		reload();
+	}
+}
+///////////////////////////////////////////////////////////////////
+function rand( x ) {
+	return Math.floor( Math.random() * x );
+}
+
+// Pick an item from an array
+function rand_item( arr ) {
+	return arr[ rand( arr.length ) ];
+}
+
+function RBool(){
+	r=rand(2);
+	if (r==0) {return true;}
+	else {return false;}
+}
+///////////////////////////////////////////////////////////////////
+function reload() {
+	try{
+		//if(gReloadable) window.location.href = window.location.protocol + '//' + window.location.host + '/grinder';
+		//if(gReloadable) window.location.reload(true);
+	} catch(exception){
+		if(gLoggable) console.log(">>>>>>> reload exception:" + exception);
+	}
+}
+
+window.onload = function() {
+	gLoggable = false;
+	gReloadable = true;
+	makeIframe();
+	fireFuzz1();
+	fireFuzz2();
+	fireFuzz3();
+}	
+</script>
+<body>
+</body>
+</html>

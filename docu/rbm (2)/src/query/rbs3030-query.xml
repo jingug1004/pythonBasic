@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS3030(소모품 신청현황)">
+    <query id="rbs3030_s01" desc="소모품신청현황 조회" fetchSize="10">
+      <![CDATA[
+     SELECT /* rbs3030_s01 */
+         A.*
+         ,B.TEAM_NM AS USER_TEAM_NM
+         ,B.USER_NM AS USER_NAME
+         ,B.FLOC AS USER_FLOC
+         ,C.USER_NM AS REAL_NAME  --실수령인이름
+       FROM(
+            SELECT  
+                 '0' AS CHK
+                ,A.REQ_DT         --신청일자
+                ,A.REQ_ID       --신청자사번
+                ,A.SEQ            --순번
+                ,A.REQ_CNTNT      --신청내용
+                ,A.PROG_STAT_CD   --승인코드
+                ,A.REPLY          --답변
+                ,A.MNG_REQ_YN     --관리자신청여부
+                ,A.APRV_DT        --승인일자
+                ,MAX(B.REAL_RECI_ID) REAL_RECI_ID   --실수령인사번
+                ,MAX(B.SIGN_DT) SIGN_DT       --서명일자
+                ,A.BIZ_GBN
+              FROM  TBRE_SUPPL_REQ A, TBRE_SUPPL_REGI B  --소모품신청, 소모품 대장
+             WHERE  1=1
+               AND  A.REQ_DT     = B.REQ_DT(+)
+               AND  A.REQ_ID   = B.REQ_ID(+)
+               AND  A.SEQ        = B.SEQ(+)
+               AND  A.REQ_DT       BETWEEN ? AND ?                             --신청일자From~To
+               AND  A.PROG_STAT_CD LIKE '%' || NVL(? , A.PROG_STAT_CD) || '%'  --승인코드
+               AND  A.BIZ_GBN = ?												-- 소모품 분류
+          GROUP BY  A.REQ_DT         --신청일자 
+                   ,A.REQ_ID       --신청자사번 
+                   ,A.SEQ            --순번 
+                   ,A.REQ_CNTNT      --신청내용 
+                   ,A.PROG_STAT_CD   --승인코드                      
+                   ,A.REPLY          --답변 
+                   ,A.MNG_REQ_YN     --관리자신청여부
+                   ,A.APRV_DT        --승인일자
+                   ,A.BIZ_GBN
+          ORDER BY  A.REQ_DT DESC 
+      ) A, TBRK_USER B, TBRK_USER C
+        WHERE A.REQ_ID = B.USER_ID
+          AND A.REAL_RECI_ID = C.USER_ID(+)
+        ORDER BY A.REQ_DT DESC                         
+        ]]>
+    </query>
+    
+    <query id="rbs3030_s02" desc="소모품에 대한 수량  조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s02 */
+                 QTY                --수량
+
+              FROM  TBRE_SUPPL_STK  --소모품재고
+             WHERE  1=1
+               AND  SUPPL_CD = ?    --소모품코드
+        ]]>
+    </query>
+    
+    <query id="rbs3030_s03" desc="소모품 대장 기본키 개수 조회(기본키 중복체크)" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s03 */
+                 COUNT(*) AS CNT    --기본키조회여부
+
+              FROM  TBRE_SUPPL_REGI --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ?    --신청일자
+               AND  REQ_ID = ?    --신청자사번
+               AND  SEQ      = ?    --순번
+               AND  SUPPL_CD = ?    --소모품코드
+        ]]>
+    </query>
+    
+    <query id="rbs3030_s04" desc="소모품 대장 수량 조회(소모품 수량 변경시 필요)" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s04 */
+                 QTY    --수량
+
+              FROM  TBRE_SUPPL_REGI --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ?    --신청일자
+               AND  REQ_ID = ?    --신청자사번
+               AND  SEQ      = ?    --순번
+               AND  SUPPL_CD = ?    --소모품코드
+        ]]>
+    </query>
+    
+    <query id="rbs3030_s05" desc="소모품 대장  조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s05 */
+                  '0' AS CHK    
+                 ,SUPPL_CD          --소모품코드
+                 ,''  AS STOCK_QTY  --재고수량
+                 ,( NVL(QTY,0)  - NVL(RETN_QTY,0))  AS REQ_QTY    --신청수량
+                 ,REQ_DT            --신청일자
+                 ,REQ_ID          --신청자사번
+                 ,SEQ               --순번     
+                 ,SIGN_DT        --서명일자
+
+              FROM  TBRE_SUPPL_REGI --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ?    --신청일자
+               AND  REQ_ID = ?    --신청자사번
+               AND  SEQ      = ?    --순번
+             ORDER BY REQ_DT DESC, SEQ 
+        ]]>
+    </query>
+    
+    <query id="rbs3030_s06" desc="소모품신청 순번 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s06 */
+                  MAX(SEQ) AS SEQ   
+
+              FROM  TBRE_SUPPL_REQ  --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ?    --신청일자
+               AND  REQ_ID = ?    --신청자사번
+        ]]>
+    </query>
+    
+    <query id="rbs3030_s07" desc="관리자 승인여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s07 */
+                  MNG_REQ_YN AS MNG
+
+              FROM  TBRE_SUPPL_REQ  --소모품신청
+             WHERE  1=1
+               AND  REQ_DT   = ?    --신청일자
+               AND  REQ_ID = ?    --신청자사번
+               AND  SEQ      = ?    --순번
+        ]]>
+    </query>
+    
+    <query id="rbs3030_s08" desc="서명 여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s08 */
+                  COUNT(*) AS CNT
+
+              FROM  TBRE_SUPPL_REGI --소모품대장
+             WHERE  1=1
+               AND  SIGN_DT IS NOT NULL
+			   AND  REQ_DT   = ? --신청일자
+			   AND  REQ_ID = ? --신청자사번
+			   AND  SEQ      = ? --순번
+        ]]>
+    </query>
+   
+    <query id="rbs3030_s09" desc="기본키에 대한 소모품 대장 건수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3030_s09 */
+                  COUNT(*) AS CNT
+
+              FROM  TBRE_SUPPL_REGI --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ? --신청일자
+               AND  REQ_ID = ? --신청자사번
+               AND  SEQ      = ? --순번
+        ]]>
+    </query>
+    
+    <query id="rbs3030_m01" desc="소모품대장 입력,수정" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBRE_SUPPL_REGI A /* rbs3030_m01 */  --소모품대장
+            USING
+                    (SELECT
+                             ? AS REQ_DT        --신청일자
+							,? AS REQ_ID      --신청자사번
+							,? AS SEQ           --순번
+							,? AS SUPPL_CD      --소모품코드
+							,? AS QTY           --수량
+							
+							,? AS REAL_RECI_ID  --실수령인사번
+							,? AS SIGN_DT       --서명일자
+                            ,? AS INST_ID       --작성자                           
+                            ,? AS UPDT_ID       --수정자
+                            
+                       FROM    DUAL ) B
+                ON (
+                        A.REQ_DT   = B.REQ_DT    --신청일자
+                    AND A.REQ_ID = B.REQ_ID  --신청자사번
+                    AND A.SEQ      = B.SEQ       --순번
+                    AND A.SUPPL_CD = B.SUPPL_CD  --소모품코드
+            )            
+                       
+            WHEN MATCHED THEN
+                UPDATE SET 
+                     A.QTY          = B.QTY             --수량
+                    ,A.UPDT_ID      = B.UPDT_ID         --수정자
+                    ,A.UPDT_DT      = SYSDATE           --수정일시
+                
+            WHEN NOT MATCHED THEN
+                INSERT (
+            
+                     A.REQ_DT        --신청일자
+					,A.REQ_ID      --신청자사번
+					,A.SEQ           --순번
+					,A.SUPPL_CD      --소모품코드
+					,A.QTY           --수량
+					
+                    ,A.REAL_RECI_ID  --실수령인사번
+                    ,A.SIGN_DT       --서명일자
+                    ,A.INST_ID       --작성자
+                    ,A.INST_DT       --작성일시
+                    
+                ) VALUES (
+                     B.REQ_DT        --신청일자
+                    ,B.REQ_ID      --신청자사번
+                    ,B.SEQ           --순번
+                    ,B.SUPPL_CD      --소모품코드
+                    ,B.QTY           --수량
+                    
+                    ,B.REAL_RECI_ID  --실수령인사번
+                    ,B.SIGN_DT       --서명일자
+                    ,B.INST_ID       --작성자                   
+                    ,SYSDATE         --작성일시
+                )
+        ]]>
+    </query>
+    
+    <query id="rbs3030_d01" desc="소모품대장  삭제" fetchSize="10">
+        <![CDATA[
+            DELETE  TBRE_SUPPL_REGI   /* rbs3030_d01 */   --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ?   --신청일자
+               AND  REQ_ID = ?   --신청자사번
+               AND  SEQ      = ?   --순번
+               AND  SUPPL_CD = ?   --소모품코드
+        ]]>
+    </query>
+</queryMap>

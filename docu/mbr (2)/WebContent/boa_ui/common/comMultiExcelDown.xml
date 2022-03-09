@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="170" Id="comMultiExcelDown" Left="8" OnLoadCompleted="fcFormOnLoadCompleted" PidAttrib="7" Title="Excel&#32;Multi&#32;저장&#32;공통화면" Top="8" Ver="1.0" Width="440" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="Dataset0">
+				<Contents>
+					<colinfo Id="column0" Size="256" Type="STRING"/>
+					<colinfo Id="column1" Size="256" Type="STRING"/>
+					<colinfo Id="column2" Size="256" Type="STRING"/>
+					<colinfo Id="column3" Size="256" Type="STRING"/>
+					<colinfo Id="column4" Size="256" Type="STRING"/>
+					<colinfo Id="column5" Size="256" Type="STRING"/>
+					<record>
+						<column0>GHGJHJ</column0>
+						<column1>데이타1</column1>
+						<column2>데이타2</column2>
+						<column3>1234</column3>
+						<column4>데이타4</column4>
+						<column5>데이타5</column5>
+					</record>
+					<record>
+						<column0>gdfgfgfgf</column0>
+						<column1>fdfdfdf</column1>
+						<column2>dfdf</column2>
+						<column3>1234</column3>
+						<column4>fdfdf</column4>
+						<column5>fdfff</column5>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_excelComm"></Dataset>
+		</Datasets>
+		<Shape BKColor="#e9e9e9" Bottom="156" Height="112" Id="Shape0" Left="12" LineColor="darkgray" Right="428" RoundUnit="Pixel" RoundWidth="22" TabOrder="6" Top="44" Type="RoundRect" Width="416"></Shape>
+		<Shape BKColor="white" Bottom="146" Height="92" Id="Shape1" Left="22" LineColor="white" Right="418" RoundUnit="Pixel" RoundWidth="22" TabOrder="7" Top="54" Type="RoundRect" Width="396"></Shape>
+		<Image Height="28" Id="Image0" ImageID="comm_excel" Left="34" TabOrder="5" Top="70" Width="28"></Image>
+		<Static Align="Right" Border="None" Height="20" Id="Static4" Left="74" Style="txt" TabOrder="4" Text="파&#32;일&#32;명&#32;" Top="78" VAlign="Middle" Width="58"></Static>
+		<Edit Border="Flat" Height="20" Id="ed_fileNm" Left="134" LeftMargin="5" Style="snis_m_input01" TabOrder="1" Text="C:\a.xls" Top="78" Width="254"></Edit>
+		<Button Cursor="HAND" Height="16" Id="btn_openDlg" ImageID="btn_pop_search" Left="390" OnClick="fcFileOpenDlgOnClick" TabOrder="2" Text="Button0" Top="80" Width="16"></Button>
+		<Checkbox FalseValue="0" Height="20" Id="chk_run" Left="300" Style="txt" TabOrder="3" Text="저장&#32;후&#32;실행" Top="108" TrueValue="1" Visible="FALSE" Width="94"></Checkbox>
+		<Grid BkColor2="default" BoldHead="true" Border="Flat" Bottom="32" Enable="true" EndLineColor="default" Height="22" Id="grd_excel" InputPanel="FALSE" Left="8" LineColor="default" Right="32" TabOrder="8" TabStop="true" Top="10" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="FALSE" VLineColor="default" WheelScrollRow="1" Width="24"></Grid>
+		<File Bottom="34" Height="24" Id="f_excel" Left="62" Right="86" TabOrder="14" Top="10" Width="24"></File>
+		<FTP Height="24" Id="FTP0" Left="90" Top="10" Width="24"></FTP>
+		<Button Cursor="HAND" Height="20" Id="btnCancel" ImageID="btn_close" Left="376" LeftMargin="14" OnClick="fcCancelOnClick" TabOrder="9" Top="20" Transparent="TRUE" Width="50"></Button>
+		<Button Align="Left" ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnExcelOpen" ImageID="btn_txt_04" Left="217" LeftMargin="14" OnClick="fcExcelOpenOnClick" Style="if_btn" TabOrder="10" Text="엑셀보기" Top="20" Width="76"></Button>
+		<Button Align="Left" ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnExcelSave" ImageID="btn_txt_04" Left="296" LeftMargin="14" OnClick="fcExcelSaveOnClick" Style="if_btn" TabOrder="11" Text="엑셀저장" Top="20" Width="76"></Button>
+		<FileDialog Bottom="42" Height="24" Id="fd_excel" Left="137" Right="161" TabOrder="11" Top="18" Width="24"></FileDialog>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::boa_common_script.js";
+#include "lib::boa_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFile;						// 저장될 xls/csv 파일명
+var sFileType = "EXCEL";		// 0:xls, 1:csv
+var objGrdExcel;				// 부모폼의 Grid 객체
+var arrGrdExcel=array(-1);		// 부모폼의 Grid 객체 array
+var nStartIdx = 0;				// 엑셀 저장할 Grid의 시작셀 index
+var nMaxExcelRowCnt = 65530;	// 5530;65534;65536
+
+/***************************************************************************************************
+*                                         FORM Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormOnLoadCompleted(obj)
+{
+    if(isExistVar("objGridId")) 
+    {		
+		var arrGrdExcel	= split2(objGridId,"|",":");
+		
+		for(var i=0;i<arrGrdExcel.length;i++)
+		{
+			arrGrdExcel[i] = parent.Object(arrGrdExcel[i][0]);
+			if(isValid(arrGrdExcel[i])) 
+			{
+				
+				var objDsExcel = parent.Object(arrGrdExcel[i].BindDataset);
+				
+				if(!isValid(objDsExcel)) {
+					alert("존재하지 않는 Dataset : " + objGrdExcel.BindDataset);
+					close(false);
+				} else {
+					ds_excelComm.AppendDataset(objDsExcel);
+				}				
+			}
+			else
+			{
+				alert("존재하지 않는 Grid : " + arrGrdExcel[i]);
+				close(false);
+			}
+			
+		}
+
+    } else {
+        alert("해당 그리드가 존재하지 않습니다");
+        close(false);
+    }
+	
+	// 파일 이름 설정
+	if(isExistVar("sFileNm")) 
+    {
+		ed_fileNm.Text = "c:\\"+ sFileNm+".xls";        
+		fd_excel.FileName= sFileNm+".xls";
+    }
+	
+	if(isExistVar("sExcYn")) 
+    {
+        chk_run.Enable = sExcYn;        
+    }
+   
+
+}
+
+
+
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  닫기 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcCancelOnClick(obj)
+{
+	close(false);
+}
+
+
+
+/***************************************************************************************************
+                                  사용자 정의 버튼 Event 처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀파일 보기 버튼 클릭 시 처리할 내용
++-------------------------------------------------------------------------------------------------*/
+function fcExcelOpenOnClick(obj)
+{	
+
+    sFile = ed_fileNm.Text;
+
+    if (length(trim(ed_fileNm.Text)) == 0) {
+        sFile = fd_excel.FileName;
+    } else if (lengthb(trim(sFile)) == lengthb(replace(trim(sFile), "\\", ""))) {
+        sFile = "C:\\" + sFile;
+        if (lengthb(trim(sFile)) == lengthb(replace(trim(sFile), ".", ""))) sFile = sFile + ".xls";
+        fd_excel.FileName = sFile;
+        fd_excel.FilePath = "C:\\";
+    }
+    
+    
+
+	if(fnc_IsNull(sFile)) {
+        alert("파일명을 입력하세요!");
+        ed_fileNm.SetFocus();
+        return;
+    }
+    
+    
+
+	f_excel.FileName = sFile;
+	
+	// 동일한 이름의 파일이 있는지 체크 
+    if (FTP0.ExistFileLocal(sFile) == 0)
+    {
+		f_excel.Delete(sFile); // 기존 파일 먼저 삭제
+    }
+    
+	
+	if(sFileType=="EXCEL") 
+	{	
+		f_excel.Delete(sFile); // 기존 파일 먼저 삭제
+		fnc_SetWaitCursor(true);
+        
+        fcSetMultiGridContent(objGridId,sFile);
+
+
+		fnc_SetWaitCursor(false);
+
+    } else if(sFileType=="CSV") {
+		
+        var sBuffer;
+
+        for(var i=0; i<grd_excel.GetCellCount("head"); i++) {
+            sBuffer += grd_excel.GetCellProp("head", i, "Text");
+            sBuffer += iif(i==grd_excel.GetCellCount("head")-1, "\n", ",");
+        }
+
+        sBuffer += grd_excel.GetCSVData();
+
+		SetWaitCursor(true);
+
+        f_excel.Open("wt");
+        f_excel.Write(sBuffer);
+        f_excel.Close();
+
+		SetWaitCursor(false);
+    }
+
+    parent.L_exeFile = sFile;
+
+    close(chk_run.value);
+}
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀파일 저장 버튼 클릭 시 처리할 내용
++-------------------------------------------------------------------------------------------------*/
+function fcExcelSaveOnClick(obj)
+{
+	
+    sFile = ed_fileNm.Text;
+
+    if (length(trim(ed_fileNm.Text)) == 0) {
+        sFile = fd_excel.FileName;
+    } else if (lengthb(trim(sFile)) == lengthb(replace(trim(sFile), "\\", ""))) {
+        sFile = "C:\\" + sFile;
+        if (lengthb(trim(sFile)) == lengthb(replace(trim(sFile), ".", ""))) sFile = sFile + ".xls";
+        fd_excel.FileName = sFile;
+        fd_excel.FilePath = "C:\\";
+    }
+
+	if(fnc_IsNull(sFile)) {
+        alert("파일명을 입력하세요!");
+        ed_fileNm.SetFocus();
+        return;
+    }
+    
+    
+
+	f_excel.FileName = sFile;
+	
+	// 동일한 이름의 파일이 있는지 체크 
+    if (FTP0.ExistFileLocal(sFile) == 0)
+    {
+        if(!confirm("이 이름으로 등록된 파일이 있습니다. 덮어쓰시겠습니까?"))
+        {       
+            ed_fileNm.SetFocus();
+            return;
+        }        
+    }
+    
+    
+	if(sFileType=="EXCEL") 
+	{	
+		f_excel.Delete(sFile); // 기존 파일 먼저 삭제
+		fnc_SetWaitCursor(true);
+        
+        fcSetMultiGridContent(objGridId,sFile);
+
+
+		fnc_SetWaitCursor(false);
+
+    } else if(sFileType=="CSV") {
+		
+        var sBuffer;
+
+        for(var i=0; i<grd_excel.GetCellCount("head"); i++) {
+            sBuffer += grd_excel.GetCellProp("head", i, "Text");
+            sBuffer += iif(i==grd_excel.GetCellCount("head")-1, "\n", ",");
+        }
+
+        sBuffer += grd_excel.GetCSVData();
+
+		SetWaitCursor(true);
+
+        f_excel.Open("wt");
+        f_excel.Write(sBuffer);
+        f_excel.Close();
+
+		SetWaitCursor(false);
+    }
+
+    parent.L_exeFile = sFile;
+
+    close(chk_run.value);
+}
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀파일 열기 버튼 클릭 이벤트 함수
++-------------------------------------------------------------------------------------------------*/
+function fcFileOpenDlgOnClick(obj)
+{
+	fd_excel.Type = "SAVE";
+
+	if(sFileType=="EXCEL") fd_excel.Filter = "excel(.xls)|*.xls|";
+	else if(sFileType=="CSV") fd_excel.Filter = "csv(.csv)|*.csv";
+
+	//마지막 저장 폴더 가져오기
+	fd_excel.FilePath = getReg("LastDir"); // HKEY_CURRENT_USER\Software\ToBeSoft\MiPlatform310\KTO_MP\LastDir
+
+	if(fd_excel.open()) { // 확인!
+
+        sFile = fd_excel.FilePath + "\\" + fd_excel.FileName;
+
+        if(sFileType=="EXCEL") {
+            if(toUpper(right(sFile, 4))!=".XLS") { sFile += ".xls"; }
+        } else if(sFileType=="CSV") {
+            if(toUpper(right(sFile, 4))!=".CSV") { sFile += ".csv"; }
+        }
+
+    } else { // 취소!
+        sFile = "";
+	}
+
+	ed_fileNm.text = sFile;
+
+	setReg("LastDir", fd_excel.FilePath); //현재 저장폴더 레지스트리에 저장하기
+}
+
+
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀 다운로드용 멀티 Grid Content 만들기!
++-------------------------------------------------------------------------------------------------*/
+function fcSetMultiGridContent(sGridId,sFile)
+{
+	
+	var arrGrdExcel	= split2(sGridId,"|",":");
+    var arrDsExcel	= array(arrGrdExcel.length);
+    var arrGrdRowBlank	= array(arrGrdExcel.length);
+    
+    var nGrdFail = 0;
+    var nDsFail =0;
+    
+    for(var i=0;i<arrGrdExcel.length;i++)
+    {
+		
+		arrGrdRowBlank[i]=parseInt(arrGrdExcel[i][1]);	// 그리드 사이 설정값
+		arrGrdExcel[i] = Object(arrGrdExcel[i][0]);		
+		arrDsExcel[i] = Object(arrGrdExcel[i].BindDataset);		
+    }
+	
+	var ExportObject1;
+	var sXML;
+	var arrCnt = array(-1);		
+	
+	arrCnt[0] = 1; // 두번째 열부터 시작됨
+	
+	var nCnt = 1;
+	for(var i=0;i<arrDsExcel.length;i++)
+	{
+		arrCnt[i+1] = arrCnt[i] + arrDsExcel[i].rowcount + arrGrdRowBlank[i];				
+	}
+		
+	ExportObject1 = CreateExportObject();
+	ExportObject1.ExportType		= "Excel";
+
+	ExportObject1.ExportFileName	= sFile;
+	ExportObject1.ActiveSheetName   =  sFileNm;	
+	ExportObject1.MakeEmptyFileWhenNotExist = true;			
+
+
+	for(var i=0;i<arrGrdExcel.length;i++)
+    {
+		
+		/*
+		var grdExcelObj =  fcdSetGridContent(arrGrdExcel[i],0);	
+		
+		grdExcelObj.UseAutoSizing ="Col_Merge";		
+		grdExcelObj =  fcdSetGridContent(grdExcelObj,0);		*/
+		
+		
+		//arrGrdExcel[i].UseAutoSizing ="Col_NoHead_Merge";
+		ExportObject1.AddExportGrid( sFileNm+ "!" + "A"+arrCnt[i]	, arrGrdExcel[i], true, false);
+		
+		
+    }
+
+
+	ExportObject1.Export();
+	
+	//
+	ExportObject1.Save();
+	
+	ExportObject1.Close();
+	ExportObject1 = null;
+			
+			
+}
+
+
+]]></Script>
+</Window>

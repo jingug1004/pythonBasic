@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_parts_lack 안전재고미달현황 ">
+	<query id="tbef_parts_lack_ff001" desc="재고현황 조회 " fetchSize="50">
+        <![CDATA[
+            -- 재고현황 조회  
+			SELECT  ROWNUM AS NUM
+                  , NVL(MODULE_GUBUN,'A') AS MODULE_GUBUN
+                  , NVL(MODULE_GUBUN,'A') AS PARTS_TPE
+                  , DECODE(PARTS_CD,'',DECODE(MODULE_GUBUN,'','합계',DECODE(MODULE_GUBUN,'M','모터계','보트계')),PARTS_CD) AS PARTS_CD
+                  , DECODE(PARTS_CD,'',CNT||' 품목',PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+                  , DECODE(PARTS_CD,'','',SPEC) AS SPEC
+                  , DECODE(PARTS_CD,'','',MODULE_CODE) AS MODULE_CODE
+                  , UNIT_PRICE
+                  , SAFT_UNIT_CNT
+                  , NOW_UNIT_CNT
+                  , LACK_UNIT_CNT
+                  , REQ_AMOUNT
+            FROM  (                    
+                    SELECT  MODULE_GUBUN                                -- 식별구분                                     
+                          , PARTS_CD                                    -- 부품코드 
+                          , MAX(MODULE_CODE) AS MODULE_CODE             -- 식별번호            
+                          , COUNT(DISTINCT CASE WHEN SAFT_UNIT_CNT>0  OR NOW_UNIT_CNT>0 THEN PARTS_CD ELSE NULL END) AS CNT -- 품번종류 수
+                          , MAX(PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM   -- 품명
+                          , MAX(SPEC) AS SPEC                           -- 규격
+                          , MAX(UNIT_PRICE) AS UNIT_PRICE               -- 단가
+                          , SUM(SAFT_UNIT_CNT) AS SAFT_UNIT_CNT         -- 안전재고
+                          , SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT           -- 현재재고
+                          , SUM(LACK_UNIT_CNT) AS LACK_UNIT_CNT         -- 과부족
+                          , SUM(REQ_AMOUNT) AS REQ_AMOUNT               -- 소요금액    
+                    FROM (
+                            SELECT  TPM.STND_YEAR
+                                  , TPM.MBR_CD
+                                  , TPM.PARTS_CD
+                                  , TPM.PARTS_TPE AS MODULE_GUBUN
+                                  , TPM.MODULE_CODE  
+                                  , TPM.PRICE_STND_YEAR
+                                  , TPM.PARTS_ITEM_CD_NM
+                                  , TPM.SPEC
+                                  , TPP.UNIT_PRICE
+                                  , SUM(TPM.SAFT_UNIT_CNT) AS SAFT_UNIT_CNT                            -- 안전재고 
+                                  , SUM(TPM.CRFW_UNIT_CNT) AS CRFW_UNIT_CNT                            -- 이월재고 
+                                  , SUM(TPM.NOW_UNIT_CNT) AS NOW_UNIT_CNT                            -- 현재재고
+                                  , SUM(TPM.NOW_UNIT_CNT) - SUM(TPM.SAFT_UNIT_CNT) LACK_UNIT_CNT    -- 과부족 
+                                  , CASE WHEN SUM(TPM.NOW_UNIT_CNT) - SUM(TPM.SAFT_UNIT_CNT) <0 THEN (SUM(TPM.SAFT_UNIT_CNT) - SUM(TPM.NOW_UNIT_CNT) )* TPP.UNIT_PRICE  ELSE 0 END AS REQ_AMOUNT -- 소요금액 
+                            FROM (
+                                    SELECT  TP.STND_YEAR
+                                          , TP.MBR_CD
+                                          , TPM.PARTS_CD
+                                          , TPM.PARTS_TPE
+                                          , TPM.MODULE_CODE
+                                          , TPM.PARTS_ITEM_CD_NM
+                                          , TPM.SPEC
+                                          , NVL(TPM.SAFT_UNIT_CNT,0) SAFT_UNIT_CNT
+                                          , TP.PRICE_STND_YEAR
+                                          , NVL(CRFW_UNIT_CNT,0) CRFW_UNIT_CNT
+                                          , NVL(NOW_UNIT_CNT,0) NOW_UNIT_CNT
+                                          , NVL(SIGHT_CNT,0) SIGHT_CNT
+                                    FROM    TBEF_PARTS_MASTER TPM
+                                          , TBEF_PARTS TP
+                                    WHERE TPM.PARTS_CD = TP.PARTS_CD(+)
+                                    AND TP.STND_YEAR(+) = ?
+                                    AND TP.MBR_CD(+) = ?
+                                    AND TPM.MODULE_CODE LIKE ?||'%' 
+                                    AND TPM.PARTS_CD LIKE ?||'%' 
+                                    AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                                    AND TPM.USE_YN = 'Y'
+                                 )TPM, TBEF_PARTS_PRICE TPP
+                            WHERE TPM.PARTS_CD = TPP.PARTS_CD
+                            AND   TPM.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                            GROUP BY TPM.STND_YEAR
+                                  , TPM.MBR_CD
+                                  , TPM.PARTS_CD
+                                  , TPM.PARTS_TPE
+                                  , TPM.MODULE_CODE  
+                                  , TPM.PRICE_STND_YEAR
+                                  , TPM.PARTS_ITEM_CD_NM
+                                  , TPM.SPEC
+                                  , TPP.UNIT_PRICE
+                         )            
+                    GROUP BY ROLLUP(MODULE_GUBUN, PARTS_CD)
+                    ORDER BY NVL(MODULE_GUBUN,'A') DESC, MODULE_CODE, PARTS_CD
+                  )
+        ]]>
+    </query> 
+    
+	<query id="tbef_parts_lack_ff901" desc="재고현황 조회 " fetchSize="50">
+        <![CDATA[
+            -- 재고현황 조회  
+			SELECT
+			      ROWNUM AS NUM,
+			      NVL(MODULE_GUBUN,'A') AS MODULE_GUBUN,
+			      NVL(MODULE_GUBUN,'A') AS PARTS_TPE,
+			      DECODE(PARTS_CD,'',DECODE(MODULE_GUBUN,'','합계',DECODE(MODULE_GUBUN,'M','모터계','보트계')),PARTS_CD) AS PARTS_CD,
+			      DECODE(PARTS_CD,'',CNT||' 품목',PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM,
+			      DECODE(PARTS_CD,'','',SPEC) AS SPEC,
+			      DECODE(PARTS_CD,'','',MODULE_CODE) AS MODULE_CODE,
+			      UNIT_PRICE,
+			      SAFT_UNIT_CNT,
+			      NOW_UNIT_CNT,
+			      LACK_UNIT_CNT,
+			      REQ_AMOUNT
+			FROM(                    
+			    SELECT 
+			          MODULE_GUBUN,     -- 식별구분                                     
+			          PARTS_CD,            -- 부품코드 
+			          MAX(MODULE_CODE) AS MODULE_CODE,        -- 식별번호            
+			          COUNT(MODULE_CODE) AS CNT,      
+			          MAX(PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM, -- 품명
+			          MAX(SPEC) AS SPEC,                -- 규격
+			          SUM(UNIT_PRICE) AS UNIT_PRICE,        -- 단가
+			          SUM(SAFT_UNIT_CNT) AS SAFT_UNIT_CNT,    -- 안전재고
+			          SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT,     -- 현재재고
+			          SUM(LACK_UNIT_CNT) AS LACK_UNIT_CNT,  --과부족
+			          SUM(REQ_AMOUNT) AS REQ_AMOUNT   --소요금액	
+			    FROM (
+			        SELECT 
+			            TPM.STND_YEAR, TPM.MBR_CD, TPM.PARTS_CD,  TPM.PARTS_TPE AS MODULE_GUBUN,  TPM.MODULE_CODE,   
+			            TPM.PRICE_STND_YEAR,  TPM.PARTS_COM_CD, TPM.COM_NM, TPM.PARTS_ITEM_CD_NM,  TPM.SPEC,  TPM.UNIT_PRICE,
+			            NVL(TPM.SAFT_UNIT_CNT,0) AS SAFT_UNIT_CNT,  -- 안전재고 
+			            NVL(TP.CRFW_UNIT_CNT,0) AS CRFW_UNIT_CNT,  -- 이월재고 
+			            NVL(TP.NOW_UNIT_CNT,0) AS NOW_UNIT_CNT,     -- 현재재고
+			            NVL(TP.NOW_UNIT_CNT,0) -NVL(TPM.SAFT_UNIT_CNT,0) AS LACK_UNIT_CNT, -- 과부족 
+			            CASE WHEN NVL(TP.NOW_UNIT_CNT,0) - NVL(TPM.SAFT_UNIT_CNT,0) <0 THEN (NVL(TPM.SAFT_UNIT_CNT,0) - NVL(TP.NOW_UNIT_CNT,0) )* UNIT_PRICE  ELSE 0 END AS REQ_AMOUNT, -- 소요금액 
+			            TPM.LOC,                -- 보관장소                                     
+			            TPM.USE_YN     -- 사용여부  
+			         FROM (
+			            SELECT * FROM (
+			                 SELECT 
+			                        ? AS STND_YEAR,        -- 기준년도
+			                        ? AS MBR_CD,            -- 경정장코드
+			                       TPM.PARTS_CD, PARTS_TPE, MODULE_CODE, TPM.PARTS_COM_CD,
+			                       COM_NM, PARTS_ITEM_CD_NM, SPEC, SAFT_UNIT_CNT, LOC, USE_YN, UNIT_PRICE, PRICE_STND_YEAR,
+			                       ROW_NUMBER() OVER  (PARTITION BY TPP.PARTS_CD ORDER BY TPP.PARTS_CD, TPP.PRICE_STND_YEAR DESC) AS PARTS_SEQ
+			                 FROM TBEF_PARTS_MASTER TPM, TBEF_PARTS_COM TPC , TBEF_PARTS_PRICE TPP
+			                     WHERE TPM.PARTS_COM_CD = TPC.PARTS_COM_CD(+)
+			                     AND TPM.PARTS_CD = TPP.PARTS_CD
+			                     AND TPM.PARTS_CD LIKE ?||'%' 
+			                     AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+			                     --AND TPM.MODULE_CODE LIKE ?||'%' 
+			                     --AND TPM.PARTS_COM_CD LIKE ?||'%'
+			                     AND TPM.USE_YN = 'Y'
+			             )
+			             WHERE PARTS_SEQ=1
+			         )TPM, 
+			         (           
+			             SELECT 
+			                 TP.STND_YEAR, TP.MBR_CD, TP.PARTS_CD, SUM(CRFW_UNIT_CNT)AS CRFW_UNIT_CNT, NVL(SUM(NOW_UNIT_CNT),0) AS NOW_UNIT_CNT, SUM(SIGHT_CNT) AS SIGHT_CNT
+			             FROM  TBEF_PARTS TP
+			             WHERE TP.STND_YEAR = ?
+			             AND TP.MBR_CD = ?
+			             GROUP BY TP.STND_YEAR, TP.MBR_CD, TP.PARTS_CD
+			        ) TP
+			        WHERE  TPM.STND_YEAR = TP.STND_YEAR(+)
+			        AND TPM.MBR_CD = TP.MBR_CD(+)
+			        AND TPM.PARTS_CD = TP.PARTS_CD(+)
+			        ORDER BY TPM.MODULE_CODE
+			     )            
+			     GROUP BY ROLLUP(MODULE_GUBUN, PARTS_CD)
+			     ORDER BY NVL(MODULE_GUBUN,'A') DESC, MODULE_CODE, PARTS_CD
+			 )
+        ]]>
+    </query> 
+    
+    <query id="tbef_parts_lack_ff002" desc="미달품 재고현황 조회 " fetchSize="50">
+        <![CDATA[
+            -- 미달품 재고현황 조회 
+			SELECT  ROWNUM AS NUM
+                  , NVL(MODULE_GUBUN,'A') AS MODULE_GUBUN
+                  , NVL(MODULE_GUBUN,'A') AS PARTS_TPE
+                  , DECODE(PARTS_CD,'',DECODE(MODULE_GUBUN,'','합계',DECODE(MODULE_GUBUN,'M','모터계','보트계')),PARTS_CD) AS PARTS_CD
+                  , DECODE(PARTS_CD,'',CNT||' 품목',PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM
+                  , DECODE(PARTS_CD,'','',SPEC) AS SPEC
+                  , DECODE(PARTS_CD,'','',MODULE_CODE) AS MODULE_CODE
+                  , UNIT_PRICE
+                  , SAFT_UNIT_CNT
+                  , NOW_UNIT_CNT
+                  , LACK_UNIT_CNT
+                  , REQ_AMOUNT
+            FROM  (                    
+                    SELECT  MODULE_GUBUN                                -- 식별구분                                     
+                          , PARTS_CD                                    -- 부품코드 
+                          , MAX(MODULE_CODE) AS MODULE_CODE             -- 식별번호            
+                          , COUNT(DISTINCT CASE WHEN SAFT_UNIT_CNT>0  OR NOW_UNIT_CNT>0 THEN PARTS_CD ELSE NULL END) AS CNT -- 품번종류 수
+                          , MAX(PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM   -- 품명
+                          , MAX(SPEC) AS SPEC                           -- 규격
+                          , MAX(UNIT_PRICE) AS UNIT_PRICE               -- 단가
+                          , SUM(SAFT_UNIT_CNT) AS SAFT_UNIT_CNT         -- 안전재고
+                          , SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT           -- 현재재고
+                          , SUM(LACK_UNIT_CNT) AS LACK_UNIT_CNT         -- 과부족
+                          , SUM(REQ_AMOUNT) AS REQ_AMOUNT               -- 소요금액    
+                    FROM (
+                            SELECT  TPM.STND_YEAR
+                                  , TPM.MBR_CD
+                                  , TPM.PARTS_CD
+                                  , TPM.PARTS_TPE AS MODULE_GUBUN
+                                  , TPM.MODULE_CODE  
+                                  , TPM.PRICE_STND_YEAR
+                                  , TPM.PARTS_ITEM_CD_NM
+                                  , TPM.SPEC
+                                  , TPP.UNIT_PRICE
+                                  , SUM(TPM.SAFT_UNIT_CNT) AS SAFT_UNIT_CNT                            -- 안전재고 
+                                  , SUM(TPM.CRFW_UNIT_CNT) AS CRFW_UNIT_CNT                            -- 이월재고 
+                                  , SUM(TPM.NOW_UNIT_CNT) AS NOW_UNIT_CNT                            -- 현재재고
+                                  , SUM(TPM.NOW_UNIT_CNT) - SUM(TPM.SAFT_UNIT_CNT) LACK_UNIT_CNT    -- 과부족 
+                                  , CASE WHEN SUM(TPM.NOW_UNIT_CNT) - SUM(TPM.SAFT_UNIT_CNT) < 0 THEN (SUM(TPM.SAFT_UNIT_CNT) - SUM(TPM.NOW_UNIT_CNT) )* TPP.UNIT_PRICE  ELSE 0 END AS REQ_AMOUNT -- 소요금액 
+                            FROM (
+                                    SELECT  TP.STND_YEAR
+                                          , TP.MBR_CD
+                                          , TPM.PARTS_CD
+                                          , TPM.PARTS_TPE
+                                          , TPM.MODULE_CODE
+                                          , TPM.PARTS_ITEM_CD_NM
+                                          , TPM.SPEC
+                                          , NVL(TPM.SAFT_UNIT_CNT,0) SAFT_UNIT_CNT
+                                          , TP.PRICE_STND_YEAR
+                                          , NVL(CRFW_UNIT_CNT,0) CRFW_UNIT_CNT
+                                          , NVL(NOW_UNIT_CNT,0) NOW_UNIT_CNT
+                                          , NVL(SIGHT_CNT,0) SIGHT_CNT
+                                    FROM    TBEF_PARTS_MASTER TPM
+                                          , TBEF_PARTS TP
+                                    WHERE TPM.PARTS_CD = TP.PARTS_CD(+)
+                                    AND TP.STND_YEAR(+) = ?
+                                    AND TP.MBR_CD(+) = ?
+                                    AND TPM.MODULE_CODE LIKE ?||'%' 
+                                    AND TPM.PARTS_CD LIKE ?||'%' 
+                                    AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+                                    AND TPM.USE_YN = 'Y'
+                                 )TPM, TBEF_PARTS_PRICE TPP
+                            WHERE TPM.PARTS_CD = TPP.PARTS_CD
+                            AND   TPM.PRICE_STND_YEAR = TPP.PRICE_STND_YEAR
+                            AND   NVL(TPM.NOW_UNIT_CNT,0) - NVL(TPM.SAFT_UNIT_CNT,0) < 0
+                            GROUP BY TPM.STND_YEAR
+                                  , TPM.MBR_CD
+                                  , TPM.PARTS_CD
+                                  , TPM.PARTS_TPE
+                                  , TPM.MODULE_CODE  
+                                  , TPM.PRICE_STND_YEAR
+                                  , TPM.PARTS_ITEM_CD_NM
+                                  , TPM.SPEC
+                                  , TPP.UNIT_PRICE
+                         )            
+                    GROUP BY ROLLUP(MODULE_GUBUN, PARTS_CD)
+                    ORDER BY NVL(MODULE_GUBUN,'A') DESC, MODULE_CODE, PARTS_CD
+                  )
+        ]]>
+    </query> 
+    
+    <query id="tbef_parts_lack_ff902" desc="미달품 재고현황 조회 " fetchSize="50">
+        <![CDATA[
+            -- 미달품 재고현황 조회 
+			SELECT
+			      ROWNUM AS NUM,
+			      NVL(MODULE_GUBUN,'A') AS MODULE_GUBUN,
+			      NVL(MODULE_GUBUN,'A') AS PARTS_TPE,
+			      DECODE(PARTS_CD,'',DECODE(MODULE_GUBUN,'','합계',DECODE(MODULE_GUBUN,'M','모터계','보트계')),PARTS_CD) AS PARTS_CD,
+			      DECODE(PARTS_CD,'',CNT||' 품목',PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM,
+			      DECODE(PARTS_CD,'','',SPEC) AS SPEC,
+			      DECODE(PARTS_CD,'','',MODULE_CODE) AS MODULE_CODE,
+			      UNIT_PRICE,
+			      SAFT_UNIT_CNT,
+			      NOW_UNIT_CNT,
+			      LACK_UNIT_CNT,
+			      REQ_AMOUNT
+			FROM(                    
+			    SELECT 
+			          MODULE_GUBUN,     -- 식별구분                                     
+			          PARTS_CD,            -- 부품코드 
+			          MAX(MODULE_CODE) AS MODULE_CODE,        -- 식별번호      
+			           COUNT(MODULE_CODE) AS CNT,                  
+			          MAX(PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM, -- 품명
+			          MAX(SPEC) AS SPEC,                -- 규격
+			          SUM(UNIT_PRICE) AS UNIT_PRICE,        -- 단가
+			          SUM(SAFT_UNIT_CNT) AS SAFT_UNIT_CNT,    -- 안전재고
+			          SUM(NOW_UNIT_CNT) AS NOW_UNIT_CNT,     -- 현재재고
+			          SUM(LACK_UNIT_CNT) AS LACK_UNIT_CNT,  --과부족
+			          SUM(REQ_AMOUNT) AS REQ_AMOUNT   --소요금액	
+			    FROM (
+			        SELECT 
+			            TPM.STND_YEAR, TPM.MBR_CD, TPM.PARTS_CD,  TPM.PARTS_TPE AS MODULE_GUBUN,  TPM.MODULE_CODE,   
+			            TPM.PRICE_STND_YEAR,  TPM.PARTS_COM_CD, TPM.COM_NM, TPM.PARTS_ITEM_CD_NM,  TPM.SPEC,  TPM.UNIT_PRICE,
+			            NVL(TPM.SAFT_UNIT_CNT,0) AS SAFT_UNIT_CNT,  -- 안전재고 
+			            NVL(TP.CRFW_UNIT_CNT,0) AS CRFW_UNIT_CNT,  -- 이월재고 
+			            NVL(TP.NOW_UNIT_CNT,0) AS NOW_UNIT_CNT,     -- 현재재고
+			            NVL(TP.NOW_UNIT_CNT,0) -NVL(TPM.SAFT_UNIT_CNT,0) AS LACK_UNIT_CNT, -- 과부족 
+			            CASE WHEN NVL(TP.NOW_UNIT_CNT,0) - NVL(TPM.SAFT_UNIT_CNT,0) <0 THEN (NVL(TPM.SAFT_UNIT_CNT,0) - NVL(TP.NOW_UNIT_CNT,0) )* UNIT_PRICE  ELSE 0 END AS REQ_AMOUNT, -- 소요금액 
+			            TPM.LOC,                -- 보관장소                                     
+			            TPM.USE_YN     -- 사용여부  
+			         FROM (
+			            SELECT * FROM (
+			                 SELECT 
+			                        ? AS STND_YEAR,        -- 기준년도
+			                        ? AS MBR_CD,            -- 경정장코드
+			                       TPM.PARTS_CD, PARTS_TPE, MODULE_CODE, TPM.PARTS_COM_CD,
+			                       COM_NM, PARTS_ITEM_CD_NM, SPEC, SAFT_UNIT_CNT, LOC, USE_YN, UNIT_PRICE, PRICE_STND_YEAR,
+			                      ROW_NUMBER() OVER  (PARTITION BY TPP.PARTS_CD ORDER BY TPP.PARTS_CD, TPP.PRICE_STND_YEAR DESC) AS PARTS_SEQ
+			                 FROM TBEF_PARTS_MASTER TPM, TBEF_PARTS_COM TPC , TBEF_PARTS_PRICE TPP
+			                     WHERE TPM.PARTS_COM_CD = TPC.PARTS_COM_CD(+)
+			                     AND TPM.PARTS_CD = TPP.PARTS_CD
+			                     AND TPM.PARTS_CD LIKE ?||'%' 
+			                     AND TPM.PARTS_ITEM_CD_NM LIKE ?||'%'
+			                     AND TPM.MODULE_CODE LIKE ?||'%' 
+			                     AND TPM.PARTS_COM_CD LIKE ?||'%'
+			                     AND TPM.USE_YN = DECODE(?, NULL, TPM.USE_YN, ?)
+			             )
+			             WHERE PARTS_SEQ=1
+			         )TPM, 
+			         (           
+			             SELECT 
+			                 TP.STND_YEAR, TP.MBR_CD, TP.PARTS_CD, SUM(CRFW_UNIT_CNT)AS CRFW_UNIT_CNT, NVL(SUM(NOW_UNIT_CNT),0) AS NOW_UNIT_CNT, SUM(SIGHT_CNT) AS SIGHT_CNT
+			             FROM  TBEF_PARTS TP
+			             WHERE TP.STND_YEAR=?
+			             AND TP.MBR_CD=?
+			             GROUP BY TP.STND_YEAR, TP.MBR_CD, TP.PARTS_CD
+			        ) TP
+			        WHERE  TPM.STND_YEAR = TP.STND_YEAR(+)
+			        AND TPM.MBR_CD = TP.MBR_CD(+)
+			        AND TPM.PARTS_CD = TP.PARTS_CD(+)
+			        AND NVL(TP.NOW_UNIT_CNT,0) - NVL(TPM.SAFT_UNIT_CNT,0) <0
+			        ORDER BY TPM.MODULE_CODE
+			     )            
+			     GROUP BY ROLLUP(MODULE_GUBUN, PARTS_CD)
+			     ORDER BY NVL(MODULE_GUBUN,'A') DESC, MODULE_CODE, PARTS_CD
+			 )
+        ]]>
+    </query> 
+    
+    <query id="tbef_parts_lack_ff003" desc="부품출납일보 조회 " fetchSize="50">
+        <![CDATA[
+             -- 부품출납일보 조회 
+				SELECT	/* tbef_parts_lack_ff003 */
+				      	ROWNUM AS NUM,
+				      	NVL(GUBUN,'A') GUBUN,
+				      	DECODE(PARTS_CD,'','',PARTS_CD) AS PARTS_CD,
+				      	DECODE(PARTS_CD,'',DECODE(NVL(GUBUN,'A'),'A','합계',DECODE(GUBUN,'M','모터계','보트계')), MODULE_CODE) AS MODULE_CODE,
+                      	DECODE(PARTS_CD,'','',PRICE_STND_YEAR) AS PRICE_STND_YEAR,
+				      	DECODE(PARTS_CD,'','',PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM,
+				      	DECODE(PARTS_CD,'','',SPEC) AS SPEC,
+                      	DECODE(PARTS_CD,'','',ENT_DT) AS ENT_DT,
+				      	ENT_CNT,
+				      	DELV_CNT,
+				      	DECODE(PARTS_CD,'','',NOW_UNIT_CNT) AS NOW_UNIT_CNT,
+				      	DECODE(PARTS_CD,'','',RMK) AS RMK,
+				      	DECODE(PARTS_CD,'','',OUT_ID) AS OUT_ID,
+				      	DECODE(PARTS_CD,'','',RECEPT_ID) AS RECEPT_ID,
+				      	DECODE(PARTS_CD,'',DECODE(NVL(GUBUN,'A'),'A','합계',DECODE(GUBUN,'M','모터계','보트계')),
+					    SUBSTR(MODULE_CODE,1,1) || '-'|| 
+				              	DECODE(SUBSTR(MODULE_CODE,2,1),0,'',SUBSTR(MODULE_CODE,2,1)) || SUBSTR(MODULE_CODE,3,1) || '-'||
+				              	DECODE(SUBSTR(MODULE_CODE,4,1),0,'',SUBSTR(MODULE_CODE,4,1)) || SUBSTR(MODULE_CODE,5,1) || '-'||
+				              	DECODE(SUBSTR(MODULE_CODE,6,1),0,'',SUBSTR(MODULE_CODE,6,1)) || SUBSTR(MODULE_CODE,7,1)				      
+				      	) AS PRINT_MODULE_CODE
+				FROM	(    
+						SELECT
+				       			C.PARTS_TPE AS GUBUN,                                                                             -- 구분
+				       			B.PARTS_CD,                                                                                       -- 품번
+				       			B.PRICE_STND_YEAR,                                                                                -- 단가년도
+				          		MAX(PARTS_ITEM_CD_NM) AS PARTS_ITEM_CD_NM,                                                        -- 품명
+				          		MAX(SPEC) AS SPEC,                                                                                -- 스펙
+				          		MAX(DECODE(B.PRICE_STND_YEAR, A.PRICE_STND_YEAR, ENT_DT)) AS ENT_DT,                              -- 입출고일
+				          		SUM(DECODE(B.PRICE_STND_YEAR, A.PRICE_STND_YEAR, ENT_CNT,0)) AS ENT_CNT,                          -- 입고량
+				          		SUM(DECODE(B.PRICE_STND_YEAR, A.PRICE_STND_YEAR, DELV_CNT,0)) AS DELV_CNT,                        -- 출고량
+				          		--AVG(DECODE(B.PRICE_STND_YEAR, A.PRICE_STND_YEAR, A.NOW_UNIT_CNT, B.NOW_UNIT_CNT)) AS NOW_UNIT_CNT,-- 현재고
+				          		AVG(B.NOW_UNIT_CNT) AS NOW_UNIT_CNT,-- 현재고
+				          		MAX(RMK) AS RMK,                                                                                  -- 반출내용
+				          		MAX(OUT_ID) AS OUT_ID,                                                                            -- 반출자
+				          		MAX(RECEPT_ID) AS RECEPT_ID,                                                                      -- 수령자
+				          		MAX(MODULE_CODE) AS MODULE_CODE                                                                   -- 식별번호          
+						FROM	(  
+				    			SELECT
+				          				A.ENT_DT,                             -- 입출고일
+				          				A.PARTS_CD,                              -- 품번
+                          				A.PRICE_STND_YEAR,
+				          				SUM(ENT_CNT) AS ENT_CNT,              -- 입고량
+				          				SUM(DELV_CNT) AS DELV_CNT,          -- 출고량
+				          				--AVG(NOW_UNIT_CNT) AS NOW_UNIT_CNT,                    -- 현재고
+				          				MAX(RMK) AS RMK,                         -- 반출내용
+				          				MAX(OUT_ID) AS OUT_ID,               -- 반출자
+				          				MAX(RECEPT_ID) AS RECEPT_ID          -- 수령자
+				    			FROM	(      
+				        				--부품출납일보(입고)
+				        				SELECT 
+						               			A.ENT_DT,
+				               					B.PARTS_CD,
+                               					B.PRICE_STND_YEAR,
+				               					NVL(B.ENT_CNT,0) AS ENT_CNT,
+				               					0 AS DELV_CNT,
+				               					'' AS RMK,
+				               					'' AS OUT_ID,
+				               					'' AS RECEPT_ID
+				        				FROM 	TBEF_ENT A
+				        						, TBEF_ENT_PARTS B
+				        				WHERE	A.STND_YEAR = B.STND_YEAR
+				        						AND A.MBR_CD = B.MBR_CD
+				        						AND A.ENT_SEQ = B.ENT_SEQ
+				        						AND A.STND_YEAR = ?
+				        						AND A.MBR_CD = ?
+				        						AND A.ENT_DT = ?
+				        				UNION ALL
+				        				--부품출납일보(출고)
+				        				SELECT 
+				               					A.DELV_DT AS ENT_DT,
+				               					B.PARTS_CD,
+                               					B.PRICE_STND_YEAR,
+				               					0 AS ENT_CNT,
+				               					NVL(B.DELV_CNT,0) AS DELV_CNT,
+				               					B.RMK,
+				               					A.OUT_ID,
+				               					B.RECEPT_ID   -- 2013.3.2 장비운영팀요청 A.RECEPT_ID -> B.RECEPT_ID
+				        				FROM	TBEF_DELV A
+				        						, TBEF_DELV_PARTS B
+				        				WHERE  	A.STND_YEAR = B.STND_YEAR
+				        						AND A.MBR_CD = B.MBR_CD
+				        						AND A.DELV_SEQ = B.DELV_SEQ
+				        						AND A.STND_YEAR = ?
+				        						AND A.MBR_CD = ?
+				        						AND A.DELV_DT = ?
+				        				) A
+				        		GROUP BY A.ENT_DT, A.PARTS_CD, A.PRICE_STND_YEAR        
+				   				) A, 
+                        	    (
+                        		SELECT	PARTS_CD
+                        				, PRICE_STND_YEAR
+                        				, SUM(NOW_UNIT_CNT) - SUM(ENT_CNT) + SUM(DELV_CNT) NOW_UNIT_CNT
+                                  FROM	(
+                               			SELECT	PARTS_CD
+                               					, PRICE_STND_YEAR
+                               					, NOW_UNIT_CNT
+                               					, 0 ENT_CNT
+                               					, 0 DELV_CNT
+                                		FROM    TBEF_PARTS
+                                		WHERE   STND_YEAR = SUBSTR(?, 1, 4)
+                                		AND MBR_CD = ?
+                                		UNION ALL
+                                		SELECT  PARTS_CD
+                                				, PRICE_STND_YEAR
+                                				, 0 CRFW_UNIT_CNT
+                                				, ENT_CNT
+                                				, 0 DELV_CNT
+                                		FROM    TBEF_ENT_PARTS ENT1
+                                				, TBEF_ENT ENT2  
+                                		WHERE   ENT2.STND_YEAR = SUBSTR(?, 1, 4)
+				                          AND ENT2.ENT_DT > ?
+				                          AND ENT2.MBR_CD  = ?
+				                          AND ENT1.STND_YEAR = ENT2.STND_YEAR
+				                          AND ENT1.MBR_CD = ENT2.MBR_CD
+				                          AND ENT1.ENT_SEQ = ENT2.ENT_SEQ
+				                        UNION ALL
+				                        SELECT  PARTS_CD
+				                           		, PRICE_STND_YEAR
+				                           		, 0 CRFW_UNIT_CNT
+				                           		, 0 ENT_CNT
+				                           		, DELV_CNT
+				                        FROM    TBEF_DELV_PARTS DELV1
+				                           		, TBEF_DELV DELV2  
+				                        WHERE   DELV2.STND_YEAR = SUBSTR(?, 1, 4)
+				                          AND DELV2.DELV_DT > ?
+				                          AND DELV2.MBR_CD = ?
+				                          AND DELV1.STND_YEAR = DELV2.STND_YEAR
+				                          AND DELV1.MBR_CD = DELV2.MBR_CD
+				                          AND DELV1.DELV_SEQ = DELV2.DELV_SEQ
+                                   		)
+								GROUP BY PARTS_CD, PRICE_STND_YEAR
+                        		) B, TBEF_PARTS_MASTER C
+						WHERE A.PARTS_CD = B.PARTS_CD
+						AND   A.PARTS_CD = C.PARTS_CD
+						--AND	  A.PRICE_STND_YEAR <= B.PRICE_STND_YEAR
+						AND	  A.PRICE_STND_YEAR = B.PRICE_STND_YEAR
+				    	GROUP BY ROLLUP (C.PARTS_TPE, B.PARTS_CD, B.PRICE_STND_YEAR)
+						)
+				WHERE (PRICE_STND_YEAR IS NOT NULL OR PARTS_CD IS NULL)
+				--AND   DELV_CNT > 0
+                ORDER BY NVL(GUBUN,'A') DESC, PARTS_CD
+        ]]>
+    </query> 
+</queryMap>

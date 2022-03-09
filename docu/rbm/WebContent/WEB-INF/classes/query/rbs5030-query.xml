@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5030(경기대회관리 )">
+  <query id="rbs5030_s01" desc="경기대회 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5030_s01 */
+                   '0' AS CHK
+                   ,C.GAME_CD					-- 종목코드
+		           ,C.CONTEST_TYPE_SEQ			-- 대회분류연번
+		           ,C.CONTEST_SEQ				-- 대회연번
+		           ,C.CONTEST_NM				-- 대회명
+		           ,C.PLCE						-- 장소
+		           ,C.STR_DY					-- 경기시작일
+		           ,C.END_DY					-- 경기종료일
+		           ,C.HOST_ORG					-- 주관기관
+		           ,C.RMK						-- 비고
+		           ,C1.CD_NM AS GAME_NM			-- 종목명
+		           ,T.CONTEST_TYPE_NM			-- 대회분류명
+		           ,T.INTL_TYPE					-- 국제대회 여부
+			FROM TBRS_CONTEST C, TBRK_SPEC_CD C1, TBRS_CONTEST_TYPE T
+			WHERE   C.DEL_YN = 'N'
+			    AND C.GAME_CD = C1.CD
+			    AND C1.GRP_CD = '144'
+			    AND C.GAME_CD = T.GAME_CD
+			    AND C.CONTEST_TYPE_SEQ = T.CONTEST_TYPE_SEQ  
+			    AND C.GAME_CD LIKE ?||'%'
+			    AND C.CONTEST_NM LIKE '%'||?||'%'
+			    AND C.STR_DY BETWEEN NVL(?, '20010101') AND NVL(?, '29991231')			    
+			ORDER BY C.GAME_CD, C.STR_DY --C.CONTEST_SEQ
+        ]]>
+    </query>       
+    
+    <query id="rbs5030_m01" desc="선수 기본정보 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5030_m01 */
+                  TBRS_CONTEST DST
+           USING (
+                     SELECT   ? AS GAME_CD
+                             ,? AS CONTEST_TYPE_SEQ
+                             ,? AS CONTEST_SEQ
+                             ,? AS CONTEST_NM
+                             ,? AS PLCE
+                             ,? AS STR_DY
+                             ,? AS END_DY
+                             ,? AS HOST_ORG
+                             ,? AS RMK
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.CONTEST_SEQ      = SRC.CONTEST_SEQ
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.GAME_CD  	   		= SRC.GAME_CD
+                        ,DST.CONTEST_TYPE_SEQ  	= SRC.CONTEST_TYPE_SEQ
+                        ,DST.CONTEST_NM  		= SRC.CONTEST_NM
+                        ,DST.PLCE 				= SRC.PLCE
+                        ,DST.STR_DY 			= SRC.STR_DY
+                        ,DST.END_DY 			= SRC.END_DY
+                        ,DST.HOST_ORG 			= SRC.HOST_ORG
+                        ,DST.RMK   				= SRC.RMK
+                        ,DST.UPDT_ID 			= SRC.USER_ID
+                        ,DST.UPDT_DT 			= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  GAME_CD
+                , CONTEST_TYPE_SEQ
+                , CONTEST_SEQ
+                , CONTEST_NM
+                , PLCE
+                , STR_DY
+                , END_DY
+                , HOST_ORG
+                , RMK
+                , DEL_YN
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.GAME_CD
+                , SRC.CONTEST_TYPE_SEQ
+                , (SELECT NVL(MAX(CONTEST_SEQ)+1,1) FROM TBRS_CONTEST)
+                , SRC.CONTEST_NM
+                , SRC.PLCE
+                , SRC.STR_DY
+                , SRC.END_DY
+                , SRC.HOST_ORG
+                , SRC.RMK
+                , 'N'
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5030_d01" desc="경기대회 삭제 " fetchSize="10">
+      <![CDATA[           
+           UPDATE /* rbs5030_d01 */
+                 TBRS_CONTEST
+             SET DEL_YN = 'Y'    
+           WHERE CONTEST_SEQ = ? 
+        ]]>
+    </query>    
+    
+</queryMap>

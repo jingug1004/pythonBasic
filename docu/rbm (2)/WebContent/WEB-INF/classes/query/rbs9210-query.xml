@@ -1,0 +1,1136 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS9210(전자카드 종합관리)">
+        
+    <query id="rbs9210_s01" desc="전자카드 종합관리(발매건수/경정)" fetchSize="10">
+        <![CDATA[
+            SELECT WTYPE, KK, KCYCLE, KBOAT, SU
+			  FROM (
+			        SELECT
+			              WTYPE
+			            , KK
+			            , SUM(KCYCLE) AS KCYCLE
+			            , SUM(KBOAT) AS KBOAT
+			            , SUM(SU) AS SU
+			        
+			        FROM (
+			            SELECT
+			                  DECODE(WTYPE, '', '합계', WTYPE) AS WTYPE
+			                , DECODE(KK, '', '계', KK) AS KK
+			                , SUM(KCYCLE) AS KCYCLE
+			                , SUM(KBOAT) AS KBOAT
+			                , SUM(SU) AS SU
+			            FROM(
+			                SELECT
+			                    WTYPE
+			                    , KK
+			                    , KCYCLE
+			                    , KBOAT
+			                    , KCYCLE+KBOAT AS SU
+			                    FROM(
+			                        SELECT 
+			                            WTYPE
+			                            , KK
+			                            , DECODE(KCYCLE, '', 0, KCYCLE) AS KCYCLE
+			                            , DECODE(KBOAT, '', 0, KBOAT) AS KBOAT
+			                        FROM(
+			                            SELECT 
+			                                WTYPE
+			                                , DECODE(MEET_CD, '001', '경륜', '002', '경륜', '004', '경륜', '003', '경정', '', '계') AS MEET_KS
+			                                , DECODE(KK, '', '합계', KK) AS KK
+			                                , SUM(MANNED_NUM_GONGDAN) AS SS
+			                            FROM(
+			                                SELECT 
+			                                      TP.MEET_CD
+			                                    , CASE
+			                                          WHEN TP.MEET_CD IN ('001', '003') AND TP.SELL_CD IN ('01', '03') THEN '공단경주'
+			                                          WHEN TP.MEET_CD IN ('002', '004') AND TP.SELL_CD IN ('01', '03') THEN '교차경주'
+			                                      END KK
+			                                    , CASE
+			                                          WHEN TP.WIN_TYPE = '1' THEN '유인발매'
+			                                          WHEN TP.WIN_TYPE = '3' THEN '무인발매'
+			                                      END WTYPE
+			                                    , TP.SELL_CD
+			                                    , SUM(TP.SOLD_NUM-TP.CNCL_NUM) AS MANNED_NUM_GONGDAN
+			                                FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+			                                WHERE 
+			                                        TP.STND_YEAR = VS.STND_YEAR
+			                                    AND TP.MEET_CD  = VS.MEET_CD
+			                                    AND TP.TMS  = VS.TMS
+			                                    AND TP.DAY_ORD  = VS.DAY_ORD
+			                                    AND TP.WIN_TYPE in ('1', '3')
+			                                    --AND TP.SOLD_AMT > 0
+			                                    AND TP.COMM_NO != '06'
+			                                    AND VS.RACE_DAY BETWEEN ? AND ?
+			                                    AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+			                                GROUP BY TP.WIN_TYPE, TP.MEET_CD, TP.SELL_CD
+			                            )
+			                            GROUP BY WTYPE, KK, MEET_CD 
+			        
+			        UNION ALL        
+			                          
+			                            SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                        )
+			                        PIVOT(SUM(SS) for MEET_KS in ('경륜' AS KCYCLE, '경정' AS KBOAT))
+			                    )
+			                    ORDER BY WTYPE, KK
+			                )
+			                GROUP BY ROLLUP(WTYPE, KK)
+			        )
+			        GROUP BY ROLLUP(KK, WTYPE)
+			        ORDER BY 
+			            DECODE(WTYPE, '유인발매', 1, '무인발매', 2, '전자카드', 3, '모바일', 4, 5)
+			            , DECODE(KK, '공단경주', 2, '교차경주', 3, '계', 1, 4)
+			        )    
+			WHERE WTYPE IS NOT NULL AND KK IS NOT NULL
+			  OR (KK = '공단경주' or KK= '교차경주')		
+			  
+		UNION ALL
+
+		SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '계' AS KK
+		      , 0 AS KCYCLE
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		    --AND TM.DEV_SALES_AMT > 0
+		    AND TM.MEET_CD = '003'
+		    AND TM.RACE_DAY BETWEEN ? AND ?
+		    
+		UNION ALL
+		
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '공단경주' AS KK
+		      , 0 AS KCYCLE
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD = '003'
+		      AND TM.RACE_DAY BETWEEN ? AND ? 	  		  
+        ]]>
+    </query>
+    
+    <query id="rbs9210_s02" desc="전자카드 종합관리(발매건수/경륜)" fetchSize="10">
+        <![CDATA[
+            SELECT WTYPE, KK, KCYCLE, KBOAT, SU
+			  FROM (
+			        SELECT
+			              WTYPE
+			            , KK
+			            , SUM(KCYCLE) AS KCYCLE
+			            , SUM(KBOAT) AS KBOAT
+			            , SUM(SU) AS SU
+			        
+			        FROM (
+			            SELECT
+			                  DECODE(WTYPE, '', '합계', WTYPE) AS WTYPE
+			                , DECODE(KK, '', '계', KK) AS KK
+			                , SUM(KCYCLE) AS KCYCLE
+			                , SUM(KBOAT) AS KBOAT
+			                , SUM(SU) AS SU
+			            FROM(
+			                SELECT
+			                    WTYPE
+			                    , KK
+			                    , KCYCLE
+			                    , KBOAT
+			                    , KCYCLE+KBOAT AS SU
+			                    FROM(
+			                        SELECT 
+			                            WTYPE
+			                            , KK
+			                            , DECODE(KCYCLE, '', 0, KCYCLE) AS KCYCLE
+			                            , DECODE(KBOAT, '', 0, KBOAT) AS KBOAT
+			                        FROM(
+			                            SELECT 
+			                                WTYPE
+			                                , DECODE(MEET_CD, '001', '경륜', '002', '경륜', '004', '경륜', '003', '경정', '', '계') AS MEET_KS
+			                                , DECODE(KK, '', '합계', KK) AS KK
+			                                , SUM(MANNED_NUM_GONGDAN) AS SS
+			                            FROM(
+			                                SELECT 
+			                                      TP.MEET_CD
+			                                    , CASE
+			                                          WHEN TP.MEET_CD IN ('001', '003') AND TP.SELL_CD IN ('01', '03') THEN '공단경주'
+			                                          WHEN TP.MEET_CD IN ('002', '004') AND TP.SELL_CD IN ('01', '03') THEN '교차경주'
+			                                      END KK
+			                                    , CASE
+			                                          WHEN TP.WIN_TYPE = '1' THEN '유인발매'
+			                                          WHEN TP.WIN_TYPE = '3' THEN '무인발매'
+			                                      END WTYPE
+			                                    , TP.SELL_CD
+			                                    , SUM(TP.SOLD_NUM-TP.CNCL_NUM) AS MANNED_NUM_GONGDAN
+			                                FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+			                                WHERE 
+			                                        TP.STND_YEAR = VS.STND_YEAR
+			                                    AND TP.MEET_CD  = VS.MEET_CD
+			                                    AND TP.TMS  = VS.TMS
+			                                    AND TP.DAY_ORD  = VS.DAY_ORD
+			                                    AND TP.WIN_TYPE in ('1', '3')
+			                                    --AND TP.SOLD_AMT > 0
+			                                    AND TP.COMM_NO != '06'
+			                                    AND VS.RACE_DAY BETWEEN ? AND ?
+			                                    AND TP.MEET_CD IN ('001', '002', '004')
+			                                GROUP BY TP.WIN_TYPE, TP.MEET_CD, TP.SELL_CD
+			                            )
+			                            GROUP BY WTYPE, KK, MEET_CD 
+			        
+			        UNION ALL        
+			                          
+			                            SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                 
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                   
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE 
+			                                TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                        )
+			                        PIVOT(SUM(SS) for MEET_KS in ('경륜' AS KCYCLE, '경정' AS KBOAT))
+			                    )
+			                    ORDER BY WTYPE, KK
+			                )
+			                GROUP BY ROLLUP(WTYPE, KK)
+			        )
+			        GROUP BY ROLLUP(KK, WTYPE)
+			        ORDER BY 
+			            DECODE(WTYPE, '유인발매', 1, '무인발매', 2, '전자카드', 3, '모바일', 4, 5)
+			            , DECODE(KK, '공단경주', 2, '교차경주', 3, '계', 1, 4)
+			        )    
+			WHERE WTYPE IS NOT NULL AND KK IS NOT NULL
+			  OR (KK = '공단경주' or KK= '교차경주')		
+			  
+		UNION ALL
+
+		SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '계' AS KK
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		    --AND TM.DEV_SALES_AMT > 0
+		    AND TM.MEET_CD IN ('001', '002', '004')
+		    AND TM.RACE_DAY BETWEEN ? AND ?
+		    
+		UNION ALL
+		
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '공단경주' AS KK
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD = '001'
+		      AND TM.RACE_DAY BETWEEN ? AND ?
+		      
+		 UNION ALL
+		 
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '교차경주' AS KK
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD IN ('002', '004')
+		      AND TM.RACE_DAY BETWEEN ? AND ? 	  		  
+        ]]>
+    </query>
+    
+    <query id="rbs9210_s03" desc="전자카드 종합관리(발매건수/전체)" fetchSize="10">
+        <![CDATA[
+            SELECT WTYPE, KK, KCYCLE, KBOAT, SU
+			  FROM (
+			        SELECT
+			              WTYPE
+			            , KK
+			            , SUM(KCYCLE) AS KCYCLE
+			            , SUM(KBOAT) AS KBOAT
+			            , SUM(SU) AS SU
+			        
+			        FROM (
+			            SELECT
+			                  DECODE(WTYPE, '', '합계', WTYPE) AS WTYPE
+			                , DECODE(KK, '', '계', KK) AS KK
+			                , SUM(KCYCLE) AS KCYCLE
+			                , SUM(KBOAT) AS KBOAT
+			                , SUM(SU) AS SU
+			            FROM(
+			                SELECT
+			                    WTYPE
+			                    , KK
+			                    , KCYCLE
+			                    , KBOAT
+			                    , KCYCLE+KBOAT AS SU
+			                    FROM(
+			                        SELECT 
+			                            WTYPE
+			                            , KK
+			                            , DECODE(KCYCLE, '', 0, KCYCLE) AS KCYCLE
+			                            , DECODE(KBOAT, '', 0, KBOAT) AS KBOAT
+			                        FROM(
+			                            SELECT 
+			                                WTYPE
+			                                , DECODE(MEET_CD, '001', '경륜', '002', '경륜', '004', '경륜', '003', '경정', '', '계') AS MEET_KS
+			                                , DECODE(KK, '', '합계', KK) AS KK
+			                                , SUM(MANNED_NUM_GONGDAN) AS SS
+			                            FROM(
+			                                SELECT 
+			                                      TP.MEET_CD
+			                                    , CASE
+			                                          WHEN TP.MEET_CD IN ('001', '003') AND TP.SELL_CD IN ('01', '03') THEN '공단경주'
+			                                          WHEN TP.MEET_CD IN ('002', '004') AND TP.SELL_CD IN ('01', '03') THEN '교차경주'
+			                                      END KK
+			                                    , CASE
+			                                          WHEN TP.WIN_TYPE = '1' THEN '유인발매'
+			                                          WHEN TP.WIN_TYPE = '3' THEN '무인발매'
+			                                      END WTYPE
+			                                    , TP.SELL_CD
+			                                    , SUM(TP.SOLD_NUM-TP.CNCL_NUM) AS MANNED_NUM_GONGDAN
+			                                FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+			                                WHERE 
+			                                        TP.STND_YEAR = VS.STND_YEAR
+			                                    AND TP.MEET_CD  = VS.MEET_CD
+			                                    AND TP.TMS  = VS.TMS
+			                                    AND TP.DAY_ORD  = VS.DAY_ORD
+			                                    AND TP.WIN_TYPE in ('1', '3')
+			                                    --AND TP.SOLD_AMT > 0
+			                                    AND TP.COMM_NO != '06'
+			                                    AND VS.RACE_DAY BETWEEN ? AND ?
+			                                    AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+			                                GROUP BY TP.WIN_TYPE, TP.MEET_CD, TP.SELL_CD
+			                            )
+			                            GROUP BY WTYPE, KK, MEET_CD 
+			        
+			        UNION ALL        
+			                          
+			                            SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                 
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                   
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE 
+			                                TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                                
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                 
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)    
+			                        )
+			                        PIVOT(SUM(SS) for MEET_KS in ('경륜' AS KCYCLE, '경정' AS KBOAT))
+			                    )
+			                    ORDER BY WTYPE, KK
+			                )
+			                GROUP BY ROLLUP(WTYPE, KK)
+			        )
+			        GROUP BY ROLLUP(KK, WTYPE)
+			        ORDER BY 
+			            DECODE(WTYPE, '유인발매', 1, '무인발매', 2, '전자카드', 3, '모바일', 4, 5)
+			            , DECODE(KK, '공단경주', 2, '교차경주', 3, '계', 1, 4)
+			        )    
+			WHERE WTYPE IS NOT NULL AND KK IS NOT NULL
+			  OR (KK = '공단경주' or KK= '교차경주')		
+			  
+		UNION ALL
+		
+		SELECT WTYPE, KK, SUM(KCYCLE) KCYCLE, SUM(KBOAT) KBOAT, SUM(SU) SU
+		  FROM (
+				SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '계' AS KK
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KCYCLE
+				      , 0 AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				    --AND TM.DEV_SALES_AMT > 0
+				    AND TM.MEET_CD IN ('001', '002', '004')
+				    AND TM.RACE_DAY BETWEEN ? AND ?
+				    AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+		
+				UNION ALL
+		
+				SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '계' AS KK
+				      , 0 AS KCYCLE
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				    --AND TM.DEV_SALES_AMT > 0
+				    AND TM.MEET_CD = '003'
+				    AND TM.RACE_DAY BETWEEN ? AND ?
+				    AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			  )
+	    WHERE 1 = 1
+	    GROUP BY WTYPE, KK	    
+		    		    
+		UNION ALL
+		
+		SELECT WTYPE, KK, SUM(KCYCLE) KCYCLE, SUM(KBOAT) KBOAT, SUM(SU) SU
+		  FROM ( 
+				 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '공단경주' AS KK
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KCYCLE
+				      , 0 AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				      --AND TM.DEV_SALES_AMT > 0
+				      AND TM.MEET_CD = '001'
+				      AND TM.RACE_DAY BETWEEN ? AND ?
+				      AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+				      
+				UNION ALL
+				
+				 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '공단경주' AS KK
+				      , 0 AS KCYCLE
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				      --AND TM.DEV_SALES_AMT > 0
+				      AND TM.MEET_CD = '003'
+				      AND TM.RACE_DAY BETWEEN ? AND ?
+				      AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			  )
+	      WHERE 1 = 1
+	      GROUP BY WTYPE, KK	      		      
+		      
+		 UNION ALL
+		 
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '교차경주' AS KK
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_CNT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD IN ('002', '004')
+		      AND TM.RACE_DAY BETWEEN ? AND ?
+		      AND TM.MEET_CD = NVL(?, TM.MEET_CD) 	 	  		  
+        ]]>
+    </query>
+    
+    <query id="rbs9210_s04" desc="전자카드 종합관리(발매액/경정)" fetchSize="10">
+        <![CDATA[
+                
+			SELECT WTYPE, KK, KCYCLE, KBOAT, SU
+			  FROM (
+			        SELECT
+			              WTYPE
+			            , KK
+			            , SUM(KCYCLE) AS KCYCLE
+			            , SUM(KBOAT) AS KBOAT
+			            , SUM(SU) AS SU
+			        
+			        FROM (
+			            SELECT
+			                  DECODE(WTYPE, '', '합계', WTYPE) AS WTYPE
+			                , DECODE(KK, '', '계', KK) AS KK
+			                , SUM(KCYCLE) AS KCYCLE
+			                , SUM(KBOAT) AS KBOAT
+			                , SUM(SU) AS SU
+			            FROM(
+			                SELECT
+			                    WTYPE
+			                    , KK
+			                    , KCYCLE
+			                    , KBOAT
+			                    , KCYCLE+KBOAT AS SU
+			                    FROM(
+			                        SELECT 
+			                            WTYPE
+			                            , KK
+			                            , DECODE(KCYCLE, '', 0, KCYCLE) AS KCYCLE
+			                            , DECODE(KBOAT, '', 0, KBOAT) AS KBOAT
+			                        FROM(
+			                            SELECT 
+			                                WTYPE
+			                                , DECODE(MEET_CD, '001', '경륜', '002', '경륜', '004', '경륜', '003', '경정', '', '계') AS MEET_KS
+			                                , DECODE(KK, '', '합계', KK) AS KK
+			                                , SUM(MANNED_NUM_GONGDAN) AS SS
+			                            FROM(
+			                                SELECT 
+			                                      TP.MEET_CD
+			                                    , CASE
+			                                          WHEN TP.MEET_CD IN ('001', '003') AND TP.SELL_CD IN ('01', '03') THEN '공단경주'
+			                                          WHEN TP.MEET_CD IN ('002', '004') AND TP.SELL_CD IN ('01', '03') THEN '교차경주'
+			                                      END KK
+			                                    , CASE
+			                                          WHEN TP.WIN_TYPE = '1' THEN '유인발매'
+			                                          WHEN TP.WIN_TYPE = '3' THEN '무인발매'
+			                                      END WTYPE
+			                                    , TP.SELL_CD
+			                                    , SUM(TP.SOLD_AMT-TP.CNCL_AMT) AS MANNED_NUM_GONGDAN
+			                                FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+			                                WHERE 
+			                                        TP.STND_YEAR = VS.STND_YEAR
+			                                    AND TP.MEET_CD  = VS.MEET_CD
+			                                    AND TP.TMS  = VS.TMS
+			                                    AND TP.DAY_ORD  = VS.DAY_ORD
+			                                    AND TP.WIN_TYPE in ('1', '3')
+			                                    --AND TP.SOLD_AMT > 0
+			                                    AND TP.COMM_NO != '06'
+			                                    AND VS.RACE_DAY BETWEEN ? AND ?
+			                                    AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+			                                GROUP BY TP.WIN_TYPE, TP.MEET_CD, TP.SELL_CD
+			                            )
+			                            GROUP BY WTYPE, KK, MEET_CD, SELL_CD 
+			        
+			        UNION ALL        
+			                          
+			                            SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                        )
+			                        PIVOT(SUM(SS) for MEET_KS in ('경륜' AS KCYCLE, '경정' AS KBOAT))
+			                    )
+			                    ORDER BY WTYPE, KK
+			                )
+			                GROUP BY ROLLUP(WTYPE, KK)
+			        )
+			        GROUP BY ROLLUP(KK, WTYPE)
+			        ORDER BY 
+			            DECODE(WTYPE, '유인발매', 1, '무인발매', 2, '전자카드', 3, '모바일', 4, 5)
+			            , DECODE(KK, '공단경주', 2, '교차경주', 3, '계', 1, 4)
+			        )    
+			WHERE WTYPE IS NOT NULL AND KK IS NOT NULL
+			  OR (KK = '공단경주' or KK= '교차경주')	
+			  
+		UNION ALL
+
+		SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '계' AS KK
+		      , 0 AS KCYCLE
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		    --AND TM.DEV_SALES_AMT > 0
+		    AND TM.MEET_CD = '003'
+		    AND TM.RACE_DAY BETWEEN ? AND ?
+		    
+		UNION ALL
+		
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '공단경주' AS KK
+		      , 0 AS KCYCLE
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD = '003'
+		      AND TM.RACE_DAY BETWEEN ? AND ?
+		      
+        ]]>
+    </query>
+    
+    <query id="rbs9210_s05" desc="전자카드 종합관리(발매액/경륜)" fetchSize="10">
+        <![CDATA[
+                
+			SELECT WTYPE, KK, KCYCLE, KBOAT, SU
+			  FROM (
+			        SELECT
+			              WTYPE
+			            , KK
+			            , SUM(KCYCLE) AS KCYCLE
+			            , SUM(KBOAT) AS KBOAT
+			            , SUM(SU) AS SU
+			        
+			        FROM (
+			            SELECT
+			                  DECODE(WTYPE, '', '합계', WTYPE) AS WTYPE
+			                , DECODE(KK, '', '계', KK) AS KK
+			                , SUM(KCYCLE) AS KCYCLE
+			                , SUM(KBOAT) AS KBOAT
+			                , SUM(SU) AS SU
+			            FROM(
+			                SELECT
+			                    WTYPE
+			                    , KK
+			                    , KCYCLE
+			                    , KBOAT
+			                    , KCYCLE+KBOAT AS SU
+			                    FROM(
+			                        SELECT 
+			                            WTYPE
+			                            , KK
+			                            , DECODE(KCYCLE, '', 0, KCYCLE) AS KCYCLE
+			                            , DECODE(KBOAT, '', 0, KBOAT) AS KBOAT
+			                        FROM(
+			                            SELECT 
+			                                WTYPE
+			                                , DECODE(MEET_CD, '001', '경륜', '002', '경륜', '004', '경륜', '003', '경정', '', '계') AS MEET_KS
+			                                , DECODE(KK, '', '합계', KK) AS KK
+			                                , SUM(MANNED_NUM_GONGDAN) AS SS
+			                            FROM(
+			                                SELECT 
+			                                      TP.MEET_CD
+			                                    , CASE
+			                                          WHEN TP.MEET_CD IN ('001', '003') AND TP.SELL_CD IN ('01', '03') THEN '공단경주'
+			                                          WHEN TP.MEET_CD IN ('002', '004') AND TP.SELL_CD IN ('01', '03') THEN '교차경주'
+			                                      END KK
+			                                    , CASE
+			                                          WHEN TP.WIN_TYPE = '1' THEN '유인발매'
+			                                          WHEN TP.WIN_TYPE = '3' THEN '무인발매'
+			                                      END WTYPE
+			                                    , TP.SELL_CD
+			                                    , SUM(TP.SOLD_AMT-TP.CNCL_AMT) AS MANNED_NUM_GONGDAN
+			                                FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+			                                WHERE 
+			                                        TP.STND_YEAR = VS.STND_YEAR
+			                                    AND TP.MEET_CD  = VS.MEET_CD
+			                                    AND TP.TMS  = VS.TMS
+			                                    AND TP.DAY_ORD  = VS.DAY_ORD
+			                                    AND TP.WIN_TYPE in ('1', '3')
+			                                    --AND TP.SOLD_AMT > 0
+			                                    AND TP.COMM_NO != '06'
+			                                    AND VS.RACE_DAY BETWEEN ? AND ?
+			                                    AND TP.MEET_CD IN ('001', '002', '004')
+			                                GROUP BY TP.WIN_TYPE, TP.MEET_CD, TP.SELL_CD
+			                            )
+			                            GROUP BY WTYPE, KK, MEET_CD, SELL_CD 
+			        
+			        UNION ALL        
+			                          
+			                            SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                 
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                   
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE 
+			                                TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                        )
+			                        PIVOT(SUM(SS) for MEET_KS in ('경륜' AS KCYCLE, '경정' AS KBOAT))
+			                    )
+			                    ORDER BY WTYPE, KK
+			                )
+			                GROUP BY ROLLUP(WTYPE, KK)
+			        )
+			        GROUP BY ROLLUP(KK, WTYPE)
+			        ORDER BY 
+			            DECODE(WTYPE, '유인발매', 1, '무인발매', 2, '전자카드', 3, '모바일', 4, 5)
+			            , DECODE(KK, '공단경주', 2, '교차경주', 3, '계', 1, 4)
+			        )    
+			WHERE WTYPE IS NOT NULL AND KK IS NOT NULL
+			  OR (KK = '공단경주' or KK= '교차경주')	
+			  
+		UNION ALL
+
+		SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '계' AS KK
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		    --AND TM.DEV_SALES_AMT > 0
+		    AND TM.MEET_CD IN ('001', '002', '004')
+		    AND TM.RACE_DAY BETWEEN ? AND ?
+		    
+		UNION ALL
+		
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '공단경주' AS KK
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD = '001'
+		      AND TM.RACE_DAY BETWEEN ? AND ?
+		      
+		 UNION ALL
+		 
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '교차경주' AS KK
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD IN ('002', '004')
+		      AND TM.RACE_DAY BETWEEN ? AND ? 	  
+
+        ]]>
+    </query>
+    
+    <query id="rbs9210_s06" desc="전자카드 종합관리(발매액/전체)" fetchSize="10">
+        <![CDATA[
+                
+			SELECT WTYPE, KK, KCYCLE, KBOAT, SU
+			  FROM (
+			        SELECT
+			              WTYPE
+			            , KK
+			            , SUM(KCYCLE) AS KCYCLE
+			            , SUM(KBOAT) AS KBOAT
+			            , SUM(SU) AS SU
+			        
+			        FROM (
+			            SELECT
+			                  DECODE(WTYPE, '', '합계', WTYPE) AS WTYPE
+			                , DECODE(KK, '', '계', KK) AS KK
+			                , SUM(KCYCLE) AS KCYCLE
+			                , SUM(KBOAT) AS KBOAT
+			                , SUM(SU) AS SU
+			            FROM(
+			                SELECT
+			                    WTYPE
+			                    , KK
+			                    , KCYCLE
+			                    , KBOAT
+			                    , KCYCLE+KBOAT AS SU
+			                    FROM(
+			                        SELECT 
+			                            WTYPE
+			                            , KK
+			                            , DECODE(KCYCLE, '', 0, KCYCLE) AS KCYCLE
+			                            , DECODE(KBOAT, '', 0, KBOAT) AS KBOAT
+			                        FROM(
+			                            SELECT 
+			                                WTYPE
+			                                , DECODE(MEET_CD, '001', '경륜', '002', '경륜', '004', '경륜', '003', '경정', '', '계') AS MEET_KS
+			                                , DECODE(KK, '', '합계', KK) AS KK
+			                                , SUM(MANNED_NUM_GONGDAN) AS SS
+			                            FROM(
+			                                SELECT 
+			                                      TP.MEET_CD
+			                                    , CASE
+			                                          WHEN TP.MEET_CD IN ('001', '003') AND TP.SELL_CD IN ('01', '03') THEN '공단경주'
+			                                          WHEN TP.MEET_CD IN ('002', '004') AND TP.SELL_CD IN ('01', '03') THEN '교차경주'
+			                                      END KK
+			                                    , CASE
+			                                          WHEN TP.WIN_TYPE = '1' THEN '유인발매'
+			                                          WHEN TP.WIN_TYPE = '3' THEN '무인발매'
+			                                      END WTYPE
+			                                    , TP.SELL_CD
+			                                    , SUM(TP.SOLD_AMT-TP.CNCL_AMT) AS MANNED_NUM_GONGDAN
+			                                FROM VW_PC_TELMP TP, VW_SDL_INFO VS
+			                                WHERE 
+			                                        TP.STND_YEAR = VS.STND_YEAR
+			                                    AND TP.MEET_CD  = VS.MEET_CD
+			                                    AND TP.TMS  = VS.TMS
+			                                    AND TP.DAY_ORD  = VS.DAY_ORD
+			                                    AND TP.WIN_TYPE in ('1', '3')
+			                                    --AND TP.SOLD_AMT > 0
+			                                    AND TP.COMM_NO != '06'
+			                                    AND VS.RACE_DAY BETWEEN ? AND ?
+			                                    AND TP.MEET_CD = NVL(?, TP.MEET_CD)
+			                                GROUP BY TP.WIN_TYPE, TP.MEET_CD, TP.SELL_CD
+			                            )
+			                            GROUP BY WTYPE, KK, MEET_CD, SELL_CD 
+			        
+			        UNION ALL        
+			                          
+			                            SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                '전자카드' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                 
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '001'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                   
+			                            UNION ALL
+			                
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경륜' AS MEET_KS
+			                                , '교차경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE 
+			                                TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD IN ('002', '004')
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                                
+			                           UNION ALL
+			                           
+			                           SELECT 
+			                                  '전자카드' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                ,NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '001'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			                
+			                            UNION ALL
+			                            
+			                            SELECT 
+			                                  '모바일' AS WTYPE
+			                                , '경정' AS MEET_KS
+			                                , '공단경주' AS KK
+			                                , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SS
+			                            FROM TBRS_MYCAT_TELMP TM
+			                            WHERE
+			                                    TM.CHNL_CD = '002'
+			                                --AND TM.DEV_SALES_AMT > 0
+			                                AND TM.MEET_CD = '003'
+			                                AND TM.RACE_DAY BETWEEN ? AND ?
+			                                AND TM.MEET_CD = NVL(?, TM.MEET_CD)     
+			                        )
+			                        PIVOT(SUM(SS) for MEET_KS in ('경륜' AS KCYCLE, '경정' AS KBOAT))
+			                    )
+			                    ORDER BY WTYPE, KK
+			                )
+			                GROUP BY ROLLUP(WTYPE, KK)
+			        )
+			        GROUP BY ROLLUP(KK, WTYPE)
+			        ORDER BY 
+			            DECODE(WTYPE, '유인발매', 1, '무인발매', 2, '전자카드', 3, '모바일', 4, 5)
+			            , DECODE(KK, '공단경주', 2, '교차경주', 3, '계', 1, 4)
+			        )    
+			WHERE WTYPE IS NOT NULL AND KK IS NOT NULL
+			  OR (KK = '공단경주' or KK= '교차경주')	
+			  
+		UNION ALL
+
+		SELECT WTYPE, KK, SUM(KCYCLE) KCYCLE, SUM(KBOAT) KBOAT, SUM(SU) SU
+		  FROM (
+				SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '계' AS KK
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KCYCLE
+				      , 0 AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				    --AND TM.DEV_SALES_AMT > 0
+				    AND TM.MEET_CD IN ('001', '002', '004')
+				    AND TM.RACE_DAY BETWEEN ? AND ?
+				    AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+				
+				UNION ALL
+				    
+				SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '계' AS KK
+				      , 0 AS KCYCLE
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				    --AND TM.DEV_SALES_AMT > 0
+				    AND TM.MEET_CD = '003'
+				    AND TM.RACE_DAY BETWEEN ? AND ?
+				    AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+				)
+		 WHERE 1 = 1
+		GROUP BY WTYPE, KK    
+		        
+		    
+		UNION ALL
+		
+		SELECT WTYPE, KK, SUM(KCYCLE) KCYCLE, SUM(KBOAT) KBOAT, SUM(SU) SU
+		  FROM (
+				 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '공단경주' AS KK
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KCYCLE
+				      , 0 AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				      --AND TM.DEV_SALES_AMT > 0
+				      AND TM.MEET_CD = '001'
+				      AND TM.RACE_DAY BETWEEN ? AND ?
+				      AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+				      
+				 UNION ALL
+				 
+				 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+				      , '공단경주' AS KK
+				      , 0 AS KCYCLE
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KBOAT
+				      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+				  FROM TBRS_MYCAT_TELMP TM
+				  WHERE TM.CHNL_CD IN ('001', '002')
+				      --AND TM.DEV_SALES_AMT > 0
+				      AND TM.MEET_CD = '003'
+				      AND TM.RACE_DAY BETWEEN ? AND ?
+				      AND TM.MEET_CD = NVL(?, TM.MEET_CD)
+			   )
+		WHERE 1 = 1
+		GROUP BY WTYPE, KK 
+		
+		 UNION ALL
+		 
+		 SELECT '전자카드 비율(사감위 기준)' AS WTYPE
+		      , '교차경주' AS KK
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS KCYCLE
+		      , 0 AS KBOAT
+		      , NVL(SUM(TM.DEV_SALES_AMT), 0) AS SU
+		  FROM TBRS_MYCAT_TELMP TM
+		  WHERE TM.CHNL_CD IN ('001', '002')
+		      --AND TM.DEV_SALES_AMT > 0
+		      AND TM.MEET_CD IN ('002', '004')
+		      AND TM.RACE_DAY BETWEEN ? AND ?
+		      AND TM.MEET_CD = NVL(?, TM.MEET_CD) 	  
+
+        ]]>
+    </query>
+    
+</queryMap>

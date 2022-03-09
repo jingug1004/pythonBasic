@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbea_race_movie(경주동영상)">
+	<query id="tbea_race_movie_fa001" desc="경주동영상 등록 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  TR.STND_YEAR
+			        , TR.MBR_CD
+			        , TR.TMS
+			        , TR.DAY_ORD
+			        , TR.RACE_NO
+			        , DECODE(RM.INTRO_MOVIE,'Y',1,0) INTRO_MOVIE
+			        , DECODE(RM.RACE_MOVIE,'Y',1,0) RACE_MOVIE
+			FROM    TBEB_RACE TR, MRAWEB.RACEMOVIE RM
+			WHERE   TR.STND_YEAR = RM.STND_YEAR(+)
+			        AND TR.MBR_CD = RM.MBR_CD(+)
+			        AND TR.TMS = RM.TMS(+)
+			        AND TR.DAY_ORD = RM.DAY_ORD(+)
+			        AND TR.RACE_NO = RM.RACE_NO(+)
+			        AND TR.STND_YEAR = ?
+			        AND TR.MBR_CD = ?
+			        AND TR.TMS = ?
+			        AND TR.DAY_ORD = ?
+			ORDER BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO        
+		]]>
+    </query>     
+        
+     <query id="tbea_race_movie_ma001" desc="경주동영상 수정" fetchSize="10">
+        <![CDATA[
+            MERGE INTO MRAWEB.RACEMOVIE RM
+            USING (
+                    SELECT
+                              ? STND_YEAR       -- 기준년도    
+                            , ? MBR_CD          -- 경정장코드
+                            , ? TMS             -- 회차        
+                            , ? DAY_ORD         -- 일차        
+                            , ? RACE_NO         -- 경주번호
+                            , ? INTRO_MOVIE		-- 인트로 동영상 
+                            , ? RACE_MOVIE    	-- 경주 동영
+                    FROM    DUAL
+                  ) TR
+            ON (    RM.STND_YEAR = TR.STND_YEAR
+                AND RM.MBR_CD    = TR.MBR_CD
+                AND RM.TMS       = TR.TMS
+                AND RM.DAY_ORD   = TR.DAY_ORD
+                AND RM.RACE_NO   = TR.RACE_NO
+                )
+            WHEN MATCHED THEN                              --데이터 중복건이 있는경우 Update
+                       UPDATE SET 
+                                    RM.INTRO_MOVIE    = DECODE(NVL(TR.INTRO_MOVIE,'0'),'0','N','Y')    -- check되면 Y 아니면 N 입력
+                                  , RM.RACE_MOVIE      = DECODE(NVL(TR.RACE_MOVIE,'0'),'0','N','Y')                            
+            WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+                       INSERT (
+                                    RM.STND_YEAR       
+                                  , RM.MBR_CD                          
+                                  , RM.TMS                             
+                                  , RM.DAY_ORD                         
+                                  , RM.RACE_NO                         
+                                  , RM.INTRO_MOVIE    
+                                  , RM.RACE_MOVIE                            
+                              ) VALUES (
+                                    TR.STND_YEAR       
+                                  , TR.MBR_CD          
+                                  , TR.TMS             
+                                  , TR.DAY_ORD         
+                                  , TR.RACE_NO         
+                                  , DECODE(NVL(TR.INTRO_MOVIE,'0'),'0','N','Y')    
+                                  , DECODE(NVL(TR.RACE_MOVIE,'0'),'0','N','Y')      
+                              )                         
+        ]]>
+    </query> 
+     
+</queryMap>

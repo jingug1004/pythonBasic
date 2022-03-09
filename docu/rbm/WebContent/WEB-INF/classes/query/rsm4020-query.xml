@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4020(경주,승식별실적 )">
+	<query id="rsm4020_s01" desc="경주 개최 정보" fetchSize="10">
+        <![CDATA[
+	        SELECT /* rsm4020_s01 */
+	        	   V.STND_YEAR,		-- 기준년도
+	        	   V.RACE_DAY,		-- 경주일
+			       W.MEET_CD AS MEET_CD_CRA, -- 광명 경륜
+			       W.RACE_INFO AS RACE_INFO_CRA, -- 광명 경륜
+			       M.MEET_CD AS MEET_CD_MRA, -- 경정
+			       M.RACE_INFO AS RACE_INFO_MRA, -- 경정
+			       T.MEET_CD AS MEET_CD_ETC,  -- 교차
+			       T.RACE_INFO AS RACE_INFO_ETC,  -- 교차
+			       DECODE(W.MEET_CD,null,M.MEET_CD,W.MEET_CD) AS MEET_CD  -- 경륜, 경정 구분 코드
+			FROM(
+			    SELECT STND_YEAR,
+			    	   RACE_DAY 
+			      FROM VW_SDL_INFO A
+			      WHERE 1=1
+			        AND STND_YEAR	= ? -- 0:STND_YEAR
+			      GROUP BY STND_YEAR,RACE_DAY
+			)V, -- 경주 일자 정보
+			(
+			    SELECT MEET_CD,
+					   RACE_DAY,
+			           ('경륜 '||TMS||'회차 '||DAY_ORD||'일차' ) AS RACE_INFO
+			      FROM VW_SDL_INFO A
+			      WHERE 1=1
+			      AND MEET_CD	= '001'
+			      AND STND_YEAR	= ?	-- 1:STND_YEAR
+			)W, -- 광명
+			(
+			    SELECT MEET_CD, 
+			           RACE_DAY,
+			           ('경정 '||TMS||'회차 '||DAY_ORD||'일차' ) AS RACE_INFO
+			      FROM VW_SDL_INFO A
+			      WHERE 1=1
+			      AND MEET_CD = '003'
+			      AND STND_YEAR	= ? -- 2:STND_YEAR
+			)M, -- 경정
+			(
+			    SELECT MEET_CD,
+			           RACE_DAY,
+			           (DECODE(MEET_CD,'002','창원','부산')||'교차 '||TMS||'회차 '||DAY_ORD||'일차' ) AS RACE_INFO
+			      FROM VW_SDL_INFO A
+			      WHERE 1=1
+			      AND MEET_CD IN ('002','004')
+			      AND STND_YEAR	= ? -- 3:STND_YEAR
+			)T -- 교차
+			WHERE 1=1
+			  AND V.RACE_DAY=W.RACE_DAY(+) -- 광명
+			  AND V.RACE_DAY=M.RACE_DAY(+) -- 미사리
+			  AND V.RACE_DAY=T.RACE_DAY(+) -- 교차
+			ORDER BY RACE_DAY DESC                    
+        ]]>
+    </query>
+    
+
+</queryMap>

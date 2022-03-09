@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBO2070(요일별매표현황)">
+    <query id="rbo2070_s01" desc="요일별매표현황 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* "rbo2070_s01" */
+                  MAX(B.MEET_CD) MEET_CD                                -- 구분
+                 ,A.DAY                                                 -- 요일
+                 ,COUNT(*) TOTAL_CNT                                    --경주일수
+                 ,SUM(TOTAL_AMT) CURR_AMT                               --실입금액(전체)
+                 ,SUM(TOTAL_CNT)  SALE_CNT                              --입장인원(전체)
+                 ,ROUND(AVG(TOTAL_AMT),1)   CURR_AVG                    --실입금액(일평균)
+                 ,ROUND(AVG(TOTAL_CNT),1) SALE_AVG                      --입장인원(일평균)
+                 ,MIN(SALES_DT_STR) || ' ~ ' || MAX(SALES_DT_STR)   SALES_DUR   --경주기간(시작일 -종료일)
+              FROM 
+                (
+                     SELECT 
+                         SALES_DT
+                        ,SUM( NVL(SAVE_AMT,0) - NVL(REFUND_AMT,0)) TOTAL_AMT
+                        ,SUM(DECODE(REFUND_YN,'N',1,0)) TOTAL_CNT
+                        ,TO_CHAR(TO_DATE(SALES_DT),'DY') DAY
+                        ,TO_CHAR(TO_DATE(SALES_DT),'D') ORD 
+                        ,TO_CHAR(TO_DATE(SALES_DT),'YYYY/MM/DD') SALES_DT_STR 
+                     FROM 
+                         TBRB_APPO_SEAT_MANA   --지정좌석
+                     WHERE 1=1
+                        AND BRNC_CD  = ?
+                        AND  SALES_DT BETWEEN ? AND ?
+                     GROUP BY SALES_DT
+                 ) A
+                , (SELECT * FROM VW_SDL_INFO  WHERE MEET_CD IN ('001','003') ) B
+             WHERE  1=1
+               AND  A.SALES_DT = B.RACE_DAY(+)
+               AND  DECODE(?,'',1,B.MEET_CD)  = DECODE(?,'',1,?) 
+          GROUP BY  A.DAY,A.ORD
+          ORDER BY MEET_CD, DECODE(ORD,1,9,ORD)
+        ]]>
+    </query>
+</queryMap>

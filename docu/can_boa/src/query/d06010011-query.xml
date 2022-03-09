@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="출주표"> 
+    <query id="tbdn_cand_ident_fn101" desc="기수 조회" fetchSize="10">
+		<![CDATA[
+
+			SELECT  A.CAND_NO
+                   ,A.NM_KOR
+                   ,B.MOTOR_NO
+                   ,B.BOAT_NO
+				    
+			FROM (  SELECT *
+			            FROM TBDN_CAND_IDENT
+			            WHERE CAND_NO NOT IN ( SELECT CAND_NO 
+			            					   FROM TBDN_TEMP_ABS
+			                                   WHERE GEN_DT <= ?
+			                                         AND GBN      IN ('001', '003')) ) A,
+			         (  SELECT DISTINCT CAND_NO, MOTOR_NO, BOAT_NO 
+			            FROM TBDN_CAND_RACE_ORGAN
+			            WHERE DAY_NO = ? ) B
+			WHERE 1=1
+			          AND A.CAND_NO = B.CAND_NO(+)
+			          AND A.RACER_PERIO_NO = ?
+			ORDER BY A.CAND_NO
+            
+	    ]]>
+    </query>
+    <query id="tbdn_cand_race_organ_fn001" desc="기수 조회" fetchSize="10">
+		<![CDATA[
+            			SELECT
+			         TCRO.RACER_PERIO_NO     -- 기수
+			       , TCRO.DAY_NO             -- 출주번호
+			       , TCRO.ROUND              -- 라운드
+			       , TCRO.TEAM_NO            -- 조번호
+			       , TCRO.RACE_REG_NO        -- 정번
+			       , TCRO.CAND_NO            -- 후보생번호
+			       , TCI .NM_KOR             -- 후보생명
+			       , TCRO.MOTOR_NO           -- 모터번호
+			       , TCRO.BOAT_NO            -- 보트번호
+			       , TCRO.ARRIV_ORD          -- 착순
+			       , TCRO.STRATEGY           -- 전법
+			       , ''   VIOL               -- 위반
+			       , TCV.VIOL_CNTNT          -- 위반내용
+			       , TCRO.RACE_CNTNT         -- 경주내용
+                   , TCRR.RACE_COURSE_1
+                   , TCRR.RACE_COURSE_2
+                   , TCRR.RACE_COURSE_3
+                   , TCRR.RACE_COURSE_4
+                   , TCRR.RACE_COURSE_5
+                   , TCRR.RACE_COURSE_6
+                   , TCRR.RACE_COURSE_7
+                   , TCRR.RACE_TIME_1
+                   , TCRR.RACE_TIME_2
+                   , TCRR.RACE_TIME_3
+                   , TCRR.RACE_TIME_4
+                   , TCRR.RACE_TIME_5
+                   , TCRR.RACE_TIME_6
+                   , TCRR.RACE_TIME_7
+                   , TCRR.RACE_FL_1
+                   , TCRR.RACE_FL_2
+                   , TCRR.RACE_FL_3
+                   , TCRR.RACE_FL_4
+                   , TCRR.RACE_FL_5
+                   , TCRR.RACE_FL_6
+                   , TCRR.RACE_FL_7
+            FROM     TBDN_CAND_RACE_ORGAN TCRO
+                   , (
+                        SELECT
+                                 RACE_REG_NO
+                               , MIN(DECODE(RACE_SEQ, 1, RACE_COURSE)) RACE_COURSE_1
+                               , MIN(DECODE(RACE_SEQ, 2, RACE_COURSE)) RACE_COURSE_2
+                               , MIN(DECODE(RACE_SEQ, 3, RACE_COURSE)) RACE_COURSE_3
+                               , MIN(DECODE(RACE_SEQ, 4, RACE_COURSE)) RACE_COURSE_4
+                               , MIN(DECODE(RACE_SEQ, 5, RACE_COURSE)) RACE_COURSE_5
+                               , MIN(DECODE(RACE_SEQ, 6, RACE_COURSE)) RACE_COURSE_6
+                               , MIN(DECODE(RACE_SEQ, 7, RACE_COURSE)) RACE_COURSE_7
+                               , MIN(DECODE(RACE_SEQ, 1, RACE_TIME  )) RACE_TIME_1
+                               , MIN(DECODE(RACE_SEQ, 2, RACE_TIME  )) RACE_TIME_2
+                               , MIN(DECODE(RACE_SEQ, 3, RACE_TIME  )) RACE_TIME_3
+                               , MIN(DECODE(RACE_SEQ, 4, RACE_TIME  )) RACE_TIME_4
+                               , MIN(DECODE(RACE_SEQ, 5, RACE_TIME  )) RACE_TIME_5
+                               , MIN(DECODE(RACE_SEQ, 6, RACE_TIME  )) RACE_TIME_6
+                               , MIN(DECODE(RACE_SEQ, 7, RACE_TIME  )) RACE_TIME_7
+                               , MIN(DECODE(RACE_SEQ, 1, RACE_FL    )) RACE_FL_1
+                               , MIN(DECODE(RACE_SEQ, 2, RACE_FL    )) RACE_FL_2
+                               , MIN(DECODE(RACE_SEQ, 3, RACE_FL    )) RACE_FL_3
+                               , MIN(DECODE(RACE_SEQ, 4, RACE_FL    )) RACE_FL_4
+                               , MIN(DECODE(RACE_SEQ, 5, RACE_FL    )) RACE_FL_5
+                               , MIN(DECODE(RACE_SEQ, 6, RACE_FL    )) RACE_FL_6
+                               , MIN(DECODE(RACE_SEQ, 7, RACE_FL    )) RACE_FL_7
+                        FROM   TBDN_CAND_RACE_RECD
+            			WHERE  RACER_PERIO_NO   = ?       -- 기수
+            			AND    DAY_NO           = ?       -- 출주번호
+            			AND    ROUND            = ?       -- 라운드
+            			AND    TEAM_NO          = ?       -- 조번호
+            			GROUP BY RACE_REG_NO
+                     ) TCRR
+                   , TBDN_CAND_IDENT TCI
+                   , (
+	                   	SELECT
+							RACE_REG_NO,
+							RTRIM(XMLAGG(XMLELEMENT("VIOL_NM", VIOL_NM, ',') ORDER BY ROWNUM).EXTRACT('//text()').GETSTRINGVAL(),',') VIOL_CNTNT
+						FROM
+						(
+							SELECT
+								RACE_REG_NO,
+								FC_CODE_NM_003('D10075', VIOL_CD) VIOL_NM
+							FROM TBDN_CAND_RACE_VIOL
+							WHERE  RACER_PERIO_NO   = ?      -- 기수
+							AND    DAY_NO           = ?       -- 출주번호
+							AND    ROUND            = ?       -- 라운드
+							AND    TEAM_NO          = ?       -- 조번호
+						)
+						GROUP BY RACE_REG_NO
+                   ) TCV
+            WHERE  1=1
+            AND TCRO.RACE_REG_NO      = TCRR.RACE_REG_NO(+)
+            AND TCRO.CAND_NO          = TCI.CAND_NO    (+)
+            AND TCRO.RACE_REG_NO      = TCV.RACE_REG_NO(+)
+			AND TCRO.RACER_PERIO_NO   = ?       -- 기수
+			AND TCRO.DAY_NO           = ?       -- 출주번호
+			AND TCRO.ROUND            = ?       -- 라운드
+			AND TCRO.TEAM_NO          = ?       -- 조번호
+			ORDER BY
+			         TCRO.RACER_PERIO_NO     -- 기수
+			       , TCRO.DAY_NO             -- 출주번호
+			       , TCRO.ROUND              -- 라운드
+			       , TCRO.TEAM_NO            -- 조번호
+			       , TCRO.RACE_REG_NO        -- 정번   
+	    ]]>
+    </query>
+
+    <query id="tbdn_cand_race_race_fn001" desc="기수 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+			         RACER_PERIO_NO   -- 기수    
+			       , DAY_NO           -- 출주번호
+			       , ROUND            -- 라운드  
+			       , GBN              -- 출주구분
+			       , CCIT_CNT         -- 주회수  
+			       , BOAT_TIME        -- 승정시간
+			       , INST_ID          -- 작성자ID
+			       , INST_DTM         -- 작성일자
+			       , UPDT_ID          -- 수정자ID
+			       , UPDT_DTM         -- 수정일자
+			FROM   TBDN_CAND_RACE_RACE
+			WHERE  RACER_PERIO_NO   = NVL(?, RACER_PERIO_NO)       -- 기수      
+			AND    DAY_NO           = NVL(?, DAY_NO        )       -- 출주번호  
+	    ]]>
+    </query>
+    
+	<query id="tbdn_cand_race_cfm_fn001" desc="확정 조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+			         RACER_PERIO_NO   -- 기수    
+			       , DAY_NO           -- 출주번호
+			       , DT               -- 출주일  
+			       , CFM_YN           -- 확정여부
+			FROM   TBDN_CAND_RACE
+			WHERE  RACER_PERIO_NO   = ?       -- 기수      
+			AND    DAY_NO           = ?       -- 출주번호  
+			AND    DT               = ?       -- 출주일
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cand_race_cfm_un001" desc="확정처리" fetchSize="10">
+		<![CDATA[
+			UPDATE TBDN_CAND_RACE SET
+			         CFM_YN         = ?       -- 출주구분
+			WHERE  RACER_PERIO_NO   = NVL(?, RACER_PERIO_NO)       -- 기수      
+			AND    DAY_NO           = NVL(?, DAY_NO        )       -- 출주번호  
+			AND    DT               = NVL(?, DT         )          -- 출주일    
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cand_race_race_in001" desc="경주 입력" fetchSize="10">
+		<![CDATA[
+			INSERT INTO TBDN_CAND_RACE_RACE
+			(
+			         RACER_PERIO_NO   -- 기수    
+			       , DAY_NO           -- 출주번호
+			       , ROUND            -- 라운드  
+			       , GBN              -- 출주구분
+			       , CCIT_CNT         -- 주회수  
+			       , BOAT_TIME        -- 승정시간
+			       , INST_ID          -- 작성자ID
+			       , INST_DTM         -- 작성일자
+			       , UPDT_ID          -- 수정자ID
+			       , UPDT_DTM         -- 수정일자
+			) VALUES (
+			         ?                -- 기수    
+			       , ?                -- 출주번호
+			       , ?                -- 라운드  
+			       , ?                -- 출주구분
+			       , ?                -- 주회수  
+			       , ?                -- 승정시간
+			       , ?                -- 작성자ID
+			       , SYSDATE          -- 작성일자
+			       , ?                -- 수정자ID
+			       , SYSDATE          -- 수정일자
+			)
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cand_race_race_un001" desc="경주 수정" fetchSize="10">
+		<![CDATA[
+			UPDATE TBDN_CAND_RACE_RACE SET
+			         GBN            = ?       -- 출주구분
+			       , CCIT_CNT       = ?       -- 주회수  
+			       , BOAT_TIME      = ?       -- 승정시간
+			       , UPDT_ID        = ?       -- 수정자ID  
+			       , UPDT_DTM       = SYSDATE -- 수정일자  
+			WHERE  RACER_PERIO_NO   = NVL(?, RACER_PERIO_NO)       -- 기수      
+			AND    DAY_NO           = NVL(?, DAY_NO        )       -- 출주번호  
+			AND    ROUND            = NVL(?, ROUND         )       -- 라운드    
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cand_race_race_dn001" desc="경주 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE 
+			FROM   TBDN_CAND_RACE_RACE
+			WHERE  RACER_PERIO_NO   = NVL(?, RACER_PERIO_NO)       -- 기수      
+			AND    DAY_NO           = NVL(?, DAY_NO        )       -- 출주번호  
+			AND    ROUND            = NVL(?, ROUND         )       -- 라운드    
+	    ]]>
+    </query>
+
+    <query id="tbdn_cand_race_organ_in001" desc="출주 입력" fetchSize="10">
+		<![CDATA[
+			INSERT INTO TBDN_CAND_RACE_ORGAN
+			(
+			         RACER_PERIO_NO     -- 기수      
+			       , DAY_NO             -- 출주번호  
+			       , ROUND              -- 라운드    
+			       , TEAM_NO            -- 조번호    
+			       , RACE_REG_NO        -- 정번      
+			       , CAND_NO            -- 후보생번호
+			       , MOTOR_NO           -- 모터번호  
+			       , BOAT_NO            -- 보트번호  
+			       , ARRIV_ORD          -- 착순      
+			       , STRATEGY           -- 전법      
+			       , VIOL               -- 위반      
+			       , VIOL_CNTNT         -- 위반내용  
+			       , RACE_CNTNT         -- 경주내용  
+			       , INST_ID            -- 작성자ID  
+			       , INST_DTM           -- 작성일자  
+			       , UPDT_ID            -- 수정자ID  
+			       , UPDT_DTM           -- 수정일자  
+			) VALUES (
+			         ?                  -- 기수      
+			       , ?                  -- 출주번호  
+			       , ?                  -- 라운드    
+			       , ?                  -- 조번호    
+			       , ?                  -- 정번      
+			       , ?                  -- 후보생번호
+			       , ?                  -- 모터번호  
+			       , ?                  -- 보트번호  
+			       , ?                  -- 착순      
+			       , ?                  -- 전법      
+			       , ?                  -- 위반      
+			       , ?                  -- 위반내용  
+			       , ?                  -- 경주내용  
+			       , ?                  -- 작성자ID  
+			       , SYSDATE            -- 작성일자  
+			       , ?                  -- 수정자ID  
+			       , SYSDATE            -- 수정일자  
+			)
+	    ]]>
+    </query>
+    <query id="tbdn_cand_race_organ_un001" desc="출주 수정" fetchSize="10">
+		<![CDATA[
+			UPDATE TBDN_CAND_RACE_ORGAN SET
+			         CAND_NO        = ?       -- 후보생번호
+			       , MOTOR_NO       = ?       -- 모터번호  
+			       , BOAT_NO        = ?       -- 보트번호  
+			       , ARRIV_ORD      = ?       -- 착순      
+			       , STRATEGY       = ?       -- 전법      
+			       , VIOL           = ?       -- 위반      
+			       , VIOL_CNTNT     = ?       -- 위반내용  
+			       , RACE_CNTNT     = ?       -- 경주내용  
+			       , UPDT_ID        = ?       -- 수정자ID  
+			       , UPDT_DTM       = SYSDATE -- 수정일자  
+			WHERE  RACER_PERIO_NO   = ?       -- 기수      
+			AND    DAY_NO           = ?       -- 출주번호  
+			AND    ROUND            = ?       -- 라운드    
+			AND    TEAM_NO          = ?       -- 조번호    
+			AND    RACE_REG_NO      = ?       -- 정번      
+	    ]]>
+    </query>
+    <query id="tbdn_cand_race_organ_dn001" desc="출주 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE 
+			FROM   TBDN_CAND_RACE_ORGAN
+			WHERE  RACER_PERIO_NO   = NVL(?, RACER_PERIO_NO)       -- 기수      
+			AND    DAY_NO           = NVL(?, DAY_NO        )       -- 출주번호  
+			AND    ROUND            = NVL(?, ROUND         )       -- 라운드    
+			AND    TEAM_NO          = NVL(?, TEAM_NO       )       -- 조번호    
+			AND    RACE_REG_NO      = NVL(?, RACE_REG_NO   )       -- 정번      
+	    ]]>
+    </query>
+
+    <query id="tbdn_cand_race_recd_fn000" desc="일련번호조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+			       NVL(MAX(RACE_SEQ), 0) + 1 RACE_SEQ
+			WHERE  RACER_PERIO_NO   = ?       -- 기수      
+			AND    DAY_NO           = ?       -- 출주번호  
+			AND    ROUND            = ?       -- 라운드    
+			AND    TEAM_NO          = ?       -- 조번호    
+			AND    RACE_REG_NO      = ?       -- 정번      
+	    ]]>
+    </query>
+
+    <query id="tbdn_race_plan_detail_se001" desc="경정후보생 출주표 세부조회" fetchSize="10">
+		<![CDATA[
+			SELECT RACER_PERIO_NO,
+		           DAY_NO,
+		           DT, 
+		           CAND_NO,
+		           FC_GET_CANDNAME(CAND_NO) AS NM_KOR, 
+		           NVL(RACE_P, 0) AS RACE_P, 
+		           NVL(RACE_2, 0) AS RACE_2, 
+		           NVL(RACE_3, 0) AS RACE_3, 
+		           NVL(RACE_S, 0) AS RACE_S, 
+		           NVL(RACE_T, 0) AS RACE_T
+			FROM TBDN_CAND_RACE_PLAN
+			WHERE 1=1
+		          AND RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+		          AND DT BETWEEN NVL(?, DT) AND NVL(?, DT)
+			ORDER BY RACER_PERIO_NO DESC, DAY_NO DESC, CAND_NO
+	    ]]>
+    </query>
+
+    <query id="tbdn_race_plan_total_se001" desc="경정후보생 출주표 총괄조회" fetchSize="10">
+		<![CDATA[
+			SELECT RACER_PERIO_NO, 
+		           CAND_NO, 
+		           FC_GET_CANDNAME(CAND_NO) AS NM_KOR,
+		           SUM(NVL(RACE_P, 0)) AS RACE_P, 
+		           SUM(NVL(RACE_2, 0)) AS RACE_2, 
+		           SUM(NVL(RACE_3, 0)) AS RACE_3, 
+		           SUM(NVL(RACE_S, 0)) AS RACE_S, 
+		           SUM(NVL(RACE_T, 0)) AS RACE_T
+			FROM TBDN_CAND_RACE_PLAN
+			WHERE 1=1
+		          AND RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+		          AND DT BETWEEN NVL(?, DT) AND NVL(?, DT)
+			GROUP BY RACER_PERIO_NO, CAND_NO          
+			ORDER BY RACER_PERIO_NO DESC, CAND_NO		
+	    ]]>
+    </query>
+
+    <query id="tbdn_cand_race_plan_dn001" desc="경정후보생 출주표 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE FROM TBDN_CAND_RACE_PLAN
+			WHERE RACER_PERIO_NO = ?
+		          AND DAY_NO = ?
+	    ]]>
+    </query>    
+
+    <query id="tbdn_cand_race_recd_in001" desc="기록 입력" fetchSize="10">
+		<![CDATA[
+			INSERT INTO TBDN_CAND_RACE_RECD
+			(
+			         RACER_PERIO_NO   -- 기수    
+			       , DAY_NO           -- 출주번호
+			       , ROUND            -- 라운드  
+			       , TEAM_NO          -- 조번호  
+			       , RACE_REG_NO      -- 정번    
+			       , RACE_SEQ         -- 일련번호
+			       , RACE_COURSE      -- 코스    
+			       , RACE_TIME        -- 경주시간
+			       , RACE_FL          -- F/L
+			       , INST_ID          -- 작성자ID
+			       , INST_DTM         -- 작성일자
+			       , UPDT_ID          -- 수정자ID
+			       , UPDT_DTM         -- 수정일자
+			) VALUES (
+			         ?                -- 기수    
+			       , ?                -- 출주번호
+			       , ?                -- 라운드  
+			       , ?                -- 조번호  
+			       , ?                -- 정번    
+			       , ?                -- 일련번호
+			       , ?                -- 코스    
+			       , ?                -- 경주시간
+			       , ?				  -- F/L
+			       , ?                -- 작성자ID
+			       , SYSDATE          -- 작성일자
+			       , ?                -- 수정자ID
+			       , SYSDATE          -- 수정일자
+			)
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cand_race_recd_un001" desc="기록 수정" fetchSize="10">
+		<![CDATA[
+			UPDATE TBDN_CAND_RACE_RECD SET
+			         RACE_COURSE    = ?       -- 코스    
+			       , RACE_TIME      = ?       -- 경주시간
+			       , RACE_FL        = ?       -- F/L
+			       , UPDT_ID        = ?       -- 수정자ID  
+			       , UPDT_DTM       = SYSDATE -- 수정일자  
+			WHERE  RACER_PERIO_NO   = ?       -- 기수      
+			AND    DAY_NO           = ?       -- 출주번호  
+			AND    ROUND            = ?       -- 라운드    
+			AND    TEAM_NO          = ?       -- 조번호    
+			AND    RACE_REG_NO      = ?       -- 정번      
+			AND    RACE_SEQ         = ?       -- 일련번호      
+	    ]]>
+    </query>
+    
+    
+    <query id="tbdn_cand_race_recd_dn001" desc="기록 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE 
+			FROM   TBDN_CAND_RACE_RECD
+			WHERE  RACER_PERIO_NO   = NVL(?, RACER_PERIO_NO)       -- 기수      
+			AND    DAY_NO           = NVL(?, DAY_NO        )       -- 출주번호  
+			AND    ROUND            = NVL(?, ROUND         )       -- 라운드    
+			AND    TEAM_NO          = NVL(?, TEAM_NO       )       -- 조번호    
+			AND    RACE_REG_NO      = NVL(?, RACE_REG_NO   )       -- 정번      
+			AND    RACE_SEQ         = NVL(?, RACE_SEQ      )       -- 일련번호      
+	    ]]>
+    </query>
+</queryMap>

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbea_auth_mngr(메뉴권한관리)">
+     <query id="tbea_mn_auth_fa001" desc="MENUAUTHLIST쿼리" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbea_mn_auth_fa001 */
+                     ?   USER_ID
+                   , TM .UP_MN_ID
+                   , TM .UP_MN_NM
+                   , TM .MN_ID
+                   , TM .MN_NM
+                   , TMA.SRCH_YN
+                   , TMA.INPT_YN
+                   , TMA.STR_DT_TM
+                   , TM .SEQ
+			FROM
+			       (
+                        SELECT
+                                 USER_ID
+                               , MN_ID
+                               , DECODE(SRCH_YN, 'Y', 1, 0) SRCH_YN
+                               , DECODE(INPT_YN, 'Y', 1, 0) INPT_YN
+                               , STR_DT_TM
+                        FROM   TBEA_MN_AUTH_HIST
+                        WHERE  USER_ID = ? 
+                        AND    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			       ) TMA
+			     , (
+                        SELECT 
+                                 TM.MN_ID
+    			               , TM.MN_NM
+    			               , TM.UP_MN_ID
+    			               , (
+    			                    SELECT TMC.MN_NM 
+    			                    FROM   TBEA_MN TMC
+    			                    WHERE  TMC.MN_ID = TM.UP_MN_ID
+    			                 ) UP_MN_NM
+    			               , RANK() OVER (PARTITION BY UP_MN_ID
+    			                                  ORDER BY RR) SEQ
+			            FROM     (
+    			                     SELECT
+                			                  MN_ID
+                			                , MN_NM
+                			                , SUBSTR(UP_MN_ID, 0, 3) || '000000' UP_MN_ID
+        			                        , ROWNUM RR
+                			         FROM   TBEA_MN
+                			         START WITH UP_MN_ID = '000000000'
+                			         CONNECT BY UP_MN_ID = PRIOR MN_ID
+                			         ORDER SIBLINGS BY UP_MN_ID
+                			                         , ORD_NO
+            			         ) TM
+        			    ORDER BY TM.RR
+        		     ) TM
+			WHERE  TM.MN_ID = TMA.MN_ID(+)
+			AND    TM.UP_MN_NM IS NOT NULL
+        ]]>
+    </query>  
+
+     <query id="tbea_mn_auth_fa002" desc="MENUAUTHDELETE쿼리" fetchSize="10">
+        <![CDATA[
+		    SELECT 
+		             TEAM_CD
+		           , TEAM_NM
+				   , SUBSTR(DEPT_CD,1,6) DEPT_CD
+		    FROM   VWEA_USER
+		    WHERE  GBN = '001'
+		    GROUP BY TEAM_CD
+		           , TEAM_NM
+				   , SUBSTR(DEPT_CD,1,6)
+		    ORDER BY TEAM_CD
+        ]]>
+    </query> 
+    
+     <query id="tbea_mn_auth_fa002_1" desc="MENUAUTHDELETE쿼리" fetchSize="10">
+        <![CDATA[
+		    SELECT 
+		             DEPT_CD
+		           , DEPT_NM
+				   , SUBSTR(ASSO_CD,1,4) ASSO_CD
+		    FROM   VWEA_USER
+		    WHERE  GBN = '001'
+		    GROUP BY DEPT_CD
+		           , DEPT_NM
+				   , SUBSTR(ASSO_CD,1,4)
+		    ORDER BY DEPT_CD
+        ]]>
+    </query> 
+    
+     <query id="tbea_mn_auth_fa003" desc="MENUAUTHDELETE쿼리" fetchSize="10">
+        <![CDATA[
+		    SELECT 
+		             ASSO_CD
+		           , ASSO_NM
+		    FROM   VWEA_USER
+		    WHERE  GBN = '001'
+		    GROUP BY ASSO_CD
+		           , ASSO_NM
+		    ORDER BY ASSO_CD
+        ]]>
+    </query> 
+    
+
+     <query id="tbea_mn_auth_da001" desc="MENUAUTHDELETE쿼리" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbea_mn_auth_da001 */
+			       TBEA_MN_AUTH_HIST
+			SET    END_DT_TM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')
+			      ,UPDT_ID = ?
+			      ,UPDT_DTM = SYSDATE
+			WHERE USER_ID = ?
+        ]]>
+    </query>   
+          
+     <query id="e01010040_s02" desc="권한에 자료 존재 여부 확인" fetchSize="10">
+        <![CDATA[
+			SELECT /* d05000004_s02 */
+			       USER_ID -- 건수
+			FROM   TBEA_MN_AUTH_HIST
+			WHERE  USER_ID = ?
+			AND    MN_ID   = ?
+			-- AND	   STR_DT_TM  = ?
+			AND	   ? BETWEEN STR_DT_TM AND END_DT_TM
+			
+        ]]>
+    </query>       
+    
+    <query id="e01010040_i01" desc="MENUAUTHINSERT쿼리" fetchSize="10">
+        <![CDATA[
+			INSERT /* d05000004_i01 */
+			       INTO TBEA_MN_AUTH_HIST (
+			      USER_ID
+			    , MN_ID
+			    , STR_DT_TM
+			    , END_DT_TM
+			    , SRCH_YN
+			    , INPT_YN
+			    , INST_ID
+			    , INST_DTM
+			) VALUES (
+			      ?                 -- USER_ID
+			    , ?                 -- MN_ID
+			    , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')
+			    , '299912312359'
+			    , ?                 -- SRCH_YN
+			    , ?                 -- INPT_YN
+			    , ?                 -- INST_ID			    
+			    , SYSDATE           -- INST_DTM
+			)
+        ]]>
+    </query>  
+    
+    <query id="e01010040_u01" desc="권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE /* d05000004_u01 */
+			       TBEA_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(SYSDATE-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(현재시간-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DTM = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    STR_DT_TM  = ?		-- 시작일시분
+			AND    STR_DT_TM  < TO_CHAR(SYSDATE,'YYYYMMDDHH24MI')
+        ]]>
+    </query>  
+    
+
+    <query id="e01010040_u02" desc="권한 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* d05000004_u02 */
+			       TBEA_MN_AUTH_HIST
+			SET    SRCH_YN = ?			-- 조회권한
+			     , INPT_YN = ?			-- 저장권한
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DTM = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    STR_DT_TM  = ?		-- 시작일시분
+        ]]>
+    </query>
+              
+</queryMap>

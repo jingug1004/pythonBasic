@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBO1010(입장인원등록)">
+    <query id="rbo1010_s01" desc="입장인원,수익 조회" fetchSize="10">
+      <![CDATA[
+ 			SELECT /* rbo1010_s01 */
+				 '0' AS CHK			
+				,GBN    			--구분
+				,RACE_DT			--경주일자
+				,TMS	            --회차
+				,PAY_PRSN_NUM       --유료인원수
+				
+				,FREE_PRSN_NUM      --무료인원수
+				,ISSU_AMT			--발권금액
+				,SPC_TAX			--특소세
+				,EDU_TAX			--교육세
+				,SUPP_AMT			--공급가액
+				
+				,ADD_TAX			--부가세
+				,RMK				--비고
+				,INST_ID			--작성자
+				,INST_DT			--작성일시
+				,UPDT_ID			--수정자
+				
+				,UPDT_DT			--수정일시
+
+			  FROM 	TBRB_PROFIT_MANA  --수익관리
+			
+			 WHERE	1=1
+			   AND  GBN 	   LIKE  '%' || NVL(? , GBN) || '%'
+			   AND  RACE_DT BETWEEN  ? AND ?
+
+    	  ORDER BY 	GBN, RACE_DT, TMS
+        ]]>
+    </query>
+    
+    <query id="rbo1010_s02" desc="기본키 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo1010_s02 */
+                 COUNT(*) AS CNT     --기본키 개수
+              FROM  TBRB_PROFIT_MANA    --수익관리
+             WHERE  1=1
+               AND  GBN     = ? --구분
+               AND  RACE_DT = ? --경주일자
+        ]]>
+    </query>
+    
+    <query id="rbo1010_s03" desc="회차 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo1010_s03 */
+                  TMS                     --회차
+                 ,MEET_CD                 --시행처구분
+                 ,(SELECT CD_NM FROM TBRK_SPEC_CD B 
+                        WHERE GRP_CD ='070'
+                            AND B.CD = MEET_CD) MEET_NM -- 시행처명 
+              FROM  VW_SDL_INFO      --회차
+             WHERE  1=1
+               AND  RACE_DAY = ? --경주일자
+               AND  MEET_CD IN ('001', '003')
+        ]]>
+    </query>
+    
+    <query id="rbo1010_s04" desc="회차 개수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbo1010_s04 */
+                 COUNT(*) AS CNT     --회차 개수
+              FROM  VW_SDL_INFO      --회차
+             WHERE  1=1
+               AND  RACE_DAY = ? --경주일자
+               AND  MEET_CD IN ('001', '003')
+        ]]>
+    </query>   
+
+    <query id="rbo1010_m01" desc="입장인원 입력,수정" fetchSize="10">
+        <![CDATA[
+
+			MERGE INTO TBRB_PROFIT_MANA A /* rbo1010_m01 */ --수익관리
+			USING 
+                    (SELECT
+                             ? AS GBN            --구분
+							,? AS RACE_DT        --경주일자
+							,? AS TMS            --회차
+							,? AS PAY_PRSN_NUM   --유료인원수
+							,? AS FREE_PRSN_NUM  --무료인원수
+							
+							,? AS ISSU_AMT       --발권금액
+							,? AS SPC_TAX        --특소세
+							,? AS EDU_TAX        --교육세
+							,? AS SUPP_AMT       --공급가액
+							,? AS ADD_TAX        --부가세
+							
+							,? AS RMK            --비고
+							,? AS INST_ID        --작성자                           
+                            ,? AS UPDT_ID        --수정자
+			
+                       FROM    DUAL ) B
+                ON (
+                        A.GBN     = B.GBN        --구분
+                    AND A.RACE_DT = B.RACE_DT    --경주일자
+
+            )
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+				
+					 A.TMS           = B.TMS			--회차
+					,A.PAY_PRSN_NUM  = B.PAY_PRSN_NUM	--유료인원수
+					,A.FREE_PRSN_NUM = B.FREE_PRSN_NUM	--무료인원수
+					,A.ISSU_AMT      = B.ISSU_AMT		--발권금액
+					,A.SPC_TAX       = B.SPC_TAX		--특소세
+					
+					,A.EDU_TAX       = B.EDU_TAX		--교육세
+					,A.SUPP_AMT      = B.SUPP_AMT		--공급가액
+					,A.ADD_TAX       = B.ADD_TAX		--부가세
+					,A.RMK           = B.RMK			--비고
+					,A.UPDT_ID       = B.UPDT_ID		--수정자
+					
+					,A.UPDT_DT       = SYSDATE	        --수정일시
+			    
+			WHEN NOT MATCHED THEN 
+				
+				INSERT (
+			
+					 A.GBN				--구분
+					,A.RACE_DT			--경주일자
+					,A.TMS				--회차
+					,A.PAY_PRSN_NUM		--유료인원수
+					,A.FREE_PRSN_NUM	--무료인원수
+					
+					,A.ISSU_AMT			--발권금액
+					,A.SPC_TAX			--특소세
+					,A.EDU_TAX			--교육세
+					,A.SUPP_AMT		    --공급가액
+					,A.ADD_TAX			--부가세
+					
+					,A.INST_ID			--작성자
+					,A.INST_DT			--작성일시
+					
+				) VALUES (
+					 B.GBN             --구분
+                    ,B.RACE_DT          --경주일자
+                    ,B.TMS              --회차
+                    ,B.PAY_PRSN_NUM     --유료인원수
+                    ,B.FREE_PRSN_NUM    --무료인원수
+                    
+                    ,B.ISSU_AMT         --발권금액
+                    ,B.SPC_TAX          --특소세
+                    ,B.EDU_TAX          --교육세
+                    ,B.SUPP_AMT         --공급가액
+                    ,B.ADD_TAX          --부가세
+                    
+                    ,B.INST_ID          --작성자
+					,SYSDATE			--작성일시
+				)
+				
+        ]]>				
+    </query>
+    
+    <query id="rbo1010_d01" desc="입장인원 삭제" fetchSize="10">
+        <![CDATA[
+
+			DELETE  TBRB_PROFIT_MANA   /* rbo1010_d01 */--수익관리
+			 WHERE  1=1
+			   AND  GBN     = ?  		--구분
+			   AND  RACE_DT = ?			--경주일자
+        ]]>
+    </query>        
+</queryMap>

@@ -1,0 +1,651 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : business_common.xml
+  * @메뉴명 : 영업관리 공통
+  * @최초작성일 : 2014/10/24
+  * @author : 윤범진          
+  * @수정내역 :
+ -->
+<mapper namespace="business"> 
+
+<!--
+	<select id="getCustomerGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+	<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   	</if> 				   
+	                        SELECT C.CUST_ID CUST_ID
+	                              ,C.CUST_NM CUST_NM 
+	                              ,B.SAWON_ID
+	                              ,B.SAWON_NM
+	                              ,C.VOU_NO   VOU_NO
+	                              ,C.PRESIDENT PRESIDENT
+	                          FROM SALE0008 A
+	                              ,SALE0007 B
+	                              ,SALE0003 C
+	                         WHERE A.DEPT_CD = B.DEPT_CD
+	                           AND B.SAWON_ID = C.SAWON_ID
+                               AND C.USE_YN   = 'Y'
+	                           AND C.CUST_ID||C.CUST_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%' 
+                         <choose>
+		                     <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+		                           AND A.DEPT_CD IN (
+		                                                select sale_dept_cd
+		                                                  from hr_co_depart_0
+		                                                  connect by prior dept_cd = up_dept_cd
+		                                                  start with dept_cd = (    select dept_cd
+		                                                                              from hr_co_depart_0
+		                                                                             where level = 2
+		                                                                              connect by  dept_cd = prior up_dept_cd
+		                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}))
+		                                                                       )
+		                                            )
+							 </when>
+		                     <when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' ">
+		                           AND A.DEPT_CD IN ( select dept_cd from sale0007 where sawon_id = #{as_emp_cd} )
+							 </when>
+		                     <when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+		                           AND B.SAWON_ID  = #{as_emp_cd}
+							 </when>
+						 </choose>
+						 <if test="sidx != ''">
+							 ORDER BY ${sidx} ${sord}
+						 </if>
+	<if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+	</if>
+	</select>
+	-->
+
+	<!--getCustomerGridList / @business_common.xml / 거래처/간납처 목록-->
+	<select id="getCustomerGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+		<if test="page != null">
+			--getCustomerGridList / @business_common.xml / 거래처/간납처 목록
+			SELECT *
+			  FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+			          FROM (
+		</if>
+		<![CDATA[
+		                    SELECT C.CUSTCODE AS CUST_ID,
+		                           C.CUSTNAME AS CUST_NM,
+		                           B.EMPCODE AS SAWON_ID,
+		                           B.EMPNAME AS SAWON_NM,
+		                           (SELECT REGEXP_REPLACE(C.BUSINESSNO, '[^0-9]+') FROM DUAL) AS VOU_NO,
+		                           C.CEONAME AS PRESIDENT,
+		                           ORAGMP.FNCOMMONNM('COMM','CM20',C.SAGODIV) AS STATUS
+		                      FROM ORAGMP.CMDEPTM A, ORAGMP.CMEMPM B, ORAGMP.CMCUSTM C
+		                     WHERE A.DEPTCODE = B.DEPTCODE
+		                       AND B.EMPCODE = C.EMPCODE
+		                       AND C.CUSTDIV   = '2'
+		]]>
+		<if test='stop_yn != "" and stop_yn != "N"'>
+		                       AND C.SAGODIV NOT IN('2') 
+		</if>
+		<if test="searchKeyword != ''">
+		                       AND C.CUSTCODE || C.CUSTNAME LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%'
+		</if>
+                         <choose>
+		                     <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+		<![CDATA[
+		                       AND C.EMPCODE IN (SELECT EMPCODE 
+                                                   FROM ORAGMP.CMEMPM
+                                                  WHERE PLANTCODE = '1000' 
+                                                    AND CLASSDIV <> '27040' 
+                                                    AND DEPTCODE IN ( SELECT DEPTCODE 
+                                                                        FROM ORAGMP.CMDEPTM 
+                                                                     CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+                                                                       START WITH PLANTCODE = '1000'
+                                                                         AND DEPTCODE = #{as_deptCode,jdbcType=VARCHAR})) 
+		]]>
+							 </when>
+		                     <when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' ">
+		                           AND A.DEPTCODE IN ( SELECT DEPTCODE FROM ORAGMP.CMEMPM WHERE EMPCODE = #{as_emp_cd,jdbcType=VARCHAR} )
+							 </when>
+		                     <when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+		                           AND C.EMPCODE  = #{as_emp_cd,jdbcType=VARCHAR}
+							 </when>
+						 </choose>
+		<if test="sidx != ''">
+			                 ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="page != null">
+			               ) T0
+			       )
+			 WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+
+	<!--
+	<select id="getCustomerName" parameterType="hashmap" resultType="String">
+		SELECT A.CUST_NM CUST_NM
+		  FROM SALE.SALE0003 A, SALE.SALE0007 B
+		 WHERE A.CUST_ID = #{cust_id,jdbcType=VARCHAR}
+		   AND A.SAWON_ID = B.SAWON_ID
+		   AND A.USE_YN = 'Y'
+	</select>
+	-->
+	<select id="getCustomerName" parameterType="hashmap" resultType="String">
+		-- 거래처명 조회 / getCustomerName / @business_common.xml /
+		SELECT A.CUSTNAME AS CUST_NM
+		FROM ORAGMP.CMCUSTM A
+		WHERE A.CUSTCODE = #{cust_id,jdbcType=VARCHAR}
+		AND A.SAGODIV = '1'
+	</select>
+
+	<!--
+	<select id="getCustomerGridTotalCount" parameterType="hashmap" resultType="Integer">
+		SELECT count(*) total_cnt
+	                          FROM SALE0008 A
+	                              ,SALE0007 B
+	                              ,SALE0003 C
+	                         WHERE A.DEPT_CD = B.DEPT_CD
+	                           AND B.SAWON_ID = C.SAWON_ID
+                               AND C.USE_YN   = 'Y'
+	                           AND C.CUST_ID||C.CUST_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+	                           <choose>
+	                     <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+	                           AND A.DEPT_CD IN ( 
+	                                                select sale_dept_cd 
+	                                                  from hr_co_depart_0 
+	                                                  connect by prior dept_cd = up_dept_cd
+	                                                  start with dept_cd = (    select dept_cd 
+	                                                                              from hr_co_depart_0 
+	                                                                             where level = 2
+	                                                                              connect by  dept_cd = prior up_dept_cd
+	                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}))
+	                                                                       )
+	                                            ) 
+						 </when>
+	                     <when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035'">
+	                           AND A.DEPT_CD IN ( select dept_cd from sale0007 where sawon_id = #{as_emp_cd} ) 
+						 </when>
+	                     <when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+	                           AND B.SAWON_ID  = #{as_emp_cd}  
+						 </when>
+						 </choose>
+	</select>
+	-->
+	<!-- getCustomerGridTotalCount / @business_common.xml / 거래처/간납처 목록 총수 -->
+	<select id="getCustomerGridTotalCount" parameterType="hashmap" resultType="Integer">
+		-- getCustomerGridTotalCount / @business_common.xml / 거래처/간납처 목록 총수
+		<![CDATA[
+		SELECT COUNT(*) AS total_cnt
+          FROM ORAGMP.CMDEPTM A, ORAGMP.CMEMPM B, ORAGMP.CMCUSTM C
+         WHERE A.DEPTCODE = B.DEPTCODE
+           AND B.EMPCODE = C.EMPCODE
+           AND C.CUSTDIV   = '2'
+		]]>
+		<if test='stop_yn != "" and stop_yn != "N"'>
+		   AND C.SAGODIV NOT IN('2') 
+		</if>
+		<if test="searchKeyword != ''">
+		   AND C.CUSTCODE || C.CUSTNAME LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%'
+		</if>
+                         <choose>
+		                     <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+		<![CDATA[
+		                       AND C.EMPCODE IN (SELECT EMPCODE 
+                                                   FROM ORAGMP.CMEMPM
+                                                  WHERE PLANTCODE = '1000' 
+                                                    AND CLASSDIV <> '27040' 
+                                                    AND DEPTCODE IN ( SELECT DEPTCODE 
+                                                                        FROM ORAGMP.CMDEPTM 
+                                                                     CONNECT BY PRIOR DEPTCODE = PREDEPTCODE
+                                                                       START WITH PLANTCODE = '1000'
+                                                                         AND DEPTCODE = #{as_deptCode,jdbcType=VARCHAR})) 
+		]]>
+							 </when>
+		                     <when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' ">
+		                           AND A.DEPTCODE IN ( SELECT DEPTCODE FROM ORAGMP.CMEMPM WHERE EMPCODE = #{as_emp_cd,jdbcType=VARCHAR} )
+							 </when>
+		                     <when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+		                           AND C.EMPCODE  = #{as_emp_cd,jdbcType=VARCHAR}
+							 </when>
+						 </choose>
+	</select>
+
+	<!--
+	<select id="getPartGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+	<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   	</if>
+						SELECT A.CODE1 PART_ID, 
+						       A.CODE1_NM PART_NM
+						  FROM SALE.SALE0001 A
+						 WHERE A.CODE_GB = '0013'
+						   AND A.CODE1||A.CODE1_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+					   <if test="sidx != ''">
+						 ORDER BY ${sidx} ${sord}
+					   </if>
+   <if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+	</if>
+	</select>
+	-->
+	<select id="getPartGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+	-- 파트 목록 / getPartGridList / @business_common.xml
+	<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   	</if>
+		SELECT DIVCODE AS PART_ID, DIVNAME AS PART_NM
+		FROM ORAGMP.CMCOMMONM
+		WHERE DIVCODE || DIVNAME LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+		AND CMMCODE = 'SL90'
+   <if test="sidx != ''">
+	 ORDER BY ${sidx} ${sord}
+   </if>
+   <if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+	</if>
+	</select>
+
+	<!--
+	<select id="getPartName" parameterType="hashmap" resultType="String">
+		SELECT A.CODE1_NM PART_NM
+		  FROM SALE.SALE0001 A
+		 WHERE A.CODE_GB = '0013'
+		   AND A.CODE1 = #{searchKeyword,jdbcType=VARCHAR}
+	</select>
+	-->
+	<select id="getPartName" parameterType="hashmap" resultType="String">
+	-- 파트명 조회 / getPartName / @business_common.xml
+	SELECT DIVNAME AS PART_NM
+	FROM ORAGMP.CMCOMMONM
+	WHERE DIVCODE = #{searchKeyword,jdbcType=VARCHAR} AND CMMCODE = 'SL90'
+	</select>
+
+	<!--
+	<select id="getPartGridTotalCount" parameterType="hashmap" resultType="Integer">
+		SELECT count(*) total_cnt
+		  FROM SALE.SALE0001 A
+		 WHERE A.CODE_GB = '0013'
+	   	   AND A.CODE1||A.CODE1_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+	</select>
+	-->
+	<select id="getPartGridTotalCount" parameterType="hashmap" resultType="Integer">
+		-- 파트 총 수 / getPartGridTotalCount / @business_common.xml
+		SELECT count(*) total_cnt
+		FROM (
+		  	SELECT
+			DIVCODE AS PART_ID,
+			DIVNAME AS PART_NM
+		FROM ORAGMP.CMCOMMONM
+		WHERE DIVCODE || DIVNAME LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%' AND CMMCODE = 'SL90')
+	</select>
+
+	<!--
+	<select id="getTeamGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+	<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   	</if>
+						SELECT A.DEPT_CD DEPT_ID, 
+						       A.DEPT_NM DEPT_NM
+						  FROM SALE.SALE0008 A
+						 WHERE A.DEPT_CD||A.DEPT_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+						 <choose> 
+						 <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+  						   AND A.DEPT_CD IN ( 
+                                                select sale_dept_cd 
+                                                  from hr_co_depart_0 
+                                                  connect by prior dept_cd = up_dept_cd
+                                                  start with dept_cd = (    select dept_cd 
+                                                                              from hr_co_depart_0 
+                                                                             where level = 2
+                                                                              connect by  dept_cd = prior up_dept_cd
+                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 
+                                                                                                     where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}) 
+                                                                                                    )
+                                                                       )
+                                            )
+                         </when> 
+	                     <when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' or as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+	                           AND A.DEPT_CD IN ( select dept_cd from sale0007 where sawon_id = #{as_emp_cd} ) 
+						 </when>
+						 </choose> 
+	 				<if test="sidx != ''">
+						 ORDER BY ${sidx} ${sord}
+					</if>
+ 	<if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+	</if>
+	</select>
+	-->
+	<select id="getTeamGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+		-- 부서 목록 / getTeamGridList / @business_common.xml
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+			FROM (
+		</if>
+			SELECT
+			DEPTCODE AS DEPT_ID,
+			DEPTNAME AS DEPT_NM
+			FROM ORAGMP.CMDEPTM
+			WHERE CMDEPTM.DEPTCODE || CMDEPTM.DEPTNAME LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%'
+		<if test="sidx != ''">
+			ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="page != null">
+			) T0
+			)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+
+	<!--
+	<select id="getTeamName" parameterType="hashmap" resultType="String">
+		SELECT A.DEPT_NM DEPT_NM
+		  FROM SALE.SALE0008 A
+		 WHERE A.DEPT_CD = #{searchKeyword,jdbcType=VARCHAR}
+	</select>
+	-->
+	<select id="getTeamName" parameterType="hashmap" resultType="String">
+		-- 부서명 검색 / getTeamName / @business_common.xml
+		SELECT DEPTNAME AS DEPT_NM
+		FROM ORAGMP.CMDEPTM
+		WHERE CMDEPTM.DEPTCODE LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%'
+	</select>
+
+	<!--
+	<select id="getTeamGridTotalCount" parameterType="hashmap" resultType="Integer">
+		SELECT count(*) total_cnt
+		  FROM SALE.SALE0008 A
+		 WHERE A.DEPT_CD||A.DEPT_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+		 <choose>
+		     <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+				   AND A.DEPT_CD IN ( 
+	                                           select sale_dept_cd 
+	                                             from hr_co_depart_0 
+	                                             connect by prior dept_cd = up_dept_cd
+	                                             start with dept_cd = (    select dept_cd 
+	                                                                         from hr_co_depart_0 
+	                                                                        where level = 2
+	                                                                         connect by  dept_cd = prior up_dept_cd
+	                                                                         start with dept_cd = (select dept_cd from hr_hc_empbas_0 
+	                                                                                                where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}) 
+	                                                                                               )
+	                                                                  )
+	                                       )
+	           </when>
+		       <when test="as_assgnCode eq '27027' or as_assgnCode eq '27030' or as_assgnCode eq '27035' or as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+		            AND A.DEPT_CD IN ( select dept_cd from sale0007 where sawon_id = #{as_emp_cd} ) 
+			   </when>
+		   </choose>
+	</select>
+	-->
+	<select id="getTeamGridTotalCount" parameterType="hashmap" resultType="Integer">
+		-- 부서 목록 총 수 / getTeamGridTotalCount / @business_common.xml
+		SELECT count(*) total_cnt FROM (
+			SELECT DEPTCODE AS DEPT_ID, DEPTNAME AS DEPT_NM
+			FROM ORAGMP.CMDEPTM
+			WHERE CMDEPTM.DEPTCODE || CMDEPTM.DEPTNAME LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%'
+		)
+	</select>
+
+	<!--
+	<select id="getEmpGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+	<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   	</if>
+						SELECT A.SAWON_ID EMP_ID, 
+						       A.SAWON_NM EMP_NM,
+						       A.GUBUN GUBUN,
+						       SALE.F_DEPT_NM1(A.DEPT_CD) DEPT_NM
+						  FROM SALE.SALE0007 A
+						 WHERE A.SAWON_ID||A.SAWON_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+						 <choose>  
+							 <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+	  						   AND A.DEPT_CD IN ( 
+	                                                select sale_dept_cd 
+	                                                  from hr_co_depart_0 
+	                                                  connect by prior dept_cd = up_dept_cd
+	                                                  start with dept_cd = (    select dept_cd 
+	                                                                              from hr_co_depart_0 
+	                                                                             where level = 2
+	                                                                              connect by  dept_cd = prior up_dept_cd
+	                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0 
+	                                                                                                     where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd}) 
+	                                                                                                    )
+	                                                                       )
+	                                            )
+	                         </when>	                         
+							 <when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+	  						     AND A.SAWON_ID = #{as_emp_cd}
+	  						 </when>
+                         </choose> 
+						<if test="dept_cd != ''">
+						   AND A.DEPT_CD = #{dept_cd, jdbcType=VARCHAR}
+					   </if>
+					 <if test="sidx != ''">
+						 ORDER BY ${sidx} ${sord}
+					   </if>
+	 <if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+	</if>
+	</select>
+	-->
+	<select id="getEmpGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+	-- 사원 목록 / getEmpGridList / @business_customer.xml
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   	</if>
+		SELECT
+		EMPCODE AS EMP_ID,
+		EMPNAME AS EMP_NM,
+		DECODE(OUTYN, 'Y', 'N', 'Y') AS GUBUN,
+		oragmp.fncommonnm('dept',DEPTCODE,'') AS DEPT_NM
+		FROM ORAGMP.CMEMPM
+		WHERE EMPCODE || EMPNAME LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%'
+		<if test="dept_cd != ''">
+			AND DEPTCODE = #{dept_cd, jdbcType=VARCHAR}
+		</if>
+		<if test="sidx != ''">
+			ORDER BY ${sidx} ${sord}
+		</if>
+	 <if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+	</if>
+	</select>
+
+	<!--
+	<select id="getEmpName" parameterType="hashmap" resultType="String">
+		SELECT A.SAWON_NM EMP_NM
+		  FROM SALE.SALE0007 A
+		 WHERE A.SAWON_ID = #{searchKeyword,jdbcType=VARCHAR}
+	</select>
+	-->
+	<select id="getEmpName" parameterType="hashmap" resultType="String">
+		-- 사원명 조회
+		SELECT EMPNAME AS EMP_NM
+		FROM ORAGMP.CMEMPM
+		WHERE EMPCODE = #{searchKeyword,jdbcType=VARCHAR}
+	</select>
+
+<!--
+
+	<select id="getEmpGridTotalCount" parameterType="hashmap" resultType="Integer">
+		SELECT count(*) total_cnt
+		  FROM SALE.SALE0007 A
+		 WHERE A.SAWON_ID||A.SAWON_NM LIKE '%'||#{searchKeyword,jdbcType=VARCHAR}||'%'
+						 <choose>
+							 <when test="as_assgnCode eq '27020' or as_assgnCode eq '27025'">
+	  						   AND A.DEPT_CD IN (
+	                                                select sale_dept_cd
+	                                                  from hr_co_depart_0
+	                                                  connect by prior dept_cd = up_dept_cd
+	                                                  start with dept_cd = (    select dept_cd
+	                                                                              from hr_co_depart_0
+	                                                                             where level = 2
+	                                                                              connect by  dept_cd = prior up_dept_cd
+	                                                                              start with dept_cd = (select dept_cd from hr_hc_empbas_0
+	                                                                                                     where emp_no in (select insa_sawon_id from sale0007 where sawon_id = #{as_emp_cd})
+	                                                                                                    )
+	                                                                       )
+	                                            )
+	                         </when>
+							 <when test="as_assgnCode eq '27040' or as_assgnCode eq '27050'">
+	  						     AND A.SAWON_ID = #{as_emp_cd}
+	  						 </when>
+                         </choose>
+						<if test="dept_cd != ''">
+						   AND A.DEPT_CD = #{dept_cd, jdbcType=VARCHAR}
+					   </if>
+	</select>
+	-->
+	<select id="getEmpGridTotalCount" parameterType="hashmap" resultType="Integer">
+		-- 사원 목록 총 수 / getEmpGridTotalCount / @business_common.xml
+		SELECT count(*) total_cnt FROM
+		(SELECT
+		EMPCODE                                     AS EMP_ID,
+		EMPNAME                                     AS EMP_NM,
+		DECODE(OUTYN, 'Y', 'N', 'Y')                AS GUBUN,
+		oragmp.fncommonnm('dept',DEPTCODE,'') AS DEPT_NM
+		FROM ORAGMP.CMEMPM
+		WHERE EMPCODE || EMPNAME LIKE '%' || #{searchKeyword,jdbcType=VARCHAR} || '%' AND DEPTCODE = #{dept_cd, jdbcType=VARCHAR})
+	</select>
+
+	<select id="getCommonEmpInfo" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+		SELECT DEPTCODE dept_cd, PDALOGINDIV pda_auth
+		  FROM ORAGMP.CMEMPM
+		 WHERE EMPCODE = #{gs_empCode,jdbcType=VARCHAR}
+	</select>
+
+	<!--
+	<select id="getCustomerType" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+		SELECT A.CUST_NM||'   '||A.CUST_GB1||'.'||B.CODE1_NM AS CUST_TYPE, A.SAWON_ID
+         FROM SALE.SALE0003 A,
+              (SELECT CODE1, CODE1_NM FROM SALE.SALE0001 WHERE CODE_GB = '0020') B
+        WHERE A.CUST_ID = #{cust_id,jdbcType=VARCHAR}
+          AND A.CUST_GB1 = B.CODE1(+)
+	</select>
+	-->
+	<select id="getCustomerType" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+		-- 상세 거래처명 검색 / getCustomerType / @business_common.xml
+		SELECT A.CUSTNAME||'   '||A.UTDIV||'.'||B.DIVNAME AS CUST_TYPE, A.EMPCODE
+		FROM ORAGMP.CMCUSTM A, ORAGMP.CMCOMMONM B
+		WHERE A.UTDIV = B.DIVCODE(+)
+		AND B.MAJORNAME = '공통'
+		AND B.CMMCODE = 'CM15'
+		AND A.CUSTCODE = #{cust_id,jdbcType=VARCHAR}
+	</select>
+
+	<!--
+	<select id="getPromiseGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+	<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   	</if>
+							SELECT TO_CHAR(A.YMD, 'YYYY-MM-DD') REQ_DATE, 
+							       TO_CHAR(TO_DATE(A.PDATE), 'YYYY-MM-DD') PROMISE_DATE, 
+							       CASE WHEN A.RECEIPT_GB = '1' THEN '접수'
+							            WHEN A.RECEIPT_GB = '2' THEN '승인'
+							            WHEN A.RECEIPT_GB = '3' THEN '반려' ELSE '    ' END AS STATUS, 
+							       A.PBIGO PROMISE_BIGO,
+							       A.RETURN_DESC RETURN_DESC
+							  FROM SALE_ON.SALE0203 A
+							 WHERE A.CUST_ID = #{as_cust_id,jdbcType=VARCHAR}
+							   AND TO_CHAR(A.YMD, 'YYYYMMDD') BETWEEN #{adt_fr_date,jdbcType=VARCHAR} AND #{adt_to_date,jdbcType=VARCHAR}
+							   AND (A.PDATE IS NOT NULL OR A.WIBAN_ORDER_REQ_YN = 'Y')
+							   AND A.WIBAN_ORDER_CONF_YN = '1'
+					 <if test="sidx != ''">
+						 ORDER BY ${sidx} ${sord}
+				   	 </if>
+	 <if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+	</if>
+	</select>
+	-->
+	<select id="getPromiseGridList" parameterType="hashmap" resultType="com.hanaph.saleon.business.vo.BusinessVO">
+		-- 담보약속 목록 / getPromiseGridList / @Business_common.xml
+		<if test="page != null">
+			SELECT *
+				FROM (SELECT T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+	        		FROM (
+   		</if>
+		SELECT
+		A.FIXDATE AS REQ_DATE,
+		A.EXPDATE AS PROMISE_DATE,
+		CASE WHEN B.APPRSTATUS = '00' THEN '등록'
+		WHEN B.APPRSTATUS = '01' THEN '상신'
+		WHEN B.APPRSTATUS = '03' THEN '승인'
+		WHEN B.APPRSTATUS = '04' THEN '반려' ELSE ' ' END AS STATUS,
+		A.REMARK AS PROMISE_BIGO,
+		A.RETURNDATE AS RETURN_DESC
+		FROM ORAGMP.CMCUSTSCRTD A INNER JOIN ORAGMP.SLORDM B
+		ON A.CUSTCODE = B.CUSTCODE
+		WHERE A.CUSTCODE = #{as_cust_id,jdbcType=VARCHAR}
+		AND A.FIXDATE BETWEEN #{adt_fr_date,jdbcType=VARCHAR} AND #{adt_to_date,jdbcType=VARCHAR}
+		AND A.EXPDATE IS NOT NULL
+		OR B.WIBANORDERREQYN = 'Y'
+		AND B.THREEAVGCK IS NOT NULL
+			 <if test="sidx != ''">
+				 ORDER BY ${sidx} ${sord}
+			 </if>
+	 	<if test="page != null">
+						) T0
+					)
+					WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+
+	<!--
+	<select id="getPromiseGridTotalCount" parameterType="hashmap" resultType="Integer">
+		SELECT COUNT(*) total_cnt
+		  FROM SALE_ON.SALE0203 A
+		 WHERE A.CUST_ID = #{as_cust_id,jdbcType=VARCHAR}
+		   AND A.YMD BETWEEN #{adt_fr_date,jdbcType=VARCHAR} AND #{adt_to_date,jdbcType=VARCHAR}
+		   AND (A.PDATE IS NOT NULL OR A.WIBAN_ORDER_REQ_YN = 'Y')
+		   AND A.WIBAN_ORDER_CONF_YN = '1'
+	</select>
+	-->
+	<select id="getPromiseGridTotalCount" parameterType="hashmap" resultType="Integer">
+		-- 담보약속 목록 총 수 / getPromiseGridTotalCount / @business_common.xml
+		SELECT COUNT(*) total_cnt
+		FROM (
+		SELECT
+		  A.FIXDATE AS REQ_DATE,
+		  A.EXPDATE AS PROMISE_DATE,
+		  CASE WHEN B.APPRSTATUS = '00' THEN '등록'
+		  WHEN B.APPRSTATUS = '01' THEN '상신'
+		  WHEN B.APPRSTATUS = '03' THEN '승인'
+		  WHEN B.APPRSTATUS = '04' THEN '반려' ELSE '    ' END AS STATUS,
+		  A.REMARK AS PROMISE_BIGO,
+		  A.RETURNDATE AS RETURN_DESC
+		FROM ORAGMP.CMCUSTSCRTD A INNER JOIN ORAGMP.SLORDM B
+		ON A.CUSTCODE = B.CUSTCODE
+			  WHERE A.CUSTCODE = #{as_cust_id,jdbcType=VARCHAR}
+			  AND A.FIXDATE BETWEEN #{adt_fr_date,jdbcType=VARCHAR} AND #{adt_to_date,jdbcType=VARCHAR}
+			  AND A.EXPDATE IS NOT NULL
+			  OR B.WIBANORDERREQYN = 'Y'
+				 AND B.THREEAVGCK IS NOT NULL)
+	</select>
+
+</mapper>
+	

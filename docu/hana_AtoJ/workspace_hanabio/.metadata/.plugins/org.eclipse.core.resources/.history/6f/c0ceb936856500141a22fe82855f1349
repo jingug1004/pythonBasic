@@ -1,0 +1,202 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file ="/common/path.jsp" %>
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>판매현황</title>
+	<%@ include file ="/include/head.jsp" %>
+	<link rel="stylesheet" type="text/css" href="<%=ONLINE_WEB_ROOT%>/css/ui.jqgrid.css">
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/grid.locale-kr.js"></script>
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/jquery.jqGrid.min.js"></script>
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/formCheck.js"></script>
+	<script type="text/javascript" src="<%=ONLINE_WEB_ROOT%>/js/business.js"></script>
+	<script type="text/javascript">
+	
+	$(document).ready(function(){
+		
+	    jsonReader : {
+            repeatitems: false;
+    	}
+	
+		$("#grid_list").jqGrid({
+			// 요청방식
+			mtype:"get",
+			// 결과물 받을 데이터 타입
+			datatype:"json",
+	
+			// 컬럼명
+			colNames:["거래일자","거래처코드","거래처명","납품처코드","납품처명","제품코드","제품명","단위","수량","단가","공급가액","세액","합계금액","할인액"],
+	
+			// 컬럼 데이터(추가, 삭제, 수정이 가능하게 하려면 autoincrement컬럼을 제외한 모든 컬럼을 editable:true로 지정)
+			// edittyped은 text, password, ... input type명을 사용 
+	
+			colModel:[
+						{name:"ymd",		index:"ymd",		align:"center"},
+						{name:"cust_id",	index:"cust_id", 	align:"center"},
+						{name:"cust_nm",	index:"cust_nm", 	align:"center"},
+						{name:"rcust_id",	index:"rcust_id", 	align:"center"},
+						{name:"rcust_nm",	index:"rcust_nm", 	align:"center"},
+						{name:"item_id",	index:"item_id", 	align:"center"},
+						{name:"item_nm",	index:"item_nm", 	align:"left"},
+						{name:"standard",	index:"standard", 	align:"left"},
+						{name:"qty",		index:"qty",		align:"right"},
+						{name:"danga",		index:"danga",		align:"right",	formatter:"integer"},
+						{name:"amt",		index:"amt",		align:"right",	formatter:"integer"},
+						{name:"vat",		index:"vat",		align:"right",	formatter:"integer"},
+						{name:"tot",		index:"tot",		align:"right",	formatter:"integer"},
+						{name:"dc_amt",		index:"dc_amt", 	align:"right",	formatter:"integer"}
+					],
+					
+			formatter : {
+				integer : {thousandsSeparator: ",", defaultValue: '0'} // 천단위 마다 콤마
+	        },
+	        
+
+			// 그리드 캡션
+			height:580,
+	
+			// 그리드(페이지)마다 보여줄 행의 수 -> 매개변수이름은 "rows"로 요청된다
+			page: 1,
+			rowNum: 20,
+			rownumbers: true, 
+			rowList: [20,30,40,50],
+	
+			autowidth:true,
+			
+			loadComplete: function(data){
+				if (data.records > 0) {
+					var amt = data.totalCountInfo.total_amt;
+					var vat = data.totalCountInfo.total_vat;
+					var tot = data.totalCountInfo.total_tot;
+					var dc_amt = data.totalCountInfo.total_dc_amt;
+					
+					$("#amt").val(Commons.addComma(amt));
+					$("#vat").val(Commons.addComma(vat));
+					$("#tot").val(Commons.addComma(tot));
+					$("#dc_amt").val(Commons.addComma(dc_amt));
+				} else {
+					alert("해당 매출자료가 없습니다.");
+				}
+			},
+			
+			pager: "#grid_Pager"
+   		});
+		
+		Commons.setDate("ad_fr_date", "ad_to_date");
+	});
+	
+	$(window).resize(function(){
+		$("jqGridList").setGridWidth($(this).width() * .100);
+	});
+	
+	// 조회
+	function getGridList(){
+		var ad_fr_date = $("#ad_fr_date").val();
+		var ad_to_date = $("#ad_to_date").val();
+		var as_fr_cust = $("#as_fr_cust").val();
+		var as_to_cust = $("#as_to_cust").val();
+		
+		// 유효성 체크
+		if (!formCheck.isDateFormat(ad_fr_date)) {
+			alert("조회 기간을 입력하세요!");
+			$("#ad_fr_date").focus();
+			return false;
+		}
+		
+		if (!formCheck.isDateFormat(ad_to_date)) {
+			alert("조회 기간을 입력하세요!");
+			$("#ad_to_date").focus();
+			return false;
+		}
+		
+		if (formCheck.dateChk(ad_fr_date, ad_to_date) < 0) {
+			alert("조회 기간을 확인하세요!");
+			return false;
+		}
+		
+		// 파라미터 셋팅
+		var param = "ad_fr_date=" + ad_fr_date + "&ad_to_date=" + ad_to_date + "&as_fr_cust=" + as_fr_cust + "&as_to_cust=" + as_to_cust;
+		
+		// 호출
+		$("#grid_list").jqGrid('setGridParam',{url:"<%=ONLINE_ROOT%>/business/saleGridList.do?" + param}).trigger("reloadGrid", [{page:1}]);
+	}
+	
+	// 거래처명 가져오기
+	function getCustomerName(target){
+		var cust_id = $("#" + target).val();
+		
+		if ("" != cust_id) {
+			$.ajax({
+				type:"POST",
+				url:"<%=ONLINE_ROOT%>/business/common/customerNameAjax.do",
+				data:{ cust_id : cust_id },
+				dataType:"json",
+				success:function(data){
+					if ("" != data.cust_nm) {
+						$("#" + target + "_name").val(data.cust_nm);	
+					} else {
+						alert("등록된 거래처 코드가 아닙니다.");
+						$("#" + target + "_name").val("");
+						$("#" + target).val("");
+						$("#" + target).focus();
+					}
+				}
+			});
+		} else {
+			$("#" + target + "_name").val("");
+		}
+	}
+	
+	function printTest(){
+		console.log(document.getElementsByName("head").toString(););
+	}
+	
+	</script>
+</head>
+
+<body>
+	<div class="wrap_sales_charts">
+		<div class="wrap_btn">
+			<button onclick="javascript:getGridList();" >조회</button>
+			<button onclick="javascript:printTest();" >인쇄</button>
+			<button>엑셀</button>
+			<button>닫기</button>
+		</div>
+		<div class="wrap_search">
+			<span>조회기간</span>
+			<input type="text" id="ad_fr_date" name="ad_fr_date" onKeyPress="if (event.keyCode==13){getGridList();}" />
+			<button class="carendar"><span class="blind">달력보기</span></button>
+			~
+			<input type="text" id="ad_to_date" name="ad_to_date" onKeyPress="if (event.keyCode==13){getGridList();}" />
+			<button class="carendar"><span class="blind">달력보기</span></button>
+			
+			<span>거래처</span>
+			<input type="text" id="as_fr_cust" name="as_fr_cust" onblur="javascript:getCustomerName(this.id);"/>
+			<button class="find" onclick="javascript:Commons.popupOpen('as_fr_cust', '<%=ONLINE_ROOT%>/business/common/customerList.do', '700', '630');" ><span class=".blind">찾기</span></button>
+			<input type="text" id="as_fr_cust_name" name="as_fr_cust_name" readonly /> ~
+			
+			<input type="text" id="as_to_cust" name="as_to_cust" onblur="javascript:getCustomerName(this.id);" />
+			<button class="find" onclick="javascript:Commons.popupOpen('as_to_cust', '<%=ONLINE_ROOT%>/business/common/customerList.do', '700', '630');" ><span class=".blind">찾기</span></button>
+			<input type="text" id="as_to_cust_name" name="as_to_cust_name" readonly />
+		</div>
+		<div class="wrap_charts">
+			<table id="grid_list"></table>
+			<div id="grid_Pager"></div>
+		</div>
+		<div class="wrap_total">
+			<label for="">공급가액</label>
+			<input type="text" id="amt" readonly />
+			
+			<label for="">세액</label>
+			<input type="text" id="vat" readonly />
+			
+			<label for="">공급총액</label>
+			<input type="text" id="tot" readonly />
+			
+			<label for="">할인액</label>
+			<input type="text" id="dc_amt" readonly />
+		</div>
+	</div>
+</body>
+</html>

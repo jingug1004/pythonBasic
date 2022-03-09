@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbes_sdl_pb(SDL승식별중간배당률)">
+    <query id="tbes_sdl_pb_fe001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TSP.MEET_CD			--Meet Code
+				  , TSP.STND_YEAR		--기준년도
+				  , TSP.TMS				--회차
+				  , TSP.DAY_ORD			--일차
+				  , TSP.RACE_NO			--경주번호
+				  , TSP.POOL_CD			--승식
+				  , TSP.RUNNER_1ST		--선택1
+				  , TSP.RUNNER_2ND		--선택2
+				  , TSP.RUNNER_3RD		--선택3
+ 				  , TSP.ODDS			--배당율
+			      , TSP.INST_ID			--작성자ID   
+			      , TSP.INST_DT			--작성일시
+			      , TSP.UPDT_ID			--수정자ID    
+			      , TSP.UPDT_DT   		--수정일시    
+			FROM	USRBM.TBES_SDL_PB		TSP
+			WHERE	TSP.STND_YEAR	= ?
+			AND		TSP.MEET_CD		= ?
+			AND		TSP.TMS			= ?
+			AND		TSP.DAY_ORD		= ?
+			AND		TSP.RACE_NO		= ?
+			ORDER BY TSP.POOL_CD, DECODE(TSP.ODDS, 0, 99999, TSP.ODDS)
+        ]]>
+    </query>
+    <query id="tbes_sdl_pb_fe002" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TOG.STND_YEAR		--기준년도
+				  , TOG.MBR_CD			--경정장코드
+			      , TOG.TMS				--회차
+			      , TOG.DAY_ORD			--일차
+			      , TOG.RACE_NO			--경주번호
+			      , TOG.RACER_NO		--선수등록번호
+			      , TOG.RACE_REG_NO		--정번
+			      , TRM.NM_KOR			--성명
+			      , TOG.RANK			--순위
+			FROM	TBEB_ORGAN			TOG
+			INNER JOIN
+					TBEC_RACER_MASTER	TRM
+			ON		TOG.RACER_NO = TRM.RACER_NO
+			WHERE	TOG.STND_YEAR	= ?
+			AND		TOG.MBR_CD		= ?
+			AND		TOG.TMS			= ?
+			AND		TOG.DAY_ORD		= ?
+			AND		TOG.RACE_NO		= ?
+			ORDER BY TOG.RACE_REG_NO
+        ]]>
+    </query>
+    <query id="tbes_sdl_pb_fe003" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TSP.MEET_CD			--Meet Code
+				  , TSP.STND_YEAR		--기준년도
+				  , TSP.TMS				--회차
+				  , TSP.DAY_ORD			--일차
+				  , TSP.RACE_NO			--경주번호
+				  , TSP.POOL_CD			--승식
+				  , TSP.RUNNER_1ST		--선택1
+				  , TSP.RUNNER_2ND		--선택2
+				  , TSP.RUNNER_3RD		--선택3
+ 				  , TSP.ODDS			--배당율
+ 				  , 3 - (? - TSP.ODDS_SEQ)	TIME_SEQ
+			      , TSP.INST_ID			--작성자ID   
+			      , TSP.INST_DT			--작성일시
+			      , TSP.UPDT_ID			--수정자ID    
+			      , TSP.UPDT_DT   		--수정일시    
+			FROM	USRBM.TBES_SDL_PBS	TSP
+			WHERE	TSP.STND_YEAR	= ?
+			AND		TSP.MEET_CD		= ?
+			AND		TSP.TMS			= ?
+			AND		TSP.DAY_ORD		= ?
+			AND		TSP.RACE_NO		= ?	
+			AND		TSP.ODDS_SEQ   <= ?
+			AND		TSP.ODDS_SEQ   >= ? - 2
+        ]]>
+    </query>
+    <query id="tbes_sdl_pb_fe004" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TSP.ODDS_SEQ,
+					TO_CHAR(TSP.ODDS_SEQ) || ' - ' || 
+			        TO_CHAR(MAX(TSP.RECV_DT), 'HH24:MI:SS')	TIME_SEQ
+			FROM	USRBM.TBES_SDL_PBS	TSP
+			WHERE	TSP.STND_YEAR	= ?
+			AND		TSP.MEET_CD		= ?
+			AND		TSP.TMS			= ?
+			AND		TSP.DAY_ORD		= ?
+			AND		TSP.RACE_NO		= ?
+			GROUP BY TSP.ODDS_SEQ
+			ORDER BY TSP.ODDS_SEQ DESC
+        ]]>
+    </query>
+    <query id="tbes_sdl_pb_ie001" desc="저장" fetchSize="10">
+        <![CDATA[
+			INSERT INTO USRBM.TBES_SDL_PB
+			( 
+			        MEET_CD			--Meet Code
+				  , STND_YEAR		--기준년도
+				  , TMS				--회차
+				  , DAY_ORD			--일차
+				  , RACE_NO			--경주번호
+				  , POOL_CD			--승식
+				  , RUNNER_1ST		--선택1
+				  , RUNNER_2ND		--선택2
+				  , RUNNER_3RD		--선택3
+ 				  , ODDS			--배당율
+			      , INST_ID			--작성자ID   
+			      , INST_DT			--작성일시
+			) VALUES (
+			        ?				--Meet Code
+				  , ?				--기준년도
+				  , ?				--회차
+				  , ?				--일차
+				  , ?				--경주번호
+				  , ?				--승식
+				  , ?				--선택1
+				  , ?				--선택2
+				  , ?				--선택3
+ 				  , ?				--배당율
+			      , ?				--작성자ID
+			      , SYSDATE			--작성일시
+			)
+        ]]>
+    </query> 
+    <query id="tbes_sdl_pb_ue001" desc="수정" fetchSize="10">
+        <![CDATA[
+			UPDATE USRBM.TBES_SDL_PB SET
+			        ODDS			= ?			--배당율
+			      , UPDT_ID			= ?			--수정자ID    
+			      , UPDT_DT			= SYSDATE	--수정일시 
+			WHERE	MEET_CD			= ?			--Meet Code
+			AND		STND_YEAR		= ?			--기준년도
+			AND		TMS				= ?			--회차
+			AND		DAY_ORD			= ?			--일차
+			AND		RACE_NO			= ?			--경주번호
+			AND		POOL_CD			= ?			--승식
+			AND		RUNNER_1ST		= ?			--선택1
+			AND		RUNNER_2ND		= ?			--선택2
+			AND		RUNNER_3RD		= ?			--선택3
+        ]]>
+    </query> 
+</queryMap>

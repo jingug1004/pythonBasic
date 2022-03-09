@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbea_auth_aply_dept(권한적용부서정보)">
+     <query id="tbea_auth_aply_dept_ma001" desc="권한적용 부서 현행화." fetchSize="10">
+        <![CDATA[
+			MERGE /* tbea_auth_aply_dept_ma001 */
+			      INTO TBEA_AUTH_APLY_DEPT RM
+            USING (
+                    SELECT 
+                    	  VU.ASSO_CD
+                    	, VU.DEPT_CD
+                    	, VU.TEAM_CD
+                    	, VU.USER_ID
+                    FROM VWEA_USER VU 
+                    WHERE VU.USER_ID = ?
+                  ) TR
+            ON (    RM.USER_ID = TR.USER_ID
+                )
+            WHEN MATCHED THEN                              --데이터 중복건이 있는경우 Update
+                       UPDATE SET 
+                                    RM.ASSO_CD   = TR.ASSO_CD
+                                  , RM.DEPT_CD   = TR.DEPT_CD
+                                  , RM.TEAM_CD   = TR.TEAM_CD
+            WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+                       INSERT (
+                                    RM.USER_ID       
+                                  , RM.ASSO_CD                          
+                                  , RM.DEPT_CD                             
+                                  , RM.TEAM_CD                         
+                                  , RM.INST_ID                         
+                                  , RM.INST_DT                            
+                              ) VALUES (
+                                    TR.USER_ID       
+                                  , TR.ASSO_CD          
+                                  , TR.DEPT_CD             
+                                  , TR.TEAM_CD         
+                                  , ?
+                                  , SYSDATE    
+                              )    
+        ]]>
+    </query>    
+          
+    <query id="tbea_auth_aply_dept_ff001" desc="권한적용 부서 조회." fetchSize="10">
+        <![CDATA[
+			SELECT   /* tbea_auth_aply_dept_ff001 IWORK_SFR-014 */
+			        '0' AS DELAUTH_CHK,
+			        '0' AS AUTH_CHK,
+			        A.USER_ID,
+			        A.DEPT_CD PRE_DEPT_CD,
+			        ( SELECT GROUP_NAME
+			         FROM   USRBM.V_GROUP C
+			         WHERE   C.GROUP_ID = A.DEPT_CD ) PRE_DEPT_NM,
+			        A.TEAM_CD PRE_TEAM_CD,
+			        ( SELECT GROUP_NAME
+			         FROM    USRBM.V_GROUP C
+			         WHERE   C.GROUP_ID = A.TEAM_CD ) PRE_TEAM_NM,
+			        B.USER_NM,
+			        B.DEPT_CD CUR_DEPT_CD,
+			        B.DEPT_NM CUR_DEPT_NM,
+			        B.TEAM_CD CUR_TEAM_CD,
+			        B.TEAM_NM CUR_TEAM_NM
+			FROM    TBEA_AUTH_APLY_DEPT A,
+			        VWEA_USER B
+			WHERE   A.USER_ID = B.USER_ID
+			AND     A.TEAM_CD <> B.TEAM_CD
+			AND     A.TEAM_CD LIKE '%' || NVL( ?, A.TEAM_CD ) || '%'
+			AND     B.USER_NM LIKE '%' || NVL( ?, B.USER_NM ) || '%'
+			ORDER BY B.DEPT_NM			
+        ]]>
+    </query>    
+    
+    <query id="tbea_auth_aply_dept_ua001" desc="권한적용부서 수정" fetchSize="10">
+        <![CDATA[
+            UPDATE TBEA_AUTH_APLY_DEPT SET   /* tbea_auth_aply_dept_ua001 IWORK_SFR-014 */
+                 DEPT_CD = ?            --사용자           
+                ,TEAM_CD = ?            --장비구분                 
+                ,INST_ID = ?            --작성자           
+                ,INST_DT = SYSDATE      --작성일시
+            WHERE USER_ID = ?
+        ]]>
+    </query>   
+    
+    <query id="tbea_auth_aply_dept_da001" desc="메뉴권한관리 삭제" fetchSize="10">
+        <![CDATA[
+            UPDATE TBEA_MN_AUTH_HIST   /* tbea_auth_aply_dept_da001 IWORK_SFR-014   */
+            SET    END_DT_TM = TO_CHAR(SYSDATE-1/24/60,'YYYYMMDDHH24MI') 
+                  ,UPDT_ID = ?
+                  ,UPDT_DTM = SYSDATE
+            WHERE  USER_ID = ?
+            AND    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+        ]]>
+    </query>
+    
+     <query id="tbea_auth_aply_dept_da002" desc="권한적용부서 삭제" fetchSize="10">
+        <![CDATA[
+            DELETE TBEA_AUTH_APLY_DEPT   /* tbea_auth_aply_dept_da002   IWORK_SFR-014   */ 
+            WHERE USER_ID = ?
+        ]]>
+    </query>   
+    
+    <query id="tbea_auth_aply_dept_ff002" desc="팀쿼리" fetchSize="10">
+        <![CDATA[
+				SELECT  /*  IWORK_SFR-014 */
+				          GROUP_ID      TEAM_CD
+				         ,GROUP_NAME    TEAM_NM
+				FROM USRBM.V_GROUP DEPT 
+				WHERE GROUP_ID LIKE 'GA12%'
+				ORDER BY GROUP_ORDER
+        ]]>
+    </query> 
+          
+</queryMap>

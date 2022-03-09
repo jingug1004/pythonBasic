@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="130" Id="RSY3051" Left="8" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="비밀번호변경" Top="8" Ver="1.0" Width="232" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsUserPw">
+				<Contents>
+					<colinfo id="USER_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="GBN" size="256" summ="default" type="STRING"/>
+					<colinfo id="PSWD" size="256" summ="default" type="STRING"/>
+					<record>
+						<GBN></GBN>
+						<PSWD></PSWD>
+						<USER_ID></USER_ID>
+					</record>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Static Align="Right" Border="Flat" Height="21" Id="Static4" Left="7" Style="snis_m_lable" TabOrder="1" Text="사용자ID" Top="29" VAlign="Middle" Width="80"></Static>
+		<Edit AutoSelect="TRUE" BindDataset="dsUserPw" Border="Flat" CheckLength="Byte" Column="USER_ID" Enable="FALSE" Height="21" Id="edBrncCd" Left="93" LeftMargin="2" MaxLength="100" Style="snis_if_input01" TabOrder="2" Top="30" Width="125"></Edit>
+		<Static Align="Right" Border="Flat" Height="21" Id="Static1" Left="7" Style="snis_m_lable" TabOrder="3" Text="비밀번호" Top="55" VAlign="Middle" Width="80"></Static>
+		<Button ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnEndReq" ImageID="btn_txt_07" Left="32" OnClick="fcSave" TabOrder="4" Text="저장" Top="98" Width="80"></Button>
+		<Button ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnPopClose" ImageID="btn_txt_07" Left="120" OnClick="fcEnd" TabOrder="5" Text="닫기" Top="98" Width="80"></Button>
+		<Static Font="굴림,10,Bold" Height="22" Id="d" Left="32" Style="snis_m_title" TabOrder="7" Text="비밀번호변경" Top="6" VAlign="Middle" Width="118"></Static>
+		<Image Height="20" Id="imgFormTitle" ImageID="m_titleblet" Left="11" TabOrder="6" Top="8" Width="17"></Image>
+		<Edit AutoSelect="TRUE" BindDataset="dsUserPw" Border="Flat" CheckLength="Byte" Column="PSWD" Height="21" Id="edPswd" Left="93" LeftMargin="2" MaxLength="100" Style="snis_if_input01" TabOrder="8" Top="56" Width="125"></Edit>
+	</Form>
+	<Script><![CDATA[
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       =  this.getform().id;
+var sBUTTONLIST   = 'TTTTTT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+var sMenuGrpNum     = "0";                         // 메뉴그룹의 갯수보관
+var sMenuListNum    = "0";                          // 메뉴리스트의 갯수보관
+var sMenuUpId       = "";
+var sMenuUpNm       = "";
+
+var sRaceDt       = "";
+var sBrncCd       = "";
+var sBrncNm       = "";
+var sMeetCd		  = "";
+var sSeq		  = "";
+var sGbn 	  	  = "";
+var sUserId 	  = "";
+
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {  
+
+	dsUserPw.SetColumn(0,"USER_ID",sUserId);
+	dsUserPw.SetColumn(0,"GBN",sGbn);
+	
+	edPswd.SetFocus();
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 UNLoad時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	// 자료 변경 여부를 체크하고자 하는 DataSet Object를 넘긴다.
+	//var sDataset = "dsUserPw";
+	//if (   !fnc_FormUnloadCheck(sDataset  , sFormId) ) return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	// Return Key Press時 Next Component focus
+	if ( nChar == 13 ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+
+
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 하기전에 필수항목 체크
++-------------------------------------------------------------------------------------------------*/
+function fcSaveCheck(obj) {
+	// 변경된 자료가 있는지 체크
+	if ( !fnc_DatasetChangeCheck(dsUserPw) ) {
+		// 저장 할 자료가 없음
+		fnc_Message(SNIS_COM_1006, "N");
+		return false;
+	}
+
+
+	// 필수항목체크
+	oDataSet          = dsUserPw;
+	sMandatoryColID   = "PSWD";
+	sMandatoryColName = "비밀번호";
+	oGrid             = grdUserPw;
+	if ( fnc_GetMandatoryViolateRow(oDataSet, sMandatoryColID, sMandatoryColName, oGrid) > -1 ) {
+		return false;
+	}
+	
+	return true;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSave(obj) {
+
+	var sServiceName = "";
+	var sInDataSet   = "";
+	var sOutDataSet  = "";
+	
+	
+	sServiceName = "rsy3050-service:saveUser";
+	sInDataSet   = "dsUserPw=dsUserPw:a";
+
+	sOutDataSet  = "dsUserPw=dsUserPw";
+
+	fcd_AddParam("JOB_GBN", "02");
+
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);	
+	
+}
+
+
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	// 화면 종료
+	Close(true);
+}
+
+
+
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+
+
+	// 회선   저장 완료 후
+	if ( sServiceName == "rsy3050-service:saveUser" ) {
+		
+		fcEnd();
+	}
+	
+
+
+
+
+}
+]]></Script>
+</Window>

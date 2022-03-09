@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_racer_helmet(선수헬멧정보)">
+    <query id="tbec_racer_helmet_fc001" desc="선수헬멧정보 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* tbec_racer_helmet_fc001 */
+			        RACER_NO
+			       ,HELMET_TYPE
+			       ,CASE WHEN HELMET_TYPE = '001' THEN
+			       		     (SELECT CD_NM
+			       		      FROM   TBEA_SPEC_CD
+			       		      WHERE  GRP_CD = 'E00149'
+			       		      AND    CD = '001')
+			             ELSE PHOTO_FRONT_FILE
+			             END AS PHOTO_FRONT_FILE
+			       ,PHOTO_FRONT_FILE_NM
+			       ,'N' AS PHOTO_FRONT_UPDATE
+			       ,CASE WHEN HELMET_TYPE = '001' THEN
+			       		     (SELECT CD_NM
+			       		      FROM   TBEA_SPEC_CD
+			       		      WHERE  GRP_CD = 'E00149'
+			       		      AND    CD = '002')
+			             ELSE PHOTO_BACK_FILE
+			             END AS PHOTO_BACK_FILE
+			       ,PHOTO_BACK_FILE_NM
+			       ,'N' AS PHOTO_BACK_UPDATE
+			FROM 	TBEC_RACER_HELMET H
+			WHERE   RACER_NO = ?
+        ]]>
+    </query>
+    <query id="tbec_racer_helmet_ic001" desc="선수헬멧  저장" fetchSize="10">
+        <![CDATA[
+            /* 선수헬멧정보 입력 */
+            MERGE /* tbec_racer_helmet_ic001 */
+                  INTO TBEC_RACER_HELMET TAR
+            USING   ( 
+                      SELECT  ? AS RACER_NO					-- 선수번호
+                             ,? AS HELMET_TYPE				-- 헬멧 종류
+                             ,? AS PHOTO_FRONT_FILE			-- 전측면 사진파일(실제 파일명)
+			                 ,? AS PHOTO_FRONT_FILE_NM		-- 전측면 사진파일명(원본파일명)
+  			                 ,? AS PHOTO_BACK_FILE			-- 후측면 사진파일(실제파일명)
+			                 ,? AS PHOTO_BACK_FILE_NM		-- 후측면 사진파일명(원본파일명)
+			                 ,? AS USER_ID
+			          FROM   DUAL
+                    ) SRC
+            ON        (    TAR.RACER_NO = SRC.RACER_NO    --선수등록번호
+                    )
+            WHEN MATCHED THEN
+                    UPDATE  SET
+                         HELMET_TYPE           	= SRC.HELMET_TYPE 
+                        ,PHOTO_FRONT_FILE      	= SRC.PHOTO_FRONT_FILE      
+                        ,PHOTO_FRONT_FILE_NM   	= SRC.PHOTO_FRONT_FILE_NM	
+    			       	,PHOTO_BACK_FILE	    = SRC.PHOTO_BACK_FILE		
+    			       	,PHOTO_BACK_FILE_NM    	= SRC.PHOTO_BACK_FILE_NM	
+    			       	,UPDT_ID    		    = SRC.USER_ID				-- 수정자 ID
+    			       	,UPDT_DTM   		    = SYSDATE					-- 수정일시    
+            WHEN NOT MATCHED THEN
+                    INSERT (
+        				 RACER_NO		
+        				,HELMET_TYPE		
+        				,PHOTO_FRONT_FILE	
+        				,PHOTO_FRONT_FILE_NM
+        				,PHOTO_BACK_FILE	
+        				,PHOTO_BACK_FILE_NM	
+        				,INST_ID 			
+        			   	,INST_DTM 			
+        			) VALUES ( 
+        				 SRC.RACER_NO
+        			    ,SRC.HELMET_TYPE
+        			    ,SRC.PHOTO_FRONT_FILE
+        			    ,SRC.PHOTO_FRONT_FILE_NM
+        			    ,SRC.PHOTO_BACK_FILE
+        			    ,SRC.PHOTO_BACK_FILE_NM	
+        			    ,SRC.USER_ID
+        			    ,SYSDATE
+                    )
+        ]]>
+    </query>     
+</queryMap>

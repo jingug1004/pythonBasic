@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM1060(LIS파일 검증대장)">   
+    
+    <query id="rsm1060_01" desc="경주일정보" fetchSize="10">
+        <![CDATA[
+			
+			    SELECT  /* rsm1060_01 */
+				        A.STND_YEAR, -- 기준년도
+				        A.RACE_DAY,	-- 경주일
+				        A.RACE_DAY_DESC,	-- 경주일 표현			        
+				        A.MEET_GUBUN,	-- 경륜 경정 구분 코드
+				        A.MEET_DESC,	-- 경륜 경정 구분 명
+				        B.MEET_CD,		-- LIS 경주 구분 코드
+				        B.DT,			-- 날짜
+				        '' AS FILE_LOCAL_PATH,	-- 로컬 파일            
+				        B.FILE_PATH, -- 서버 파일 경로		        
+				        B.FILE_NM, 	-- 파일 이름
+				        DECODE(B.FILE_NM,'','002','001') AS FILE_CD,
+				        B.VERI TF,
+				        DECODE(B.VERI,'001','일치','002','불일치','') TF_DESC		        		        
+				 FROM
+				(    
+				        SELECT  
+							        STND_YEAR, -- 기준년도
+							        RACE_DAY,	-- 경주일
+							        MAX(RACE_DAY_DESC) RACE_DAY_DESC,	-- 경주일 표현			        
+							        MEET_GUBUN,	-- 경륜 경정 구분 코드
+							        MEET_DESC	-- 경륜 경정 구분 명
+							        
+							FROM
+							(        
+							SELECT  STND_YEAR,
+							        RACE_DAY,
+							        TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') AS RACE_DAY_DESC,
+							        MEET_CD,
+							        DECODE(MEET_CD,'003','003','001') AS MEET_GUBUN,
+							        DECODE(MEET_CD,'003','경정','경륜') AS MEET_DESC,
+							        TMS, 
+							        DAY_ORD
+							  FROM  VW_SDL_INFO        			-- 경주일 정보
+							 WHERE  1=1
+							   AND  STND_YEAR   = ?           --조건  0:STND_YEAR 기준년도 
+							 UNION ALL
+                             SELECT STND_YEAR,
+                                    STND_YEAR || DT AS RACE_DAY,
+                                    TO_CHAR(TO_DATE( STND_YEAR || DT,'YYYYMMDD'),'YYYY-MM-DD') AS RACE_DAY_DESC,
+                                    '999' MEET_CD,
+                                    '999' AS MEET_GUBUN,
+                                    '평일' AS MEET_DESC,
+                                    0 TMS, 
+                                    0 DAY_ORD
+                              FROM  TBRD_LIS_FILE                   -- 경주일 정보
+                             WHERE  1=1
+                               AND  MEET_CD='999'
+                               AND  STND_YEAR   = ?            --조건  0:STND_YEAR 기준년도
+                               GROUP BY STND_YEAR,DT
+							)
+							GROUP BY STND_YEAR,
+							        RACE_DAY,
+							        MEET_GUBUN,
+							        MEET_DESC  
+						   ORDER BY RACE_DAY DESC      
+				)A,
+				(
+				SELECT MEET_CD,
+				       STND_YEAR,
+				       DT,
+				       (STND_YEAR||DT) AS RACE_DAY,
+				       FILE_PATH, FILE_NM,
+				       MAX(VERI) VERI
+				  FROM TBRD_LIS_FILE 
+				 WHERE 1=1
+				   AND STND_YEAR   = ?          --조건  1:STND_YEAR 기준년도
+				   GROUP BY MEET_CD,STND_YEAR,DT, FILE_PATH, FILE_NM
+				)B
+				WHERE 1=1
+				AND A.RACE_DAY=B.RACE_DAY
+				ORDER BY RACE_DAY DESC
+		   
+        ]]>
+
+    </query>   
+    
+    <query id="rsm1060_s02" desc="LIS파일 검증 대장" fetchSize="10">
+        <![CDATA[
+	       SELECT  /* rsm1060_s02 */
+                    MEET_CD,  -- 경륜 경정 구분 코드
+                    STND_YEAR,  -- 기준년도
+                    DT,         -- 일자
+                    BRNC_CD,        
+                    CD_NM,              
+                    GROSS_SALES,    -- 현금수입
+                    CANCELS,        -- 취소 금액
+                    TOT_SALES,      -- 실수입액
+                    CASHES,         -- 지출액
+                    NET_INCOME,     -- 실입금액
+                    DRAWS,      
+                    RETURNS,
+                    BALANCE,        -- 미입금액    
+                    DAS_GROSS_SALE, -- DAS 현금수입
+                    DAS_CANCEL,     -- DAS 취소 금액
+                    DAS_TOT_SALE,   -- DAS 실수입액
+                    DAS_CASHE,      -- DAS 지출액
+                    DAS_NET_INCOME, -- DAS 실입금액
+                    DAS_DRAW,       
+                    DAS_RTRN,
+                    DAS_BALANCE,    -- DAS 현금수입
+                    CASE 
+                        WHEN (AA.GROSS_SALES=BB.DAS_GROSS_SALE)     -- 현금수입
+                             AND (AA.CANCELS=BB.DAS_CANCEL)           -- 취소 금액
+                             AND (AA.TOT_SALES=BB.DAS_TOT_SALE)      -- 실수입액
+                             AND (AA.CASHES=BB.DAS_CASHE)            -- 지출액
+                             AND (AA.NET_INCOME=BB.DAS_NET_INCOME)    -- 실입금액
+                             AND (AA.BALANCE=BB.DAS_BALANCE)          -- 미입금액
+                        THEN '001'
+                        ELSE '002'
+                    END AS TF,  -- 일치 여부 코드
+                    
+                    CASE 
+                        WHEN (AA.GROSS_SALES=BB.DAS_GROSS_SALE)     -- 현금수입
+                             AND (AA.CANCELS=BB.DAS_CANCEL)           -- 취소 금액
+                             AND (AA.TOT_SALES=BB.DAS_TOT_SALE)      -- 실수입액
+                             AND (AA.CASHES=BB.DAS_CASHE)            -- 지출액
+                             AND (AA.NET_INCOME=BB.DAS_NET_INCOME)    -- 실입금액
+                             AND (AA.BALANCE=BB.DAS_BALANCE)          -- 미입금액
+                        THEN '일치'
+                        ELSE '불일치'
+                    END AS TF_DESC -- 일치 여부 설명
+                FROM        
+                (
+                    SELECT 
+                        MEET_CD,  -- 경륜 경정 구분 코드
+                        STND_YEAR,  -- 기준년도
+                        DT,         -- 일자
+                        TO_NUMBER(BRNC_CD) AS BRNC_CD,      -- 지점 코드
+                        CD_NM,              
+                        SUM(GROSS_SALES) AS GROSS_SALES,    -- 현금수입
+                        SUM(CANCELS) AS CANCELS,    -- 취소 금액
+                        SUM(TOT_SALES) AS TOT_SALES,    -- 실수입액
+                        SUM(CASHES) AS CASHES,      -- 지출액
+                        SUM(NET_INCOME) AS NET_INCOME,  -- 실입금액
+                        SUM(DRAWS) AS DRAWS,        
+                        SUM(RETURNS) AS RETURNS,
+                        SUM(BALANCE) AS BALANCE     -- 미입금액
+                    FROM
+                    (
+                           SELECT       
+                                MEET_CD,  -- 경륜 경정 구분 코드
+                                STND_YEAR,  -- 기준년도
+                                DT,         -- 일자
+                                CASE WHEN SELL_CD='03' AND  BRNC_CD='08' THEN '98'
+                                      ELSE BRNC_CD 
+                                END BRNC_CD,        -- 지점 코드
+                                CASE WHEN SELL_CD='03' AND  BRNC_CD='08' THEN '미사리'
+                                      ELSE CD_NM
+                                END  CD_NM,             
+                               GROSS_SALES, -- 현금수입
+                               CANCELS,     -- 취소 금액
+                               TOT_SALES,   -- 실수입액
+                               CASHES,      -- 지출액
+                               NET_INCOME,  -- 실입금액
+                               DRAWS,       
+                               RETURNS,
+                               BALANCE  -- 미입금액
+                          FROM TBRD_LIS_FILE A -- LIS FILE 테이블
+                          ,TBRK_SPEC_CD B      -- 공통 테이블
+                          WHERE 1=1
+                          AND BRNC_CD=B.CD
+                          AND B.GRP_CD = '018'         --그룹코드
+                          AND STND_YEAR = ? -- 0:STND_YEAR
+                          AND DT        = ? -- 1:DT '1009'
+                          AND BRNC_CD NOT IN (06)
+                          ORDER BY BRNC_CD
+                    )AA 
+                    GROUP BY AA.MEET_CD,  -- 경륜 경정 구분 코드
+                                AA.STND_YEAR,   -- 기준년도
+                                AA.DT,  
+                                AA.BRNC_CD,
+                                AA.CD_NM
+                )AA,
+                (
+                    SELECT COMM_NO,
+                           SUM(GROSS_SALE) AS DAS_GROSS_SALE,
+                           SUM(CANCEL)     AS DAS_CANCEL,
+                           SUM(TOT_SALE)   AS DAS_TOT_SALE,
+                           SUM(CASHE)      AS DAS_CASHE,
+                           SUM(NET_INCOME) AS DAS_NET_INCOME,
+                           SUM(DRAW)       AS DAS_DRAW,
+                           SUM(RTRN)       AS DAS_RTRN,
+                           SUM(BALANCE)    AS DAS_BALANCE
+                    FROM
+                    (      
+                            SELECT 
+                                C.SELL_CD, 
+                                 CASE WHEN C.SELL_CD=3 AND C.COMM_NO IN (1,2) THEN 98
+                                   ELSE C.COMM_NO
+                                   END AS COMM_NO,
+                                C.COMM_NAME, 
+                                C.DIV_NAME,
+                                D.GROSS_SALE,
+                                D.CANCEL,
+                                D.TOT_SALE,
+                                D.CASHE,
+                                D.NET_INCOME,
+                                D.DRAW,
+                                D.RTRN,
+                                D.BALANCE
+                            FROM
+                            (
+                                    SELECT 
+                                             NVL(B.SELL_CD,A.SELL_CD) SELL_CD, 
+                                            NVL(B.COMM_NO,A.COMM_NO) COMM_NO, 
+                                            NVL(B.DIV_NO,A.DIV_NO) DIV_NO,
+                                            NVL(A.SOLD_AMT,0)+NVL(B.SOLD_AMT,0)     GROSS_SALE,
+                                            NVL(A.CANCEL_AMT,0)     CANCEL,
+                                            NVL(A.SOLD_AMT,0)+NVL(B.SOLD_AMT,0)-NVL(A.CANCEL_AMT,0) TOT_SALE,
+                                            NVL(A.CASH_AMT,0)+NVL(B.CASH_AMT,0) CASHE,
+                                            NVL(A.SOLD_AMT,0)+NVL(B.SOLD_AMT,0)-NVL(A.CANCEL_AMT,0)-NVL(A.CASH_AMT,0)-NVL(B.CASH_AMT,0) NET_INCOME,
+                                            NVL(B.DRAW_AMT,0)   DRAW,
+                                            NVL(B.RTRN_AMT,0)   RTRN,
+                                            NVL(A.SOLD_AMT,0)+NVL(B.SOLD_AMT,0)-NVL(A.CANCEL_AMT,0)-NVL(A.CASH_AMT,0)-NVL(B.CASH_AMT,0)+NVL(B.DRAW_AMT,0)-NVL(B.RTRN_AMT,0) BALANCE        
+                                    FROM
+                                    (
+                                        SELECT SELL_CD, 
+                                        COMM_NO, DIV_NO, 
+                                                NVL(SUM(SOLD_AMT),0)                                                       SOLD_AMT, 
+                                                SUM(NVL(CASH_AMT,0)+NVL(IRS_CASH_AMT,0))                                   CASH_AMT, 
+                                                SUM(NVL(SUP_CAN_AMT,0)+NVL(TOT_CAN_AMT,0)+NVL(PARTIAL_CAN_AMT,0))          CANCEL_AMT
+                                        FROM BASETOTE.PC_TELMP@DW01LINK
+                                        WHERE YEAR_DATE = ?  -- 2:RACE_DAY '20111009' 
+                                            AND WIN_TYPE IN (1,3)
+                                        GROUP BY SELL_CD, COMM_NO, DIV_NO) A
+                                         FULL OUTER JOIN 
+                                        (SELECT SELL_CD, COMM_NO, DIV_NO, 
+                                                NVL(SUM(SOLD_AMT),0)                                                       SOLD_AMT,
+                                                NVL(SUM(CASH_AMT),0)                                                       CASH_AMT,
+                                                NVL(SUM(DRAW_AMT),0)                                                       DRAW_AMT,
+                                                NVL(SUM(RTRN_AMT),0)                                                       RTRN_AMT
+                                        FROM BASETOTE.PC_WINNMP@DW01LINK
+                                        WHERE YEAR_DATE = ? -- 3:RACE_DAY '20111009' 
+                                        GROUP BY SELL_CD, COMM_NO, DIV_NO) B
+                                        
+                                        ON (
+                                              A.SELL_CD  = B.SELL_CD
+                                          AND A.COMM_NO  = B.COMM_NO 
+                                          AND A.DIV_NO      = B.DIV_NO)
+
+                                        ORDER BY B.SELL_CD, B.COMM_NO, B.DIV_NO    
+                                    )    D,
+                                    BASETOTE.CONF_DIV_INFO@DW01LINK C
+                                    WHERE D.SELL_CD=C.SELL_CD
+                                       AND D.COMM_NO=C.COMM_NO
+                                       AND D.DIV_NO=C.DIV_NO
+                                       AND C.TO_YEAR_DATE>= ? --===========> 추가
+                                       AND C.FROM_YEAR_DATE <= ?   --===========> 추가
+                         
+                    )AA 
+                    GROUP BY AA.COMM_NO
+                    ORDER BY AA.COMM_NO
+                )BB
+                WHERE AA.BRNC_CD=BB.COMM_NO(+)
+                ORDER BY AA.BRNC_CD
+        ]]>
+
+    </query>   
+    
+    
+</queryMap>

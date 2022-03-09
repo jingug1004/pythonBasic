@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_arrange_chg(주선변경)">
+    <query id="tbeb_arrange_chg_fb001" desc="주선변경 일련번호 조회" fetchSize="10">
+        <![CDATA[
+            SELECT NVL(MAX(SEQ), 0) + 1 SEQ
+            FROM   TBEB_ARRANGE_CHG
+            WHERE  STND_YEAR = ?    -- 기준년도 
+			AND    MBR_CD    = ?    -- 경정장코드  
+			AND    TMS       = ?    -- 회차        
+			AND    DAY_ORD   = ?    -- 일차            
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_chg_fb002" desc="주선변경 조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* tbeb_arrange_chg_fb002 */
+			         TAC.STND_YEAR     -- 기준년도    
+			       , TAC.MBR_CD        -- 경정장코드  
+			       , TAC.TMS           -- 회차        
+			       , TAC.DAY_ORD       -- 일차            
+			       , TAC.SEQ           -- 일련번호         
+			       , TAC.RACE_NO       -- 경주번호
+			       , TAC.RACE_REG_NO   -- 정번
+			       , TAC.CHG_CLS_CD    -- 변경구분코드  
+			       , CASE WHEN TAC.CHG_CLS_CD = 'R' THEN ''
+			              ELSE TRM.NM_KOR
+			         END  RACER_NM
+			       , CASE WHEN TAC.CHG_CLS_CD = 'R' THEN (SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = TAC.CHG_BF_NO)
+                          ELSE SUBSTR(TAC.CHG_BF_NO, 6, 3)
+                     END  CHG_BF_NO    -- 변경전번호
+			       , CASE WHEN TAC.CHG_CLS_CD = 'R' THEN (SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = TAC.CHG_AF_NO)
+                          ELSE SUBSTR(TAC.CHG_AF_NO, 6, 3)
+                     END  CHG_AF_NO    -- 변경후번호
+			       , TAC.RSN           -- 사유    
+			       , TAC.INST_ID       -- 작성자ID    
+			       , TAC.INST_DTM      -- 작성일시    
+			       , TAC.UPDT_ID       -- 수정자ID    
+			       , TAC.UPDT_DTM      -- 수정일시    
+            FROM     TBEB_ARRANGE_CHG  TAC
+                   , TBEB_ORGAN        TOR
+                   , TBEC_RACER_MASTER TRM
+                   , (SELECT DAY_ORD, RACE_NO, RACE_REG_NO, CHG_BF_NO, CHG_AF_NO
+                      FROM   TBEB_ARRANGE_CHG
+                      WHERE  STND_YEAR  = ?
+                      AND    MBR_CD     = ?
+                      AND    TMS        = ?
+                      AND    CHG_CLS_CD = 'R'
+                     ) TAR 
+            WHERE  TAC.STND_YEAR   = TOR.STND_YEAR
+            AND    TAC.MBR_CD      = TOR.MBR_CD
+            AND    TAC.TMS         = TOR.TMS
+            AND    TAC.DAY_ORD     = TOR.DAY_ORD
+            AND    TAC.RACE_NO     = TOR.RACE_NO
+            AND    TAC.RACE_REG_NO = TOR.RACE_REG_NO
+            AND    NVL2(TAR.CHG_BF_NO, TAR.CHG_BF_NO, TOR.RACER_NO)    = TRM.RACER_NO
+            AND    TAC.STND_YEAR   = ? -- 기준년도    
+			AND    TAC.MBR_CD      = ? -- 경정장코드  
+			AND    TAC.TMS         = ? -- 회차    
+            AND    TAR.DAY_ORD(+)     = TOR.DAY_ORD
+            AND    TAR.RACE_NO(+)     = TOR.RACE_NO
+            AND    TAR.RACE_REG_NO(+) = TOR.RACE_REG_NO  
+            ORDER BY INST_DTM  
+
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_chg_ib001" desc="주선변경 입력" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_arrange_chg_ib001 */
+			       INTO TBEB_ARRANGE_CHG
+			(
+			         STND_YEAR     -- 기준년도    
+			       , MBR_CD        -- 경정장코드  
+			       , TMS           -- 회차        
+			       , DAY_ORD       -- 일차            
+			       , SEQ           -- 일련번호         
+			       , RACE_NO       -- 경주번호
+			       , RACE_REG_NO   -- 정번
+			       , CHG_CLS_CD    -- 변경구분코드     
+			       , CHG_BF_NO     -- 변경전번호
+			       , CHG_AF_NO     -- 변경후번호  
+			       , RSN           -- 사유    
+			       , INST_ID       -- 작성자ID    
+			       , INST_DTM      -- 작성일시    
+			       , UPDT_ID       -- 수정자ID    
+			       , UPDT_DTM      -- 수정일시    
+			) VALUES (
+			         ?             -- 기준년도    
+			       , ?             -- 경정장코드  
+			       , ?             -- 회차        
+			       , ?             -- 일차            
+			       , ?             -- 일련번호           
+			       , ?             -- 경주번호
+			       , ?             -- 정번
+			       , ?             -- 변경구분코드            
+			       , ?             -- 변경전번호
+			       , ?             -- 변경후번호
+			       , ?             -- 사유            
+			       , ?             -- 작성자ID    
+			       , SYSDATE       -- 작성일시    
+			       , ?             -- 수정자ID    
+			       , SYSDATE       -- 수정일시    
+			)
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_chg_ub001" desc="주선변경 수정" fetchSize="10">
+        <![CDATA[
+        	/* tbeb_arrange_chg_ub001 주선변경 수정*/
+			UPDATE TBEB_ARRANGE_CHG SET
+			         RSN         = ?       -- 사유    
+			       , UPDT_ID     = ?       -- 수정자ID    
+			       , UPDT_DTM    = SYSDATE -- 수정일시    
+			WHERE  STND_YEAR     = ?       -- 기준년도    
+			AND    MBR_CD        = ?       -- 경정장코드  
+			AND    TMS           = ?       -- 회차        
+			AND    DAY_ORD       = ?       -- 일차            
+			AND    SEQ           = ?       -- 일련번호         
+        ]]>
+    </query> 
+</queryMap>

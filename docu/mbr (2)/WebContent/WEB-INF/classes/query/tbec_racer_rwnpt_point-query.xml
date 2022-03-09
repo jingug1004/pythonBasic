@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_rwnpt_point_bas(선수상벌점등록)">
+    <query id="tbec_racer_rwnpt_point_fc001" desc="조회" fetchSize="10">
+        <![CDATA[  
+			SELECT
+			       TRRP.SEQ				-- 일련번호
+			       ,TRRP.STND_YEAR      -- 기준년도
+			       ,TRRP.MBR_CD		    -- 경정장코드 
+			       ,TRRP.TMS            -- 회차
+			       ,TRRP.RACER_NO       -- 선수번호
+				   ,TRM.NM_KOR         	-- 선수명
+				   ,TRRP.RWNPT_CD   	-- 상벌점 코드
+				   ,TRPB.RWNPT_GBN      -- 상벌구분
+				   ,TRPB.TITL         	-- 사유
+				   ,TRPB.SCR            -- 점수
+			       ,TRRP.GRNT_DT        -- 부여일자
+			       ,TRRP.ALLRACER_YN	-- 회차전원부여
+			       ,TRRP.INST_ID        -- 작성자ID
+			       ,TRRP.INST_DTM       -- 작성일시
+			       ,TRRP.UPDT_ID        -- 수정자ID
+			       ,TRRP.UPDT_DTM       -- 수정일시
+			  FROM TBEC_RACER_RWNPT_POINT TRRP,
+			       TBEC_RWNPT_POINT_BAS TRPB,
+				   TBEC_RACER_MASTER TRM
+			 WHERE TRRP.STND_YEAR   = NVL(?, TRRP.STND_YEAR)
+			   AND TRRP.MBR_CD      = NVL(?, TRRP.MBR_CD)
+               AND TRRP.TMS         BETWEEN NVL(?, TRRP.TMS) AND NVL(?, TRRP.TMS)
+			   AND TRPB.RWNPT_GBN   = NVL(?, TRPB.RWNPT_GBN)
+               AND TRPB.RWNPT_CD    = NVL(?, TRPB.RWNPT_CD)
+               AND TRM.NM_KOR LIKE '%'||NVL(?, TRM.NM_KOR)||'%'
+               AND TRRP.STND_YEAR = TRPB.STND_YEAR
+			   AND TRRP.RWNPT_CD = TRPB.RWNPT_CD
+			   AND TRRP.RACER_NO = TRM.RACER_NO
+			 ORDER BY TITL DESC, GRNT_DT DESC, SEQ DESC
+        ]]>
+    </query>
+    <query id="tbec_racer_rwnpt_point_fc002" desc="명칭조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbec_racer_rwnpt_point_fc002 */
+			        RWNPT_CD    -- 상벌점 코드
+                    --,'상벌점규정 제 '||TO_NUMBER(RWNPT_CD)||'호' AS TITL -- 상벌점 규정번호
+			        ,TITL       -- 명칭
+				    ,RWNPT_GBN  -- 상벌구분
+			FROM  TBEC_RWNPT_POINT_BAS
+			WHERE STND_YEAR = NVL(?,STND_YEAR)
+			ORDER BY RWNPT_CD
+        ]]>
+    </query>
+    <query id="tbec_racer_rwnpt_point_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBEC_RACER_RWNPT_POINT TRRP
+            USING   DUAL
+            ON        (    TRRP.STND_YEAR          = ?         -- 기준년도
+			              AND TRRP.SEQ             = ?         -- 일련번호
+                    )
+            WHEN MATCHED THEN
+                    UPDATE  SET
+					        MBR_CD	  	  = ?		  -- 경정장코드
+					      , TMS	  		  = ?		  -- 회차
+					      , RWNPT_CD	  = ?		  -- 상벌코드
+					      , GRNT_DT       = ?         -- 부여일자
+					      , UPDT_ID       = ?         -- 수정자ID    
+					      , UPDT_DTM      = SYSDATE   -- 수정일시     
+            WHEN NOT MATCHED THEN
+                    INSERT (
+                    	  SEQ		   -- 일련번호
+					      , STND_YEAR  -- 기준년도
+					      , MBR_CD	   -- 경정장코드
+					      , TMS        -- 회차
+					      , RACER_NO   -- 선수번호
+						  , RWNPT_CD   -- 상벌점 코드
+					      , GRNT_DT    -- 부여일자
+					      , ALLRACER_YN   -- 회차전원부여
+					      , INST_ID    -- 작성자ID    
+					      , INST_DTM   -- 작성일시   
+					      , UPDT_ID    -- 수정자ID    
+					      , UPDT_DTM   -- 수정일시
+					) VALUES (
+					      ?            -- 일련번호
+					      , ?          -- 기준년도
+					      , ?          -- 경정장코드
+					      , ?          -- 회차
+					      , ?          -- 선수번호    
+					      , ?          -- 상벌점코드
+					      , ?          -- 부여일자
+					      , ?		   -- 회차전원부여   
+					      , ?          -- 작성자ID    
+					      , SYSDATE    -- 작성일시   
+					      , ?          -- 수정자ID    
+					      , SYSDATE    -- 수정일시
+                    )
+        ]]>
+    </query> 
+    <query id="tbec_racer_rwnpt_point_dc001" desc="삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM  TBEC_RACER_RWNPT_POINT
+			WHERE STND_YEAR     = ?       -- 기준년도    
+              AND SEQ           = ?       -- 일련번호
+        ]]>
+    </query> 
+    <query id="tbec_racer_rwnpt_point_fc003" desc="선수상벌점  시퀀스조회" fetchSize="10">
+        <![CDATA[
+            /* 선수상벌점 시퀀스조회 */
+			SELECT 											
+    		NVL(MAX(SEQ)+1,1) SEQ		--시퀀스	 
+			FROM TBEC_RACER_RWNPT_POINT
+			WHERE STND_YEAR  		= ?		-- 기준년도
+        ]]>
+    </query> 
+    <query id="tbec_racer_rwnpt_point_fc004" desc="명칭별점수조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			        SCR    -- 점수
+			FROM  TBEC_RWNPT_POINT_BAS
+			WHERE STND_YEAR = NVL(?, STND_YEAR)
+			  AND RWNPT_GBN = NVL(?, RWNPT_GBN)
+			  AND RWNPT_CD 	= NVL(?, RWNPT_CD)
+        ]]>
+    </query>
+    <query id="tbec_racer_rwnpt_point_fc005" desc="조회" fetchSize="10">
+        <![CDATA[  
+			SELECT
+			       TRRP.SEQ				-- 일련번호
+			       ,TRRP.STND_YEAR      -- 기준년도
+			       ,TRRP.MBR_CD		    -- 경정장코드 			       
+                   ,(SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00006' AND CD = TRRP.MBR_CD	) MBR_CD_NM --경정장명 
+			       ,TRRP.TMS            -- 회차
+			       ,TRRP.RACER_NO       -- 선수번호
+				   ,TRM.NM_KOR         	-- 선수명
+				   ,TRRP.RWNPT_CD   	-- 상벌점 코드
+                   ,TRPB.RWNPT_GBN      -- 상벌구분
+				   ,(SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00091' AND CD = TRPB.RWNPT_GBN) RWNPT_GBN_NM --상벌구분명
+                   ,TRPB.TITL         	-- 사유
+				   ,TRPB.SCR            -- 점수
+			       ,TRRP.GRNT_DT        -- 부여일자
+			       ,DECODE(TRRP.ALLRACER_YN,1,'예','아니오') ALLRACER_YN	-- 회차전원부여
+			  FROM TBEC_RACER_RWNPT_POINT TRRP,
+			       TBEC_RWNPT_POINT_BAS TRPB,
+				   TBEC_RACER_MASTER TRM
+			 WHERE TRRP.STND_YEAR   = NVL(?, TRRP.STND_YEAR)
+			   AND TRRP.MBR_CD      = NVL(?, TRRP.MBR_CD)
+               AND TRRP.TMS         BETWEEN NVL(?, TRRP.TMS) AND NVL(?, TRRP.TMS)
+			   AND TRPB.RWNPT_GBN   = NVL(?, TRPB.RWNPT_GBN)
+               AND TRPB.RWNPT_CD    = NVL(?, TRPB.RWNPT_CD)
+               AND TRM.NM_KOR LIKE '%'||NVL(?, TRM.NM_KOR)||'%'
+               AND TRRP.STND_YEAR = TRPB.STND_YEAR
+			   AND TRRP.RWNPT_CD = TRPB.RWNPT_CD
+			   AND TRRP.RACER_NO = TRM.RACER_NO
+			 ORDER BY SEQ DESC
+        ]]>
+    </query>
+    <query id="tbec_racer_rwnpt_point_fc006" desc="상벌점현황 레포트   조회" fetchSize="10">
+        <![CDATA[
+/*                     
+            SELECT  STND_YEAR,
+                    RWNPT_CD,
+                    TITL,          
+                    SUBSTR(MAX(SYS_CONNECT_BY_PATH(RACER_NM,',')),2) RACER_NM,
+                    SCR1,
+                    ABS(SCR2) SCR2
+            FROM (             
+                        SELECT STND_YEAR, MBR_CD, RWNPT_CD, TITL, SCR1, SCR2, GRNT_DT, RACER_NM
+                        , ROW_NUMBER() OVER (PARTITION BY  STND_YEAR,
+                                                                 MBR_CD,
+                                                                 RWNPT_CD,
+                                                                 TITL, 
+                                                                 SCR1,
+                                                                 SCR2                     
+                                                  ORDER BY       STND_YEAR,
+                                                                 MBR_CD,
+                                                                 RWNPT_CD,
+                                                                 TITL, 
+                                                                 SCR1,
+                                                                 SCR2,
+                                                                 GRNT_DT,
+                                                                 RACER_NM) ROW_ID 
+                        FROM
+                        (
+                            SELECT DISTINCT TRRP.STND_YEAR
+                                , MBR_CD
+                                , TRPB.RWNPT_CD
+                                , TITL
+                                , CASE WHEN SCR > 0 THEN SCR END SCR1
+                                , CASE WHEN SCR < 0 THEN SCR END SCR2
+                                , GRNT_DT
+                                , DECODE (ALLRACER_YN,1, TMS||'회차전원',(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = TRRP.RACER_NO)) AS RACER_NM
+                             FROM TBEC_RACER_RWNPT_POINT TRRP,
+                             	  TBEC_RWNPT_POINT_BAS TRPB
+                             WHERE TRRP.STND_YEAR   = ?
+                             AND TRRP.MBR_CD        = ?
+                             AND TRRP.TMS           = ?
+                             AND TRRP.STND_YEAR     = TRPB.STND_YEAR
+                             AND TRRP.RWNPT_CD      = TRPB.RWNPT_CD 
+                         )             
+            )
+            START WITH ROW_ID = 1
+            CONNECT BY PRIOR ROW_ID = ROW_ID -1
+            AND PRIOR STND_YEAR     = STND_YEAR
+            AND PRIOR RWNPT_CD      = RWNPT_CD
+            GROUP BY STND_YEAR, RWNPT_CD, TITL, SCR1, SCR2
+            ORDER BY STND_YEAR, RWNPT_CD, TITL
+*/            
+            SELECT  STND_YEAR
+                    , RWNPT_CD
+                    , TITL          
+                    , SUBSTR(XMLAGG(XMLELEMENT(A,','||RACER_NM) ORDER BY GRNT_DT, RACER_NM).EXTRACT('//text()'), 2) RACER_NM
+                    , SCR1
+                    , ABS(SCR2) SCR2
+            FROM (             
+					SELECT DISTINCT TRRP.STND_YEAR
+							, MBR_CD
+							, TRPB.RWNPT_CD
+							, TITL
+							, CASE WHEN SCR > 0 THEN SCR END SCR1
+							, CASE WHEN SCR < 0 THEN SCR END SCR2
+							, GRNT_DT
+							, DECODE (ALLRACER_YN,1, TMS||'회차전원',(SELECT NM_KOR FROM TBEC_RACER_MASTER WHERE RACER_NO = TRRP.RACER_NO)) AS RACER_NM
+					FROM	TBEC_RACER_RWNPT_POINT TRRP,
+							TBEC_RWNPT_POINT_BAS TRPB
+					WHERE 	TRRP.STND_YEAR   = ?
+					AND 	TRRP.MBR_CD        = ?
+					AND 	TRRP.TMS           = ?
+					AND 	TRRP.STND_YEAR     = TRPB.STND_YEAR
+					AND 	TRRP.RWNPT_CD      = TRPB.RWNPT_CD 
+            )
+            GROUP BY STND_YEAR, RWNPT_CD, TITL, SCR1, SCR2
+            ORDER BY STND_YEAR, RWNPT_CD, TITL
+        ]]>
+    </query> 
+    <query id="tbec_racer_rwnpt_point_fc007" desc="주선선수별 상벌점현황  레포트   조회" fetchSize="10">
+        <![CDATA[
+             SELECT TRRP.RACER_NO
+                , TRM.NM_KOR
+                , ABS(SUM(SCR1)) SCR1
+                , ABS(SUM(SCR2)) SCR2
+             FROM 
+                (
+                 SELECT TA.RACER_NO
+                    , CASE WHEN SCR > 0 THEN SUM(NVL(SCR,0)) ELSE 0 END SCR1
+                    , CASE WHEN SCR < 0 THEN SUM(NVL(SCR,0)) ELSE 0 END SCR2
+                 FROM (SELECT TA.STND_YEAR
+												        , TA.MBR_CD
+												        , TA.TMS
+												        , TA.RACER_NO
+												        , TA.BOAT_NO
+												        , TA.MOT_NO 
+												FROM TBEB_ARRANGE TA
+												    , TBEB_RACE_TMS TRT
+												WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+												        AND TRT.STND_YEAR   = TA.STND_YEAR
+												        AND TRT.TMS         = TA.TMS) TA,
+                 TBEC_RACER_RWNPT_POINT TRRP,
+                 TBEC_RWNPT_POINT_BAS TRPB
+                 WHERE TA.STND_YEAR         = ?
+                     AND TA.MBR_CD          = ? 
+                     AND TA.TMS             BETWEEN ? AND ?
+                     AND TA.STND_YEAR 	    = TRRP.STND_YEAR(+)
+                     AND TA.MBR_CD 	        = TRRP.MBR_CD(+)
+                     AND TA.TMS	            = TRRP.TMS(+)
+                     AND TA.RACER_NO	    = TRRP.RACER_NO(+)
+                     AND TRRP.STND_YEAR 	= TRPB.STND_YEAR(+)
+                     AND TRRP.RWNPT_CD 		= TRPB.RWNPT_CD(+)
+                 GROUP BY TA.RACER_NO, TRRP.RWNPT_CD , TRPB.SCR
+                ) TRRP,
+                TBEC_RACER_MASTER TRM             
+             WHERE TRRP.RACER_NO      = TRM.RACER_NO
+             GROUP BY TRRP.RACER_NO, TRM.NM_KOR             
+             ORDER BY TRRP.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbec_racer_rwnpt_point_fc008" desc="전체선수별 상벌점현황  레포트   조회" fetchSize="10">
+        <![CDATA[
+             SELECT TRM.RACER_NO
+                , TRM.NM_KOR
+                , ABS(NVL(SUM(SCR1),0)) SCR1
+                , ABS(NVL(SUM(SCR2),0)) SCR2
+             FROM 
+                (
+                 SELECT TRRP.RACER_NO
+                    , CASE WHEN SCR > 0 THEN SUM(NVL(SCR,0)) ELSE 0 END SCR1
+                    , CASE WHEN SCR < 0 THEN SUM(NVL(SCR,0)) ELSE 0 END SCR2
+                 FROM TBEC_RACER_RWNPT_POINT TRRP,
+                 TBEC_RWNPT_POINT_BAS TRPB
+                 WHERE TRRP.STND_YEAR         = ?
+                     AND TRRP.MBR_CD          = ?
+                     AND TRRP.TMS             BETWEEN ? AND ?
+                     AND TRRP.STND_YEAR     = TRPB.STND_YEAR(+)
+                     AND TRRP.RWNPT_CD      = TRPB.RWNPT_CD(+)
+                 GROUP BY TRRP.RACER_NO, TRRP.RWNPT_CD , TRPB.SCR
+                ) TRRP,
+                TBEC_RACER_MASTER TRM             
+             WHERE TRM.RACER_NO = TRRP.RACER_NO(+)
+                    AND TRM.RACER_STAT_CD != '003'
+             GROUP BY TRM.RACER_NO, TRM.NM_KOR             
+             ORDER BY TRM.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbec_racer_rwnpt_point_fc009" desc="회차별 상벌점현황" fetchSize="10">
+        <![CDATA[  
+			SELECT  TRRP.STND_YEAR      -- 기준년도
+			       ,TRRP.MBR_CD		    -- 경정장코드 
+			       ,TRRP.RACER_NO       -- 선수번호
+				   ,TRM.NM_KOR         	-- 선수명
+			       ,TRRP.TMS            -- 회차
+				   ,TRPB.RWNPT_GBN      -- 상벌구분
+				   ,SUM(TRPB.SCR) SCR   -- 점수
+			  FROM TBEC_RACER_RWNPT_POINT TRRP,
+			       TBEC_RWNPT_POINT_BAS TRPB,
+				   TBEC_RACER_MASTER TRM
+			 WHERE TRRP.STND_YEAR   = NVL(?, TRRP.STND_YEAR)
+			   AND TRRP.MBR_CD      = NVL(?, TRRP.MBR_CD)
+               AND TRRP.TMS         BETWEEN NVL(?, TRRP.TMS) AND NVL(?, TRRP.TMS)
+               AND TRRP.STND_YEAR = TRPB.STND_YEAR
+			   AND TRRP.RWNPT_CD = TRPB.RWNPT_CD
+			   AND TRRP.RACER_NO = TRM.RACER_NO
+			 GROUP BY TRRP.STND_YEAR, TRRP.MBR_CD, TRRP.RACER_NO, TRM.NM_KOR, TRRP.TMS, TRPB.RWNPT_GBN
+			 ORDER BY TRRP.STND_YEAR, TRRP.MBR_CD, TRRP.RACER_NO, TRRP.TMS, TRPB.RWNPT_GBN
+        ]]>
+    </query>
+</queryMap>

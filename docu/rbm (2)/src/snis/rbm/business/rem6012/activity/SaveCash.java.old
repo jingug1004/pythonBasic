@@ -1,0 +1,204 @@
+/*================================================================================
+ * 시스템			: 미사리 현금 입장인원 관리
+ * 소스파일 이름	: snis.rbm.business.rem6011.activity.SaveTradeList.java
+ * 파일설명		: 미사리 현금 입장인원 저장
+ * 작성자			: 서주원
+ * 버전			: 1.0.0
+ * 생성일자		: 2017-09-21
+ * 최종수정일자	: 
+ * 최종수정자		: 
+ * 최종수정내용	: 
+=================================================================================*/
+package snis.rbm.business.rem6012.activity;
+
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import javax.annotation.processing.RoundEnvironment;
+
+import snis.rbm.common.util.SnisActivity;
+import snis.rbm.common.util.Util;
+
+import com.posdata.glue.biz.constants.PosBizControlConstants;
+import com.posdata.glue.context.PosContext;
+import com.posdata.glue.dao.vo.PosParameter;
+import com.posdata.glue.dao.vo.PosRowSet;
+import com.posdata.glue.miplatform.vo.PosDataset;
+import com.posdata.glue.miplatform.vo.PosRecord;
+
+public class SaveCash extends SnisActivity {
+	
+	public SaveCash(){}
+
+	/**
+     * <p> SaveStates Activity를 실행시키기 위한 메소드 </p>
+     * @param   ctx		PosContext	저장소
+     * @return  SUCCESS	String		sucess 문자열
+     * @throws  none
+     */    
+    public String runActivity(PosContext ctx)
+    {
+        saveState(ctx);
+        return PosBizControlConstants.SUCCESS;
+    }
+
+    /**
+    * <p> 하나의 데이타셋을 가져와 한 레코드씩 looping하면서 DML 메소드를 호출하기 위한 메소드 </p>
+    * @param   ctx		PosContext	저장소
+    * @return  none
+    * @throws  none
+    */
+    protected void saveState(PosContext ctx) 
+    {
+    	int nSaveCount = 0;
+    	int nSaveChk   = 0;
+    	int nSize      = 0;
+    	int nDeleteCount = 0;
+    	double cnt1 = 0;
+    	double cnt2 = 0;
+    	
+    	String sFlag = "N";	//메세지를 사용자에게 띄울지 말지를 정하는 Flag
+    	String sMsg  = "";
+    	PosDataset ds;
+    	
+        String sDsName  = "dsCash";
+        
+        if ( ctx.get(sDsName) != null ) {
+	        ds    = (PosDataset) ctx.get(sDsName);
+	        nSize = ds.getRecordCount();	
+	        
+	        for ( int i = 0; i < nSize; i++ ) {
+	           PosRecord record = ds.getRecord(i);
+	           
+	           nDeleteCount = nDeleteCount + deleteList(record);
+	           
+	           int k = ((Double)record.getAttribute("CNT")).intValue();
+	           for(int j=0 ; j<k/2 ; j++){
+	        	   if(record.getType() == com.posdata.glue.miplatform.vo.PosRecord.UPDATE ||
+	  	              record.getType() == com.posdata.glue.miplatform.vo.PosRecord.INSERT) {
+	        		  saveList(record, j+1);
+	        		  //ImportTmoneyTrade(ctx);
+	  		        }  
+	           }
+	           for(int z=k/2 ; z<k ; z++){
+	        	   if(record.getType() == com.posdata.glue.miplatform.vo.PosRecord.UPDATE ||
+		  	          record.getType() == com.posdata.glue.miplatform.vo.PosRecord.INSERT) {   
+	        		  saveList1(record, z+1-(k/2));
+	        		  //ImportTmoneyTrade(ctx);
+		  		   }  
+	           }
+	            
+	           /*
+	           if (record.getType() == com.posdata.glue.miplatform.vo.PosRecord.DELETE)
+	           {
+		        	nDeleteCount = nDeleteCount + deleteList(record);
+		        	//ImportTmoneyTrade(ctx);
+	           }
+	           */
+	        }	 
+        }
+  
+        Util.setSaveCount  (ctx, nSaveCount);
+    }
+    
+    /**
+     * <p> 미사리 현금 입장인원 저장 </p>
+     * @param   record	PosRecord	데이타셋에 대한 하나의 레코드
+     * @return  dmlcount	int		update 레코드 개수
+     * @throws  none
+     */
+    protected int saveList(PosRecord record, int ftimeIdx) 
+    {
+    	//TBRC_T_TRADE_MSR
+    	PosParameter param = new PosParameter();  
+    	
+        int i = 0;
+
+        param.setValueParamter(i++, record.getAttribute("SDATE"));		
+        param.setValueParamter(i++, record.getAttribute("SDATE"));		
+        param.setValueParamter(i++, record.getAttribute("SDATE"));		
+        param.setValueParamter(i++, ftimeIdx);		
+        
+        int dmlcount = this.getDao("rbmdao").update("rem6012_i01", param);
+        
+        return dmlcount;
+        
+    	//TBRC_T_TRADE_MSR
+    	/*Connection conn = null;
+        CallableStatement proc =  null;
+        Integer sCnt = ((Double)record.getAttribute("CNT")).intValue();
+        String sSdate = (String) record.getAttribute("SDATE");
+        
+		try { 
+			int i = 1;
+	
+			conn = this.getDao("rbmdao").getDBConnection();
+			proc = conn.prepareCall("{call SP_IMPORT_TBRC_T_TRADE_MSR(?,?)}");
+			proc.setInt(i++, sCnt);
+			proc.setString(i++, sSdate);
+			proc.execute();
+			//proc.close();			
+		} catch (Exception e) {
+			e.printStackTrace(); 
+		} finally{
+			//try {if(conn!=null) conn.close();} catch(Exception e) {} 
+		}*/
+    }
+    
+    protected int saveList1(PosRecord record, int ftimeIdx) 
+    {
+    	//TBRC_T_TRADE_MSR
+        PosParameter Param = new PosParameter();  
+    	
+        int i = 0;
+
+        Param.setValueParamter(i++, record.getAttribute("SDATE"));		
+        Param.setValueParamter(i++, record.getAttribute("SDATE"));		
+        Param.setValueParamter(i++, record.getAttribute("SDATE"));		
+        Param.setValueParamter(i++, ftimeIdx);		
+        
+        int dmlcount = this.getDao("rbmdao").update("rem6012_i02", Param);
+        
+        return dmlcount;
+    }
+   
+    
+    protected void ImportTmoneyTrade(PosContext ctx) 
+    {
+    	Connection conn = null; 
+    	CallableStatement proc =  null;
+
+        try {
+        	conn = this.getDao("rbmdao").getDBConnection();
+        	proc = conn.prepareCall("{call SP_IMPORT_TMONEY_TRADE}");
+        	proc.setQueryTimeout(120);
+        	proc.execute();
+        	//proc.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    }
+    
+    /**
+     * <p> 미사리 현금 입장인원  삭제 </p>
+     * @param   record	PosRecord	데이타셋에 대한 하나의 레코드
+     * @return  dmlcount	int		update 레코드 개수
+     * @throws  none
+     */
+    protected int deleteList(PosRecord record) 
+    {
+    	//TBRC_T_TRADE_MSR
+    	PosParameter param = new PosParameter();
+        int i = 0;
+        
+        param.setWhereClauseParameter(i++, record.getAttribute("SDATE" ));
+        
+        int dmlcount = this.getDao("rbmdao").update("rem6012_d01", param);
+        
+		return dmlcount;
+        
+    }
+    
+}

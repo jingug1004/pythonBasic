@@ -1,0 +1,1122 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_racer_recd_accu_sum(선수성적)">
+    <query id="tbeb_racer_recd_accu_sum_fb001" desc="선수성적조회" fetchSize="10">
+        <![CDATA[
+            SELECT /*  tbeb_racer_recd_accu_sum_fb001 선수성적조회 */
+                     TOR  .RACER_NO
+                   , TRM  .NM_KOR
+                   , TOR  .RACER_GRD_CD
+                   , TOR  .RACE_REG_NO
+			       , TOR  .STND_YEAR - SUBSTR(TRD  .BIRTH_DT, 1, 4) AGE
+			       , NVL(TRI.ENTRY_BODY_WGHT, TRD  .WGHT) ENTRY_BODY_WGHT
+--			       , TRI.ENTRY_BODY_WGHT
+                   , TOR  .RANK
+                   , TOR  .RACE_TM
+                   , TOR  .ENTRY_COURSE
+                   , TOR  .STRATEGY_CD
+                   , TOR  .STAR_TM
+                   , TOR  .INTRO_RUN_TM
+                   , TOR  .MOT_NO
+			       , SUBSTR(TOR  .MOT_NO, 6, 3) VIEW_MOT_NO                 -- 모터번호    
+                   , TOR  .BOAT_NO
+			       , SUBSTR(TOR  .BOAT_NO, 6, 3) VIEW_BOAT_NO               -- 보트번호    
+                   , TRRAS.TMS_6_AVG_RANK_SCR
+                   , TRRAS.TMS_6_AVG_SCR
+                   , TRRAS.TMS_8_RANK_ORD
+                   , TRRAS.TMS_6_WIN_RATIO                                  -- 승률          
+                   , TRRAS.TMS_6_HIGH_RANK_RATIO                            -- 연대율        
+                   , TRRAS.TMS_6_HIGH_3_RANK_RATIO                          -- 3연대율       
+			       , NVL(DECODE(TRST.QURT_CD, '001', TRRAS.BF_AVG_ACDNT_SCR, '002', TRRAS.AF_AVG_ACDNT_SCR), 0) AVG_ACDNT_SCR
+                   , TMRAS.AVG_RANK_SCR             TMRAS_AVG_RANK_SCR      -- 평균 소개타임
+                   , TBRAS.AVG_RANK_SCR             TBRAS_AVG_RANK_SCR      -- 평균 소개타임
+			       , DECODE(TRST.QURT_CD, '001', 'F' || NVL(TRRAS.BF_F_CNT, 0) || 'L' || NVL(TRRAS.BF_L_CNT, 0), '002', 'F' || NVL(TRRAS.AF_F_CNT, 0) || 'L' || NVL(TRRAS.AF_L_CNT, 0)) FL_CNT
+            FROM     TBEC_RACER_MASTER    TRM
+                   , TBEC_RACER_DETAIL    TRD
+				   , TBEB_ORGAN           TOR
+                   , TBEC_RACER_INTERVIEW TRI
+				   , TBEB_RACE_TMS        TRT
+				   , TBEB_RECD_STND_TERM  TRST
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+                                           , TRRAS.*
+                                    FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+                                    WHERE  TRRAS.APLY_DT <= (
+                                                                SELECT
+                                                                       MAX(TRDO.RACE_DAY) RACE_DAY
+                                                                FROM   TBEB_RACE_DAY_ORD TRDO
+                                                                WHERE  TRDO.STND_YEAR = ?
+                                                                AND    TRDO.MBR_CD    = ?
+                                                                AND    TRDO.TMS       = ?
+                                                            )
+                                    AND   MBR_CD = '000'
+                                    AND   TMS    = 0
+                                    AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+                               )
+                        WHERE  RANK = 1
+                     ) TRRAS -- 선수최근성적
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TMRAS.MOT_NO ORDER BY TMRAS.STND_YEAR DESC, TMRAS.TMS DESC ) RANK
+                                           , TMRAS.*
+                                    FROM   TBEB_MOT_RECD_ACCU_SUM TMRAS
+                                    WHERE  STND_YEAR = ?
+                                    AND    MBR_CD    = ?
+                                    AND    TMS      <= ?
+                                    AND    TMRAS.ST_MTHD_CD = '000' --ST방식전체설정
+                               )
+                        WHERE  RANK = 1
+                     ) TMRAS -- 모터최근성적
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO ORDER BY TBRAS.STND_YEAR DESC, TBRAS.TMS DESC ) RANK
+                                           , TBRAS.*
+                                    FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                    WHERE  STND_YEAR = ?
+                                    AND    MBR_CD    = ?
+                                    AND    TMS      <= ?
+                                    AND    TBRAS.ST_MTHD_CD = '000' --ST방식전체설정
+                               )
+                        WHERE  RANK = 1
+                     ) TBRAS -- 보트최근성적
+            WHERE   TOR.RACER_NO  = TRM  .RACER_NO
+            AND     TOR.STND_YEAR = TRT  .STND_YEAR
+            AND     TOR.MBR_CD    = TRT  .MBR_CD
+            AND     TOR.TMS       = TRT  .TMS
+            AND     TOR.RACER_NO  = TRD  .RACER_NO (+)
+            AND     TOR.RACER_NO  = TRRAS.RACER_NO (+)
+            AND     TOR.MOT_NO    = TMRAS.MOT_NO   (+)
+            AND     TOR.BOAT_NO   = TBRAS.BOAT_NO  (+)    
+            AND     TOR.STND_YEAR = TRI  .STND_YEAR(+)
+            AND     TOR.MBR_CD    = TRI  .MBR_CD   (+)
+            AND     TOR.TMS       = TRI  .TMS      (+)
+            AND     TOR.RACER_NO  = TRI  .RACER_NO (+)
+            AND     TRT.STR_DT   >= TRST.STR_DT
+            AND     TRT.END_DT   <= TRST.END_DT
+            AND     TOR.STND_YEAR = ?
+            AND     TOR.MBR_CD    = ?
+            AND     TOR.TMS       = ?
+            AND     TOR.DAY_ORD   = ?
+            AND     TOR.RACE_NO   = ?
+            ORDER BY TOR.RACE_REG_NO
+        ]]>
+    </query>
+    <query id="tbeb_racer_recd_accu_sum_fb010" desc="전체선수성적조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbeb_racer_recd_accu_sum_fb010  전체선수성적조회 */
+			         DECODE(TA.RACER_NO, NULL, '0', '1') CHK
+			       , DECODE(TA.RACER_NO, NULL, '0', '1') ENABLE
+			       , TRM  .RACER_NO
+			       , TRM  .RACER_GRD_CD
+			       , TRM  .NM_KOR
+			       , TO_CHAR(SYSDATE, 'YYYY') - SUBSTR(TRD  .BIRTH_DT, 1, 4) AGE
+       		       , TRD.NATV_PLAC_CD                -- 출신코드
+			       , SPEC .CD_NM NATV_PLAC_NM        -- 출신
+			       , TRRAS.STND_YEAR                 -- 기준년도      
+			       , TRRAS.MBR_CD                    -- 경정장코드    
+			       , TRRAS.TMS                       -- 회차          
+			       , TRRAS.TMS_6_AMU_RANK_SCR        -- 6회누적착순점 
+			       , TRRAS.TMS_6_AVG_RANK_SCR        -- 6회평균착순점 
+			       , TRRAS.TMS_6_AMU_ACDNT_SCR       -- 6회누적사고점 
+			       , TRRAS.TMS_6_AVG_ACDNT_SCR       -- 6회평균착순점 
+			       , TRRAS.TMS_6_AVG_SCR             -- 6회평균득점   
+			       , TRRAS.TMS_6_WIN_RATIO           -- 6회승률       
+			       , TRRAS.TMS_6_HIGH_RANK_RATIO     -- 6회연대율     
+			       , TRRAS.TMS_6_HIGH_3_RANK_RATIO   -- 6회3연대율    
+			       , TRRAS.TMS_6_AVG_STRT_TM         -- 6회평균ST     
+			       , TRRAS.TMS_8_RANK_ORD            -- 8경주 착순    
+			       , TRRAS.TMS_6_RACE_CNT            -- 6회출주횟수   
+			       , TRRAS.TMS_6_RANK_1              -- 6회1착횟수    
+			       , TRRAS.TMS_6_RANK_2              -- 6회2착횟수    
+			       , TRRAS.TMS_6_RANK_3              -- 6회3착횟수    
+			       , TRRAS.AMU_RANK_SCR              -- 누적착순점    
+			       , TRRAS.AVG_RANK_SCR              -- 평균착순점    
+			       , TRRAS.GPP_SCR                   -- GP포인트
+			       , TRRAS.AMU_ACDNT_SCR             -- 누적사고점    
+			       , TRRAS.AVG_ACDNT_SCR             -- 평균사고점    
+			       , TRRAS.BF_AMU_ACDNT_SCR          -- 전반기사고점  
+			       , TRRAS.BF_AVG_ACDNT_SCR          -- 후반기사고점  
+			       , TRRAS.AF_AMU_ACDNT_SCR          -- 전반기사고점  
+			       , TRRAS.AF_AVG_ACDNT_SCR          -- 후반기사고점  
+			       , TRRAS.AVG_SCR                   -- 누적득점      
+			       , TRRAS.WIN_RATIO                 -- 승률          
+			       , TRRAS.HIGH_RANK_RATIO           -- 연대율        
+			       , TRRAS.HIGH_3_RANK_RATIO         -- 3연대율       
+			       , TRRAS.AVG_STRT_TM               -- 평균ST        
+			       , TRRAS.RUN_CNT                   -- 출전횟수      
+			       , TRRAS.RACE_DAY_CNT              -- 출전일수      
+			       , TRRAS.RACE_CNT                  -- 출주횟수      
+			       , TRRAS.TOT_RACE_CNT              -- 총출주횟수    
+			       , TRRAS.BF_RACE_CNT               -- 전반기출주횟수
+			       , TRRAS.AF_RACE_CNT               -- 후반기출주횟수
+			       , TRRAS.RANK_1_CNT                -- 1착횟수       
+			       , TRRAS.RANK_2_CNT                -- 2착횟수       
+			       , TRRAS.RANK_3_CNT                -- 3착횟수       
+			       , TRRAS.RANK_4_CNT                -- 4착횟수       
+			       , TRRAS.RANK_5_CNT                -- 5착횟수       
+			       , TRRAS.RANK_6_CNT                -- 6착횟수       
+			       , TRRAS.RANK_7_CNT                -- 7착횟수       
+			       , TRRAS.RANK_8_CNT                -- 8착횟수       
+			       , TRRAS.RANK_ETC_CNT              -- 착외횟수      
+			       , TRRAS.DGRE_JUDG_F_CNT           -- 등급심사 F횟수
+			       , TRRAS.DGRE_JUDG_L_CNT           -- 등습심사 L횟수
+			       , TRRAS.BF_F_CNT                  -- 전반기F횟수
+			       , TRRAS.AF_F_CNT                  -- 후반기F횟수
+			       , TRRAS.BF_L_CNT                  -- 전반기L횟수
+			       , TRRAS.AF_L_CNT                  -- 후반기L횟수
+			       , TRRAS.ABSE_CNT                  -- 결장횟수      
+			       , TRRAS.RACE_ESC_1_CNT            -- 출주제외1횟수 
+			       , TRRAS.RACE_ESC_2_CNT            -- 출주제외2횟수 
+			       , TRRAS.FOUL_ELIM_CNT             -- 반칙실격횟수  
+			       , TRRAS.ELIM_CNT                  -- 실격횟수      
+			       , TRRAS.FOUL_WARN_CNT             -- 반칙경고횟수  
+			       , TRRAS.WARN_CNT                  -- 경고횟수      
+			       , TRRAS.ATTEN_CNT                 -- 주의횟수      
+			       , TRRAS.BF_TMS                    -- 전회차        
+			       , TRRAS.BF_BF_TMS                 -- 전전회차      
+			       , TRRAS.BF_BF_BF_TMS              -- 전전전회차    
+			       , TRRAS.BF_MBR_CD                 -- 전경정장      
+			       , TRRAS.BF_BF_MBR_CD              -- 전전경정장    
+			       , TRRAS.BF_BF_BF_MBR_CD           -- 전전전경정장  
+			       , TRRAS.INST_ID                   -- 작성자ID      
+			       , TRRAS.INST_DTM                  -- 작성일시      
+			       , TRRAS.UPDT_ID                   -- 수정자ID      
+			       , TRRAS.UPDT_DTM                  -- 수정일시      
+			FROM     TBEC_RACER_MASTER TRM
+			       , TBEC_RACER_DETAIL TRD
+			       , (
+                        SELECT DISTINCT RACER_NO FROM (
+	                        SELECT
+	                               TA.RACER_NO, ST_MTHD_CD
+	                        FROM   TBEB_ARRANGE TA
+	                        WHERE  TA.STND_YEAR = ?
+	                        AND    TA.MBR_CD    = ?
+	                        AND    TA.TMS       = ?
+	
+	                        UNION
+	                        
+	                        SELECT
+	                               TOR.RACER_NO, ST_MTHD_CD
+	                        FROM   TBEB_ORGAN   TOR
+	                        WHERE  TOR.STND_YEAR = ?
+	                        AND    TOR.MBR_CD    = ?
+	                        AND    TOR.TMS       = ?
+	                        GROUP BY TOR.RACER_NO, ST_MTHD_CD
+                        ) 
+                        WHERE ST_MTHD_CD = (
+                        	  CASE WHEN ? = '000' THEN ST_MTHD_CD
+                        	  ELSE ? END
+                        )    
+			         ) TA -- 당회차참여선수
+			       , (
+						SELECT *
+						FROM   (
+						            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                   , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <= (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   ST_MTHD_CD = ?
+						            AND   TMS    = 0
+						       )
+						WHERE  RANK = 1
+			         ) TRRAS -- 선수최근성적
+			       , TBEA_SPEC_CD SPEC
+			WHERE  TRM.NM_KOR     LIKE '%' || ? || '%'
+			AND    TRM.RACER_NO       = TRD  .RACER_NO(+)
+			AND    TRM.RACER_NO       = TA   .RACER_NO(+)
+			AND    TRM.RACER_NO       = TRRAS.RACER_NO(+)
+			AND    TRM.RACER_STAT_CD IN ('001', '002')
+			AND    SPEC.GRP_CD = 'E00024'
+			AND    SPEC.CD = TRD.NATV_PLAC_CD
+			ORDER BY TRM.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_racer_recd_accu_sum_fb011" desc="당회차참여선수성적조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbeb_racer_recd_accu_sum_fb011 당회차참여선수성적조회 */
+			         '1' CHK
+			       , '1' ENABLE
+			       , TRM  .RACER_NO
+			       , TRM  .RACER_GRD_CD
+			       , TRM  .NM_KOR
+			       , TO_CHAR(SYSDATE, 'YYYY') - SUBSTR(TRD  .BIRTH_DT, 1, 4) AGE
+       		       , TRD.NATV_PLAC_CD                -- 출신코드
+			       , SPEC .CD_NM NATV_PLAC_NM        -- 출신
+			       , TRRAS.STND_YEAR                 -- 기준년도      
+			       , TRRAS.MBR_CD                    -- 경정장코드    
+			       , TRRAS.TMS                       -- 회차          
+			       , TRRAS.TMS_6_AMU_RANK_SCR        -- 6회누적착순점 
+			       , TRRAS.TMS_6_AVG_RANK_SCR        -- 6회평균착순점 
+			       , TRRAS.TMS_6_AMU_ACDNT_SCR       -- 6회누적사고점 
+			       , TRRAS.TMS_6_AVG_ACDNT_SCR       -- 6회평균착순점 
+			       , TRRAS.TMS_6_AVG_SCR             -- 6회평균득점   
+			       , TRRAS.TMS_6_WIN_RATIO           -- 6회승률       
+			       , TRRAS.TMS_6_HIGH_RANK_RATIO     -- 6회연대율     
+			       , TRRAS.TMS_6_HIGH_3_RANK_RATIO   -- 6회3연대율    
+			       , TRRAS.TMS_6_AVG_STRT_TM         -- 6회평균ST     
+			       , TRRAS.TMS_8_RANK_ORD            -- 8경주 착순    
+			       , TRRAS.TMS_6_RACE_CNT            -- 6회출주횟수   
+			       , TRRAS.TMS_6_RANK_1              -- 6회1착횟수    
+			       , TRRAS.TMS_6_RANK_2              -- 6회2착횟수    
+			       , TRRAS.TMS_6_RANK_3              -- 6회3착횟수    
+			       , TRRAS.AMU_RANK_SCR              -- 누적착순점    
+			       , TRRAS.AVG_RANK_SCR              -- 평균착순점 
+			       , TRRAS.GPP_SCR                   -- GP포인트   
+			       , TRRAS.AMU_ACDNT_SCR             -- 누적사고점    
+			       , TRRAS.AVG_ACDNT_SCR             -- 평균사고점    
+			       , TRRAS.BF_AMU_ACDNT_SCR          -- 전반기사고점  
+			       , TRRAS.BF_AVG_ACDNT_SCR          -- 후반기사고점  
+			       , TRRAS.AF_AMU_ACDNT_SCR          -- 전반기사고점  
+			       , TRRAS.AF_AVG_ACDNT_SCR          -- 후반기사고점  
+			       , TRRAS.AVG_SCR                   -- 누적득점      
+			       , TRRAS.WIN_RATIO                 -- 승률          
+			       , TRRAS.HIGH_RANK_RATIO           -- 연대율        
+			       , TRRAS.HIGH_3_RANK_RATIO         -- 3연대율       
+			       , TRRAS.AVG_STRT_TM               -- 평균ST        
+			       , TRRAS.RUN_CNT                   -- 출전횟수      
+			       , TRRAS.RACE_DAY_CNT              -- 출전일수      
+			       , TRRAS.RACE_CNT                  -- 출주횟수      
+			       , TRRAS.TOT_RACE_CNT              -- 총출주횟수    
+			       , TRRAS.BF_RACE_CNT               -- 전반기출주횟수
+			       , TRRAS.AF_RACE_CNT               -- 후반기출주횟수
+			       , TRRAS.RANK_1_CNT                -- 1착횟수       
+			       , TRRAS.RANK_2_CNT                -- 2착횟수       
+			       , TRRAS.RANK_3_CNT                -- 3착횟수       
+			       , TRRAS.RANK_4_CNT                -- 4착횟수       
+			       , TRRAS.RANK_5_CNT                -- 5착횟수       
+			       , TRRAS.RANK_6_CNT                -- 6착횟수       
+			       , TRRAS.RANK_7_CNT                -- 7착횟수       
+			       , TRRAS.RANK_8_CNT                -- 8착횟수       
+			       , TRRAS.RANK_ETC_CNT              -- 착외횟수      
+			       , TRRAS.DGRE_JUDG_F_CNT           -- 등급심사 F횟수
+			       , TRRAS.DGRE_JUDG_L_CNT           -- 등습심사 L횟수
+			       , TRRAS.BF_F_CNT                  -- 전반기F횟수
+			       , TRRAS.AF_F_CNT                  -- 후반기F횟수
+			       , TRRAS.BF_L_CNT                  -- 전반기L횟수
+			       , TRRAS.AF_L_CNT                  -- 후반기L횟수
+			       , TRRAS.ABSE_CNT                  -- 결장횟수      
+			       , TRRAS.RACE_ESC_1_CNT            -- 출주제외1횟수 
+			       , TRRAS.RACE_ESC_2_CNT            -- 출주제외2횟수 
+			       , TRRAS.FOUL_ELIM_CNT             -- 반칙실격횟수  
+			       , TRRAS.ELIM_CNT                  -- 실격횟수      
+			       , TRRAS.FOUL_WARN_CNT             -- 반칙경고횟수  
+			       , TRRAS.WARN_CNT                  -- 경고횟수      
+			       , TRRAS.ATTEN_CNT                 -- 주의횟수      
+			       , TRRAS.BF_TMS                    -- 전회차        
+			       , TRRAS.BF_BF_TMS                 -- 전전회차      
+			       , TRRAS.BF_BF_BF_TMS              -- 전전전회차    
+			       , TRRAS.BF_MBR_CD                 -- 전경정장      
+			       , TRRAS.BF_BF_MBR_CD              -- 전전경정장    
+			       , TRRAS.BF_BF_BF_MBR_CD           -- 전전전경정장  
+			       , TRRAS.INST_ID                   -- 작성자ID      
+			       , TRRAS.INST_DTM                  -- 작성일시      
+			       , TRRAS.UPDT_ID                   -- 수정자ID      
+			       , TRRAS.UPDT_DTM                  -- 수정일시      
+			FROM     TBEC_RACER_MASTER TRM
+			       , TBEC_RACER_DETAIL TRD
+			       , (
+			       		SELECT DISTINCT RACER_NO FROM (
+	                        SELECT
+	                               TA.RACER_NO, ST_MTHD_CD
+	                        FROM   TBEB_ARRANGE TA
+	                        WHERE  TA.STND_YEAR = ?
+	                        AND    TA.MBR_CD    = ?
+	                        AND    TA.TMS       = ?
+	
+	                        UNION
+	                        
+	                        SELECT
+	                               TOR.RACER_NO, ST_MTHD_CD
+	                        FROM   TBEB_ORGAN   TOR
+	                        WHERE  TOR.STND_YEAR = ?
+	                        AND    TOR.MBR_CD    = ?
+	                        AND    TOR.TMS       = ?
+	                        GROUP BY TOR.RACER_NO, ST_MTHD_CD
+                        ) 
+                        WHERE ST_MTHD_CD = (
+                        	  CASE WHEN ? = '000' THEN ST_MTHD_CD
+                        	  ELSE ? END
+                        )    
+			         ) TA -- 당회차참여선수
+			       , (
+						SELECT *
+						FROM   (
+						            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                   , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <= (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   ST_MTHD_CD = ?
+						       )
+						WHERE  RANK = 1
+			         ) TRRAS  -- 선수최근성적
+			       , TBEA_SPEC_CD SPEC
+			WHERE  TRM.NM_KOR     LIKE '%' || ? || '%'
+			AND    TRM.RACER_NO       = TRD  .RACER_NO(+)
+			AND    TRM.RACER_NO       = TA   .RACER_NO
+			AND    TRM.RACER_NO       = TRRAS.RACER_NO(+)
+			AND    SPEC.GRP_CD = 'E00024'
+			AND    SPEC.CD = TRD.NATV_PLAC_CD
+			ORDER BY TRM.RACER_NO
+
+        ]]>
+    </query> 
+    <query id="tbeb_racer_recd_accu_sum_fb021" desc="전체선수성적조회" fetchSize="10">
+        <![CDATA[
+            SELECT    /*  tbeb_racer_recd_accu_sum_fb021  전체선수성적조회 */
+                     TRM  .RACER_NO
+                   , TRM  .NM_KOR
+                   , TRM  .RACER_GRD_CD
+                   , TA   .MOT_NO
+			       , SUBSTR(TA   .MOT_NO, 6, 3) VIEW_MOT_NO                                 -- 모터번호    
+                   , TA   .BOAT_NO
+			       , SUBSTR(TA   .BOAT_NO, 6, 3) VIEW_BOAT_NO                                -- 모터번호    
+                   , TOR  .RACE_CNT_1
+                   , TOR  .STAR_TM_1
+                   , TOR  .RACE_CNT_2
+                   , TOR  .STAR_TM_2
+                   , TOR  .RACE_CNT_3
+                   , TOR  .STAR_TM_3
+                   , TOR  .RACE_CNT_4
+                   , TOR  .STAR_TM_4
+                   , TOR  .RACE_CNT_5
+                   , TOR  .STAR_TM_5
+                   , TOR  .RACE_CNT_6
+                   , TOR  .STAR_TM_6
+                   , TOR  .RACE_CNT_7
+                   , TOR  .STAR_TM_7
+                   , TOR  .RACE_CNT_8
+                   , TOR  .STAR_TM_8
+                   , TOR  .SUM_RACE_CNT
+                   , TOR  .AVG_STAR_TM
+                   , TRRAS.WIN_RATIO                                        -- 승률          
+                   , TRRAS.HIGH_RANK_RATIO                                  -- 연대율        
+                   , TRRAS.HIGH_3_RANK_RATIO                                -- 3연대율       
+                   , TRRAS.AVG_STRT_TM                                      -- 평균ST        
+                   , TRRAS.RUN_CNT                                          -- 출전횟수      
+                   , TRRAS.RACE_DAY_CNT                                     -- 출전일수      
+                   , TRRAS.RACE_CNT                                         -- 출주횟수      
+                   , TRRAS.TOT_RACE_CNT                                     -- 총출주횟수    
+                   , TMRAS.AVG_ITRDT_RUN_TM    TMRAS_AVG_ITRDT_RUN_TM       -- 평균 소개타임
+                   , TMRAS.MAX_ITRDT_RUN_TM    TMRAS_MAX_ITRDT_RUN_TM       -- 최고소개타임    
+                   , TMRAS.MIN_ITRDT_RUN_TM    TMRAS_MIN_ITRDT_RUN_TM       -- 최소소개타임             
+                   , TMRAS.ITRDT_RUN_TM_DVTN   TMRAS_ITRDT_RUN_TM_DVTN      -- 편차소개타임             
+                   , TBRAS.AVG_ITRDT_RUN_TM    TBRAS_AVG_ITRDT_RUN_TM       -- 평균 소개타임
+                   , TBRAS.MAX_ITRDT_RUN_TM    TBRAS_MAX_ITRDT_RUN_TM       -- 최고소개타임    
+                   , TBRAS.MIN_ITRDT_RUN_TM    TBRAS_MIN_ITRDT_RUN_TM       -- 최소소개타임             
+                   , TBRAS.ITRDT_RUN_TM_DVTN   TBRAS_ITRDT_RUN_TM_DVTN      -- 편차소개타임             
+            FROM     TBEC_RACER_MASTER TRM
+                   , (  
+                        SELECT   RACER_NO
+                               , MOT_NO
+                               , BOAT_NO
+                        FROM   TBEB_ARRANGE      
+                        WHERE  STND_YEAR = ?
+                        AND    MBR_CD    = ?
+                        AND    TMS       = ?
+                     ) TA -- 당회차참여선수
+                   , (
+                        SELECT   
+                                 TOR.RACER_NO
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '1', 1             )) RACE_CNT_1
+						       , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '1', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '1', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '1', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_1
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '2', 1             )) RACE_CNT_2
+						       , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '2', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '2', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '2', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_2
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '3', 1             )) RACE_CNT_3
+						       , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '3', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '3', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '3', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_3
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '4', 1             )) RACE_CNT_4
+						       , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '4', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '4', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '4', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_4
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '5', 1             )) RACE_CNT_5
+						       , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '5', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '5', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '5', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_5
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '6', 1             )) RACE_CNT_6
+						       , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '6', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '6', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '6', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_6
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '7', 1             )) RACE_CNT_7
+							   , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '7', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '7', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '7', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_7
+						       , SUM(DECODE(TOR.ENTRY_COURSE, '8', 1             )) RACE_CNT_8
+							   , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '8', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/NVL(SUM(DECODE(TOR.ENTRY_COURSE, '8', DECODE(TOR.ST_MTHD_CD, '001', 0, 1))),1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '8', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_8
+						       , COUNT(*) SUM_RACE_CNT
+       						   , DECODE(?,'000', 
+       						   			TRIM(TO_CHAR(SUM(DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM))/SUM(DECODE(TOR.ST_MTHD_CD, '001', 0, 1)), 90.99)),
+       						   			TRIM(TO_CHAR(AVG(TOR.STAR_TM), 90.99))   
+       						   	 ) AVG_STAR_TM
+                        FROM   TBEB_ORGAN TOR
+                        WHERE  TOR.RACE_DAY  <= (
+	                                               SELECT
+	                                                      MAX(TRDO.RACE_DAY) RACE_DAY
+	                                               FROM   TBEB_RACE_DAY_ORD TRDO
+	                                               WHERE  TRDO.STND_YEAR = ?
+	                                               AND    TRDO.MBR_CD    = ?
+	                                               AND    TRDO.TMS       = ?
+	                                            )
+                        AND   TOR.STND_YEAR >= ?
+                        AND   TOR.ST_MTHD_CD = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+                        GROUP BY TOR.RACER_NO
+                     ) TOR -- 진입코스별스타트타임 
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+                                           , TRRAS.*
+                                    FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+                                    WHERE  TRRAS.APLY_DT <= (
+                                                                SELECT
+                                                                       MAX(TRDO.RACE_DAY) RACE_DAY
+                                                                FROM   TBEB_RACE_DAY_ORD TRDO
+                                                                WHERE  TRDO.STND_YEAR = ?
+                                                                AND    TRDO.MBR_CD    = ?
+                                                                AND    TRDO.TMS       = ?
+                                                            )
+                                    AND   MBR_CD = '000'
+                                    AND   TMS    = 0
+                                    AND   ST_MTHD_CD = ?
+                               )
+                        WHERE  RANK = 1
+                     ) TRRAS -- 선수최근성적
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TMRAS.MOT_NO ORDER BY TMRAS.STND_YEAR DESC, TMRAS.TMS DESC ) RANK
+                                           , TMRAS.*
+                                    FROM   TBEB_MOT_RECD_ACCU_SUM TMRAS
+                                    WHERE  STND_YEAR = ?
+                                    AND    MBR_CD    = ?
+                                    AND    TMS      <= ?
+                                    AND    ST_MTHD_CD = ?
+                               )
+                        WHERE  RANK = 1
+                     ) TMRAS -- 모터최근성적
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO ORDER BY TBRAS.STND_YEAR DESC, TBRAS.TMS DESC ) RANK
+                                           , TBRAS.*
+                                    FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                    WHERE  STND_YEAR = ?
+                                    AND    MBR_CD    = ?
+                                    AND    TMS      <= ?
+                                    AND    ST_MTHD_CD = ?
+                               )
+                        WHERE  RANK = 1
+                     ) TBRAS -- 보트최근성적
+            WHERE   TRM.RACER_NO = TA   .RACER_NO(+)
+            AND     TRM.RACER_NO = TOR  .RACER_NO(+)
+            AND     TRM.RACER_NO = TRRAS.RACER_NO(+)
+            AND     TA .MOT_NO   = TMRAS.MOT_NO  (+)
+            AND     TA .BOAT_NO  = TBRAS.BOAT_NO (+)    
+            AND     TRM.NM_KOR LIKE '%' || NVL(?, TRM.NM_KOR) || '%'   
+            AND     TRM.RACER_STAT_CD IN ('001', '002')
+            ORDER BY TRM.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_racer_recd_accu_sum_fb022" desc="당회차참여선수성적조회" fetchSize="10">
+        <![CDATA[
+            SELECT    /*  tbeb_racer_recd_accu_sum_fb022 당회차참여선수성적조회 */
+                     TRM  .RACER_NO
+                   , TRM  .NM_KOR
+                   , TRM  .RACER_GRD_CD
+                   , TA   .MOT_NO
+			       , SUBSTR(TA   .MOT_NO, 6, 3) VIEW_MOT_NO                                 -- 모터번호    
+                   , TA   .BOAT_NO
+			       , SUBSTR(TA   .BOAT_NO, 6, 3) VIEW_BOAT_NO                                -- 모터번호    
+                   , TOR  .RACE_CNT_1
+                   , TOR  .STAR_TM_1
+                   , TOR  .RACE_CNT_2
+                   , TOR  .STAR_TM_2
+                   , TOR  .RACE_CNT_3
+                   , TOR  .STAR_TM_3
+                   , TOR  .RACE_CNT_4
+                   , TOR  .STAR_TM_4
+                   , TOR  .RACE_CNT_5
+                   , TOR  .STAR_TM_5
+                   , TOR  .RACE_CNT_6
+                   , TOR  .STAR_TM_6
+                   , TOR  .RACE_CNT_7
+                   , TOR  .STAR_TM_7
+                   , TOR  .RACE_CNT_8
+                   , TOR  .STAR_TM_8
+                   , TOR  .SUM_RACE_CNT
+                   , TOR  .AVG_STAR_TM
+                   , TRRAS.WIN_RATIO                                        -- 승률          
+                   , TRRAS.HIGH_RANK_RATIO                                  -- 연대율        
+                   , TRRAS.HIGH_3_RANK_RATIO                                -- 3연대율       
+                   , TRRAS.AVG_STRT_TM                                      -- 평균ST        
+                   , TRRAS.RUN_CNT                                          -- 출전횟수      
+                   , TRRAS.RACE_DAY_CNT                                     -- 출전일수      
+                   , TRRAS.RACE_CNT                                         -- 출주횟수      
+                   , TRRAS.TOT_RACE_CNT                                     -- 총출주횟수    
+                   , TMRAS.AVG_ITRDT_RUN_TM    TMRAS_AVG_ITRDT_RUN_TM       -- 평균 소개타임
+                   , TMRAS.MAX_ITRDT_RUN_TM    TMRAS_MAX_ITRDT_RUN_TM       -- 최고소개타임    
+                   , TMRAS.MIN_ITRDT_RUN_TM    TMRAS_MIN_ITRDT_RUN_TM       -- 최소소개타임             
+                   , TMRAS.ITRDT_RUN_TM_DVTN   TMRAS_ITRDT_RUN_TM_DVTN      -- 편차소개타임             
+                   , TBRAS.AVG_ITRDT_RUN_TM    TBRAS_AVG_ITRDT_RUN_TM       -- 평균 소개타임
+                   , TBRAS.MAX_ITRDT_RUN_TM    TBRAS_MAX_ITRDT_RUN_TM       -- 최고소개타임    
+                   , TBRAS.MIN_ITRDT_RUN_TM    TBRAS_MIN_ITRDT_RUN_TM       -- 최소소개타임             
+                   , TBRAS.ITRDT_RUN_TM_DVTN   TBRAS_ITRDT_RUN_TM_DVTN      -- 편차소개타임             
+            FROM     TBEC_RACER_MASTER TRM
+                   , (  
+                        SELECT   RACER_NO
+                               , MOT_NO
+                               , BOAT_NO
+                        FROM   TBEB_ARRANGE      
+                        WHERE  STND_YEAR = ?
+                        AND    MBR_CD    = ?
+                        AND    TMS       = ?
+                        AND    ST_MTHD_CD = DECODE(?, '000', ST_MTHD_CD, ?)
+                     ) TA -- 당회차참여선수
+                   , (
+                        SELECT   
+                                 TOR.RACER_NO
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '1', 1             )) RACE_CNT_1
+                               , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '1', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '1', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '1', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_1
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '2', 1             )) RACE_CNT_2
+							   , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '2', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '2', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '2', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_2
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '3', 1             )) RACE_CNT_3
+                               , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '3', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '3', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '3', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_3
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '4', 1             )) RACE_CNT_4
+                               , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '4', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '4', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '4', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_4
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '5', 1             )) RACE_CNT_5
+                               , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '5', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '5', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '5', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_5
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '6', 1             )) RACE_CNT_6
+                               , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '6', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '6', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '6', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_6
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '7', 1             )) RACE_CNT_7
+                               , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '7', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '7', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '7', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_7
+                               , SUM(DECODE(TOR.ENTRY_COURSE, '8', 1             )) RACE_CNT_8
+                               , DECODE(?,'000',  
+						       			TRIM(TO_CHAR(SUM(DECODE(TOR.ENTRY_COURSE, '8', DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM)))/REPLACE(NVL(SUM(DECODE(TOR.ENTRY_COURSE, '8', DECODE(TOR.ST_MTHD_CD, '001', 0, 1),0)),1),0,1), 90.99)),
+						       			TRIM(TO_CHAR(AVG(DECODE(TOR.ENTRY_COURSE, '8', TOR.STAR_TM   )), 90.99))
+						       	 ) STAR_TM_8
+                               , COUNT(*) SUM_RACE_CNT
+                               , DECODE(?,'000', 
+       						   			TRIM(TO_CHAR(SUM(DECODE(TOR.ST_MTHD_CD, '001', 0, TOR.STAR_TM))/REPLACE(NVL(SUM(DECODE(TOR.ST_MTHD_CD, '001', 0, 1)),1),0,1), 90.99)),
+       						   			TRIM(TO_CHAR(AVG(TOR.STAR_TM), 90.99))   
+       						   	 ) AVG_STAR_TM
+                        FROM   TBEB_ORGAN TOR
+                        WHERE  TOR.RACE_DAY  <= (
+	                                               SELECT
+	                                                      MAX(TRDO.RACE_DAY) RACE_DAY
+	                                               FROM   TBEB_RACE_DAY_ORD TRDO
+	                                               WHERE  TRDO.STND_YEAR = ?
+	                                               AND    TRDO.MBR_CD    = ?
+	                                               AND    TRDO.TMS       = ?
+	                                            )
+                        AND   TOR.STND_YEAR >= ?
+                        AND   TOR.ST_MTHD_CD = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+                        GROUP BY TOR.RACER_NO
+                     ) TOR -- 진입코스별스타트타임 
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+                                           , TRRAS.*
+                                    FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+                                    WHERE  TRRAS.APLY_DT <= (
+                                                                SELECT
+                                                                       MAX(TRDO.RACE_DAY) RACE_DAY
+                                                                FROM   TBEB_RACE_DAY_ORD TRDO
+                                                                WHERE  TRDO.STND_YEAR = ?
+                                                                AND    TRDO.MBR_CD    = ?
+                                                                AND    TRDO.TMS       = ?
+                                                            )
+                                    AND   MBR_CD = '000'
+                                    AND   TMS    = 0
+                                    AND   ST_MTHD_CD = ?
+                               )
+                        WHERE  RANK = 1
+                     ) TRRAS -- 선수최근성적 
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TMRAS.MOT_NO ORDER BY TMRAS.STND_YEAR DESC, TMRAS.TMS DESC ) RANK
+                                           , TMRAS.*
+                                    FROM   TBEB_MOT_RECD_ACCU_SUM TMRAS
+                                    WHERE  STND_YEAR = ?
+                                    AND    MBR_CD    = ?
+                                    AND    TMS      <= ?
+                                    AND    ST_MTHD_CD = ?
+                               )
+                        WHERE  RANK = 1
+                     ) TMRAS -- 모터최근성적 
+                   , (
+                        SELECT *
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO ORDER BY TBRAS.STND_YEAR DESC, TBRAS.TMS DESC ) RANK
+                                           , TBRAS.*
+                                    FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                    WHERE  STND_YEAR = ?
+                                    AND    MBR_CD    = ?
+                                    AND    TMS      <= ?
+                                    AND    ST_MTHD_CD = ?
+                               )
+                        WHERE  RANK = 1
+                     ) TBRAS -- 보트최근성적 
+            WHERE   TRM.RACER_NO = TA   .RACER_NO
+            AND     TRM.RACER_NO = TOR  .RACER_NO(+)
+            AND     TRM.RACER_NO = TRRAS.RACER_NO(+)
+            AND     TA .MOT_NO   = TMRAS.MOT_NO  (+)
+            AND     TA .BOAT_NO  = TBRAS.BOAT_NO (+)        
+            AND     TRM.NM_KOR LIKE '%' || NVL(?, TRM.NM_KOR) || '%'    
+            AND     TRM.RACER_STAT_CD IN ('001', '002')
+            ORDER BY TRM.RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_racer_recd_accu_sum_ib001" desc="선수누적성입력" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_racer_recd_accu_sum_ib001 선수누적성입력 */
+			       INTO TBEB_RACER_RECD_ACCU_SUM
+			( 
+			         STND_YEAR                 -- 기준년도         
+			       , MBR_CD                    -- 경정장코드       
+			       , TMS                       -- 회차             
+			       , APLY_DT                   -- 적용일자         
+			       , RACER_NO                  -- 선수등록번호     
+			       , RACER_RANK                -- 선수순위         
+			       , TMS_6_AMU_RANK_SCR        -- 6회누적착순점    
+			       , TMS_6_AVG_RANK_SCR        -- 6회평균착순점    
+			       , TMS_6_AMU_ACDNT_SCR       -- 6회누적사고점    
+			       , TMS_6_AVG_ACDNT_SCR       -- 6회평균착순점    
+			       , TMS_6_AVG_SCR             -- 6회평균득점      
+			       , TMS_6_WIN_RATIO           -- 6회승률          
+			       , TMS_6_HIGH_RANK_RATIO     -- 6회연대율        
+			       , TMS_6_HIGH_3_RANK_RATIO   -- 6회3연대율       
+			       , TMS_6_AVG_STRT_TM         -- 6회평균스타트타임
+			       , TMS_8_RANK_ORD            -- 8경주 착순       
+			       , TMS_6_RACE_CNT            -- 6회출주횟수      
+			       , TMS_6_RANK_1              -- 6회1착횟수       
+			       , TMS_6_RANK_2              -- 6회2착횟수       
+			       , TMS_6_RANK_3              -- 6회3착횟수       
+			       , AMU_RANK_SCR              -- 누적착순점       
+			       , AVG_RANK_SCR              -- 평균착순점       
+			       , AMU_ACDNT_SCR             -- 누적사고점       
+			       , AVG_ACDNT_SCR             -- 평균사고점       
+			       , BF_AMU_ACDNT_SCR          -- 전반기누적사고점 
+			       , BF_AVG_ACDNT_SCR          -- 전반기평균사고점 
+			       , AF_AMU_ACDNT_SCR          -- 후반기누적사고점 
+			       , AF_AVG_ACDNT_SCR          -- 후반기평균사고점 
+			       , AVG_SCR                   -- 평균득점         
+			       , WIN_RATIO                 -- 승률             
+			       , HIGH_RANK_RATIO           -- 연대율           
+			       , HIGH_3_RANK_RATIO         -- 3연대율          
+			       , AVG_STRT_TM               -- 평균ST           
+			       , RUN_CNT                   -- 출전횟수         
+			       , RACE_DAY_CNT              -- 출전일수         
+			       , RACE_CNT                  -- 출주횟수         
+			       , TOT_RACE_CNT              -- 총출주횟수       
+			       , BF_RACE_CNT               -- 전반기출주횟수   
+			       , AF_RACE_CNT               -- 후반기출주횟수   
+			       , RANK_1_CNT                -- 1착횟수          
+			       , RANK_2_CNT                -- 2착횟수          
+			       , RANK_3_CNT                -- 3착횟수          
+			       , RANK_4_CNT                -- 4착횟수          
+			       , RANK_5_CNT                -- 5착횟수          
+			       , RANK_6_CNT                -- 6착횟수          
+			       , RANK_ETC_CNT              -- 착외횟수         
+			       , DGRE_JUDG_F_CNT           -- 등급심사 F횟수   
+			       , DGRE_JUDG_L_CNT           -- 등습심사 L횟수   
+			       , BF_F_CNT                  -- 전반기F횟수      
+			       , BF_L_CNT                  -- 전반기L횟수      
+			       , AF_F_CNT                  -- 후반기F횟수      
+			       , AF_L_CNT                  -- 후반기L횟수      
+			       , ABSE_CNT                  -- 결장횟수         
+			       , RACE_ESC_1_CNT            -- 출주제외1횟수    
+			       , RACE_ESC_2_CNT            -- 출주제외2횟수    
+			       , FOUL_ELIM_CNT             -- 반칙실격횟수     
+			       , ELIM_CNT                  -- 실격횟수         
+			       , FOUL_WARN_CNT             -- 반칙경고횟수     
+			       , WARN_CNT                  -- 경고횟수         
+			       , ATTEN_CNT                 -- 주의횟수         
+			       , BF_TMS                    -- 전회차           
+			       , BF_BF_TMS                 -- 전전회차         
+			       , BF_BF_BF_TMS              -- 전전전회차       
+			       , BF_MBR_CD                 -- 전경정장         
+			       , BF_BF_MBR_CD              -- 전전경정장       
+			       , BF_BF_BF_MBR_CD           -- 전전전경정장     
+			       , INST_ID                   -- 작성자ID         
+			       , INST_DTM                  -- 작성일시         
+			       , UPDT_ID                   -- 수정자ID         
+			       , UPDT_DTM                  -- 수정일시         
+			) 
+			SELECT
+			         ?                         -- 기준년도         
+			       , MBR_CD                    -- 경정장코드       
+			       , TMS                       -- 회차             
+			       , ? || '0101'               -- 적용일자         
+			       , RACER_NO                  -- 선수등록번호     
+			       , RACER_RANK                -- 선수순위         
+			       , TMS_6_AMU_RANK_SCR        -- 6회누적착순점    
+			       , TMS_6_AVG_RANK_SCR        -- 6회평균착순점    
+			       , TMS_6_AMU_ACDNT_SCR       -- 6회누적사고점    
+			       , TMS_6_AVG_ACDNT_SCR       -- 6회평균착순점    
+			       , TMS_6_AVG_SCR             -- 6회평균득점      
+			       , TMS_6_WIN_RATIO           -- 6회승률          
+			       , TMS_6_HIGH_RANK_RATIO     -- 6회연대율        
+			       , TMS_6_HIGH_3_RANK_RATIO   -- 6회3연대율       
+			       , TMS_6_AVG_STRT_TM         -- 6회평균스타트타임
+			       , TMS_8_RANK_ORD            -- 8경주 착순       
+			       , TMS_6_RACE_CNT            -- 6회출주횟수      
+			       , TMS_6_RANK_1              -- 6회1착횟수       
+			       , TMS_6_RANK_2              -- 6회2착횟수       
+			       , TMS_6_RANK_3              -- 6회3착횟수       
+			       , 0                         -- 누적착순점       
+			       , 0                         -- 평균착순점       
+			       , 0                         -- 누적사고점       
+			       , 0                         -- 평균사고점       
+			       , 0                         -- 전반기누적사고점 
+			       , 0                         -- 전반기평균사고점 
+			       , 0                         -- 후반기누적사고점 
+			       , 0                         -- 후반기평균사고점 
+			       , 0                         -- 평균득점         
+			       , 0                         -- 승률             
+			       , 0                         -- 연대율           
+			       , 0                         -- 3연대율          
+			       , 0                         -- 평균ST           
+			       , 0                         -- 출전횟수         
+			       , 0                         -- 출전일수         
+			       , 0                         -- 출주횟수         
+			       , 0                         -- 총출주횟수       
+			       , 0                         -- 전반기출주횟수   
+			       , 0                         -- 후반기출주횟수   
+			       , 0                         -- 1착횟수          
+			       , 0                         -- 2착횟수          
+			       , 0                         -- 3착횟수          
+			       , 0                         -- 4착횟수          
+			       , 0                         -- 5착횟수          
+			       , 0                         -- 6착횟수          
+			       , 0                         -- 착외횟수         
+			       , 0                         -- 등급심사 F횟수   
+			       , 0                         -- 등습심사 L횟수   
+			       , 0                         -- 전반기F횟수      
+			       , 0                         -- 전반기L횟수      
+			       , 0                         -- 후반기F횟수      
+			       , 0                         -- 후반기L횟수      
+			       , 0                         -- 결장횟수         
+			       , 0                         -- 출주제외1횟수    
+			       , 0                         -- 출주제외2횟수    
+			       , 0                         -- 반칙실격횟수     
+			       , 0                         -- 실격횟수         
+			       , 0                         -- 반칙경고횟수     
+			       , 0                         -- 경고횟수         
+			       , 0                         -- 주의횟수         
+			       , BF_TMS                    -- 전회차           
+			       , BF_BF_TMS                 -- 전전회차         
+			       , BF_BF_BF_TMS              -- 전전전회차       
+			       , BF_MBR_CD                 -- 전경정장         
+			       , BF_BF_MBR_CD              -- 전전경정장       
+			       , BF_BF_BF_MBR_CD           -- 전전전경정장     
+			       , ?                         -- 작성자ID         
+			       , SYSDATE                   -- 작성일시         
+			       , ?                         -- 수정자ID         
+			       , SYSDATE                   -- 수정일시         
+			FROM   (
+			            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+			                   , TRRAS.*
+			            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+			            WHERE  TRRAS.APLY_DT <= ? || '0101'
+			            AND    MBR_CD         = '000'
+			            AND    TMS            = 0
+			       )
+			WHERE  RANK = 1
+
+        ]]>
+    </query> 
+    <query id="tbeb_racer_recd_accu_sum_db001" desc="선수누적성적삭제" fetchSize="10">
+        <![CDATA[
+        	/* tbeb_racer_recd_accu_sum_db001 선수누적성적삭제 */
+			DELETE FROM TBEB_RACER_RECD_ACCU_SUM 
+			WHERE  APLY_DT = ? || '0101'
+        ]]>
+    </query> 
+    
+    <query id="tbeb_racer_recd_accu_sum_ib002" desc="선수누적성적입력" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_racer_recd_accu_sum_ib002 선수누적성적입력 */
+			       INTO TBEB_RACER_RECD_ACCU_SUM
+			( 
+			         STND_YEAR                 -- 기준년도         
+			       , MBR_CD                    -- 경정장코드       
+			       , TMS                       -- 회차             
+			       , APLY_DT                   -- 적용일자         
+			       , RACER_NO                  -- 선수등록번호     
+			       , RACER_RANK                -- 선수순위         
+			       , TMS_6_AMU_RANK_SCR        -- 6회누적착순점    
+			       , TMS_6_AVG_RANK_SCR        -- 6회평균착순점    
+			       , TMS_6_AMU_ACDNT_SCR       -- 6회누적사고점    
+			       , TMS_6_AVG_ACDNT_SCR       -- 6회평균착순점    
+			       , TMS_6_AVG_SCR             -- 6회평균득점      
+			       , TMS_6_WIN_RATIO           -- 6회승률          
+			       , TMS_6_HIGH_RANK_RATIO     -- 6회연대율        
+			       , TMS_6_HIGH_3_RANK_RATIO   -- 6회3연대율       
+			       , TMS_6_AVG_STRT_TM         -- 6회평균스타트타임
+			       , TMS_8_RANK_ORD            -- 8경주 착순       
+			       , TMS_6_RACE_CNT            -- 6회출주횟수      
+			       , TMS_6_RANK_1              -- 6회1착횟수       
+			       , TMS_6_RANK_2              -- 6회2착횟수       
+			       , TMS_6_RANK_3              -- 6회3착횟수       
+			       , AMU_RANK_SCR              -- 누적착순점       
+			       , AVG_RANK_SCR              -- 평균착순점       
+			       , AMU_ACDNT_SCR             -- 누적사고점       
+			       , AVG_ACDNT_SCR             -- 평균사고점       
+			       , BF_AMU_ACDNT_SCR          -- 전반기누적사고점 
+			       , BF_AVG_ACDNT_SCR          -- 전반기평균사고점 
+			       , AF_AMU_ACDNT_SCR          -- 후반기누적사고점 
+			       , AF_AVG_ACDNT_SCR          -- 후반기평균사고점 
+			       , AVG_SCR                   -- 평균득점         
+			       , GPP_SCR                   -- GPP(GP포인트)         
+			       , WIN_RATIO                 -- 승률             
+			       , HIGH_RANK_RATIO           -- 연대율           
+			       , HIGH_3_RANK_RATIO         -- 3연대율          
+			       , AVG_STRT_TM               -- 평균ST           
+			       , RUN_CNT                   -- 출전횟수         
+			       , RACE_DAY_CNT              -- 출전일수         
+			       , RACE_CNT                  -- 출주횟수         
+			       , TOT_RACE_CNT              -- 총출주횟수       
+			       , BF_RACE_CNT               -- 전반기출주횟수   
+			       , AF_RACE_CNT               -- 후반기출주횟수   
+			       , RANK_1_CNT                -- 1착횟수          
+			       , RANK_2_CNT                -- 2착횟수          
+			       , RANK_3_CNT                -- 3착횟수          
+			       , RANK_4_CNT                -- 4착횟수          
+			       , RANK_5_CNT                -- 5착횟수          
+			       , RANK_6_CNT                -- 6착횟수          
+			       , RANK_ETC_CNT              -- 착외횟수         
+			       , DGRE_JUDG_F_CNT           -- 등급심사 F횟수   
+			       , DGRE_JUDG_L_CNT           -- 등습심사 L횟수   
+			       , BF_F_CNT                  -- 전반기F횟수      
+			       , BF_L_CNT                  -- 전반기L횟수      
+			       , AF_F_CNT                  -- 후반기F횟수      
+			       , AF_L_CNT                  -- 후반기L횟수      
+			       , ABSE_CNT                  -- 결장횟수         
+			       , RACE_ESC_1_CNT            -- 출주제외1횟수    
+			       , RACE_ESC_2_CNT            -- 출주제외2횟수    
+			       , FOUL_ELIM_CNT             -- 반칙실격횟수     
+			       , ELIM_CNT                  -- 실격횟수         
+			       , FOUL_WARN_CNT             -- 반칙경고횟수     
+			       , WARN_CNT                  -- 경고횟수         
+			       , ATTEN_CNT                 -- 주의횟수         
+			       , BF_TMS                    -- 전회차           
+			       , BF_BF_TMS                 -- 전전회차         
+			       , BF_BF_BF_TMS              -- 전전전회차       
+			       , BF_MBR_CD                 -- 전경정장         
+			       , BF_BF_MBR_CD              -- 전전경정장       
+			       , BF_BF_BF_MBR_CD           -- 전전전경정장     
+			       , INST_ID                   -- 작성자ID         
+			       , INST_DTM                  -- 작성일시         
+			       , UPDT_ID                   -- 수정자ID         
+			       , UPDT_DTM                  -- 수정일시
+			       , ST_MTHD_CD                -- ST 구분          
+			) VALUES (
+			         ?                         -- 기준년도         
+			       , ?                         -- 경정장코드       
+			       , ?                         -- 회차             
+			       , ?                         -- 적용일자         
+			       , ?                         -- 선수등록번호     
+			       , ?                         -- 선수순위         
+			       , ?                         -- 6회누적착순점    
+			       , ?                         -- 6회평균착순점    
+			       , ?                         -- 6회누적사고점    
+			       , ?                         -- 6회평균착순점    
+			       , ?                         -- 6회평균득점      
+			       , ?                         -- 6회승률          
+			       , ?                         -- 6회연대율        
+			       , ?                         -- 6회3연대율       
+			       , ?                         -- 6회평균스타트타임
+			       , ?                         -- 8경주 착순       
+			       , ?                         -- 6회출주횟수      
+			       , ?                         -- 6회1착횟수       
+			       , ?                         -- 6회2착횟수       
+			       , ?                         -- 6회3착횟수       
+			       , ?                         -- 누적착순점       
+			       , ?                         -- 평균착순점       
+			       , ?                         -- 누적사고점       
+			       , ?                         -- 평균사고점       
+			       , ?                         -- 전반기누적사고점 
+			       , ?                         -- 전반기평균사고점 
+			       , ?                         -- 후반기누적사고점 
+			       , ?                         -- 후반기평균사고점 
+			       , ?                         -- 평균득점         
+			       , ?                         -- GPP(GP포인트)         
+			       , ?                         -- 승률             
+			       , ?                         -- 연대율           
+			       , ?                         -- 3연대율          
+			       , ?                         -- 평균ST           
+			       , ?                         -- 출전횟수         
+			       , ?                         -- 출전일수         
+			       , ?                         -- 출주횟수         
+			       , ?                         -- 총출주횟수       
+			       , ?                         -- 전반기출주횟수   
+			       , ?                         -- 후반기출주횟수   
+			       , ?                         -- 1착횟수          
+			       , ?                         -- 2착횟수          
+			       , ?                         -- 3착횟수          
+			       , ?                         -- 4착횟수          
+			       , ?                         -- 5착횟수          
+			       , ?                         -- 6착횟수          
+			       , ?                         -- 착외횟수         
+			       , ?                         -- 등급심사 F횟수   
+			       , ?                         -- 등습심사 L횟수   
+			       , ?                         -- 전반기F횟수      
+			       , ?                         -- 전반기L횟수      
+			       , ?                         -- 후반기F횟수      
+			       , ?                         -- 후반기L횟수      
+			       , ?                         -- 결장횟수         
+			       , ?                         -- 출주제외1횟수    
+			       , ?                         -- 출주제외2횟수    
+			       , ?                         -- 반칙실격횟수     
+			       , ?                         -- 실격횟수         
+			       , ?                         -- 반칙경고횟수     
+			       , ?                         -- 경고횟수         
+			       , ?                         -- 주의횟수         
+			       , ?                         -- 전회차           
+			       , ?                         -- 전전회차         
+			       , ?                         -- 전전전회차       
+			       , ?                         -- 전경정장         
+			       , ?                         -- 전전경정장       
+			       , ?                         -- 전전전경정장     
+			       , ?                         -- 작성자ID         
+			       , SYSDATE                   -- 작성일시         
+			       , ?                         -- 수정자ID         
+			       , SYSDATE                   -- 수정일시         
+			       , ?                         -- ST구분
+			)
+        ]]>
+    </query> 
+    <query id="tbeb_racer_recd_accu_sum_ub002" desc="선수누적성적수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_RACER_RECD_ACCU_SUM SET /* tbeb_racer_recd_accu_sum_ub002 선수누적성적수정*/
+			         RACER_RANK              = ?        -- 선수순위         
+			       , TMS_6_AMU_RANK_SCR      = ?        -- 6회누적착순점    
+			       , TMS_6_AVG_RANK_SCR      = ?        -- 6회평균착순점    
+			       , TMS_6_AMU_ACDNT_SCR     = ?        -- 6회누적사고점    
+			       , TMS_6_AVG_ACDNT_SCR     = ?        -- 6회평균착순점    
+			       , TMS_6_AVG_SCR           = ?        -- 6회평균득점      
+			       , TMS_6_WIN_RATIO         = ?        -- 6회승률          
+			       , TMS_6_HIGH_RANK_RATIO   = ?        -- 6회연대율        
+			       , TMS_6_HIGH_3_RANK_RATIO = ?        -- 6회3연대율       
+			       , TMS_6_AVG_STRT_TM       = ?        -- 6회평균스타트타임
+			       , TMS_8_RANK_ORD          = ?        -- 8경주 착순       
+			       , TMS_6_RACE_CNT          = ?        -- 6회출주횟수      
+			       , TMS_6_RANK_1            = ?        -- 6회1착횟수       
+			       , TMS_6_RANK_2            = ?        -- 6회2착횟수       
+			       , TMS_6_RANK_3            = ?        -- 6회3착횟수       
+			       , AMU_RANK_SCR            = ?        -- 누적착순점       
+			       , AVG_RANK_SCR            = ?        -- 평균착순점       
+			       , AMU_ACDNT_SCR           = ?        -- 누적사고점       
+			       , AVG_ACDNT_SCR           = ?        -- 평균사고점       
+			       , BF_AMU_ACDNT_SCR        = ?        -- 전반기누적사고점 
+			       , BF_AVG_ACDNT_SCR        = ?        -- 전반기평균사고점 
+			       , AF_AMU_ACDNT_SCR        = ?        -- 후반기누적사고점 
+			       , AF_AVG_ACDNT_SCR        = ?        -- 후반기평균사고점 
+			       , AVG_SCR                 = ?        -- 평균득점         
+			       , GPP_SCR                 = ?        -- GPP(GP포인트)         
+			       , WIN_RATIO               = ?        -- 승률             
+			       , HIGH_RANK_RATIO         = ?        -- 연대율           
+			       , HIGH_3_RANK_RATIO       = ?        -- 3연대율          
+			       , AVG_STRT_TM             = ?        -- 평균ST           
+			       , RUN_CNT                 = ?        -- 출전횟수         
+			       , RACE_DAY_CNT            = ?        -- 출전일수         
+			       , RACE_CNT                = ?        -- 출주횟수         
+			       , TOT_RACE_CNT            = ?        -- 총출주횟수       
+			       , BF_RACE_CNT             = ?        -- 전반기출주횟수   
+			       , AF_RACE_CNT             = ?        -- 후반기출주횟수   
+			       , RANK_1_CNT              = ?        -- 1착횟수          
+			       , RANK_2_CNT              = ?        -- 2착횟수          
+			       , RANK_3_CNT              = ?        -- 3착횟수          
+			       , RANK_4_CNT              = ?        -- 4착횟수          
+			       , RANK_5_CNT              = ?        -- 5착횟수          
+			       , RANK_6_CNT              = ?        -- 6착횟수          
+			       , RANK_ETC_CNT            = ?        -- 착외횟수         
+			       , DGRE_JUDG_F_CNT         = ?        -- 등급심사 F횟수   
+			       , DGRE_JUDG_L_CNT         = ?        -- 등습심사 L횟수   
+			       , BF_F_CNT                = ?        -- 전반기F횟수      
+			       , BF_L_CNT                = ?        -- 전반기L횟수      
+			       , AF_F_CNT                = ?        -- 후반기F횟수      
+			       , AF_L_CNT                = ?        -- 후반기L횟수      
+			       , ABSE_CNT                = ?        -- 결장횟수         
+			       , RACE_ESC_1_CNT          = ?        -- 출주제외1횟수    
+			       , RACE_ESC_2_CNT          = ?        -- 출주제외2횟수    
+			       , FOUL_ELIM_CNT           = ?        -- 반칙실격횟수     
+			       , ELIM_CNT                = ?        -- 실격횟수         
+			       , FOUL_WARN_CNT           = ?        -- 반칙경고횟수     
+			       , WARN_CNT                = ?        -- 경고횟수         
+			       , ATTEN_CNT               = ?        -- 주의횟수         
+			       , BF_TMS                  = ?        -- 전회차           
+			       , BF_BF_TMS               = ?        -- 전전회차         
+			       , BF_BF_BF_TMS            = ?        -- 전전전회차       
+			       , BF_MBR_CD               = ?        -- 전경정장         
+			       , BF_BF_MBR_CD            = ?        -- 전전경정장       
+			       , BF_BF_BF_MBR_CD         = ?        -- 전전전경정장     
+			       , UPDT_ID                 = ?        -- 수정자ID         
+			       , UPDT_DTM                = SYSDATE  -- 수정일시         
+			       , ST_MTHD_CD              = ?        -- ST 구분 
+            WHERE  STND_YEAR                 = ?        -- 기준년도         
+			AND    MBR_CD                    = ?        -- 경정장코드       
+			AND    TMS                       = ?        -- 회차             
+			AND    APLY_DT                   = ?        -- 적용일자         
+			AND    RACER_NO                  = ?        -- 선수등록번호     
+			AND    ST_MTHD_CD                = ?        -- ST구분
+        ]]>
+    </query> 
+</queryMap>

@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : newReport.xml
+  * @메뉴명 : 신규문서등록
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="newReport"> 
+	<!-- 문서별 결재 라인 START-->
+	<select id="getApprovalDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		-- [문서별 결재 라인] 1/3 START 문서별 결재라인 가져온다 / getApprovalDetailList / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT APP.EMP_NO
+		,APPROVAL_SEQ
+		,STATE
+		,F_GW_GET_CD_NM(STATE) STATE_NM
+		, TO_CHAR(APPROVAL_DT,'yyyy-mm-dd hh24:mi') APPROVAL_DT
+		,ORDERING
+		,TO_CHAR(READ_DT,'yyyy-mm-dd hh24:mi') READ_DT
+		,CREATE_DT
+		,CREATE_NO
+		,EMP.EMPNAME AS EMP_KO_NM
+		,DEPT.DEPTNAME AS DEPT_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		,APP.GROUP_DIV GROUP_DIV
+		FROM GW_EA_APPROVAL APP
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE APP.EMP_NO = EMP.EMPCODE
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND EMP.RETIREDT IS NULL
+		AND APPROVAL_SEQ = #{approval_seq}            
+		ORDER BY ORDERING ASC
+	</select>
+
+	<!--
+	GW_EA_APPROVAL											결재라인
+	컬럼명		    순번	PK		NULL	유형			길이		설 명
+	EMP_NO	    	1	1		N	VARCHAR2			7	사원번호
+	APPROVAL_SEQ	2	2		N	VARCHAR2			17	문서번호
+	STATE	    	3			Y	CHAR			    6	결재상태
+	APPROVAL_DT		4			Y	DATE			    	결재일시
+	ORDERING		5			Y	NUMBER			    22	결재순서
+	CONFIRM_YN		6			Y	CHAR		    	1	열확인자여부
+	READ_DT	    	7			Y	DATE			    	열람일시
+	CREATE_DT		8			N	DATE			    	등록일시
+	CREATE_NO		9			N	VARCHAR2			7	등록자
+	GROUP_DIV						VARCHAR2				1"인 경우는 청구결재에 넣고 2인 경우는 넣지 않는다 /
+	-->
+	<insert id="insertApproval" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		-- [문서별 결재 라인] 2/3 START / insertApproval
+		INSERT INTO GW_EA_APPROVAL
+	            (EMP_NO, APPROVAL_SEQ, STATE, ORDERING, CREATE_DT, CREATE_NO ,GROUP_DIV
+	            )
+	     VALUES (#{emp_no} , #{approval_seq} , #{state} ,#{ordering} , SYSDATE, #{create_no}, #{group_div} 
+	            )
+	</insert>
+	
+	<delete id="deleteApproval" parameterType="hashmap">
+		-- [문서별 결재 라인] 3/3 END / deleteApproval
+		DELETE FROM GW_EA_APPROVAL WHERE APPROVAL_SEQ = #{approval_seq} AND STATE = 'E03001'
+	</delete>
+	<!-- 문서별 결재 라인 END-->
+
+	<!--
+	GW_EA_IMPL_DEPT					시행부서
+	컬럼명							설명
+	APPROVAL_SEQ					문서번호
+	DEPT_CD							부서코드
+	ORDERING						정렬순서
+	CREATE_DT						등록일시
+	CREATE_NO						등록자
+	-->
+	<!-- 문서별 시행 라인 START-->
+	<select id="getImplDeptDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ImplDeptVO">
+		-- [문서별 시행 라인] 1/3 START 문서별 시행부서(시행 라인) 가져온다 / getImplDeptDetailList / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT DISTINCT IMPL.APPROVAL_SEQ
+		,IMPL.DEPT_CD
+		,IMPL.CREATE_DT
+		,IMPL.CREATE_NO
+		,IMPL.ORDERING
+		,DECODE(LENGTH(IMPL.DEPT_CD), 4 ,ORAGMP.F_GET_DEPT_NM(IMPL.DEPT_CD), ORAGMP.F_GET_EMP_KO_NM(IMPL.DEPT_CD)) DEPT_KO_NM
+	  	FROM GW_EA_IMPL_DEPT IMPL
+		WHERE APPROVAL_SEQ = #{approval_seq} 
+		ORDER BY ORDERING ASC			
+	</select>
+
+	<select id="getImplDeptDetailListMustOpinion" resultType="String">
+		-- [문서별 시행 라인] 문서별 시행부서의 사원 리스트를 가져온다 / getImplDeptDetailListMustOpinion / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT
+		  EMPM.EMPCODE AS empcode
+		FROM HANAGROUPWARE.GW_EA_IMPL_DEPT IMPL, ORAGMP.CMEMPM EMPM
+		WHERE APPROVAL_SEQ = #{approval_seq}
+			  AND IMPL.DEPT_CD = EMPM.DEPTCODE
+			  AND EMPM.OUTYN = 'N'
+		-- ORDER BY ORDERING ASC
+		ORDER BY empcode ASC
+	</select>
+
+
+	
+	<insert id="insertImplDept" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptVO">
+		-- [문서별 시행 라인] 2/3 START / insertImplDept
+		INSERT INTO GW_EA_IMPL_DEPT
+	            (APPROVAL_SEQ, DEPT_CD, ORDERING, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (#{approval_seq} , #{dept_cd}, #{ordering}, SYSDATE, #{create_no}
+	            )
+	</insert>
+	
+	<delete id="deleteImplDept" parameterType="hashmap">
+		-- [문서별 시행 라인] 3/3 END / deleteImplDept
+		DELETE FROM GW_EA_IMPL_DEPT WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	<!-- 문서별 시행 라인 END-->
+
+	<!--
+	GW_EA_IMPL_DEPT_EMP				시행부서소속사원
+	컬럼명							설명
+	APRROVAL_SEQ					문서번호
+	DEPT_CD							부서코드
+	EMP_NO							사원번호
+	READ_YN							열람여부
+	READ_DT							열람시간
+	CREATE_DT						등록일시
+	CREATE_NO						등록자
+	COMPLETE_YN						시행완료 여부
+	COMPLETE_DT						시행완료 일시
+	COMPLETE_NOTE					시행완료시 메모
+	INTEREST_YN						관심문서 여부
+	-->
+	<!-- 문서별 시행부서별 사원정보 START-->
+	<update id="insertImplDeptEmp" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 1/8 START / insertImplDeptEmp
+		INSERT INTO GW_EA_IMPL_DEPT_EMP (APPROVAL_SEQ, DEPT_CD, EMP_NO, READ_YN, CREATE_DT, CREATE_NO)
+		SELECT MAX(APPROVAL_SEQ)        
+        ,MAX(DECODE(LENGTH(DEPT.DEPT_CD) ,4 ,DEPT.DEPT_CD ,EMP.DEPTCODE))        
+        ,EMP.EMPCODE AS EMP_NO
+        ,HANAGROUPWARE.F_GW_EA_APPROVAL_EMP(EMP.EMPCODE ,DEPT.APPROVAL_SEQ) READ_YN
+        ,SYSDATE
+        ,#{create_no}
+        FROM ORAGMP.CMEMPM EMP
+        ,GW_EA_IMPL_DEPT DEPT
+        WHERE (EMP.DEPTCODE = DEPT.DEPT_CD OR EMP.EMPCODE = DEPT.DEPT_CD)
+       	AND EMP.RETIREDT IS NULL
+        AND DEPT.APPROVAL_SEQ = #{approval_seq}
+        <if test="dept_cd != null and dept_cd !=''">
+        AND (DEPT.DEPT_CD = #{dept_cd} OR EMP.EMPCODE = #{dept_cd}) 
+        </if>
+        AND NOT EXISTS (
+                SELECT EMP_NO
+                FROM GW_EA_SHARE_TARGET TARGET
+                WHERE APPROVAL_SEQ = #{approval_seq}
+                AND EMP.EMPCODE = TARGET.EMP_NO                    
+            )
+        GROUP BY EMP.EMPCODE ,HANAGROUPWARE.F_GW_EA_APPROVAL_EMP(EMP.EMPCODE ,DEPT.APPROVAL_SEQ)  
+	</update>
+	
+	<delete id="deleteImplDeptEmp" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 2/8 START / deleteImplDeptEmp
+		DELETE FROM GW_EA_IMPL_DEPT_EMP WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	
+	<update id="updateImplDeptEmpReadYN" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 3/8 START 문서별 시행부서직원 열람여부 업데이트 / updateImplDeptEmpReadYN / @ newReport.xml / 시행문서조회 - 결재완료 - 문서 상세 페이지
+		UPDATE GW_EA_IMPL_DEPT_EMP
+		   SET READ_YN = #{read_yn},
+		       READ_DT = SYSDATE
+		 WHERE APPROVAL_SEQ = #{approval_seq} AND EMP_NO = #{emp_no}
+	</update>
+	
+	<select id="getImplDeptEmpDetail" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 4/8 START 문서별 시행부서직원 상제정보 가져온다 / getImplDeptEmpDetail / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT APPROVAL_SEQ, DEPT_CD, EMP_NO, READ_YN, READ_DT, CREATE_DT, CREATE_NO,
+		       COMPLETE_YN, TO_CHAR(COMPLETE_DT,'yyyy-mm-dd hh24:mi') COMPLETE_DT, COMPLETE_NOTE
+		  FROM GW_EA_IMPL_DEPT_EMP
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}
+	</select>
+	
+	<select id="getImplDeptEmpList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 5/8 START 문서별 시행완료직원 리스트 / getImplDeptEmpList / @ newReport.xml / 시행문서조회 - 결재완료 - 문서 상세 페이지
+		SELECT APPROVAL_SEQ
+		,IMPL.DEPT_CD
+		,IMPL.EMP_NO
+		,READ_YN
+		,READ_DT
+		,CREATE_DT
+		,CREATE_NO
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,EMP.EMPNAME AS EMP_KO_NM    
+		,COMPLETE_YN
+		,TO_CHAR(COMPLETE_DT,'yyyy-mm-dd hh24:mi') COMPLETE_DT
+		,COMPLETE_NOTE
+		FROM GW_EA_IMPL_DEPT_EMP IMPL
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		WHERE IMPL.EMP_NO = EMP.EMPCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND APPROVAL_SEQ = #{approval_seq}
+		AND EMP.RETIREDT IS NULL
+		<if test="dept_cd != null and dept_cd !=''">
+		AND IMPL.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="complete_yn != null and complete_yn !=''">
+		AND COMPLETE_YN = #{complete_yn}
+		</if>
+	</select>
+	
+	<update id="updateImplDeptEmpComplete" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 6/8 START / updateImplDeptEmpComplete
+		UPDATE GW_EA_IMPL_DEPT_EMP
+		   SET 
+		       COMPLETE_YN = #{complete_yn}, 
+		       COMPLETE_DT = SYSDATE, 
+		       COMPLETE_NOTE = #{complete_note}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}			       
+	</update>
+	
+	<update id="deleteImplDeptEmpComplete" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 7/8 START / deleteImplDeptEmpComplete
+		UPDATE GW_EA_IMPL_DEPT_EMP
+		   SET 
+		       COMPLETE_YN = '', 
+               COMPLETE_DT = '', 
+		       COMPLETE_NOTE = ''
+		 WHERE APPROVAL_SEQ = #{approval_seq} 
+	</update>
+	
+	<update id="insertImplDeptEmpInterestYN" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		-- [문서별 시행부서별 사원정보] 8/8 END / insertImplDeptEmpInterestYN
+		UPDATE GW_EA_IMPL_DEPT_EMP
+		   SET 
+		       INTEREST_YN = #{interest_yn}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}
+	</update>
+	<!-- 문서별 시행부서별 사원정보 END-->
+
+
+
+	<!--
+	GW_EA_APPROVAL_MASTER					결재마스터
+	컬럼명	    	    순번	PK		NULL	유형			길이	설 명
+	APPROVAL_SEQ		1	1		N	    VARCHAR2		17	문서번호
+	DOCU_SEQ	    	2			N	    NUMBER			22	문서SEQ
+	SUBJECT		        3			Y	    VARCHAR2	1000	문서제목
+	MAKE_YMD	    	4			Y	    VARCHAR2		8	작성일자
+	STATE	        	5			Y	    CHAR			6	문서상태
+	REJECTION_REASON	6			Y	    VARCHAR2	2000	반려사유
+	SECURITY_YN		    7			Y	    CHAR			1	대외비여부
+	DECIDE_YN		    8			Y	    CHAR			1	전결여부
+	STEP_STATE		    9			Y	    CHAR			1	스탭상태
+	CREATE_DT		    10			N	    DATE				등록일시
+	CREATE_NO		    11			N	    VARCHAR2		7	등록자
+	MODIFY_DT		    12			Y	    DATE				수정일시
+	MODIFY_NO		    13			Y	    VARCHAR2		7	수정자
+	DELETE_YN		    14			Y	    CHAR			1	삭제여부
+	-->
+	<!-- 결재마스터 START-->
+	<insert id="insertApprovalMaster" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		<selectKey keyProperty="approval_seq" resultType="string" order="BEFORE">
+			-- [결재마스터] 1/8 START_01 / approval_seq - insertApprovalMaster
+			SELECT F_GW_EA_APPROVAL_SEQ(#{docu_cd}) FROM DUAL
+		</selectKey>
+		-- [결재마스터] 1/8 START_02 / insertApprovalMaster
+		INSERT INTO GW_EA_APPROVAL_MASTER
+        (
+			APPROVAL_SEQ, DOCU_SEQ, SUBJECT, MAKE_DT, STATE, SECURITY_YN,
+			DECIDE_YN, STEP_STATE, CREATE_DT, CREATE_NO, MODIFY_DT, MODIFY_NO, DELETE_YN
+        )
+    	VALUES
+    	(
+        	#{approval_seq}, #{docu_seq}, #{subject}, TO_DATE(#{make_dt}, 'YYYYMMDDHH24MISS'), #{state}, #{security_yn},
+        	#{decide_yn}, #{step_state}, SYSDATE, #{create_no}, SYSDATE, #{modify_no}, 'N'
+    	)
+	</insert>
+	
+	<update id="updateApprovalMaster" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- [결재마스터] 2/8 START / updateApprovalMaster
+		UPDATE GW_EA_APPROVAL_MASTER
+		   SET 
+		   	   SUBJECT = #{subject}, 
+			   SECURITY_YN = #{security_yn}, 
+			   DECIDE_YN = #{decide_yn}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterStepState" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- [결재마스터] 3/8 START / updateApprovalMasterStepState
+		UPDATE GW_EA_APPROVAL_MASTER
+		   SET 
+			   STEP_STATE = #{step_state}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterComplete" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- [결재마스터] 4/8 START / updateApprovalMasterComplete
+		UPDATE GW_EA_APPROVAL_MASTER
+		   SET 
+			   STATE = #{state}, 
+			   STEP_STATE = #{step_state}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no},
+			   REQ_DT = SYSDATE
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterState" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- [결재마스터] 5/8 START / updateApprovalMasterState
+		UPDATE GW_EA_APPROVAL_MASTER
+		   SET 
+			   STATE = #{state}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterRejection" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- [결재마스터] 6/8 START / updateApprovalMasterRejection
+		UPDATE GW_EA_APPROVAL_MASTER
+		   SET 
+			   REJECTION_REASON = #{rejection_reason}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterDelete" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- [결재마스터] 7/8 START / updateApprovalMasterDelete
+		UPDATE GW_EA_APPROVAL_MASTER
+		   SET 
+			   DELETE_YN = #{delete_yn}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+
+	<!--
+	GW_EA_DOCU												문서유형정보
+	컬럼명		    순번	PK		NULL	유형			길이	    설 명
+	DOCU_SEQ    	1	  1		N	    NUMBER			22	문서SEQ
+	DEPT_CD	    	2			Y	    VARCHAR2		4	부서코드
+	DOCU_NM	    	3			Y	    VARCHAR2		200	문서명
+	DOCU_CD	    	4			Y	    CHAR			6	문서코드
+	DECIDE_YN		5			Y	    CHAR			1	전결여부
+	SECURITY_YN		6			Y	    CHAR			1	대외비여부
+	CONTENTS		7			Y	    VARCHAR2	2000	설명
+	CREATE_DT		8			N	    DATE				등록일시
+	CREATE_NO		9			N	    VARCHAR2		7	등록자
+	MODIFY_DT		10			Y	    DATE				수정일시
+	MODIFY_NO		11			Y	    VARCHAR2		7	수정자
+	DELETE_YN		12			Y	    CHAR			1	삭제여부
+	-->
+	<!--
+	GW_CO_CODE					공통 코드 관리 테이블
+	컬럼명		    순번	PK		NULL	유형			길이		설 명
+	CD		        1	1		N	    CHAR			6	코드번호
+	M_CD	    	2			N	    CHAR			3	대분류
+	S_CD	    	3			N	    CHAR			3	소분류
+	CD_NM	    	4			N	    VARCHAR2		50	코드명
+	DESCR	    	5			Y	    VARCHAR2		200	설명
+	USE_YN	    	6			N	    CHAR			1	사용여부
+	ORDERING		7			Y	    NUMBER			22	정렬순서
+	CREATE_DT		8			N	    DATE				등록일시
+	CREATE_NO		9			N	    VARCHAR2		7	등록자
+	MODIFY_DT		10			Y	    DATE				수정일시
+	MODIFY_NO		11			Y	    VARCHAR2		7	생성자
+	DELETE_YN		12			N	    CHAR			1	삭제여부
+	-->
+	<select id="approvalDetail" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		-- [결재마스터] 8/8 END 문서기본 상세정보(문서번호,작성일자,작성부서,작성자,제목), 결재 마스터 정보 가져온다 / approvalDetail / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT MASTER.APPROVAL_SEQ, MASTER.DOCU_SEQ, MASTER.SUBJECT,
+		       TO_CHAR (MASTER.MAKE_DT, 'yyyy-mm-dd hh24:mi') MAKE_DT, MASTER.STATE,
+		       MASTER.REJECTION_REASON, MASTER.SECURITY_YN, MASTER.DECIDE_YN,
+		       MASTER.STEP_STATE,
+		       TO_CHAR (MASTER.CREATE_DT, 'yyyy-mm-dd hh24:mi') CREATE_DT,
+		       MASTER.CREATE_NO, TO_CHAR(MASTER.MODIFY_DT,'yyyy-mm-dd hh24:mi') MODIFY_DT, MASTER.MODIFY_NO, 
+		       TO_CHAR(MASTER.REQ_DT, 'YYYY-MM-DD') REQ_DT,
+		       ORAGMP.F_GET_EMP_KO_NM (MASTER.CREATE_NO) EMP_KO_NM, MASTER.CREATE_NO, DOCU.DOCU_NM,
+		       DOCU.DEPT_CD, ORAGMP.F_GET_DEPT_NM (DOCU.DEPT_CD) DEPT_KO_NM,
+		       CODE.CD_NM ,ORAGMP.F_GW_GET_LAST_LINE_NM(APPROVAL_SEQ) LAST_LINE_NM,
+		        MASTER.MUSTOPINION AS MUSTOPINION
+		  FROM GW_EA_APPROVAL_MASTER MASTER, GW_EA_DOCU DOCU, GW_CO_CODE CODE
+		 WHERE MASTER.APPROVAL_SEQ = #{approval_seq}
+		   AND MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+		   AND MASTER.STATE = CODE.CD
+		   AND MASTER.DELETE_YN = 'N'	
+	</select>
+	<!-- 결재마스터 END-->
+
+	<!--
+	GW_EA_OPINION					의견
+	컬럼명							설명
+	OPINION_SEQ						의견SEQ
+	APPROVAL_SEQ					문서번호
+	CONTENTS						내용
+	CREATE_DT						등록일시
+	CREATE_NO						등록자
+	-->
+	<!-- 의견 START-->
+	<select id="getOpinionList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.OpinionVO">
+		-- [의견] 1/4 START 시행부서 의견정보 리스트 가져온다 / getOpinionList / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT   OPIN.OPINION_SEQ
+		,OPIN.APPROVAL_SEQ
+		,OPIN.CONTENTS
+		,TO_CHAR (OPIN.CREATE_DT, 'yyyy-mm-dd hh24:mi') CREATE_DT
+		,OPIN.CREATE_NO
+		,EMP.EMPNAME AS EMP_KO_NM
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		FROM GW_EA_OPINION OPIN
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE OPIN.CREATE_NO = EMP.EMPCODE
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.RETIREDT IS NULL
+		AND APPROVAL_SEQ = #{approval_seq}             
+		ORDER BY OPINION_SEQ DESC   		  
+	</select>
+	
+	<insert id="insertOpinion" parameterType="com.hanaph.gw.ea.newReport.vo.OpinionVO">
+		-- [의견] 2/4 START / insertOpinion
+		INSERT INTO GW_EA_OPINION
+	            (OPINION_SEQ, APPROVAL_SEQ, CONTENTS, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (SEQ_GW_EA_OPINION.NEXTVAL, #{approval_seq}, #{contents}, SYSDATE, #{create_no}
+	            )
+	</insert>
+	
+	<delete id="deleteOpinion" parameterType="hashmap">
+		-- [의견] 3/4 START / deleteOpinion
+		DELETE FROM GW_EA_OPINION WHERE OPINION_SEQ = #{opinion_seq}
+	</delete>
+	
+	<delete id="deleteOpinionAll" parameterType="hashmap">
+		-- [의견] 4/4 END / deleteOpinionAll
+		DELETE FROM GW_EA_OPINION WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	<!-- 의견 END-->
+
+
+	<!--
+	GW_EA_FILE_APPROVAL										결재 첨부 파일
+	컬럼명	    	순번	PK		NULL	유형			길이	 	설 명
+	FILE_SEQ		1	1		N	    NUMBER			22	파일 번호
+	APPROVAL_SEQ	2	2		N	    VARCHAR2		17	문서 번호
+	FILE_PATH		3			Y	    VARCHAR2	1000	경로
+	ORIGIN_FILE_NM	4			Y	    VARCHAR2		100	등록한 파일명
+	FILE_NM		    5			Y	    VARCHAR2		100	서버에 저장되는 파일명
+	FILE_SIZE		6			Y	    NUMBER			22	파일 사이즈
+	FILE_EXT		7			Y	    VARCHAR2		5	파일 확장자
+	CREATE_DT		8			N	    DATE				등록일시
+	CREATE_NO		9			N	    VARCHAR2		7	등록일시
+	DELETE_YN		10			Y	    CHAR			1	삭제여부
+	-->
+	<insert id="insertFileAttach" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		<selectKey keyProperty="file_seq" resultType="Integer" order="BEFORE">
+    		-- file_seq - insertFileAttach
+			SELECT SEQ_GW_EA_FILE_APPROVAL.NEXTVAL FROM DUAL
+  		</selectKey>
+			-- insertFileAttach / @ newReport.xml
+			INSERT INTO GW_EA_FILE_APPROVAL
+			(
+				FILE_SEQ, APPROVAL_SEQ,
+				FILE_PATH, ORIGIN_FILE_NM, FILE_NM,
+				FILE_SIZE, FILE_EXT, CREATE_DT, CREATE_NO,
+				DELETE_YN
+			)
+			VALUES 
+			(
+				#{file_seq}, #{approval_seq},
+				#{file_path}, #{origin_file_nm}, #{file_nm},
+				#{file_size}, #{file_ext}, SYSDATE, #{create_no},
+				#{delete_yn}
+			)
+	</insert>
+	
+	<update id="updateFileAttach" parameterType="hashmap">
+		-- updateFileAttach / @ newReport.xml
+		UPDATE GW_EA_FILE_APPROVAL
+		   SET APPROVAL_SEQ = #{approval_seq}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>
+	
+	<select id="getAttachList" parameterType="hashmap" resultType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		-- 전자결재 첨부파일 리스트를 가져온다 / getAttachList / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT FILE_SEQ, APPROVAL_SEQ, FILE_PATH,
+		       ORIGIN_FILE_NM, FILE_NM, FILE_SIZE, 
+		       FILE_EXT, CREATE_DT, DELETE_YN
+		  FROM GW_EA_FILE_APPROVAL
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND DELETE_YN = 'N'
+	</select>
+
+	<update id="deleteAttach" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		-- deleteAttach / @ newReport.xml
+		UPDATE GW_EA_FILE_APPROVAL
+		   SET DELETE_YN = #{delete_yn}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>
+	
+	 	
+ 	<select id="getApprovalNowEmpNo" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		-- 내 결재 차례를 가져온다(다음 결재 체크) / getApprovalNowEmpNo / @ newReport.xml / 시행문서조회 - 결재중 - 문서 상세 페이지
+		SELECT TB.APPROVAL_SEQ, TB.EMP_NO
+		  FROM (SELECT ROW_NUMBER () OVER (PARTITION BY TA.APPROVAL_SEQ ORDER BY TA.ORDERING) AS ROW_NUMBER,
+		               TA.APPROVAL_SEQ, TA.EMP_NO
+		          FROM GW_EA_APPROVAL TA
+		         WHERE APPROVAL_SEQ = #{approval_seq} 
+		           AND APPROVAL_DT IS NULL) TB, GW_EA_APPROVAL_MASTER TC           
+		 WHERE ROW_NUMBER = '1' 
+		   AND TB.APPROVAL_SEQ = TC.APPROVAL_SEQ
+		   AND TC.STATE != 'E02001'
+ 	</select>
+	
+	<select id="getApprovalPrevCheckEmpNo" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		-- getApprovalPrevCheckEmpNo / @ newReport.xml
+		SELECT TB.APPROVAL_SEQ, TB.EMP_NO
+		  FROM (SELECT ROW_NUMBER () OVER (PARTITION BY TA.APPROVAL_SEQ ORDER BY TA.ORDERING DESC) AS ROW_NUMBER,
+		               TA.APPROVAL_SEQ, TA.EMP_NO
+		          FROM GW_EA_APPROVAL TA
+		         WHERE APPROVAL_SEQ = #{approval_seq} 
+		           AND APPROVAL_DT IS not NULL) TB                      
+		 WHERE ROW_NUMBER = '1'
+	 </select>
+	 
+ 	<select id="getOriginFileNm" parameterType="String" resultType="String">
+		-- getOriginFileNm / @ newReport.xml
+		SELECT ORIGIN_FILE_NM FROM GW_EA_FILE_APPROVAL
+		 WHERE FILE_SEQ = #{file_seq}
+	</select>
+	 
+	<update id="deleteAttachAll" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+ 		-- deleteAttachAll / @ newReport.xml
+ 		UPDATE GW_EA_FILE_APPROVAL
+		   SET DELETE_YN = #{delete_yn}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	 </update>
+	 
+	<!-- 의견 첨부파일 CHOE 20151207 START --> 
+ 	<insert id="insertFileOpinion" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+	<selectKey keyProperty="file_seq" resultType="Integer" order="BEFORE">
+   		SELECT SEQ_GW_EA_FILE_OPINION.NEXTVAL FROM DUAL
+ 		</selectKey>
+		-- [의견 첨부파일] 1/5 START / insertFileOpinion / @ newReport.xml
+		INSERT INTO GW_EA_FILE_OPINION
+		(
+			FILE_SEQ, APPROVAL_SEQ, OPINION_SEQ,
+			FILE_PATH, ORIGIN_FILE_NM, FILE_NM,
+			FILE_SIZE, FILE_EXT, CREATE_DT, CREATE_NO,
+			DELETE_YN
+		)
+		VALUES 
+		(
+			#{file_seq}, #{approval_seq}, #{opinion_seq},
+			#{file_path}, #{origin_file_nm}, #{file_nm},
+			#{file_size}, #{file_ext}, SYSDATE, #{create_no},
+			#{delete_yn}
+		)
+	</insert>
+	
+	<update id="updateFileOpinion" parameterType="hashmap">
+		-- [의견 첨부파일] 2/5 START / updateFileOpinion / @ newReport.xml
+		UPDATE GW_EA_FILE_OPINION
+		   SET APPROVAL_SEQ = #{approval_seq},
+		       OPINION_SEQ = #{opinion_seq}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>
+	
+	<select id="getFileOpinionList" parameterType="hashmap" resultType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		-- [의견 첨부파일] 3/5 START / getFileOpinionList / @ newReport.xml
+		SELECT FILE_SEQ, APPROVAL_SEQ, OPINION_SEQ, FILE_PATH,
+		       ORIGIN_FILE_NM, FILE_NM, FILE_SIZE, 
+		       FILE_EXT, CREATE_DT, DELETE_YN
+		  FROM GW_EA_FILE_OPINION
+		 WHERE APPROVAL_SEQ = #{approval_seq}		  	    
+		   AND DELETE_YN = 'N'
+	</select>
+
+	<update id="deleteFileOpinion" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		-- [의견 첨부파일] 4/5 START / deleteFileOpinion / @ newReport.xml
+		UPDATE GW_EA_FILE_OPINION
+		   SET DELETE_YN = #{delete_yn}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>	
+	
+	<select id="getOriginFileOpinionNm" parameterType="String" resultType="String">
+		-- [의견 첨부파일] 5/5 END / getOriginFileOpinionNm / @ newReport.xml
+		SELECT ORIGIN_FILE_NM FROM GW_EA_FILE_OPINION
+		 WHERE FILE_SEQ = #{file_seq}
+	</select>
+	<!-- 의견 첨부파일 CHOE 20151207 END -->
+
+	<!--ml180116.ml06_T08 김진국 - newReport.xml에 addMustOpinion 맵퍼(update) 추가 - APPROVAL_SEQ(문서번호)를 통하여 GW_EA_APPROVAL_MASTER 테이블의 MUSTOPINION 칼럼을 'Y'로 변경시키기 위해서-->
+	<update id="addMustOpinion">
+		-- GW_EA_APPROVAL_MASTER 테이블의 MUSTOPINION 칼럼을 'Y'로 변경, approval_seq 변경 / addMustOpinion / @ newReport.xml /
+		UPDATE HANAGROUPWARE.GW_EA_APPROVAL_MASTER TF
+		SET TF.MUSTOPINION = 'Y'
+		WHERE TF.APPROVAL_SEQ = #{approval_seq}
+	</update>
+	<!--<update id="addMustOpinion">-->
+		<!--&#45;&#45; GW_EA_APPROVAL_MASTER 테이블의 MUSTOPINION 칼럼을 'Y'로 변경, approval_seq 변경 / addMustOpinion / @ newReport.xml /-->
+		<!--UPDATE HANAGROUPWARE.GW_EA_APPROVAL_MASTER TF-->
+		<!--SET TF.MUSTOPINION = 'Y', TF.APPROVAL_SEQ = substr(#{approval_seq}, 1, 14) || '9' || substr(#{approval_seq}, 16, 2)-->
+		<!--WHERE TF.APPROVAL_SEQ = #{approval_seq}-->
+	<!--</update>-->
+
+	<!-- ml180118.ml04_T26 김진국 - newReport.xml에 addMustOpinionApproval 맵퍼(update) 추가 - '시의필' 버튼 누르면 결재 마스터(GW_EA_APPROVAL_MASTER) 뿐만 아니라 결재 테이블(GW_EA_APPROVAL)도 변경하기 위해서 -->
+	<!--<update id="addMustOpinionApproval">-->
+		<!--&#45;&#45; GW_EA_APPROVAL 테이블의 MUSTOPINION 칼럼을 'Y'로 변경, approval_seq 변경 / addMustOpinionApproval / @ newReport.xml /-->
+		<!--UPDATE HANAGROUPWARE.GW_EA_APPROVAL TF-->
+		<!--SET TF.APPROVAL_SEQ = substr(#{approval_seq}, 1, 14) || '9' || substr(#{approval_seq}, 16, 2)-->
+		<!--WHERE TF.APPROVAL_SEQ = #{approval_seq}-->
+	<!--</update>-->
+	<!--<update id="addMustOpinionApproval">-->
+		<!--&#45;&#45; GW_EA_APPROVAL 테이블의 MUSTOPINION 칼럼을 'Y'로 변경, approval_seq 변경 / addMustOpinionApproval / @ newReport.xml /-->
+		<!--UPDATE HANAGROUPWARE.GW_EA_APPROVAL TF-->
+		<!--SET TF.APPROVAL_SEQ = substr(#{approval_seq}, 1, 14) || '9' || substr(#{approval_seq}, 16, 2)-->
+		<!--WHERE TF.APPROVAL_SEQ = #{approval_seq}-->
+	<!--</update>-->
+
+	<!-- ml180122.ml08_T47 김진국 - newReport.xml에 getApprovalSubject 맵퍼(select) 추가 - 쪽지에 결재 제목을 가져오기 위해서 -->
+	<select id="getApprovalSubject" resultType="String">
+		-- 결재 제목을 가져옴 / getApprovalSubject / @ newReport.xml
+		SELECT SUBJECT
+		FROM HANAGROUPWARE.GW_EA_APPROVAL_MASTER WHERE APPROVAL_SEQ = #{approval_seq}
+	</select>
+
+	<!-- ml180124.ml02_T71 김진국 - newReport.xml에 getApprovalerMustOpinion 추가 - 시의필 실행시 결재 작성자와 결재자에게도 쪽지 보내기 위해서! -->
+	<select id="getApprovalerMustOpinion" resultType="String">
+		-- 시의필 실행시 결재자 리스트 가져옴 / getApprovalerMustOpinion / @ newReport.xml
+		SELECT EMP_NO
+		FROM HANAGROUPWARE.GW_EA_APPROVAL
+		WHERE APPROVAL_SEQ = #{approval_seq}
+		UNION ALL
+		SELECT DISTINCT CREATE_NO
+		FROM HANAGROUPWARE.GW_EA_APPROVAL
+		WHERE APPROVAL_SEQ = #{approval_seq}
+		ORDER BY EMP_NO ASC
+	</select>
+
+	<!-- ml180126.ml05_T85 김진국 - NewReportDAO, newReport.xml, NewReprtService, NewReportController에 isYMustOpinion 추가 - 결재 등록시 '시의필' 실행했다가 취소하려고 -->
+	<select id="isYMustOpinion" resultType="String">
+		-- 해당 결재문서의 시의필 여부 가져옴 / isYMustOpinion / @ newReport.xml
+		SELECT MUSTOPINION
+		FROM HANAGROUPWARE.GW_EA_APPROVAL_MASTER WHERE APPROVAL_SEQ = #{approval_seq}
+	</select>
+
+	<update id="addMustOpinionYtoN">
+		-- 해당 결재문서의 시의필 Y를 N으로 바꿈 / addMustOpinionYtoN / @ newReport.xml
+		UPDATE HANAGROUPWARE.GW_EA_APPROVAL_MASTER
+		SET MUSTOPINION = 'N'
+		WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+
+
+</mapper>

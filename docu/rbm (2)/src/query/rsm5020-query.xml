@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm5020(지급조서관리)">
+    <query id="rsm5020_s01" desc="지급조서관리 Master 조회" fetchSize="10">
+      <![CDATA[
+      
+      
+		    SELECT /*rsm5020_s01*/
+		         '0' AS CHK
+		         ,CD BRNC_CD
+		         ,CD_NM BRNC_NM
+		         ,? AS PAY_YEAR   --PAY_YEAR
+		         ,? AS MEET_CD    --MEET_CD
+		         ,? AS SELL_CD    --SELL_CD
+		         ,NVL(FST_CFM_CD,'002') FST_CFM_CD
+		         ,NVL(FST_CFM_CD,'002') AS N_FST_CFM_CD
+		    FROM
+		    (    
+		        SELECT
+		          CD
+		         ,CD_NM
+		        FROM TBRK_SPEC_CD
+		        WHERE GRP_CD='018'
+		            AND DEL_YN='N'
+		     ) A ,
+		     (
+		              SELECT  		 
+		                   FST_CFM_CD      --1차확정여부
+		                   ,PAY_YEAR
+		                   ,DECODE(BRNC_CD,'01','00','02','00','03','00','04','00','08','00',BRNC_CD) COMM_NO
+		                  FROM  (SELECT 
+		                                 FST_CFM_CD
+		                                ,PAY_YEAR
+		                                ,MEET_CD
+		                                ,SELL_CD
+		                                ,DECODE(DECODE(SELL_CD,'03','98',BRNC_CD),'01','00','02','00','03','00','04','00','08','00',DECODE(SELL_CD,'03','98',BRNC_CD)) BRNC_CD
+		                          FROM TBRD_CFM_CNTNT 
+		                            WHERE  PAY_YEAR = ?
+		                             AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+		                             AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+		                           AND  BRNC_CD  IS NOT NULL
+		                           AND  SELL_CD  NOT IN ('02', '04')    
+		                         ) A --지급조서관리_확정내역
+		                 WHERE  1=1		               
+		              GROUP BY
+		                    BRNC_CD         --지점코드
+		                   ,FST_CFM_CD      --1차확정여부
+		                   ,PAY_YEAR
+		        )B
+		        WHERE A.CD = B.COMM_NO
+		        ORDER BY CD
+       
+        ]]>
+    </query>
+    
+    <query id="rsm5020_s01_OLD" desc="지급조서관리 Master 조회" fetchSize="10">
+      <![CDATA[
+      
+      
+            SELECT
+                   DISTINCT(ABC.COMM_NO)   BRNC_CD
+                  ,(CASE 
+                        WHEN A.SELL_CD='01' AND A.COMM_NO <= '10' 
+                                THEN '광명'
+                        WHEN A.SELL_CD='01' AND A.COMM_NO > '10'  
+                                THEN (SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD ='018' AND CD = COMM_NO )
+                        WHEN A.SELL_CD='03' THEN '미사리'
+                        ELSE '' END) BRNC_NM 
+                  ,'0' AS CHK
+                  ,ABC.FST_CFM_CD      --1차확정여부                         
+                  ,ABC.PAY_YEAR
+                  ,ABC.MEET_CD
+                  ,ABC.SELL_CD   
+                  ,ABC.FST_CFM_CD AS N_FST_CFM_CD      --1차확정여부                                       
+            FROM( 
+                SELECT  /*rsm5020_s01*/
+                    '0' AS CHK              
+                   ,FST_CFM_CD      --1차확정여부
+                   ,? AS PAY_YEAR   --PAY_YEAR
+                   ,? AS MEET_CD    --MEET_CD
+                   ,? AS SELL_CD    --SELL_CD
+                   ,DECODE(BRNC_CD,'01','00','02','00','03','00','04','00','08','00',BRNC_CD) COMM_NO
+                  FROM  TBRD_CFM_CNTNT  --지급조서관리_확정내역
+                 WHERE  1=1
+                   AND  PAY_YEAR = ? 
+                   AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'
+                   AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'
+                   AND  BRNC_CD  IS NOT NULL
+                   AND  SELL_CD  NOT IN ('02', '04')                   
+              GROUP BY
+                    BRNC_CD         --지점코드
+                   ,FST_CFM_CD      --1차확정여부
+              ) ABC     
+        ]]>
+    </query>
+    
+    
+    <query id="rsm5020_s02" desc="검증여부 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  
+			        SUM(DECODE(SND_CFM_CD, '002', 0, 1) + DECODE(THR_CFM_CD, '002', 0, 1)) AS CNT
+			  FROM  TBRD_CFM_CNTNT
+			 WHERE  1=1
+			   AND  PAY_YEAR = ?
+			  -- AND  BRNC_CD  = ? -- 광명은 여러개의 지점을 하나로 보기때문에...
+			   AND  REGEXP_LIKE (DECODE(?, '', '1',DECODE(SELL_CD,'03','98',BRNC_CD)),DECODE(?,'','1',?) )
+        ]]>
+    </query>
+    
+    <query id="rsm5020_u01" desc="지급조서관리_확정내역 수정" fetchSize="10">
+      <![CDATA[
+            UPDATE  TBRD_CFM_CNTNT  --지급조서관리_확정내역
+                /*rsm5020_u01*/
+                
+               SET  FST_CFM_CD = ?  --1차확정코드 
+                   ,UPDT_ID    = ?
+                   ,UPDT_DT    = sysdate
+        
+             WHERE  1=1
+               AND  MEET_CD  LIKE '%' || NVL(?, MEET_CD) || '%'  --경륜장코드
+               AND  SELL_CD  LIKE '%' || NVL(?, SELL_CD) || '%'  --운영처코드 
+               AND  PAY_YEAR = ?  --지급년도
+              -- AND  BRNC_CD  = ?  --발매지점번호-- 광명은 여러개의 지점을 하나로 보기때문에...
+               AND  REGEXP_LIKE (DECODE(?, '', '1',DECODE(SELL_CD,'03','98',BRNC_CD)),DECODE(?,'','1',?) )
+        ]]>
+    </query>
+</queryMap>

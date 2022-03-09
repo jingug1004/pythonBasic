@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4041(보유현황)">
+    <query id="rbo4041_s01" desc="보유현황 조회" fetchSize="10">
+      <![CDATA[
+        SELECT
+          *
+        FROM(
+            SELECT         /* rbo4030_s01_new */
+                 A.PARTS_CD     AS PARTS_CD
+                ,B.PARTS_NM     AS PARTS_NM
+                ,A.STK_CNT      AS STK_CNT
+                ,B.PARTS_LCD    AS PARTS_LCD
+                ,FC_CODE_NM('097', B.PARTS_LCD) AS PARTS_LCD_NM
+                ,B.PARTS_MCD    AS PARTS_MCD
+                ,FC_CODE_NM('098', B.PARTS_MCD) AS PARTS_MCD_NM 
+                ,B.MADE_GBN
+                ,NVL((SELECT SUM(IN_CNT) FROM TBRB_PARTS_IN WHERE PARTS_CD=A.PARTS_CD  AND DEL_YN='N'),0) IN_SUM_CNT 
+                ,(SELECT 
+                        NVL(SUM(APRV_CNT), 0) 
+                     FROM TBRB_PARTS_REQ_APPR 
+                     WHERE PARTS_CD=A.PARTS_CD
+                        AND BRNC_IN_YN ='Y'
+                  ) OUT_SUM_CNT
+                , (SELECT
+                                (NVL(D.STK_CNT, 0)
+                                  - NVL((SELECT
+                                        SUM(REQ_CNT)
+                                     FROM TBRB_PARTS_REQ_APPR C
+                                     WHERE BRNC_IN_YN !='Y'
+                                        AND C.PARTS_CD = D.PARTS_CD 
+                                        AND C.APRV_STAS != '004' AND C.APRV_STAS != '001'),0)
+                                )  AS STK_CNT
+                    
+                         FROM TBRB_PARTS_STOCK D
+                        WHERE BRNC_CD = '00' 
+                          AND PARTS_CD = A.PARTS_CD) AS REQ_STK_CNT 
+                ,'' CHK
+            FROM TBRB_PARTS_STOCK A 
+                ,TBRB_PARTS_MODEL B 
+            WHERE 1=1 
+            AND A.BRNC_CD = '00' 
+            AND A.PARTS_CD = B.PARTS_CD
+            AND B.PARTS_LCD LIKE '%' || NVL(?, B.PARTS_LCD) || '%' -- 발매기코드
+            AND B.PARTS_MCD LIKE '%' || NVL(?, B.PARTS_MCD) || '%' -- 부품분류코드
+            
+            AND LOWER(B.PARTS_NM) LIKE '%' || NVL(?, LOWER(B.PARTS_NM)) || '%' -- 발매기명
+            ORDER BY B.PARTS_LCD, B.PARTS_MCD, B.PARTS_NM
+         )A
+         WHERE 1 = 1
+              AND LOWER(PARTS_MCD_NM) LIKE '%' || NVL(?, LOWER(PARTS_MCD_NM)) || '%' -- 부품분류명
+              AND REQ_STK_CNT > 0
+      ]]>
+    </query>
+    
+</queryMap>

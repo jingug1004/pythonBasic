@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="832" Id="comReportViewer" Left="8" OnLoadCompleted="fcFormLoadSetting" OnSize="comReportViewer_OnSize" PidAttrib="7" scroll="false" Title="Report&#32;Viewer" Top="8" Ver="1.0" Width="760" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsRpt"></Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_paramPop"></Dataset>
+		</Datasets>
+		<Ubi Bottom="824" Height="824" Id="rptViewer" Right="760" Width="760">
+			<_PersistData>&#13;&#10;/6yneKIN/wAAAQCMTgAAdypVAPjy//7//fL4/PcMDwACBVQAWQBfUABFADD48QH+8C8DMQAyLwABNQH99S8CXgBuSQR0+vn+8C8L&#13;&#10;MgA1agAsOwBrCQRlD28FAfv07vGhBxQGtwT+NAIHRABlAGYAH2EAdQBsVwP48pkB7Pn82wTwv/r0BVMAxWjGAGVXAQID+fUDdF+t&#13;&#10;vLm0zNgHFPr0MwIwLwD+9AEx7vBBEg==&#13;&#10;</_PersistData>
+		</Ubi>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+* 프로그램명 : 레코트 출력 템플릿(수직방향)                                                        *
+* 설      명 : 레코트 출력 템플릿유형 처리                                                         *
+* 작  성  자 : ylee                                                                                *
+* 작  성  일 : 2009. 1. 30                                                                         *  
+* 수  정  일 :                                                                                     *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. 최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {
+
+	var i = 0;                                                       //Looper
+	var arrDataSetList  = array();                                   //DataSet List
+	var arrArgumentList = array();                                   //Argument List
+	var arrArgument     = array();                                   //Argument
+	arrDataSetListArray = array();
+
+	// SQL 방식
+	if (fSQLCallFlag) {
+		var RptFile="";
+		if(isExistVar("sRptNm")) {
+			RptFile = sRptNm;
+		}
+	
+		if(isExistVar("paramDsId")) {
+			ds_paramPop.Copy(parent.Object(paramDsId));
+		} else {
+			ds_paramPop.Copy(parent.Object("ds_reportParam"));
+		}
+		var sDirNm = mid(RptFile,0,3);
+		if(isExistVar("sSubUrl")) {
+			sDirNm = sSubUrl;
+		}
+		rptViewer.ServletURL1="http://can.kcycle.or.kr/can/UbiForm";
+		rptViewer.ServletURL2="http://can.kcycle.or.kr/can/UbiData";
+
+		rptViewer.setJrfFileDir("/web/waspage/usrbm/report/" + sDirNm + "/"); // 절대 경로 주의!
+        rptViewer.datasource = "rbm#jdbc/RBM"; 								// 경주사업관리
+        rptViewer.setJrfFileName(sRptNm);                                //Report File Name
+		rptViewer.setJrfFileName(RptFile + ".jrf");
+		rptViewer.FontRevision = true;
+		rptViewer.utfData = false;
+		rptViewer.isUnicode = false;
+		rptViewer.IsDeflater = true;
+		rptViewer.SetVariable("isBase64", "true");
+		
+		if (RptFile == "rsm1120" || RptFile == "rsm1120_2") {
+//			rptViewer.AboutBox();
+//			rptViewer.printpapersize = "80 x 80";
+			if (PrtrType == "2") {
+				rptViewer.printpapersize = "HWASUNG";
+			} else {
+				rptViewer.printpapersize = "80 x 3276";
+			}
+		}
+
+		for(var i=0; i<ds_paramPop.RowCount(); i++) {
+			rptViewer.SetArgument(trim(ds_paramPop.GetColumn(i, "PARAM_NM")), trim(ds_paramPop.GetColumn(i, "PARAM_VAL")));
+		}
+
+		rptViewer.Retrieve();                                            //Report View
+
+		if (AutoPrint == "Y") {
+			rptViewer.print();
+			this.Close();
+		}
+		
+		//trace(ds_paramPop.savexml());
+		//trace("rpt file name : " + RptFile);
+		
+	} else {
+		
+		rptViewer.ServletURL1="";                                        //SERVLET URL1
+		rptViewer.setFileURL(GBL_REPORT_URL);                            //Image File Context Root
+		rptViewer.setJrfFileDir(GBL_REPORT_URL + sSubUrl);               //Report Path
+		rptViewer.setJrfFileName(sRptNm);                                //Report File Name
+	
+	//	rptViewer.Width = 760;
+	//	rptViewer.Height= 630;
+			
+	
+		arrArgumentList = split2(trim(sArg), " ", "=");                  //Argument Array List
+		for (i=0; i<arrArgumentList.length(); i++) {                     //Argument List Setting		
+			arrArgument = split(arrArgumentList[i], ","); 
+			rptViewer.SetArgument(replace(arrArgument[0],'[',''),replace(replace(arrArgument[1],']',''), '@', ' '));    //Argument Setting
+		}
+		
+		if(sRptType=="" || sRptType == null || sRptType=="0"){
+			rptViewer.ServletURL2="";                                        //SERVLET URL2
+			arrDataSetListArray = split(trim(sDataSet), " ");   
+			for(i=0; i<arrDataSetListArray.length(); i++){
+				arrDataSetList = split(arrDataSetListArray[i], "=");                           //Dataset Array List
+				rptViewer.SetDataset(arrDataSetList[0], arrDataSetList[1]);
+			}
+		}else{
+			rptViewer.ServletURL2=GBL_REPORT_CONN_URL;
+			rptViewer.setDatasource(GBL_REPORT_JNDI);
+		}    
+		   
+		//인쇄매수가 정해져 있을경우에는 툴바의 인쇄설정을 감추고 인쇄매수를 세팅
+		if (sPrintCnt != null && sPrintCnt != "") {
+			rptViewer.SetVisibleTbButton("PRINTSET" , false);	
+			rptviewer.printcopies = sPrintCnt;
+		}
+		
+		rptViewer.Retrieve();                                            //Report View
+	
+		if (!fnc_isNull(sPageNo)) {
+			rptViewer.setPage(sPageNo);	
+		}
+	}
+	sPageNo = 1;
+
+	//초기화 
+	sSubUrl   = "";
+	sRptNm    = "";
+	sDataSet  = "";
+	sArg      = "";
+	sType     = "";
+}
+
+
+function comReportViewer_OnSize(obj,nCx,nCy,nState)
+{
+	rptViewer.Width = nCx - 10;
+	rptViewer.Height = nCy - rptViewer.Top  - 10;	
+}
+]]></Script>
+</Window>

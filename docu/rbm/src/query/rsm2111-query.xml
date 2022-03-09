@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM2111(사업장별 매출목표 달성현황 세부)">
+	<query id="rsm2111_s01" desc="사업장별 매출목표 달성현황 세부" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rsm2111_s01 사업장별 매출목표 달성현황 세부 */
+				TMS,
+				SALES_GOAL,                                --목표
+				ROUND(SALES_GOAL*TMS_RATIO) GOAL_PER_TMS,   --회차별 목표
+				ROUND(THIS_SUM_TOTAL,0) THIS_SUM_TOTAL,     --금년도 회차별 실적
+				THIS_SUM_TOTAL_RAW,      					--금년도 회차별 실적(단위 원)
+				ROUND(LAST_SUM_TOTAL,0) LAST_SUM_TOTAL,     --전년도 회차별 실적
+				LAST_SUM_TOTAL_RAW,							--전년도 회차별 실적(단위 원)
+				ROUND(TAST_SUM_TOTAL,0) TAST_SUM_TOTAL,     --전전년도 회차별 실적
+				TAST_SUM_TOTAL_RAW,     					--전전년도 회차별 실적(단위 원)
+				ROUND(THIS_ACCU_SUM_TOTAL,0) THIS_ACCU_SUM_TOTAL, --금년도 회차별누적매출액
+				THIS_ACCU_SUM_TOTAL_RAW,					--금년도 회차별누적매출액(단위 원)
+				ROUND(THIS_ACCU_SUM_TOTAL/SALES_GOAL*100,1) GOAL_ARCH_RATIO, --달성률
+				DECODE(THIS_SUM_TOTAL,0,0,ROUND((SALES_GOAL-THIS_ACCU_SUM_TOTAL)/DECODE(YEAR_TMS-TMS,0,1,YEAR_TMS-TMS))) GAIN_GOAL_PER_TMS,  --목표달성 가능금액
+				YEAR_TMS
+			FROM
+			(
+				SELECT
+				T2.MEET_CD, T2.TMS, T2.BRNC_CD,
+				T2.THIS_SUM_TOTAL/1000000 THIS_SUM_TOTAL,
+				T2.THIS_SUM_TOTAL THIS_SUM_TOTAL_RAW,
+				T2.LAST_SUM_TOTAL/1000000 LAST_SUM_TOTAL,
+				T2.LAST_SUM_TOTAL LAST_SUM_TOTAL_RAW, 
+				T2.TAST_SUM_TOTAL/1000000 TAST_SUM_TOTAL,
+				T2.TAST_SUM_TOTAL TAST_SUM_TOTAL_RAW,
+				T2.THIS_ACCU_SUM_TOTAL/1000000 THIS_ACCU_SUM_TOTAL,
+				T2.THIS_ACCU_SUM_TOTAL THIS_ACCU_SUM_TOTAL_RAW,
+				DECODE(?,'001',S2.SALES_GOAL_CRA, '003', S2.SALES_GOAL_MRA) SALES_GOAL,
+				U2.TMS_RATIO,
+				(SELECT MAX(TMS) FROM TBRD_TMS_DAYCNT WHERE STND_YEAR = SUBSTR(?,0,4) AND MEET_CD = ?) YEAR_TMS
+				FROM (
+					SELECT
+						MEET_CD, TMS, BRNC_CD,
+						SUM(DECODE(STND_YEAR, SUBSTR(?,0,4)-0, SUM_TOTAL, 0)) THIS_SUM_TOTAL,
+						SUM(DECODE(STND_YEAR, SUBSTR(?,0,4)-1, SUM_TOTAL, 0)) LAST_SUM_TOTAL,
+						SUM(DECODE(STND_YEAR, SUBSTR(?,0,4)-2, SUM_TOTAL, 0)) TAST_SUM_TOTAL,
+						SUM(DECODE(STND_YEAR, SUBSTR(?,0,4)-0, ACCU_SUM_TOTAL, 0)) THIS_ACCU_SUM_TOTAL
+					FROM (
+						SELECT
+							STND_YEAR, MEET_CD, TMS, BRNC_CD,
+							SUM(DIV_TOTAL) SUM_TOTAL,
+							SUM(SUM(DIV_TOTAL)) OVER(ORDER BY STND_YEAR DESC, TMS ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) ACCU_SUM_TOTAL
+						FROM (
+							--당일(조회 속도가 느려서 당일 데이터와 전일 데이터를 각각 다르게 조회)
+							SELECT A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.SELL_CD,
+								CASE WHEN A.MEET_CD IN ('001','003') AND A.SELL_CD = '01' AND A.COMM_NO IN ('01','02','03','04','08')  THEN '00' --광명
+					                 WHEN A.MEET_CD IN ('001','003') AND A.SELL_CD = '03' AND A.COMM_NO IN ('01','02','03','04','08')  THEN '98' --미사리
+					                 WHEN A.SELL_CD IN ('02','04') THEN '29'                                         							 --교차
+					                 ELSE COMM_NO
+								END AS BRNC_CD,
+								A.DIV_TOTAL
+							FROM   TBES_SDL_DT A, VW_SDL_INFO B
+							WHERE 1=1
+							AND A.MEET_CD = B.MEET_CD
+							AND A.STND_YEAR = B.STND_YEAR
+							AND A.TMS = B.TMS
+							AND A.DAY_ORD = B.DAY_ORD
+							AND A.STND_YEAR = SUBSTR(?,0,4)
+							AND B.RACE_DAY = ?
+							AND A.COMM_NO != '06'
+							AND A.MEET_CD = ?
+							UNION ALL
+							--TBES_SDL_DT에서는 그린카드를 통으로 보여주기 때문에 지점별로 분리된 데이터를 TBES_MYCAT_SALES에서 가져옮
+							SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD,
+							 	CASE WHEN MEET_CD = '001' AND SELL_CD IN ('01','03') AND DIV_NO = '00' THEN '00'  --광명그린카드
+						            WHEN MEET_CD = '003' AND SELL_CD IN ('01','03') AND DIV_NO = '00' THEN '98'   --미사리그린카드
+					                WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' THEN FC_CODE_NM2('127',DIV_NO) --지점그린카드
+					                ELSE '999'
+					           	END AS BRNC_CD,
+					           	NET_AMT AS DIV_TOTAL
+							FROM   TBES_MYCAT_SALES
+							WHERE  1=1
+							AND STND_YEAR = SUBSTR(?,0,4)
+							AND RACE_DAY  = ?
+							AND MEET_CD = ?
+							UNION ALL
+							--전일
+							SELECT A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.SELL_CD,
+								CASE WHEN A.MEET_CD IN ('001','003') AND A.SELL_CD = '01' AND A.COMM_NO IN ('01','02','03','04','08')  THEN '00' --광명
+						             WHEN A.MEET_CD IN ('001','003') AND A.SELL_CD = '03' AND A.COMM_NO IN ('01','02','03','04','08')  THEN '98' --미사리
+						             WHEN A.SELL_CD IN ('02','04') THEN '29'                                         							 --교차
+						             WHEN A.MEET_CD = '001' AND A.SELL_CD IN ('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' THEN '00'  --광명그린카드
+						             WHEN A.MEET_CD = '003' AND A.SELL_CD IN ('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' THEN '98'   --미사리그린카드
+						             WHEN A.SELL_CD IN ('01','03') AND A.COMM_NO = '06' THEN FC_CODE_NM2('127',A.DIV_NO) --지점그린카드
+						             ELSE COMM_NO
+								END AS BRNC_CD,
+								A.DIV_TOTAL
+							FROM   TBES_SDL_DT_SUM A, VW_SDL_INFO B
+							WHERE 1=1
+							AND A.MEET_CD = B.MEET_CD
+							AND A.STND_YEAR = B.STND_YEAR
+							AND A.TMS = B.TMS
+							AND A.DAY_ORD = B.DAY_ORD
+							AND A.STND_YEAR BETWEEN SUBSTR(?,0,4)-2 AND SUBSTR(?,0,4)
+							AND B.RACE_DAY < ?
+							AND A.MEET_CD = ?
+						)
+						WHERE 1=1
+						AND BRNC_CD = ?
+						GROUP BY STND_YEAR, MEET_CD, TMS, BRNC_CD
+					)
+					GROUP BY MEET_CD, TMS, BRNC_CD
+				) T2,
+				(
+					SELECT  --사업장별매출목표
+						DECODE(BRNC_CD, '00', '00', BRNC_CD) BRNC_CD,
+						SALES_GOAL_CRA,
+						SALES_GOAL_MRA
+					FROM TBRA_COMM_DESC
+					WHERE 1=1
+					AND STND_YEAR = SUBSTR(?,0,4)
+				) S2,
+				(
+					SELECT
+					TMS,
+					RATIO_TO_REPORT(DAY_CNT) OVER(PARTITION BY STND_YEAR) TMS_RATIO
+					FROM TBRD_TMS_DAYCNT
+					WHERE 1=1
+					AND STND_YEAR = SUBSTR(?,0,4)
+					AND MEET_CD =  ?
+				) U2
+				WHERE T2.BRNC_CD = S2.BRNC_CD
+				AND T2.TMS = U2.TMS
+			)
+			ORDER BY TMS
+				         
+        ]]>
+    </query>
+     
+    <query id="rsm2111_s02" desc="사업장별 매출목표 달성현황 세부 경륜/경정별 합계" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rsm2111_s02 사업장별 매출목표 달성현황 세부 경륜/경정별 합계 */
+				TMS,
+				MEET_CD,
+				BRNC_CD,
+				SALES_GOAL,                                --목표
+				ROUND(SALES_GOAL*TMS_RATIO) GOAL_PER_TMS,   --회차별 목표
+				THIS_SUM_TOTAL,      	--금년도 회차별 실적
+				THIS_SUM_TOTAL_RAW,     --금년도 회차별 실적(단위 원)
+				LAST_SUM_TOTAL,      	--전년도 회차별 실적
+				LAST_SUM_TOTAL_RAW,     --전년도 회차별 실적(단위 원)
+				TAST_SUM_TOTAL,      	--전전년도 회차별 실적
+				TAST_SUM_TOTAL_RAW,     --전전년도 회차별 실적(단위 원)
+				THIS_ACCU_SUM_TOTAL, 	--금년도 회차별누적매출액
+				THIS_ACCU_SUM_TOTAL_RAW,--금년도 회차별누적매출액(단위 원)
+				ROUND(THIS_ACCU_SUM_TOTAL/SALES_GOAL*100,1) GOAL_ARCH_RATIO, --달성률
+				DECODE(THIS_SUM_TOTAL,0,0,ROUND((SALES_GOAL-THIS_ACCU_SUM_TOTAL)/(YEAR_TMS-TMS))) GAIN_GOAL_PER_TMS,  --목표달성 가능금액
+				YEAR_TMS
+			FROM
+			(
+				SELECT
+				T2.MEET_CD, T2.TMS, T2.BRNC_CD,
+				ROUND(T2.THIS_SUM_TOTAL/1000000) THIS_SUM_TOTAL, 
+				T2.THIS_SUM_TOTAL THIS_SUM_TOTAL_RAW,
+				ROUND(T2.LAST_SUM_TOTAL/1000000) LAST_SUM_TOTAL, 
+				T2.LAST_SUM_TOTAL LAST_SUM_TOTAL_RAW,
+				ROUND(T2.TAST_SUM_TOTAL/1000000) TAST_SUM_TOTAL,
+				T2.TAST_SUM_TOTAL TAST_SUM_TOTAL_RAW,
+				ROUND(T2.THIS_ACCU_SUM_TOTAL/1000000) THIS_ACCU_SUM_TOTAL,
+				T2.THIS_ACCU_SUM_TOTAL THIS_ACCU_SUM_TOTAL_RAW,
+				DECODE( ?,'001',S2.SALES_GOAL_CRA, '003', S2.SALES_GOAL_MRA) SALES_GOAL,
+				U2.TMS_RATIO,
+				(SELECT MAX(TMS) FROM TBRD_TMS_DAYCNT WHERE STND_YEAR = SUBSTR(?,0,4) AND MEET_CD = ?) YEAR_TMS
+				FROM (
+					SELECT
+						MEET_CD, TMS, 'AA' BRNC_CD,
+						SUM(DECODE(STND_YEAR, SUBSTR( ? ,0,4)-0, SUM_TOTAL, 0)) THIS_SUM_TOTAL,
+						SUM(DECODE(STND_YEAR, SUBSTR( ? ,0,4)-1, SUM_TOTAL, 0)) LAST_SUM_TOTAL,
+						SUM(DECODE(STND_YEAR, SUBSTR( ? ,0,4)-2, SUM_TOTAL, 0)) TAST_SUM_TOTAL,
+						SUM(DECODE(STND_YEAR, SUBSTR( ? ,0,4)-0, ACCU_SUM_TOTAL, 0)) THIS_ACCU_SUM_TOTAL
+					FROM (
+						SELECT
+							STND_YEAR, MEET_CD, TMS,
+							SUM(DIV_TOTAL) SUM_TOTAL,
+							SUM(SUM(DIV_TOTAL)) OVER(ORDER BY STND_YEAR DESC, TMS ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) ACCU_SUM_TOTAL
+						FROM (
+							--당일(조회 속도가 느려서 당일 데이터와 전일 데이터를 각각 다르게 조회
+							SELECT A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.DIV_TOTAL
+							FROM   TBES_SDL_DT A, VW_SDL_INFO B
+							WHERE 1=1
+							AND A.MEET_CD = B.MEET_CD
+							AND A.STND_YEAR = B.STND_YEAR
+							AND A.TMS = B.TMS
+							AND A.DAY_ORD = B.DAY_ORD
+							AND A.STND_YEAR = SUBSTR( ? ,0,4)
+							AND B.RACE_DAY = ?
+							AND A.MEET_CD = ?
+							UNION ALL
+							--전일
+							SELECT A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD, A.DIV_TOTAL
+							FROM   TBES_SDL_DT_SUM A, VW_SDL_INFO B
+							WHERE 1=1
+							AND A.MEET_CD = B.MEET_CD
+							AND A.STND_YEAR = B.STND_YEAR
+							AND A.TMS = B.TMS
+							AND A.DAY_ORD = B.DAY_ORD
+							AND A.STND_YEAR BETWEEN SUBSTR( ? ,0,4)-2 AND SUBSTR( ? ,0,4)
+							AND B.RACE_DAY < ?
+							AND A.MEET_CD = ?
+						)
+						WHERE 1=1
+						GROUP BY STND_YEAR, MEET_CD, TMS
+					)
+					GROUP BY MEET_CD, TMS
+			
+				) T2,
+				(
+					SELECT --매출목표(합계)
+						'AA' BRNC_CD,
+						SUM(SALES_GOAL_CRA) SALES_GOAL_CRA,
+						SUM(SALES_GOAL_MRA) SALES_GOAL_MRA
+					FROM TBRA_COMM_DESC
+					WHERE 1=1
+					AND STND_YEAR = SUBSTR( ? ,0,4)
+				) S2,
+				(
+					SELECT
+					TMS,
+					RATIO_TO_REPORT(DAY_CNT) OVER(PARTITION BY STND_YEAR) TMS_RATIO
+					FROM TBRD_TMS_DAYCNT
+					WHERE 1=1
+					AND STND_YEAR = SUBSTR(?,0,4)
+					AND MEET_CD =  ?
+				) U2
+				WHERE T2.BRNC_CD = S2.BRNC_CD
+				AND T2.TMS = U2.TMS
+			)
+			ORDER BY TMS
+				         
+        ]]>
+    </query>
+
+</queryMap>

@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="출주표"> 
+    <query id="tbdn_cand_race_fn301" desc="기수 조회" fetchSize="10">
+		<![CDATA[
+            SELECT
+			         TCI .RACER_PERIO_NO     -- 기수      
+			       , TCI .CAND_NO            -- 후보생번호
+			       , TCI .NM_KOR             -- 후보생명
+			       , TCRR.AVG_RACE_TIME      -- 평균시간
+			       , TCR .CNT                -- F수
+			       , RATE.WIN_RATE           -- 승률
+			       , RATE.TWO_RATE           -- 연대율
+			       , TCR .F_CNT              -- F수
+			       , TCR .L_CNT              -- L수
+                   , TCRD.ARRIV_ORD_1
+                   , TCRD.ARRIV_ORD_2
+                   , TCRD.ARRIV_ORD_3
+                   , TCRD.ARRIV_ORD_4
+                   , TCRD.RACE_COURSE_1_7
+                   , TCRD.RACE_TIME_1_7
+                   , TCRD.RACE_COURSE_2_7
+                   , TCRD.RACE_TIME_2_7
+                   , TCRD.RACE_COURSE_3_7
+                   , TCRD.RACE_TIME_3_7
+                   , TCRD.RACE_COURSE_4_7
+                   , TCRD.RACE_TIME_4_7
+            FROM     (
+                        SELECT
+                                 TCRO.CAND_NO                 -- 훈련생번호
+                               , COUNT(*) CNT
+                               , SUM(DECODE(TCRO.VIOL, '110', 1))   F_CNT
+                               , SUM(DECODE(TCRO.VIOL, '120', 1))   L_CNT
+                        FROM     TBDN_CAND_RACE_ORGAN TCRO
+                               , TBDN_CAND_RACE_RACE  TCR
+            			WHERE  TCR .RACER_PERIO_NO   = TCRO.RACER_PERIO_NO       -- 기수      
+            			AND    TCR .DAY_NO           = TCRO.DAY_NO               -- 출주번호  
+            			AND    TCR .ROUND            = TCRO.ROUND                -- 라운드    
+            			AND    TCR .RACER_PERIO_NO   = ?                         -- 기수    
+            			AND    TCR .GBN              = ?                         -- 구분    
+                        GROUP BY TCRO.CAND_NO                                    -- 훈련생번호
+                     ) TCR
+                   , (
+                        SELECT
+                                 TCRO.CAND_NO                 -- 훈련생번호
+                               , ROUND(AVG(TCRR.RACE_TIME), 2) AVG_RACE_TIME
+                        FROM     TBDN_CAND_RACE_ORGAN TCRO
+                               , TBDN_CAND_RACE_RECD  TCRR
+                               , TBDN_CAND_RACE_RACE  TCR
+            			WHERE  TCR .RACER_PERIO_NO   = TCRO.RACER_PERIO_NO       -- 기수      
+            			AND    TCR .DAY_NO           = TCRO.DAY_NO               -- 출주번호  
+            			AND    TCR .ROUND            = TCRO.ROUND                -- 라운드    
+            			AND    TCRO.RACER_PERIO_NO   = TCRR.RACER_PERIO_NO       -- 기수      
+            			AND    TCRO.DAY_NO           = TCRR.DAY_NO               -- 출주번호  
+            			AND    TCRO.ROUND            = TCRR.ROUND                -- 라운드    
+            			AND    TCRO.TEAM_NO          = TCRR.TEAM_NO              -- 조번호    
+            			AND    TCRO.RACE_REG_NO      = TCRR.RACE_REG_NO          -- 정번번호    
+            			AND    TCRO.RACER_PERIO_NO   = ?                         -- 기수    
+            			AND    TCR .GBN              = ?                         -- 구분    
+                        GROUP BY TCRO.CAND_NO                                    -- 훈련생번호
+                     ) TCRR
+                   , (
+                        SELECT
+                                 TCRO.CAND_NO
+                               , COUNT(*) CNT
+                               , ROUND(SUM(DECODE(ARRIV_ORD, 1, 1)) / COUNT(*) * 100            , 2) WIN_RATE
+                               , ROUND(SUM(DECODE(ARRIV_ORD, 1, 1, 2, 1)) / COUNT(*) * 100      , 2) TWO_RATE
+                        FROM     TBDN_CAND_RACE_ORGAN TCRO
+                               , TBDN_CAND_RACE_RACE  TCR
+            			WHERE  TCR .RACER_PERIO_NO   = TCRO.RACER_PERIO_NO       -- 기수      
+            			AND    TCR .DAY_NO           = TCRO.DAY_NO               -- 출주번호  
+            			AND    TCR .ROUND            = TCRO.ROUND                -- 라운드    
+            			AND    TCRO.RACER_PERIO_NO   = ?                         -- 기수      
+            			AND    TCR .GBN              = ?                         -- 구분    
+                        GROUP BY TCRO.CAND_NO                                    -- 훈련생번호
+                     ) RATE
+                   , (
+                        SELECT
+                                 TCRO.CAND_NO
+                               , MIN(DECODE(TCRR.TEAM_NO, '1', TCRO.ARRIV_ORD)) ARRIV_ORD_1
+                               , MIN(DECODE(TCRR.TEAM_NO, '2', TCRO.ARRIV_ORD)) ARRIV_ORD_2
+                               , MIN(DECODE(TCRR.TEAM_NO, '3', TCRO.ARRIV_ORD)) ARRIV_ORD_3
+                               , MIN(DECODE(TCRR.TEAM_NO, '4', TCRO.ARRIV_ORD)) ARRIV_ORD_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '17', TCRR.RACE_COURSE)) RACE_COURSE_1_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '17', TCRR.RACE_TIME  )) RACE_TIME_1_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '27', TCRR.RACE_COURSE)) RACE_COURSE_2_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '27', TCRR.RACE_TIME  )) RACE_TIME_2_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '37', TCRR.RACE_COURSE)) RACE_COURSE_3_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '37', TCRR.RACE_TIME  )) RACE_TIME_3_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '47', TCRR.RACE_COURSE)) RACE_COURSE_4_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '47', TCRR.RACE_TIME  )) RACE_TIME_4_7
+                        FROM     TBDN_CAND_RACE_ORGAN TCRO
+                               , TBDN_CAND_RACE_RECD  TCRR
+                               , TBDN_CAND_RACE_RACE  TCR
+            			WHERE  TCR .RACER_PERIO_NO   = TCRO.RACER_PERIO_NO       -- 기수      
+            			AND    TCR .DAY_NO           = TCRO.DAY_NO               -- 출주번호  
+            			AND    TCR .ROUND            = TCRO.ROUND                -- 라운드    
+            			AND    TCRO.RACER_PERIO_NO   = TCRR.RACER_PERIO_NO       -- 기수      
+            			AND    TCRO.DAY_NO           = TCRR.DAY_NO               -- 출주번호  
+            			AND    TCRO.ROUND            = TCRR.ROUND                -- 라운드    
+            			AND    TCRO.TEAM_NO          = TCRR.TEAM_NO              -- 조번호    
+            			AND    TCRO.RACE_REG_NO      = TCRR.RACE_REG_NO          -- 정번번호    
+            			AND    TCR .GBN              = ?                         -- 구분    
+            			AND    TCRO.RACER_PERIO_NO   = ?                         -- 기수      
+            			AND    TCRO.DAY_NO           = ?                         -- 출주번호  
+            			AND    TCRO.ROUND            = ?                         -- 라운드    
+                        GROUP BY TCRO.CAND_NO                                    -- 훈련생번호
+                     ) TCRD
+                   , TBDN_CAND_IDENT TCI
+            WHERE  TCI .CAND_NO          = TCR .CAND_NO(+)
+            AND    TCI .CAND_NO          = TCRR.CAND_NO(+)
+            AND    TCI .CAND_NO          = RATE.CAND_NO(+)
+            AND    TCI .CAND_NO          = TCRD.CAND_NO(+)
+			AND    TCI .RACER_PERIO_NO   = ?       -- 기수
+            ORDER BY TCI .CAND_NO
+	    ]]>
+    </query>
+    <query id="tbdn_cand_race_fn302" desc="기수 조회" fetchSize="10">
+		<![CDATA[
+            SELECT  0 AS CNT,0 AS AVG,0 AS F,0 AS L
+                   , ROUND(AVG(TCRD.RACE_TIME_1_1  ), 2) RACE_TIME_1_1  
+                   , ROUND(AVG(TCRD.RACE_TIME_1_2  ), 2) RACE_TIME_1_2  
+                   , ROUND(AVG(TCRD.RACE_TIME_1_3  ), 2) RACE_TIME_1_3  
+                   , ROUND(AVG(TCRD.RACE_TIME_1_4  ), 2) RACE_TIME_1_4  
+                   , ROUND(AVG(TCRD.RACE_TIME_1_5  ), 2) RACE_TIME_1_5  
+                   , ROUND(AVG(TCRD.RACE_TIME_1_6  ), 2) RACE_TIME_1_6  
+                   , ROUND(AVG(TCRD.RACE_TIME_1_7  ), 2) RACE_TIME_1_7  
+                   , ROUND(AVG(TCRD.RACE_TIME_2_1  ), 2) RACE_TIME_2_1  
+                   , ROUND(AVG(TCRD.RACE_TIME_2_2  ), 2) RACE_TIME_2_2  
+                   , ROUND(AVG(TCRD.RACE_TIME_2_3  ), 2) RACE_TIME_2_3  
+                   , ROUND(AVG(TCRD.RACE_TIME_2_4  ), 2) RACE_TIME_2_4  
+                   , ROUND(AVG(TCRD.RACE_TIME_2_5  ), 2) RACE_TIME_2_5  
+                   , ROUND(AVG(TCRD.RACE_TIME_2_6  ), 2) RACE_TIME_2_6  
+                   , ROUND(AVG(TCRD.RACE_TIME_2_7  ), 2) RACE_TIME_2_7  
+                   , ROUND(AVG(TCRD.RACE_TIME_3_1  ), 2) RACE_TIME_3_1  
+                   , ROUND(AVG(TCRD.RACE_TIME_3_2  ), 2) RACE_TIME_3_2  
+                   , ROUND(AVG(TCRD.RACE_TIME_3_3  ), 2) RACE_TIME_3_3  
+                   , ROUND(AVG(TCRD.RACE_TIME_3_4  ), 2) RACE_TIME_3_4  
+                   , ROUND(AVG(TCRD.RACE_TIME_3_5  ), 2) RACE_TIME_3_5  
+                   , ROUND(AVG(TCRD.RACE_TIME_3_6  ), 2) RACE_TIME_3_6  
+                   , ROUND(AVG(TCRD.RACE_TIME_3_7  ), 2) RACE_TIME_3_7  
+                   , ROUND(AVG(TCRD.RACE_TIME_4_1  ), 2) RACE_TIME_4_1  
+                   , ROUND(AVG(TCRD.RACE_TIME_4_2  ), 2) RACE_TIME_4_2  
+                   , ROUND(AVG(TCRD.RACE_TIME_4_3  ), 2) RACE_TIME_4_3  
+                   , ROUND(AVG(TCRD.RACE_TIME_4_4  ), 2) RACE_TIME_4_4  
+                   , ROUND(AVG(TCRD.RACE_TIME_4_5  ), 2) RACE_TIME_4_5  
+                   , ROUND(AVG(TCRD.RACE_TIME_4_6  ), 2) RACE_TIME_4_6  
+                   , ROUND(AVG(TCRD.RACE_TIME_4_7  ), 2) RACE_TIME_4_7  
+            FROM     (
+                        SELECT
+                                 TCRO.CAND_NO
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '11', TCRR.RACE_COURSE)) RACE_COURSE_1_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '12', TCRR.RACE_COURSE)) RACE_COURSE_1_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '13', TCRR.RACE_COURSE)) RACE_COURSE_1_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '14', TCRR.RACE_COURSE)) RACE_COURSE_1_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '15', TCRR.RACE_COURSE)) RACE_COURSE_1_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '16', TCRR.RACE_COURSE)) RACE_COURSE_1_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '17', TCRR.RACE_COURSE)) RACE_COURSE_1_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '11', TCRR.RACE_TIME  )) RACE_TIME_1_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '12', TCRR.RACE_TIME  )) RACE_TIME_1_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '13', TCRR.RACE_TIME  )) RACE_TIME_1_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '14', TCRR.RACE_TIME  )) RACE_TIME_1_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '15', TCRR.RACE_TIME  )) RACE_TIME_1_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '16', TCRR.RACE_TIME  )) RACE_TIME_1_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '17', TCRR.RACE_TIME  )) RACE_TIME_1_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '21', TCRR.RACE_COURSE)) RACE_COURSE_2_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '22', TCRR.RACE_COURSE)) RACE_COURSE_2_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '23', TCRR.RACE_COURSE)) RACE_COURSE_2_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '24', TCRR.RACE_COURSE)) RACE_COURSE_2_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '25', TCRR.RACE_COURSE)) RACE_COURSE_2_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '26', TCRR.RACE_COURSE)) RACE_COURSE_2_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '27', TCRR.RACE_COURSE)) RACE_COURSE_2_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '21', TCRR.RACE_TIME  )) RACE_TIME_2_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '22', TCRR.RACE_TIME  )) RACE_TIME_2_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '23', TCRR.RACE_TIME  )) RACE_TIME_2_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '24', TCRR.RACE_TIME  )) RACE_TIME_2_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '25', TCRR.RACE_TIME  )) RACE_TIME_2_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '26', TCRR.RACE_TIME  )) RACE_TIME_2_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '27', TCRR.RACE_TIME  )) RACE_TIME_2_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '31', TCRR.RACE_COURSE)) RACE_COURSE_3_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '32', TCRR.RACE_COURSE)) RACE_COURSE_3_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '33', TCRR.RACE_COURSE)) RACE_COURSE_3_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '34', TCRR.RACE_COURSE)) RACE_COURSE_3_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '35', TCRR.RACE_COURSE)) RACE_COURSE_3_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '36', TCRR.RACE_COURSE)) RACE_COURSE_3_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '37', TCRR.RACE_COURSE)) RACE_COURSE_3_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '31', TCRR.RACE_TIME  )) RACE_TIME_3_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '32', TCRR.RACE_TIME  )) RACE_TIME_3_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '33', TCRR.RACE_TIME  )) RACE_TIME_3_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '34', TCRR.RACE_TIME  )) RACE_TIME_3_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '35', TCRR.RACE_TIME  )) RACE_TIME_3_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '36', TCRR.RACE_TIME  )) RACE_TIME_3_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '37', TCRR.RACE_TIME  )) RACE_TIME_3_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '41', TCRR.RACE_COURSE)) RACE_COURSE_4_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '42', TCRR.RACE_COURSE)) RACE_COURSE_4_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '43', TCRR.RACE_COURSE)) RACE_COURSE_4_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '44', TCRR.RACE_COURSE)) RACE_COURSE_4_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '45', TCRR.RACE_COURSE)) RACE_COURSE_4_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '46', TCRR.RACE_COURSE)) RACE_COURSE_4_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '47', TCRR.RACE_COURSE)) RACE_COURSE_4_7
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '41', TCRR.RACE_TIME  )) RACE_TIME_4_1
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '42', TCRR.RACE_TIME  )) RACE_TIME_4_2
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '43', TCRR.RACE_TIME  )) RACE_TIME_4_3
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '44', TCRR.RACE_TIME  )) RACE_TIME_4_4
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '45', TCRR.RACE_TIME  )) RACE_TIME_4_5
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '46', TCRR.RACE_TIME  )) RACE_TIME_4_6
+                               , MIN(DECODE(TCRR.TEAM_NO||TCRR.RACE_SEQ, '47', TCRR.RACE_TIME  )) RACE_TIME_4_7
+                        FROM     TBDN_CAND_RACE_ORGAN TCRO
+                               , TBDN_CAND_RACE_RECD  TCRR
+                               , TBDN_CAND_RACE_RACE  TCR
+            			WHERE  TCR .RACER_PERIO_NO   = TCRO.RACER_PERIO_NO       -- 기수      
+            			AND    TCR .DAY_NO           = TCRO.DAY_NO               -- 출주번호  
+            			AND    TCR .ROUND            = TCRO.ROUND                -- 라운드    
+            			AND    TCRO.RACER_PERIO_NO   = TCRR.RACER_PERIO_NO       -- 기수      
+            			AND    TCRO.DAY_NO           = TCRR.DAY_NO               -- 출주번호  
+            			AND    TCRO.ROUND            = TCRR.ROUND                -- 라운드    
+            			AND    TCRO.TEAM_NO          = TCRR.TEAM_NO              -- 조번호    
+            			AND    TCRO.RACE_REG_NO      = TCRR.RACE_REG_NO          -- 정번번호    
+            			AND    TCR .GBN              = ?                         -- 구분    
+            			AND    TCRO.RACER_PERIO_NO   = ?                         -- 기수      
+            			AND    TCRO.DAY_NO           = ?                         -- 출주번호  
+            			AND    TCRO.ROUND            = ?                         -- 라운드    
+                        GROUP BY TCRO.CAND_NO                                    -- 훈련생번호
+                     ) TCRD
+	    ]]>
+    </query>
+</queryMap>

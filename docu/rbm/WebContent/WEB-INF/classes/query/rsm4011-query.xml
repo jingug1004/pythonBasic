@@ -1,0 +1,1708 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4011(일일발매실적)">
+	<query id="rsm4011_s01" desc="경주일정보" fetchSize="10">
+        <![CDATA[
+       	 SELECT  /* rsm4011_s01 */                                                        
+			     MEET_CD,		-- 경주 구분 코드                                                    
+			     STND_YEAR,     -- 년도             
+			     TMS,                       -- 회차
+			     DAY_ORD,                         
+			     TO_CHAR(TO_DATE(RACE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS RACE_DAY,      
+			     RACE_YOIL,                                               -- 요일
+			     DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') AS RACE_YOIL_KOR
+			 FROM                                                            
+			     VW_SDL_INFO         -- 경주일 정보                                        
+			 WHERE 1=1
+			   AND MEET_CD= ?       -- 0:MEET_CD 구분코드
+			   AND RACE_DAY	= ?     -- 1:RACE_DAY 경주일
+			             
+                                                                      
+        ]]>
+    </query>
+    
+	<query id="rsm4011_s02" desc="일일발매실적(1.매출액)" fetchSize="10">
+        <![CDATA[        
+             SELECT /* rsm4011_s02 */                                                                     
+			     A.MEET_CD MEET_CD, 				-- 경륜 경정 구분 코드                                                     
+			     A.POOL,                            -- 승식 코드                   
+			    CASE                                                                    
+			        WHEN A.POOL='001' THEN '단승식'                                     
+			        WHEN A.POOL='002' THEN '연승식'                                     
+			        WHEN A.POOL='004' THEN '쌍승식'                                     
+			        WHEN A.POOL='005' THEN '복승식'                                     
+			        WHEN A.POOL='006' THEN '삼복승식'                                   
+			        ELSE '1. 매출액'                                                     
+			   END POOL_NM,                         -- 승식 설명                          
+			     (NVL(A.POOL_TOTAL,0)+NVL(B.POOL_TOTAL,0)+NVL(C.POOL_TOTAL,0)) TOT,  -- 전체     
+			     A.POOL_TOTAL PT_001,			-- 운영본부                                                   
+			     NVL(B.POOL_TOTAL,0) PT_002,	-- 창원                                            
+			     C.POOL_TOTAL PT_004,           -- 부산                                  
+			     D.PT_TOT PT_TOT_001,                                             
+			     D.PT_TOT+D.PT_TOT_002+D.PT_TOT_004 PT_TOT,	-- 전체누계                     
+			     D.PT_TOT_002 PT_TOT_002,                                               
+			     D.PT_TOT_004 PT_TOT_004                                                
+			 FROM                                                                       
+			 (                                                                          
+			     SELECT                                                                 
+			         P.MEET_CD,                                                         
+			         CASE                                                               
+			            WHEN P.POOL_CD='001' THEN '2'                                   
+			            WHEN P.POOL_CD='002' THEN '3'                                   
+			            WHEN P.POOL_CD='004' THEN '4'                                   
+			            WHEN P.POOL_CD='005' THEN '5'                                   
+			            WHEN P.POOL_CD='006' THEN '6'                                   
+			            ELSE '1'                                                        
+			         END ORD,                                                           
+			         DECODE(P.POOL_CD,NULL,'TOTAL',P.POOL_CD) POOL,                     
+			         SUM(P.NET_AMT) POOL_TOTAL                                          
+			     FROM                                                                   
+			         VW_SDL_INFO V,                                                     
+			         VW_PC_PAYOFFS P                                                  
+			     WHERE 1=1                                                                  
+			         AND V.RACE_DAY = ? -- 0:RACE_DAY '20110115'                                               
+			         AND V.MEET_CD	= ? -- 1:MEET_CD '001'                                             
+			         AND P.MEET_CD = V.MEET_CD                                          
+			         AND P.SELL_CD IN('01','03')                                        
+			         AND P.STND_YEAR=V.STND_YEAR                                        
+			         AND P.TMS=V.TMS                                                    
+			         AND P.DAY_ORD=V.DAY_ORD                                            
+			     GROUP BY                                                               
+			         P.MEET_CD,                                                         
+			         ROLLUP(P.POOL_CD)                                                  
+			     ORDER BY MEET_CD,POOL_CD                                               
+			 ) A,                                                                       
+			 (                                                                          
+			     SELECT                                                                 
+			         P.MEET_CD,                                                         
+			         DECODE(P.POOL_CD,NULL,'TOTAL',P.POOL_CD) POOL,                     
+			         SUM(P.NET_AMT) POOL_TOTAL                                          
+			     FROM                                                                   
+			         VW_SDL_INFO V,                                                     
+			         VW_PC_PAYOFFS P                                                  
+			     WHERE 1=1                                                                 
+			         AND V.RACE_DAY	= ? -- 2:RACE_DAY '20110115'                                               
+			         AND V.MEET_CD	= ? -- 3:MEET_CD '001'                                             
+			         AND P.MEET_CD=V.MEET_CD                                            
+			         AND P.SELL_CD ='02'                                                
+			         AND P.STND_YEAR=V.STND_YEAR                                        
+			         AND P.TMS=V.TMS                                                    
+			         AND P.DAY_ORD=V.DAY_ORD                                            
+			     GROUP BY                                                               
+			         P.MEET_CD,                                                         
+			         ROLLUP(P.POOL_CD)                                                  
+			     ORDER BY MEET_CD,POOL_CD                                               
+			 ) B,                                                                       
+			 (                                                                          
+			     SELECT                                                                 
+			         P.MEET_CD,                                                         
+			         DECODE(P.POOL_CD,NULL,'TOTAL',P.POOL_CD) POOL,                     
+			         SUM(P.NET_AMT) POOL_TOTAL                                          
+			     FROM                                                                   
+			         VW_SDL_INFO V,                                                     
+			         VW_PC_PAYOFFS P                                                  
+			     WHERE 1=1                                                                 
+			         AND V.RACE_DAY	= ? -- 4:RACE_DAY '20110115'                                               
+			         AND V.MEET_CD	= ? -- 5:MEET_CD '001'                                             
+			         AND P.MEET_CD=V.MEET_CD                                            
+			         AND P.SELL_CD ='04'                                                
+			         AND P.STND_YEAR=V.STND_YEAR                                        
+			         AND P.TMS=V.TMS                                                    
+			         AND P.DAY_ORD=V.DAY_ORD                                            
+			     GROUP BY                                                               
+			         P.MEET_CD,                                                         
+			         ROLLUP(P.POOL_CD)                                                  
+			 ) C,                                                                       
+			 (                                                                          
+			     SELECT                                                                 
+			         DECODE(P.POOL_CD,NULL,'TOTAL',P.POOL_CD) POOL,                     
+			         SUM(                                                               
+			            CASE                                                            
+			                WHEN P.SELL_CD IN('01','03') THEN P.NET_AMT                 
+			            END                                                             
+			         ) PT_TOT,                                                          
+			         SUM(                                                               
+			            CASE                                                            
+			                WHEN P.MEET_CD = ? AND P.SELL_CD='02' THEN P.NET_AMT -- 6:MEET_CD   
+			                ELSE 0                                                      
+			            END                                                             
+			         ) PT_TOT_002,                                                      
+			         SUM(                                                               
+			            CASE                                                            
+			                WHEN P.MEET_CD = ? AND P.SELL_CD='04' THEN P.NET_AMT -- 7:MEET_CD   
+			                ELSE 0                                                      
+			            END                                                             
+			         ) PT_TOT_004                                                       
+			     FROM                                                                   
+			         VW_SDL_INFO V,
+			         VW_PC_PAYOFFS P                                                
+			     WHERE 1=1                                                                 
+			         AND V.MEET_CD	= ? -- 8:MEET_CD '001'                                           
+			         AND V.RACE_DAY <= ? -- 9:RACE_DAY '20110115'                                          
+			         AND V.STND_YEAR = SUBSTR(?,1,4) -- 10:RACE_DAY '20110115'                             
+			         AND P.MEET_CD=V.MEET_CD                                            
+			         AND P.STND_YEAR=V.STND_YEAR                                        
+			         AND P.TMS=V.TMS                                                    
+			         AND P.DAY_ORD=V.DAY_ORD                                            
+			     GROUP BY                                                               
+			         ROLLUP(P.POOL_CD)                                                  
+			
+			 ) D                                                                        
+			 WHERE                                                                      
+			     B.POOL(+)=A.POOL                                                       
+			     AND C.POOL(+)=A.POOL                                                   
+			     AND D.POOL(+)=A.POOL                                                   
+			 ORDER BY A.ORD                                                         
+        ]]>
+    </query>
+    
+
+	<query id="rsm4011_s03" desc="일일발매실적(2.제세금)" fetchSize="10">
+        <![CDATA[
+				WITH PC_GITA AS (
+					SELECT MEET_CD, SELL_CD, JIGEUP_DT, GITA1 COMMI_5, GITA2 COMMI_6 FROM VW_PC_GITA_CRS
+					UNION ALL
+					SELECT MEET_CD, SELL_CD, JIGEUP_DT, GITA1 COMMI_5, GITA2 COMMI_6 FROM TBJI_PC_GITA_CRS
+				)
+				SELECT /* rsm4011_s03 */ 
+						LEV,
+				       MEET_CD,     -- 경륜 경정 구분 코드                                    
+				       COMMI,          -- 제세금 코드   
+				       COMMI_NM,    -- 제세금 이름                
+				        DECODE(LEV,'1',SUM(C_TOT),SUM(C_TOT)) AS C_TOT, -- 전체                
+				        DECODE(LEV,'1',SUM(C_001),SUM(C_001)) AS C_001, -- 운영본부                      
+				        DECODE(LEV,'1',SUM(C_002),SUM(C_002)) AS C_002, -- 창원    
+				        DECODE(LEV,'1',SUM(C_004),SUM(C_004)) AS C_004, -- 부산        
+				        DECODE(LEV,'1',SUM(C_YEAR_TOT),SUM(C_YEAR_TOT)) AS C_YEAR_TOT -- 전체누계  
+				FROM
+				(
+				    SELECT C.LEV,
+				            MEET_CD,									-- 경륜 경정 구분 코드                                    
+				           DECODE(C.LEV,'1',COMMI,'') COMMI,	-- 제세금 코드   
+				           DECODE(C.LEV,'1',COMMI_NM,'2.제세금') COMMI_NM,	-- 제세금 코드   
+				           C_TOT,
+				           C_001,                               
+				           C_002,  
+				           C_004,
+				           C_YEAR_TOT
+				    FROM       
+				    (
+				                SELECT   
+				                    B.LEV,
+				    			     MEET_CD,									-- 경륜 경정 구분 코드                                                               
+				    			     DECODE(COMMI,NULL,'TOTAL',COMMI) COMMI,	-- 제세금 코드                                
+				    			    CASE                                                                    
+				    			        WHEN COMMI='COMMI_1' THEN '수득금'                                  
+				    			        WHEN COMMI='COMMI_2' THEN '경주세'                                  
+				    			        WHEN COMMI='COMMI_3' THEN '교육세'                                  
+				    			        WHEN COMMI='COMMI_4' THEN '농특세'                                  
+				    			        WHEN COMMI='COMMI_5' THEN '기타소득세'                              
+				    			        WHEN COMMI='COMMI_6' THEN '주민세'                                  
+				    			        WHEN COMMI='POSI_BREAK' THEN '절사금'                               
+				    			        WHEN COMMI='RESULT' THEN '환급금'                                   
+				    			        ELSE '2.제세금'                                                         
+				    			    END COMMI_NM,                               -- 제세금 이름                
+				    			     C_TOTAL C_TOT,                             -- 전체                
+				    			     C_001 C_001,                               -- 운영본부                      
+				    			     C_002 C_002,                               -- 창원                  
+				    			     C_004 C_004,                               -- 부산                      
+				    			     C_YEAR_TOT                                 -- 전체누계                      
+				    			 FROM                                                                       
+				    			 (                                                                          
+				    			     SELECT                                                    
+				    			         P.MEET_CD,                                                         
+				    			         'COMMI_2' COMMI,                                                   
+				    			         SUM(P.COMMI_2) C_TOTAL,                                            
+				    			         SUM(CASE WHEN SELL_CD IN('01','03') THEN P.COMMI_2 END ) C_001,                                                           
+				    			         SUM(CASE WHEN SELL_CD='02' THEN P.COMMI_2 			END ) C_002,                                                           
+				    			         SUM(CASE WHEN SELL_CD='04' THEN P.COMMI_2 			END ) C_004,                                                           
+				    			         SUM(S.C_YEAR_TOT)/COUNT(*)  C_YEAR_TOT                               
+				    			     FROM                                                                   
+				    			         VW_SDL_INFO V,                                                     
+				    			         VW_PC_PAYOFFS P,                                                 
+				    			         (                                                                  
+				    			            SELECT                                                  
+				    			                SUM(S.COMMI_2) C_YEAR_TOT                                   
+				    			            FROM                                                            
+				    			                VW_SDL_INFO T ,                                             
+				    			                VW_PC_PAYOFFS S                                         
+				    			            WHERE 1=1                                                           
+				    			                 AND T.RACE_DAY	<= ? -- 0:RACE_DAY '20110115'                                      
+				    			                 AND T.STND_YEAR = SUBSTR(?,1,4) -- 1:RACE_DAY '20110115'                         
+				    			                 AND T.MEET_CD	= ?			 	-- 2:MEET_CD:'001'                                   
+				    			                 AND S.MEET_CD=T.MEET_CD                                  
+				    			                 AND S.STND_YEAR=T.STND_YEAR                                
+				    			                 AND S.TMS=T.TMS                                            
+				    			                 AND S.DAY_ORD=T.DAY_ORD                                    
+				    			         ) S                                                                
+				    			     WHERE 1=1                                                                  
+				    			         AND V.RACE_DAY	= ? -- 3:RACE_DAY'20110115'                                               
+				    			         AND V.MEET_CD	= ? -- 4:MEET_CD '001'                                             
+				    			         AND P.MEET_CD=V.MEET_CD                                            
+				    			         AND P.STND_YEAR=V.STND_YEAR                                        
+				    			         AND P.TMS=V.TMS                                                    
+				    			         AND P.DAY_ORD=V.DAY_ORD                                            
+				    			     GROUP BY                                                               
+				    			         P.MEET_CD                                                          
+				    			     UNION ALL                                                              
+				    			     SELECT                                                    
+				    			         P.MEET_CD,                                                         
+				    			         'COMMI_3' COMMI,                                                   
+				    			         SUM(P.COMMI_3) C_TOTAL,                                            
+				    			         SUM(CASE WHEN SELL_CD IN('01','03') THEN P.COMMI_3 END ) C_001,                                                           
+				    			         SUM(CASE WHEN SELL_CD='02' THEN P.COMMI_3 			END ) C_002,                                                           
+				    			         SUM(CASE WHEN SELL_CD='04' THEN P.COMMI_3 			END ) C_004,                                                           
+				    			         SUM(S.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT                      
+				    			     FROM                                                                   
+				    			         VW_SDL_INFO V,                                                     
+				    			         VW_PC_PAYOFFS P,                                                 
+				    			         (                                                                  
+				    			            SELECT                                                          
+				    			                SUM(S.COMMI_3) C_YEAR_TOT                                   
+				    			            FROM                                                            
+				    			                VW_SDL_INFO T ,                                             
+				    			                VW_PC_PAYOFFS S                                         
+				    			            WHERE 1=1                                                           
+				    			                 AND T.RACE_DAY	<= ?				-- 5:RACE_DAY '20110115'                                      
+				    			                 AND T.STND_YEAR = SUBSTR(?,1,4) 	-- 6:RACE_DAY '20110115'                      
+				    			                 AND T.MEET_CD	= ? 				-- 7:MEET_CD '001'                                  
+				    			                 AND S.MEET_CD=T.MEET_CD                                    
+				    			                 AND S.STND_YEAR=T.STND_YEAR                                
+				    			                 AND S.TMS=T.TMS                                            
+				    			                 AND S.DAY_ORD=T.DAY_ORD                                    
+				    			         ) S                                                                
+				    			     WHERE 1=1                                                                  
+				    			         AND V.RACE_DAY	= ?		-- 8:RACE_DAY '20110115'                                               
+				    			         AND V.MEET_CD	= ?		-- 9:MEET_CD '001'                                             
+				    			         AND P.MEET_CD=V.MEET_CD                                            
+				    			         AND P.STND_YEAR=V.STND_YEAR                                        
+				    			         AND P.TMS=V.TMS                                                    
+				    			         AND P.DAY_ORD=V.DAY_ORD                                            
+				    			     GROUP BY                                                               
+				    			         P.MEET_CD                                                          
+				    			     UNION ALL                                                              
+				    			     SELECT                                                    
+				    			         P.MEET_CD,                                                         
+				    			         'COMMI_4' COMMI,                                                   
+				    			         SUM(P.COMMI_4) C_TOTAL,                                            
+				    			         SUM(CASE WHEN SELL_CD IN('01','03') THEN P.COMMI_4 END ) C_001,                                                           
+				    			         SUM(CASE WHEN SELL_CD='02' THEN P.COMMI_4 			END ) C_002,                                                           
+				    			         SUM(CASE WHEN SELL_CD='04' THEN P.COMMI_4 			END ) C_004,                                                           
+				    			         SUM(S.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT                                
+				    			     FROM                                                                   
+				    			         VW_SDL_INFO V,                                                     
+				    			         VW_PC_PAYOFFS P,                                                 
+				    			         (                                                                  
+				    			            SELECT                                                          
+				    			                SUM(S.COMMI_4) C_YEAR_TOT                                   
+				    			            FROM                                                            
+				    			                VW_SDL_INFO T ,                                             
+				    			                VW_PC_PAYOFFS S                                         
+				    			            WHERE 1=1                                                           
+				    			                 AND T.RACE_DAY	<= ?				-- 10:RACE_DAY '20110115'                                      
+				    			                 AND T.STND_YEAR = SUBSTR(?,1,4)	-- 11:RACE_DAY '20110115'                     
+				    			                 AND T.MEET_CD	= ?				-- 12:MEET_CD '001'                                  
+				    			                 AND S.MEET_CD=T.MEET_CD                                  
+				    			                 AND S.STND_YEAR=T.STND_YEAR                                
+				    			                 AND S.TMS=T.TMS                                            
+				    			                 AND S.DAY_ORD=T.DAY_ORD                                    
+				    			         ) S                                                                
+				    			     WHERE 1=1                                                                 
+				    			         AND V.RACE_DAY	= ? -- 13:RACE_DAY  '20110115'                                                
+				    			         AND V.MEET_CD	= ? -- 14:MEET_CD	'001'                                             
+				    			         AND P.MEET_CD=V.MEET_CD                                            
+				    			         AND P.STND_YEAR=V.STND_YEAR                                        
+				    			         AND P.TMS=V.TMS                                                    
+				    			         AND P.DAY_ORD=V.DAY_ORD                                            
+				    			     GROUP BY                                                               
+				    			         P.MEET_CD                                                          
+				    			     UNION ALL   
+				    			     -- 기타소득세
+				    			     SELECT
+										T1.MEET_CD,
+										'COMMI_5' COMMI,
+										SUM(T1.COMMI) C_TOTAL,
+									    SUM(CASE WHEN T1.SELL_CD IN('01','03') THEN T1.COMMI END ) C_001,
+									    SUM(CASE WHEN T1.SELL_CD='02' THEN T1.COMMI 		 END ) C_002,
+									    SUM(CASE WHEN T1.SELL_CD='04' THEN T1.COMMI 		 END ) C_004,
+									    SUM(T2.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT
+									FROM
+									(
+										SELECT P.MEET_CD, P.COMMI_5 COMMI, P.SELL_CD
+										FROM
+										    VW_SDL_INFO V,
+										    VW_PC_PAYOFFS P
+										WHERE 1=1
+										    AND V.RACE_DAY	= ? -- 15:RACE_DAY '20110115'
+										    AND V.MEET_CD	= ? -- 16:MEET_CD '001'
+										    AND P.MEET_CD=V.MEET_CD
+										    AND P.STND_YEAR=V.STND_YEAR
+										    AND P.TMS=V.TMS
+										    AND P.DAY_ORD=V.DAY_ORD
+										UNION ALL
+										SELECT
+										    S.MEET_CD, S.COMMI_5 COMMI, S.SELL_CD
+										FROM PC_GITA S
+										WHERE 1=1
+										AND S.JIGEUP_DT = ? -- 17:RACE_DAY :'20110115'
+										AND S.MEET_CD = ? -- 18:MEET_CD '001'  
+									) T1,
+									(
+										SELECT SUM(C_YEAR_TOT) C_YEAR_TOT
+										FROM (
+											SELECT
+											    SUM(S.COMMI_5) C_YEAR_TOT
+											FROM
+											    VW_SDL_INFO T ,
+											    VW_PC_PAYOFFS S
+											WHERE 1=1
+											AND T.RACE_DAY	<= ? -- 19:RACE_DAY :'20110115'
+											AND T.STND_YEAR = SUBSTR(?,1,4) -- 20:RACE_DAY '20110115'
+											AND T.MEET_CD	= ? -- 21:MEET_CD '001'
+											AND S.MEET_CD=T.MEET_CD
+											AND S.STND_YEAR=T.STND_YEAR
+											AND S.TMS=T.TMS
+											AND S.DAY_ORD=T.DAY_ORD
+											UNION ALL
+											SELECT
+											    SUM(S.COMMI_5) C_YEAR_TOT
+											FROM PC_GITA S
+											WHERE 1=1
+											AND S.JIGEUP_DT	<= ? -- 22:RACE_DAY :'20110115'
+											AND S.MEET_CD = ? -- 23:MEET_CD '001'
+										)
+									) T2
+									GROUP BY MEET_CD
+									UNION ALL
+				    			     -- 주민세
+				    			     SELECT
+										T1.MEET_CD,
+										'COMMI_6' COMMI,
+										SUM(T1.COMMI) C_TOTAL,
+									    SUM(CASE WHEN T1.SELL_CD IN('01','03') THEN T1.COMMI END ) C_001,
+									    SUM(CASE WHEN T1.SELL_CD='02' THEN T1.COMMI 		 END ) C_002,
+									    SUM(CASE WHEN T1.SELL_CD='04' THEN T1.COMMI 		 END ) C_004,
+									    SUM(T2.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT
+									FROM
+									(
+										SELECT P.MEET_CD, P.COMMI_6 COMMI, P.SELL_CD
+										FROM
+										    VW_SDL_INFO V,
+										    VW_PC_PAYOFFS P
+										WHERE 1=1
+										    AND V.RACE_DAY	= ? -- 24:RACE_DAY '20110115'
+										    AND V.MEET_CD	= ? -- 25:MEET_CD '001'
+										    AND P.MEET_CD=V.MEET_CD
+										    AND P.STND_YEAR=V.STND_YEAR
+										    AND P.TMS=V.TMS
+										    AND P.DAY_ORD=V.DAY_ORD
+										UNION ALL
+										SELECT
+										    S.MEET_CD, S.COMMI_6 COMMI, S.SELL_CD
+										FROM PC_GITA S
+										WHERE 1=1
+										AND S.JIGEUP_DT = ? -- 26:RACE_DAY :'20110115'
+										AND S.MEET_CD = ? -- 27:MEET_CD '001'
+									) T1,
+									(
+										SELECT SUM(C_YEAR_TOT) C_YEAR_TOT
+										FROM (
+											SELECT
+											    SUM(S.COMMI_6) C_YEAR_TOT
+											FROM
+											    VW_SDL_INFO T ,
+											    VW_PC_PAYOFFS S
+											WHERE 1=1
+											AND T.RACE_DAY	<= ? -- 28:RACE_DAY :'20110115'
+											AND T.STND_YEAR = SUBSTR(?,1,4) -- 29:RACE_DAY '20110115'
+											AND T.MEET_CD	= ? -- 30:MEET_CD '001'
+											AND S.MEET_CD=T.MEET_CD
+											AND S.STND_YEAR=T.STND_YEAR
+											AND S.TMS=T.TMS
+											AND S.DAY_ORD=T.DAY_ORD
+											UNION ALL
+											SELECT
+											    SUM(S.COMMI_6) C_YEAR_TOT
+											FROM PC_GITA S
+											WHERE 1=1
+											AND S.JIGEUP_DT	<= ? -- 31:RACE_DAY :'20110115'
+											AND S.MEET_CD = ? -- 32:MEET_CD '001'
+										)
+									) T2
+									GROUP BY MEET_CD
+				    			                                                                   
+				    			 )A,(SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2)B
+				        )C
+				    )D GROUP BY D.LEV,D.MEET_CD,D.COMMI,COMMI_NM			 
+				ORDER BY LEV DESC                                                                                                                                                                                  
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm4011_s04" desc="일일발매실적(3.수익금)" fetchSize="10">
+        <![CDATA[        
+			 SELECT /* rsm4011_s04 */
+			 		MEET_CD,	-- 경륜 경주 구분 코드                                         
+			        COMMI,		-- 수익금 코드
+			        COMMI_NM,   -- 수익금 명
+			       DECODE(C.LEV,'1',SUM(C_TOT),SUM(C_TOT)) AS C_TOT, -- 전체  
+			       DECODE(C.LEV,'1',SUM(C_001),SUM(C_001)) AS C_001, -- 운영본부 
+			       DECODE(C.LEV,'1',SUM(C_002),SUM(C_002)) AS C_002, -- 창원
+			       DECODE(C.LEV,'1',SUM(C_004),SUM(C_004)) AS C_004, -- 부산 
+			       DECODE(C.LEV,'1',SUM(C_YEAR_TOT),SUM(C_YEAR_TOT)) AS C_YEAR_TOT -- 전체 누계
+			        
+			FROM
+			(        
+			SELECT MEET_CD,                                         
+			       DECODE(B.LEV,'1',COMMI,'') AS COMMI,
+			       DECODE(B.LEV,'1',COMMI_NM,'3.수익금') AS COMMI_NM,  
+			       C_TOT,   
+			       C_001,      
+			       C_002,       
+			       C_004,   
+			       C_YEAR_TOT,
+			       B.LEV
+			FROM(                                                                                 
+			        SELECT                                                                     
+						     MEET_CD,  
+						     
+						     DECODE(COMMI,NULL,'TOTAL',COMMI) COMMI,                                
+						    CASE                                                                    
+						        WHEN COMMI='COMMI_1' THEN '수득금'                                  
+						        WHEN COMMI='COMMI_2' THEN '경주세'                                  
+						        WHEN COMMI='COMMI_3' THEN '교육세'                                  
+						        WHEN COMMI='COMMI_4' THEN '농특세'                                  
+						        WHEN COMMI='COMMI_5' THEN '기타소득세'                              
+						        WHEN COMMI='COMMI_6' THEN '주민세'                                  
+						        WHEN COMMI='POSI_BREAK' THEN '절사금'                               
+						        WHEN COMMI='RESULT' THEN '환급금'                                   
+						        ELSE '3.수익금'                                                         
+						    END COMMI_NM,                                                           
+						     C_TOTAL C_TOT,                                                         
+						     C_001 C_001,                                                           
+						     C_002 C_002,                                                           
+						     C_004 C_004,                                                           
+						     C_YEAR_TOT                                                             
+						 FROM                                                                       
+						 (                                                                          
+						     
+						     -- 수득금                                                           
+						     SELECT                                                    
+						         P.MEET_CD,                                                         
+						         'COMMI_1' COMMI,                                                   
+						         SUM(P.COMMI_1) C_TOTAL,                                            
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD IN('01','03') THEN P.COMMI_1                  
+						             END                                                            
+						         ) C_001,                                                           
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD='02' THEN P.COMMI_1                           
+						             END                                                            
+						         ) C_002,                                                           
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD='04' THEN P.COMMI_1                           
+						             END                                                            
+						         ) C_004,                                                           
+						         SUM(S.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT                                
+						     FROM                                                                   
+						         VW_SDL_INFO V,                                                     
+						         VW_PC_PAYOFFS P,                                                 
+						         (                                                                  
+						            SELECT                                                          
+						                SUM(S.COMMI_1) C_YEAR_TOT                                   
+						            FROM                                                            
+						                VW_SDL_INFO T ,                                             
+						                VW_PC_PAYOFFS S                                         
+						            WHERE 1=1                                                           
+						                 AND T.RACE_DAY	<= ? 			 -- 0:RACE_DAY 경주일 '20110115'                                      
+						                 AND T.STND_YEAR = SUBSTR(?,1,4) -- 1:RACE_DAY 경주일 '20110115'                    
+						                 AND T.MEET_CD	= ?			 	-- 2:MEET_CD 경주 구분 코드                                  
+						                 AND S.MEET_CD=T.MEET_CD                                  
+						                 AND S.STND_YEAR=T.STND_YEAR                                
+						                 AND S.TMS=T.TMS                                            
+						                 AND S.DAY_ORD=T.DAY_ORD                                    
+						         ) S                                                                
+						     WHERE 1=1                                                                 
+						         AND V.RACE_DAY	= ? -- 3:RACE_DAY 경주일 '20110115'                                     
+						         AND V.MEET_CD	= ? -- 4:MEET_CD 경주 구분 코드  '001'                                             
+						         AND P.MEET_CD	=V.MEET_CD                                            
+						         AND P.STND_YEAR=V.STND_YEAR                                        
+						         AND P.TMS=V.TMS                                                    
+						         AND P.DAY_ORD=V.DAY_ORD                                            
+						     GROUP BY                                                               
+						         P.MEET_CD                                                          
+						     UNION ALL    
+						      
+						     -- 절사금                                                    
+						     SELECT                                                    
+						         P.MEET_CD,                                                         
+						         'POSI_BREAK' COMMI,                                                
+						         SUM(P.POSI_BREAK-P.NEGA_BREAK) C_TOTAL,                            
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD IN('01','03') THEN P.POSI_BREAK-P.NEGA_BREAK  
+						             END                                                            
+						         ) C_001,                                                           
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD='02' THEN P.POSI_BREAK-P.NEGA_BREAK           
+						             END                                                            
+						         ) C_002,                                                           
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD='04' THEN P.POSI_BREAK-P.NEGA_BREAK           
+						             END                                                            
+						         ) C_004,                                                           
+						         SUM(S.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT                                
+						     FROM                                                                   
+						         VW_SDL_INFO V,                                                     
+						         VW_PC_PAYOFFS P,                                                 
+						         (                                                                  
+						            SELECT                                                          
+						                SUM(S.POSI_BREAK-S.NEGA_BREAK) C_YEAR_TOT                   
+						            FROM                                                            
+						                VW_SDL_INFO T ,                                             
+						                VW_PC_PAYOFFS S                                         
+						            WHERE 1=1                                                           
+						                 AND T.RACE_DAY		<= ? -- 5:RACE_DAY 경주일 '20110115'                    
+						                 AND T.STND_YEAR = SUBSTR(?,1,4) -- 6:RACE_DAY 경주일 '20110115'                    
+						                 AND T.MEET_CD	 = ? -- 7:MEET_CD 경주 구분 코드 '001'                                  
+						                 AND S.MEET_CD=T.MEET_CD                                  
+						                 AND S.STND_YEAR=T.STND_YEAR                                
+						                 AND S.TMS=T.TMS                                            
+						                 AND S.DAY_ORD=T.DAY_ORD                                    
+						         ) S                                                                
+						     WHERE 1=1                                                                  
+						         AND V.RACE_DAY	= ? -- 8:RACE_DAY 경주일 '20110115'                        
+						         AND V.MEET_CD	= ? -- 9:MEET_CD 경주 구분 코드 '001'                                             
+						         AND P.MEET_CD=V.MEET_CD                                            
+						         AND P.STND_YEAR=V.STND_YEAR                                        
+						         AND P.TMS=V.TMS                                                    
+						         AND P.DAY_ORD=V.DAY_ORD                                            
+						     GROUP BY                                                               
+						         P.MEET_CD                                                                      
+						 )
+			    )A,(SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL <=2)  B -- 레코드 합계용
+			)C GROUP BY LEV, MEET_CD,                                         
+			        COMMI,
+			        COMMI_NM
+			ORDER BY LEV DESC                                                                                                                                                                                                                                                                    
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm4011_s05" desc="일일발매실적(4.환급금)" fetchSize="10">
+        <![CDATA[        
+			 SELECT /* rsm4011_s05 */ 
+			 		LEV,
+			       MEET_CD, -- 경륜 경정 구분 코드
+			       COMMI,   -- 환급금 코드
+			       COMMI_NM, -- 환급금 이름
+			       DECODE(LEV,'1',SUM(C_TOT),SUM(C_TOT)) AS C_TOT, -- 전체
+			       DECODE(LEV,'1',SUM(C_001),SUM(C_001)) AS C_001, -- 운영본부
+			       DECODE(LEV,'1',SUM(C_002),SUM(C_002)) AS C_002, -- 창원
+			       DECODE(LEV,'1',SUM(C_004),SUM(C_004)) AS C_004, -- 부산
+			       DECODE(LEV,'1',SUM(C_YEAR_TOT),SUM(C_YEAR_TOT)) AS C_YEAR_TOT -- 전체 누계
+			FROM       
+			(
+			SELECT LEV,
+			        MEET_CD,
+			      DECODE(LEV,'1',COMMI,'') AS COMMI, 
+			      DECODE(LEV,'1',COMMI_NM,'4.환급금') AS COMMI_NM,
+			      C_TOT,
+			      C_001,                                                           
+				  C_002,                                                           
+			      C_004,                                                           
+				  C_YEAR_TOT       
+			FROM
+			(      
+			        SELECT                                                                     
+						     MEET_CD,                                                               
+						     DECODE(COMMI,NULL,'TOTAL',COMMI) COMMI,                                
+						    CASE                                                                    
+						        WHEN COMMI='COMMI_1' THEN '수득금'                                  
+						        WHEN COMMI='COMMI_2' THEN '경주세'                                  
+						        WHEN COMMI='COMMI_3' THEN '교육세'                                  
+						        WHEN COMMI='COMMI_4' THEN '농특세'                                  
+						        WHEN COMMI='COMMI_5' THEN '기타소득세'                              
+						        WHEN COMMI='COMMI_6' THEN '주민세'                                  
+						        WHEN COMMI='POSI_BREAK' THEN '절사금'                               
+						        WHEN COMMI='RESULT' THEN '환급금'                                   
+						        ELSE '합계'                                                         
+						    END COMMI_NM,                                                           
+						     C_TOTAL C_TOT,                                                         
+						     C_001 C_001,                                                           
+						     C_002 C_002,                                                           
+						     C_004 C_004,                                                           
+						     C_YEAR_TOT                                                             
+						 FROM                                                                       
+						 (                                                                          
+						     
+						     
+						     -- 환급금                                                          
+						     SELECT                                                    
+						         P.MEET_CD,                                                         
+						         'RESULT' COMMI,                                                    
+						         SUM(P.WIN_AMT*P.UNIT_ODDS/100) C_TOTAL,                            
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD IN('01','03') THEN P.WIN_AMT*P.UNIT_ODDS/100  
+						             END                                                            
+						         ) C_001,                                                           
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD='02' THEN P.WIN_AMT*P.UNIT_ODDS/100           
+						             END                                                            
+						         ) C_002,                                                           
+						         SUM(                                                               
+						             CASE                                                           
+						                 WHEN SELL_CD='04' THEN P.WIN_AMT*P.UNIT_ODDS/100           
+						             END                                                            
+						         ) C_004,                                                           
+						         SUM(S.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT                                
+						     FROM                                                                   
+						         VW_SDL_INFO V,                                                     
+						         TBJI_PC_RESULT P,                                                  
+						         (                                                                  
+						            SELECT                                                  
+						                SUM(S.WIN_AMT*S.UNIT_ODDS/100) C_YEAR_TOT                   
+						            FROM                                                            
+						                VW_SDL_INFO T ,                                             
+						                TBJI_PC_RESULT S                                            
+						            WHERE 1=1                                                           
+						                 AND T.RACE_DAY	<= ? 				-- 0:RACE_DAY 경주일 '20110115'                                      
+						                 AND T.STND_YEAR = SUBSTR( ? ,1,4) 	-- 1:RACE_DAY 경주일  '20110115'                    
+						                 AND T.MEET_CD	= ? 				-- 2:MEET_CD '001'                                  
+						                 AND S.MEET_CD=T.MEET_CD                                  
+						                 AND S.STND_YEAR=T.STND_YEAR                                
+						                 AND S.TMS=T.TMS                                            
+						                 AND S.DAY_ORD=T.DAY_ORD                                    
+						                 AND INSTR(S.RLT_RUN_NO,'-') = 0                            
+						         ) S                                                                
+						     WHERE  1=1                                                                
+						         AND V.RACE_DAY	= ? 					-- 3:RACE_DAY '20110115'                                               
+						         AND V.MEET_CD	= ? 					-- 4:MEET_CD '001'                                             
+						         AND P.MEET_CD=V.MEET_CD                                            
+						         AND P.STND_YEAR=V.STND_YEAR                                        
+						         AND P.TMS=V.TMS                                                    
+						         AND P.DAY_ORD=V.DAY_ORD                                            
+						         AND INSTR(P.RLT_RUN_NO,'-') = 0                                    
+						     GROUP BY                                                               
+						         P.MEET_CD                                                          			                                                                       
+						 )
+				   )A,(SELECT LEVEL LEV FROM DUAL CONNECT BY LEVEL<=2) B -- 합계 생성용
+			)C
+			GROUP BY LEV,
+			       MEET_CD,
+			       COMMI, 
+			       COMMI_NM                                                                                                                                                                                                                                                                                                                                      
+        ]]>
+    </query>
+    
+    <query id="rsm4011_s05(X)" desc="일일발매실적(4.환급금)" fetchSize="10">
+        <![CDATA[        
+			 SELECT                                                                     
+			     MEET_CD,                                                               
+			     DECODE(COMMI,NULL,'TOTAL',COMMI) COMMI,                                
+			    CASE                                                                    
+			        WHEN COMMI='COMMI_1' THEN '수득금'                                  
+			        WHEN COMMI='COMMI_2' THEN '경주세'                                  
+			        WHEN COMMI='COMMI_3' THEN '교육세'                                  
+			        WHEN COMMI='COMMI_4' THEN '농특세'                                  
+			        WHEN COMMI='COMMI_5' THEN '기타소득세'                              
+			        WHEN COMMI='COMMI_6' THEN '주민세'                                  
+			        WHEN COMMI='POSI_BREAK' THEN '절사금'                               
+			        WHEN COMMI='RESULT' THEN '환급금'                                   
+			        ELSE '합계'                                                         
+			    END COMMI_NM,                                                           
+			     C_TOTAL C_TOT,                                                         
+			     C_001 C_001,                                                           
+			     C_002 C_002,                                                           
+			     C_004 C_004,                                                           
+			     C_YEAR_TOT                                                             
+			 FROM                                                                       
+			 (                                                                          
+			     
+			     
+			     -- 환급금                                                          
+			     SELECT                                                    
+			         P.MEET_CD,                                                         
+			         'RESULT' COMMI,                                                    
+			         SUM(P.WIN_AMT*P.UNIT_ODDS/100) C_TOTAL,                            
+			         SUM(                                                               
+			             CASE                                                           
+			                 WHEN SELL_CD IN('01','03') THEN P.WIN_AMT*P.UNIT_ODDS/100  
+			             END                                                            
+			         ) C_001,                                                           
+			         SUM(                                                               
+			             CASE                                                           
+			                 WHEN SELL_CD='02' THEN P.WIN_AMT*P.UNIT_ODDS/100           
+			             END                                                            
+			         ) C_002,                                                           
+			         SUM(                                                               
+			             CASE                                                           
+			                 WHEN SELL_CD='04' THEN P.WIN_AMT*P.UNIT_ODDS/100           
+			             END                                                            
+			         ) C_004,                                                           
+			         SUM(S.C_YEAR_TOT)/COUNT(*) C_YEAR_TOT                                
+			     FROM                                                                   
+			         VW_SDL_INFO V,                                                     
+			         TBJI_PC_RESULT P,                                                  
+			         (                                                                  
+			            SELECT                                                  
+			                SUM(S.WIN_AMT*S.UNIT_ODDS/100) C_YEAR_TOT                   
+			            FROM                                                            
+			                VW_SDL_INFO T ,                                             
+			                TBJI_PC_RESULT S                                            
+			            WHERE                                                           
+			                 T.RACE_DAY<='20091225'                                      
+			                 AND T.STND_YEAR = SUBSTR('20091225',1,4)                    
+			                 AND T.MEET_CD= '001'                                  
+			                 AND S.MEET_CD=T.MEET_CD                                  
+			                 AND S.STND_YEAR=T.STND_YEAR                                
+			                 AND S.TMS=T.TMS                                            
+			                 AND S.DAY_ORD=T.DAY_ORD                                    
+			                 AND INSTR(S.RLT_RUN_NO,'-') = 0                            
+			         ) S                                                                
+			     WHERE                                                                  
+			         V.RACE_DAY='20091225'                                               
+			         AND V.MEET_CD= '001'                                             
+			         AND P.MEET_CD=V.MEET_CD                                            
+			         AND P.STND_YEAR=V.STND_YEAR                                        
+			         AND P.TMS=V.TMS                                                    
+			         AND P.DAY_ORD=V.DAY_ORD                                            
+			         AND INSTR(P.RLT_RUN_NO,'-') = 0                                    
+			     GROUP BY                                                               
+			         P.MEET_CD                                                          
+			                                                                       
+			 )                                                                                                                                                                                                                                                                                                                                      
+        ]]>
+    </query>
+    
+    
+    <query id="rsm4011_s06" desc="일일발매실적(지점)" fetchSize="10">
+        <![CDATA[        
+
+			SELECT /* rsm4011_s06 */
+				MEET_CD,
+				TDIV_NO,
+				MAX(TDIV_NM)       AS TDIV_NM,
+				SUM(NET_AMT)       AS NET_AMT,
+				SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+			FROM        
+			(
+			    SELECT                                                                                        
+							B.MEET_CD, B.STND_YEAR,
+							CASE 
+							    WHEN SELL_CD = DECODE(?,'003','03','01') AND COMM_NO IN ('01','02','03','04','08') THEN '00'	-- 0:MEET_CD 본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '11' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '12' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '13' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '14' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '15' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '16' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '17' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '18' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '19' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '20' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '21' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '22' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '23' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '24' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '25' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '26' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '27' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '28' --의정부                          
+							    WHEN B.MEET_CD||SELL_CD IN ('00103','00203','00301','00403') AND COMM_NO IN ('01','02','03','04','08') THEN '99' -- 공동활용본장      
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '600' --그린카드(본장)   
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '01' THEN '601' --수원                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '02' THEN '602' --중랑                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '03' THEN '603' --일산                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04' THEN '604' --분당               
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '05' THEN '605' --동대문
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '06' THEN '606' --장안                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07' THEN '607' --산본                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '08' THEN '608' --부천                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '09' THEN '609' --관악                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '10' THEN '610' --성북                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '11' THEN '611' --영등포                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '12' THEN '612' --대전                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '13' THEN '613' --인천                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '14' THEN '614' --시흥                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15' THEN '615' --강남(+그린카드)     
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '16' THEN '616' --천안                             
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17' THEN '617' --올림픽공원(+그린카드)
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '18' THEN '618' --의정부                                                                                                                                                                      
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NO,
+							CASE 
+							    WHEN SELL_CD = DECODE(?,'003','03','01') AND COMM_NO IN ('01','02','03','04','08') THEN '본장'	-- 1:MEET_CD 본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '수원' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '중랑' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '일산' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '분당' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '동대문' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '장안' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '산본' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '부천' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '관악' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '성북' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '영등포' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '대전' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '인천' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '시흥' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '강남' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '천안' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '올림픽공원' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '의정부' --의정부                          
+							    WHEN B.MEET_CD||SELL_CD IN ('00103','00203','00301','00403') AND COMM_NO IN ('01','02','03','04','08') THEN '공동활용본장'
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '그린카드(본장)' --그린카드(본장) 							    
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '01'  THEN '그린카드(수원)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '02'  THEN '그린카드(중랑)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '03'  THEN '그린카드(일산)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04'  THEN '그린카드(동대문)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '05'  THEN '그린카드(분당)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '06'  THEN '그린카드(장안)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07'  THEN '그린카드(산본)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '08'  THEN '그린카드(부천)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '09'  THEN '그린카드(관악)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '10'  THEN '그린카드(성북)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '11'  THEN '그린카드(영등포)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '12'  THEN '그린카드(대전)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '13'  THEN '그린카드(인천)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '14'  THEN '그린카드(시흥)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15'  THEN '그린카드(강남)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '16'  THEN '그린카드(천안)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17'  THEN '그린카드(올림픽)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '18'  THEN '그린카드(의정부)'     							    
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NM,
+							SUM(A.NET_AMT*100) AS NET_AMT,                                            
+							0 AS TOTAL_NET_AMT                                            
+						    FROM VW_SDL_INFO B,                                                                                 
+			                      VW_PC_SATLIT_SUM A                                                                                  
+			                 WHERE 1 = 1                                                                                         
+			                     AND B.MEET_CD  = ? -- 2:MEET_CD 경주 구분 코드 '001'                                                                        
+			                     AND B.RACE_DAY = ? -- 3:RACE_DAY 경주일 '20100109'                                                               
+			                     AND A.STND_YEAR = B.STND_YEAR                                                            
+			                     AND A.MEET_CD = B.MEET_CD                                                                       
+			                   --  AND A.STND_YEAR = B.STND_YEAR                                                                   
+			                     AND A.TMS = B.TMS                                                                               
+			                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+			                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+						    -- 
+						    UNION ALL
+						    SELECT                                                                                        
+								B.MEET_CD, B.STND_YEAR,
+								CASE 
+							    WHEN SELL_CD = DECODE(?,'003','03','01') AND COMM_NO IN ('01','02','03','04','08') THEN '00'	-- 4:MEET_CD 본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '11' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '12' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '13' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '14' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '15' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '16' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '17' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '18' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '19' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '20' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '21' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '22' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '23' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '24' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '25' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '26' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '27' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '28' --의정부                          
+							    WHEN B.MEET_CD||SELL_CD IN ('00103','00203','00403') AND COMM_NO IN ('01','02','03','04','08') THEN '98'
+							    WHEN B.MEET_CD||SELL_CD IN ('00301') AND COMM_NO IN ('01','02','03','04','08') THEN '99'
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '600' --그린카드(본장)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '01' THEN '601' --수원                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '02' THEN '602' --중랑                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '03' THEN '603' --일산                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04' THEN '604' --분당               
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '05' THEN '605' --동대문
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '06' THEN '606' --장안                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07' THEN '607' --산본                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '08' THEN '608' --부천                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '09' THEN '609' --관악                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '10' THEN '610' --성북                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '11' THEN '611' --영등포                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '12' THEN '612' --대전                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '13' THEN '613' --인천                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '14' THEN '614' --시흥                  
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15' THEN '615' --강남(+그린카드)     
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '16' THEN '616' --천안                             
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17' THEN '617' --올림픽공원(+그린카드)
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '18' THEN '618' --의정부         							    
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NO,
+							CASE 
+							    WHEN SELL_CD = DECODE(?,'003','03','01') AND COMM_NO IN ('01','02','03','04','08') THEN '본장'	-- 5:MEET_CD 본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '수원' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '중랑' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '일산' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '분당' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '동대문' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '장안' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '산본' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '부천' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '관악' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '성북' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '영등포' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '대전' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '인천' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '시항' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '강남' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '천안' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '올림픽공원' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '의정부' --의정부                          
+								WHEN B.MEET_CD||SELL_CD IN ('00103','00203','00403') AND COMM_NO IN ('01','02','03','04','08') THEN '미사리'
+							    WHEN B.MEET_CD||SELL_CD IN ('00301') AND COMM_NO IN ('01','02','03','04','08') THEN '광명'
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '그린카드(본장)' --그린카드(본장)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '01'  THEN '그린카드(수원)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '02'  THEN '그린카드(중랑)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '03'  THEN '그린카드(일산)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04'  THEN '그린카드(동대문)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '05'  THEN '그린카드(분당)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '06'  THEN '그린카드(장안)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07'  THEN '그린카드(산본)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '08'  THEN '그린카드(부천)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '09'  THEN '그린카드(관악)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '10'  THEN '그린카드(성북)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '11'  THEN '그린카드(영등포)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '12'  THEN '그린카드(대전)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '13'  THEN '그린카드(인천)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '14'  THEN '그린카드(시흥)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15'  THEN '그린카드(강남)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '16'  THEN '그린카드(천안)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17'  THEN '그린카드(올림픽)'
+                                WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '18'  THEN '그린카드(의정부)'     						          							    
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NM,
+								0 AS NET_AMT,
+								SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+						    FROM VW_SDL_INFO B,                                                                                 
+			                  VW_PC_SATLIT_SUM A                                                                              
+			               WHERE 1 = 1                                                                                         
+			                 AND B.MEET_CD = ?	-- 6:MEET_CD 경주구분 코드                                                                 
+			                 AND B.RACE_DAY <= ? -- 7:RACE_DAY 경주일                                                                 
+			                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 8:RACE_DAY  기준년도                                                
+			                 AND A.STND_YEAR = B.STND_YEAR                                                            
+			                 AND A.MEET_CD = B.MEET_CD                                                                       
+			              --   AND A.STND_YEAR = B.STND_YEAR                                                                   
+			                 AND A.TMS = B.TMS                                                                               
+			                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+			             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO
+			            UNION ALL 
+			            -- s
+			            SELECT  
+			              ? MEET_CD, 
+			              SUBSTR(?,1,4) STND_YEAR,
+			                            CD TDIV_NO,
+			                CD_NM TDIV_NM,
+			                0 AS NET_AMT,
+			                                0 AS TOTAL_NET_AMT  
+			              FROM  TBRK_SPEC_CD A  
+			             WHERE  1=1
+			               AND  A.GRP_CD = '018'         --그룹코드
+			               AND A.CD NOT IN('00','01','02','03','04','05','06','08','98')
+			            -- e 
+			        )AA	
+			       WHERE TDIV_NO != 'X'
+				  GROUP BY AA.MEET_CD,AA.TDIV_NO
+				  UNION ALL
+				  
+				  -- 지점누계
+				  SELECT /* rsm4011_s06 */
+					MEET_CD,
+					TDIV_NO,
+					MAX(TDIV_NM) TDIV_NM,
+					SUM(NET_AMT) AS NET_AMT,
+					SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+				FROM        
+				(
+				    SELECT                                                                                        
+								B.MEET_CD, B.STND_YEAR,
+								CASE 
+								    WHEN SELL_CD='01' AND COMM_NO NOT IN ('01','02','03','04','08','06') THEN '700'	--본장                                      
+								ELSE 'X'                                         
+								END AS TDIV_NO,
+								CASE 
+								    WHEN SELL_CD= '01' AND COMM_NO NOT IN ('01','02','03','04','08','06')  THEN '지점누계'	--본장                                        
+								ELSE 'X'                                         
+								END AS TDIV_NM,
+								SUM(A.NET_AMT*100) AS NET_AMT,                                            
+								0 AS TOTAL_NET_AMT                                            
+							    FROM VW_SDL_INFO B,                                                                                 
+				                      VW_PC_SATLIT_SUM A                                                                                  
+				                 WHERE 1 = 1                                                                                         
+				                     AND B.MEET_CD  = ? -- 9:MEET_CD 경주 구분 코드 '001'                                                                        
+				                     AND B.RACE_DAY = ? -- 10:RACE_DAY 경주일 '20100109'                                                               
+				                     AND A.STND_YEAR = B.STND_YEAR                                                            
+				                     AND A.MEET_CD = B.MEET_CD                                                                       
+				                 --    AND A.STND_YEAR = B.STND_YEAR                                                                   
+				                     AND A.TMS = B.TMS                                                                               
+				                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+				                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+							    -- 
+							    UNION ALL
+							    SELECT                                                                                        
+									B.MEET_CD, B.STND_YEAR,
+									CASE 
+								    WHEN SELL_CD= '01' AND COMM_NO NOT IN ('01','02','03','04','08','06')  THEN '700'	--본장                                         
+								ELSE 'X'                                         
+								END AS TDIV_NO,
+								CASE 
+								    WHEN SELL_CD= '01' AND COMM_NO NOT IN ('01','02','03','04','08','06')  THEN '지점누계'	--본장                                         
+								ELSE 'X'                                         
+								END AS TDIV_NM,
+									0 AS NET_AMT,
+									SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+							    FROM VW_SDL_INFO B,                                                                                 
+				                  VW_PC_SATLIT_SUM A                                                                              
+				               WHERE 1 = 1                                                                                         
+				                 AND B.MEET_CD = ?	-- 11:MEET_CD 경주구분 코드                                                                 
+				                 AND B.RACE_DAY <= ? -- 12:RACE_DAY 경주일                                                                 
+				                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 13:RACE_DAY  기준년도                                                
+				                 AND A.STND_YEAR = B.STND_YEAR                                                            
+				                 AND A.MEET_CD = B.MEET_CD                                                                       
+				               --  AND A.STND_YEAR = B.STND_YEAR                                                                   
+				                 AND A.TMS = B.TMS                                                                               
+				                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+				             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO    
+				        )BB	
+				       WHERE TDIV_NO != 'X'
+					  GROUP BY BB.MEET_CD,BB.TDIV_NO 
+					  
+					  UNION ALL
+					  
+				--  지점(지점계좌포함)누계
+				SELECT /* rsm4011_s06 */
+					MEET_CD,
+					TDIV_NO,
+					MAX(TDIV_NM) TDIV_NM,
+					SUM(NET_AMT) AS NET_AMT,
+					SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+				FROM        
+				(
+				    SELECT                                                                                        
+							B.MEET_CD, B.STND_YEAR,
+							CASE 
+							    
+							    WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '760'  -- 계좌포함
+							ELSE 'X'                                         
+							END AS TDIV_NO,
+							CASE 
+							    
+							   WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '지점(지점계좌포함)누계'  -- 계좌포함
+							ELSE 'X'                                         
+							END AS TDIV_NM,
+							SUM(A.NET_AMT*100) AS NET_AMT,                                            
+							0 AS TOTAL_NET_AMT                                            
+						    FROM VW_SDL_INFO B,                                                                                 
+			                      VW_PC_SATLIT_SUM A                                                                                  
+			                 WHERE 1 = 1                                                                                         
+			                     AND B.MEET_CD  = ? -- 14:MEET_CD 경주 구분 코드 '001'                                                                        
+			                     AND B.RACE_DAY = ? -- 15:RACE_DAY 경주일 '20100109'                                                               
+			                     AND A.STND_YEAR = B.STND_YEAR                                                            
+			                     AND A.MEET_CD = B.MEET_CD                                                                       
+			                   --  AND A.STND_YEAR = B.STND_YEAR                                                                   
+			                     AND A.TMS = B.TMS                                                                               
+			                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+			                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+						    -- 
+						    UNION ALL
+						    SELECT                                                                                        
+								B.MEET_CD, B.STND_YEAR,
+								CASE 								    
+								    WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '760' -- 계좌포함
+								ELSE 'X'                                         
+								END AS TDIV_NO,
+								CASE 
+								    
+								    WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '지점(지점계좌포함)누계'    -- 계좌포함
+								ELSE 'X'                                         
+								END AS TDIV_NM,
+									0 AS NET_AMT,
+									SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+							    FROM VW_SDL_INFO B,                                                                                 
+				                  VW_PC_SATLIT_SUM A                                                                              
+				               WHERE 1 = 1                                                                                         
+				                 AND B.MEET_CD = ?	-- 16:MEET_CD 경주구분 코드                                                                 
+				                 AND B.RACE_DAY <= ? -- 17:RACE_DAY 경주일                                                                 
+				                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 18:RACE_DAY  기준년도                                                
+				                 AND A.STND_YEAR = B.STND_YEAR                                                            
+				                 AND A.MEET_CD = B.MEET_CD                                                                       
+				                 AND A.STND_YEAR = B.STND_YEAR                                                                   
+				                 AND A.TMS = B.TMS                                                                               
+				                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+				             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO    
+				        )CC	
+				       WHERE TDIV_NO != 'X'
+					  GROUP BY CC.MEET_CD,CC.TDIV_NO 
+					  UNION ALL
+				      
+				      -- 창원, 부산
+					SELECT AA.MEET_CD,
+						  DECODE(AA.SELL_CD,'02','820','840') AS TDIV_NO,
+						  
+						  DECODE(AA.SELL_CD,'02','창원','부산') AS SELL_NM,
+						  AA.NET_AMT, -- 일일 매출액
+						  BB.PT_TOT		-- 누계 매출액
+						FROM (
+						    SELECT P.MEET_CD,
+						      P.STND_YEAR,
+						      P.SELL_CD,
+						      SUM(P.NET_AMT) NET_AMT
+						    FROM VW_SDL_INFO V,
+						      VW_PC_PAYOFFS P
+						    WHERE V.RACE_DAY	= ? -- 19:RACE_DAY '20100124'
+						      AND V.MEET_CD		= ? -- 20:MEET_CD '001'
+						      AND P.MEET_CD=V.MEET_CD
+						      AND (P.SELL_CD ='02'
+						          OR P.SELL_CD ='04')
+						      AND P.STND_YEAR=V.STND_YEAR
+						      AND P.TMS=V.TMS
+						      AND P.DAY_ORD=V.DAY_ORD
+						    GROUP BY P.MEET_CD, P.STND_YEAR, SELL_CD )AA,
+						  (
+						    SELECT P.MEET_CD,
+						      p.STND_YEAR,
+						      P.SELL_CD,
+						      SUM(P.NET_AMT) AS PT_TOT
+						    FROM VW_SDL_INFO V,
+						      VW_PC_PAYOFFS P
+						    WHERE V.MEET_CD	= ? -- 21:MEET_CD '001'
+						      AND V.RACE_DAY <= ? -- 22:RACE_DAY '20100124'
+						      AND V.STND_YEAR = SUBSTR(?, 1, 4) -- 23:RACE_DAY '20100124'
+						      AND SELL_CD IN ('02','04')
+						      AND P.MEET_CD=V.MEET_CD
+						      AND P.STND_YEAR=V.STND_YEAR
+						      AND P.TMS=V.TMS
+						      AND P.DAY_ORD=V.DAY_ORD
+						    GROUP BY P.MEET_CD, P.STND_YEAR, SELL_CD )BB
+						WHERE AA.MEET_CD = BB.MEET_CD
+						  AND AA.STND_YEAR= BB.STND_YEAR
+						  AND AA.SELL_CD= BB.SELL_CD
+						  
+						  UNION ALL
+						
+						 -- 합계
+						SELECT 
+							MEET_CD,
+							'900' AS TDIV_NO,
+							'합계' AS TDIV_NM,
+							SUM(NET_AMT) AS NET_AMT,
+							SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+						FROM        
+						(
+						    SELECT                                                                                        
+										B.MEET_CD, B.STND_YEAR,
+						--				'' TDIV_NO,
+						--				'' TDIV_NM,
+										SUM(A.NET_AMT*100) AS NET_AMT,                                            
+										0 AS TOTAL_NET_AMT                                            
+									    FROM VW_SDL_INFO B,                                                                                 
+						                      VW_PC_SATLIT_SUM A                                                                                  
+						                 WHERE 1 = 1                                                                                         
+						                     AND B.MEET_CD  = ? -- 24:MEET_CD 경주 구분 코드 '001'                                                                        
+						                     AND B.RACE_DAY = ? -- 25:RACE_DAY 경주일 '20100109'                                                               
+						                     AND A.STND_YEAR = B.STND_YEAR                                                            
+						                     AND A.MEET_CD = B.MEET_CD                                                                       
+						                     AND A.STND_YEAR = B.STND_YEAR                                                                   
+						                     AND A.TMS = B.TMS                                                                               
+						                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+						                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+									    -- 
+									    UNION ALL
+									    SELECT                                                                                        
+											B.MEET_CD, B.STND_YEAR,
+						--					'' TDIV_NO,
+						--				    '' TDIV_NM,
+											0 AS NET_AMT,
+											SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+									    FROM VW_SDL_INFO B,                                                                                 
+						                  VW_PC_SATLIT_SUM A                                                                              
+						               WHERE 1 = 1                                                                                         
+						                 AND B.MEET_CD = ?	-- 26:MEET_CD 경주구분 코드                                                                 
+						                 AND B.RACE_DAY <= ? -- 27:RACE_DAY 경주일                                                                 
+						                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 28:RACE_DAY  경주일                                                
+						                 AND A.STND_YEAR = B.STND_YEAR                                                            
+						                 AND A.MEET_CD = B.MEET_CD                                                                       
+						             --    AND A.STND_YEAR = B.STND_YEAR                                                                   
+						                 AND A.TMS = B.TMS                                                                               
+						                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+						             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO    
+						        )AA
+							  GROUP BY AA.MEET_CD
+				      
+					
+					      ORDER BY TDIV_NO                                                                                                                                                                                                                                                                         
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm4011_s06(x)" desc="일일발매실적(지점)" fetchSize="10">
+        <![CDATA[        
+
+			SELECT /* rsm4011_s06 */
+				MEET_CD,
+				TDIV_NO,
+				TDIV_NM,
+				SUM(NET_AMT) AS NET_AMT,
+				SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+			FROM        
+			(
+			    SELECT                                                                                        
+							B.MEET_CD, B.STND_YEAR,
+							CASE 
+							    WHEN SELL_CD = '01' AND COMM_NO IN ('01','02','03','04','08') THEN '00'	--본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '11' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '12' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '13' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '14' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '15' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '16' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '17' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '18' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '19' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '20' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '21' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '22' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '23' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '24' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '25' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '26' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '27' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '28' --의정부                          
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '600' --그린카드(본장)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15'  THEN '615' --그린카드(강남)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17'  THEN '617' --그린카드(올림픽)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04'  THEN '604' --그린카드(동대문)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07'  THEN '607' --그린카드(산본)      
+							    
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NO,
+							CASE 
+							    WHEN SELL_CD= '01' AND COMM_NO IN ('01','02','03','04','08') THEN '본장'	--본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '수원' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '중랑' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '일산' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '분당' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '동대문' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '장안' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '산본' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '부천' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '관악' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '성북' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '영등포' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '대전' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '인천' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '시항' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '강남' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '천안' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '올림픽공원' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '의정부' --의정부                          
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '계좌(본장)' --그린카드(본장)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15'  THEN '계좌(강남)' --그린카드(강남)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17'  THEN '계좌(올림픽)' --그린카드(올림픽)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04'  THEN '계좌(동대문)' --그린카드(동대문)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07'  THEN '계좌(산본)' --그린카드(산본)      
+							    
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NM,
+							SUM(A.NET_AMT*100) AS NET_AMT,                                            
+							0 AS TOTAL_NET_AMT                                            
+						    FROM VW_SDL_INFO B,                                                                                 
+			                      VW_PC_SATLIT_SUM A                                                                                  
+			                 WHERE 1 = 1                                                                                         
+			                     AND B.MEET_CD  = ? -- 0:MEET_CD 경주 구분 코드 '001'                                                                        
+			                     AND B.RACE_DAY = ? -- 1:RACE_DAY 경주일 '20100109'                                                               
+			                     AND A.STND_YEAR = B.STND_YEAR                                                            
+			                     AND A.MEET_CD = B.MEET_CD                                                                       
+			                     AND A.STND_YEAR = B.STND_YEAR                                                                   
+			                     AND A.TMS = B.TMS                                                                               
+			                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+			                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+						    -- 
+						    UNION ALL
+						    SELECT                                                                                        
+								B.MEET_CD, B.STND_YEAR,
+								CASE 
+							    WHEN SELL_CD= '01' AND COMM_NO IN ('01','02','03','04','08') THEN '00'	--본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '11' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '12' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '13' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '14' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '15' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '16' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '17' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '18' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '19' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '20' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '21' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '22' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '23' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '24' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '25' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '26' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '27' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '28' --의정부                          
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '600' --그린카드(본장)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15'  THEN '615' --그린카드(강남)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17'  THEN '617' --그린카드(올림픽)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04'  THEN '604' --그린카드(동대문)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07'  THEN '607' --그린카드(산본)      
+							    
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NO,
+							CASE 
+							    WHEN SELL_CD= '01' AND COMM_NO IN ('01','02','03','04','08') THEN '본장'	--본장                                         
+							    WHEN SELL_CD = '01' AND COMM_NO = '11' THEN '수원' --수원                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '12' THEN '중랑' --중랑                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '13' THEN '일산' --일산                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '14' THEN '분당' --분당               
+							    WHEN SELL_CD = '01' AND COMM_NO = '15' THEN '동대문' --동대문
+							    WHEN SELL_CD = '01' AND COMM_NO = '16' THEN '장안' --장안                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '17' THEN '산본' --산본                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '18' THEN '부천' --부천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '19' THEN '관악' --관악                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '20' THEN '성북' --성북                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '21' THEN '영등포' --영등포                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '22' THEN '대전' --대전                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '23' THEN '인천' --인천                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '24' THEN '시항' --시흥                  
+							    WHEN SELL_CD = '01' AND COMM_NO = '25' THEN '강남' --강남(+그린카드)     
+							    WHEN SELL_CD = '01' AND COMM_NO = '26' THEN '천안' --천안                             
+							    WHEN SELL_CD = '01' AND COMM_NO = '27' THEN '올림픽공원' --올림픽공원(+그린카드)
+							    WHEN SELL_CD = '01' AND COMM_NO = '28' THEN '의정부' --의정부                          
+							    WHEN SELL_CD IN ('01','03') AND COMM_NO = '06' AND DIV_NO = '00' THEN '계좌(본장)' --그린카드(본장)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15'  THEN '계좌(강남)' --그린카드(강남)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17'  THEN '계좌(올림픽)' --그린카드(올림픽)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '04'  THEN '계좌(동대문)' --그린카드(동대문)      
+							    WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '07'  THEN '계좌(산본)' --그린카드(산본)      
+							    
+							    WHEN SELL_CD NOT IN ('01','03') THEN 'X'                                  --교차                            
+							ELSE 'X'                                         
+							END AS TDIV_NM,
+								0 AS NET_AMT,
+								SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+						    FROM VW_SDL_INFO B,                                                                                 
+			                  VW_PC_SATLIT_SUM A                                                                              
+			               WHERE 1 = 1                                                                                         
+			                 AND B.MEET_CD = ?	-- 2:MEET_CD 경주구분 코드                                                                 
+			                 AND B.RACE_DAY <= ? -- 3:RACE_DAY 경주일                                                                 
+			                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 4:RACE_DAY  기준년도                                                
+			                 AND A.STND_YEAR = B.STND_YEAR                                                            
+			                 AND A.MEET_CD = B.MEET_CD                                                                       
+			                 AND A.STND_YEAR = B.STND_YEAR                                                                   
+			                 AND A.TMS = B.TMS                                                                               
+			                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+			             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO    
+			        )AA	
+			       WHERE TDIV_NO != 'X'
+				  GROUP BY AA.MEET_CD,AA.TDIV_NO,TDIV_NM 
+				  UNION ALL
+				  
+				  -- 지점누계
+				  SELECT /* rsm4011_s06 */
+					MEET_CD,
+					TDIV_NO,
+					TDIV_NM,
+					SUM(NET_AMT) AS NET_AMT,
+					SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+				FROM        
+				(
+				    SELECT                                                                                        
+								B.MEET_CD, B.STND_YEAR,
+								CASE 
+								    WHEN SELL_CD='01' AND COMM_NO NOT IN ('01','02','03','04','08','06') THEN '700'	--본장                                         
+								    
+								ELSE 'X'                                         
+								END AS TDIV_NO,
+								CASE 
+								    WHEN SELL_CD= '01' AND COMM_NO NOT IN ('01','02','03','04','08','06')  THEN '지점누계'	--본장                                         
+								    
+								ELSE 'X'                                         
+								END AS TDIV_NM,
+								SUM(A.NET_AMT*100) AS NET_AMT,                                            
+								0 AS TOTAL_NET_AMT                                            
+							    FROM VW_SDL_INFO B,                                                                                 
+				                      VW_PC_SATLIT_SUM A                                                                                  
+				                 WHERE 1 = 1                                                                                         
+				                     AND B.MEET_CD  = ? -- 5:MEET_CD 경주 구분 코드 '001'                                                                        
+				                     AND B.RACE_DAY = ? -- 1:RACE_DAY 경주일 '20100109'                                                               
+				                     AND A.STND_YEAR = B.STND_YEAR                                                            
+				                     AND A.MEET_CD = B.MEET_CD                                                                       
+				                     AND A.STND_YEAR = B.STND_YEAR                                                                   
+				                     AND A.TMS = B.TMS                                                                               
+				                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+				                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+							    -- 
+							    UNION ALL
+							    SELECT                                                                                        
+									B.MEET_CD, B.STND_YEAR,
+									CASE 
+								    WHEN SELL_CD= '01' AND COMM_NO NOT IN ('01','02','03','04','08','06')  THEN '700'	--본장                                         
+								    
+								ELSE 'X'                                         
+								END AS TDIV_NO,
+								CASE 
+								    WHEN SELL_CD= '01' AND COMM_NO NOT IN ('01','02','03','04','08','06')  THEN '지점누계'	--본장                                         
+								    
+								ELSE 'X'                                         
+								END AS TDIV_NM,
+									0 AS NET_AMT,
+									SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+							    FROM VW_SDL_INFO B,                                                                                 
+				                  VW_PC_SATLIT_SUM A                                                                              
+				               WHERE 1 = 1                                                                                         
+				                 AND B.MEET_CD = ?	-- 7:MEET_CD 경주구분 코드                                                                 
+				                 AND B.RACE_DAY <= ?-- 8:RACE_DAY 경주일                                                                 
+				                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 9:RACE_DAY  기준년도                                                
+				                 AND A.STND_YEAR = B.STND_YEAR                                                            
+				                 AND A.MEET_CD = B.MEET_CD                                                                       
+				                 AND A.STND_YEAR = B.STND_YEAR                                                                   
+				                 AND A.TMS = B.TMS                                                                               
+				                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+				             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO    
+				        )BB	
+				       WHERE TDIV_NO != 'X'
+					  GROUP BY BB.MEET_CD,BB.TDIV_NO,TDIV_NM 
+					  
+					  UNION ALL
+					  
+				--  지점(지점계좌포함)누계
+				SELECT /* rsm4011_s06 */
+					MEET_CD,
+					TDIV_NO,
+					TDIV_NM,
+					SUM(NET_AMT) AS NET_AMT,
+					SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+				FROM        
+				(
+				    SELECT                                                                                        
+							B.MEET_CD, B.STND_YEAR,
+							CASE 
+							    WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '760'  -- 계좌포함
+							    
+							ELSE 'X'                                         
+							END AS TDIV_NO,
+							CASE 
+							    
+							    WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '지점(지점계좌포함)누계' -- 계좌포함
+							ELSE 'X'                                         
+							END AS TDIV_NM,
+							SUM(A.NET_AMT*100) AS NET_AMT,                                            
+							0 AS TOTAL_NET_AMT                                            
+						    FROM VW_SDL_INFO B,                                                                                 
+			                      VW_PC_SATLIT_SUM A                                                                                  
+			                 WHERE 1 = 1                                                                                         
+			                     AND B.MEET_CD  = ? -- 10:MEET_CD 경주 구분 코드 '001'                                                                        
+			                     AND B.RACE_DAY = ? -- 11:RACE_DAY 경주일 '20100109'                                                               
+			                     AND A.STND_YEAR = B.STND_YEAR                                                            
+			                     AND A.MEET_CD = B.MEET_CD                                                                       
+			                     AND A.STND_YEAR = B.STND_YEAR                                                                   
+			                     AND A.TMS = B.TMS                                                                               
+			                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+			                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+						    -- 
+						    UNION ALL
+						    SELECT                                                                                        
+								B.MEET_CD, B.STND_YEAR,
+								CASE 								    
+								    WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '760' -- 계좌포함
+								ELSE 'X'                                         
+								END AS TDIV_NO,
+								CASE 
+								    
+								    WHEN (SELL_CD='01' AND ((COMM_NO = '06' AND DIV_NO != '00') OR COMM_NO NOT IN ('01','02','03','04','08','06')))  THEN '지점(지점계좌포함)누계'    -- 계좌포함
+								ELSE 'X'                                         
+								END AS TDIV_NM,
+									0 AS NET_AMT,
+									SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+							    FROM VW_SDL_INFO B,                                                                                 
+				                  VW_PC_SATLIT_SUM A                                                                              
+				               WHERE 1 = 1                                                                                         
+				                 AND B.MEET_CD = ?	-- 12:MEET_CD 경주구분 코드                                                                 
+				                 AND B.RACE_DAY <= ? -- 13:RACE_DAY 경주일                                                                 
+				                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 14:RACE_DAY  기준년도                                                
+				                 AND A.STND_YEAR = B.STND_YEAR                                                            
+				                 AND A.MEET_CD = B.MEET_CD                                                                       
+				                 AND A.STND_YEAR = B.STND_YEAR                                                                   
+				                 AND A.TMS = B.TMS                                                                               
+				                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+				             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO    
+				        )CC	
+				       WHERE TDIV_NO != 'X'
+					  GROUP BY CC.MEET_CD,CC.TDIV_NO,TDIV_NM 
+					  UNION ALL
+				      
+				      -- 창원, 부산
+					SELECT AA.MEET_CD,
+						  DECODE(AA.SELL_CD,'02','820','840') AS TDIV_NO,
+						  
+						  DECODE(AA.SELL_CD,'02','창원','부산') AS SELL_NM,
+						  AA.NET_AMT, -- 일일 매출액
+						  BB.PT_TOT		-- 누계 매출액
+						FROM (
+						    SELECT P.MEET_CD,
+						      P.STND_YEAR,
+						      P.SELL_CD,
+						      SUM(P.NET_AMT) NET_AMT
+						    FROM VW_SDL_INFO V,
+						      VW_PC_PAYOFFS P
+						    WHERE V.RACE_DAY	= ? -- 15:RACE_DAY '20100124'
+						      AND V.MEET_CD		= ? -- 16:MEET_CD '001'
+						      AND P.MEET_CD=V.MEET_CD
+						      AND (P.SELL_CD ='02'
+						          OR P.SELL_CD ='04')
+						      AND P.STND_YEAR=V.STND_YEAR
+						      AND P.TMS=V.TMS
+						      AND P.DAY_ORD=V.DAY_ORD
+						    GROUP BY P.MEET_CD, P.STND_YEAR, SELL_CD )AA,
+						  (
+						    SELECT P.MEET_CD,
+						      p.STND_YEAR,
+						      P.SELL_CD,
+						      SUM(P.NET_AMT) AS PT_TOT
+						    FROM VW_SDL_INFO V,
+						      VW_PC_PAYOFFS P
+						    WHERE V.MEET_CD	= ? -- 17:MEET_CD '001'
+						      AND V.RACE_DAY <= ? -- 18:RACE_DAY '20100124'
+						      AND V.STND_YEAR = SUBSTR(?, 1, 4) -- 19:RACE_DAY '20100124'
+						      AND SELL_CD IN ('02','04')
+						      AND P.MEET_CD=V.MEET_CD
+						      AND P.STND_YEAR=V.STND_YEAR
+						      AND P.TMS=V.TMS
+						      AND P.DAY_ORD=V.DAY_ORD
+						    GROUP BY P.MEET_CD, P.STND_YEAR, SELL_CD )BB
+						WHERE AA.MEET_CD = BB.MEET_CD
+						  AND AA.STND_YEAR= BB.STND_YEAR
+						  AND AA.SELL_CD= BB.SELL_CD
+						  
+						  UNION ALL
+						
+						 -- 합계
+						SELECT 
+							MEET_CD,
+							'900' AS TDIV_NO,
+							'합계' AS TDIV_NM,
+							SUM(NET_AMT) AS NET_AMT,
+							SUM(TOTAL_NET_AMT) AS TOTAL_NET_AMT
+						FROM        
+						(
+						    SELECT                                                                                        
+										B.MEET_CD, B.STND_YEAR,
+						--				'' TDIV_NO,
+						--				'' TDIV_NM,
+										SUM(A.NET_AMT*100) AS NET_AMT,                                            
+										0 AS TOTAL_NET_AMT                                            
+									    FROM VW_SDL_INFO B,                                                                                 
+						                      VW_PC_SATLIT_SUM A                                                                                  
+						                 WHERE 1 = 1                                                                                         
+						                     AND B.MEET_CD  = ? -- 20:MEET_CD 경주 구분 코드 '001'                                                                        
+						                     AND B.RACE_DAY = ? -- 21:RACE_DAY 경주일 '20100109'                                                               
+						                     AND A.STND_YEAR = B.STND_YEAR                                                            
+						                     AND A.MEET_CD = B.MEET_CD                                                                       
+						                     AND A.STND_YEAR = B.STND_YEAR                                                                   
+						                     AND A.TMS = B.TMS                                                                               
+						                     AND A.DAY_ORD = B.DAY_ORD                                                                       
+						                 GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO                                                             
+									    -- 
+									    UNION ALL
+									    SELECT                                                                                        
+											B.MEET_CD, B.STND_YEAR,
+						--					'' TDIV_NO,
+						--				    '' TDIV_NM,
+											0 AS NET_AMT,
+											SUM(A.NET_AMT*100) AS TOTAL_NET_AMT                                            
+									    FROM VW_SDL_INFO B,                                                                                 
+						                  VW_PC_SATLIT_SUM A                                                                              
+						               WHERE 1 = 1                                                                                         
+						                 AND B.MEET_CD = ?	-- 22:MEET_CD 경주구분 코드                                                                 
+						                 AND B.RACE_DAY <= ? -- 23:RACE_DAY 경주일                                                                 
+						                 AND B.STND_YEAR = SUBSTR(?,1,4) -- 24:RACE_DAY  경주일                                                
+						                 AND A.STND_YEAR = B.STND_YEAR                                                            
+						                 AND A.MEET_CD = B.MEET_CD                                                                       
+						                 AND A.STND_YEAR = B.STND_YEAR                                                                   
+						                 AND A.TMS = B.TMS                                                                               
+						                 AND A.DAY_ORD = B.DAY_ORD                                                                       
+						             GROUP BY B.MEET_CD, B.STND_YEAR,SELL_CD,COMM_NO,DIV_NO    
+						        )AA
+							  GROUP BY AA.MEET_CD
+				      
+					
+					      ORDER BY TDIV_NO                                                                                                                                                                                                                                                                         
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm4011_s07" desc="일일발매실적(창원,부산)" fetchSize="10">
+        <![CDATA[        
+
+		
+		SELECT /* rsm4011_s07 */
+			  AA.MEET_CD,
+			  AA.SELL_CD,
+			  DECODE(AA.SELL_CD,'02','창원','부산') AS SELL_NM,
+			  AA.NET_AMT, -- 일일 매출액
+			  BB.PT_TOT		-- 누계 매출액
+			FROM (
+			    SELECT P.MEET_CD,
+			      P.STND_YEAR,
+			      P.SELL_CD,
+			      SUM(P.NET_AMT) NET_AMT
+			    FROM VW_SDL_INFO V,
+			      VW_PC_PAYOFFS P
+			    WHERE V.RACE_DAY	= ? -- 0:RACE_DAY '20100124'
+			      AND V.MEET_CD		= ? -- 1:MEET_CD '001'
+			      AND P.MEET_CD=V.MEET_CD
+			      AND (P.SELL_CD ='02'
+			          OR P.SELL_CD ='04')
+			      AND P.STND_YEAR=V.STND_YEAR
+			      AND P.TMS=V.TMS
+			      AND P.DAY_ORD=V.DAY_ORD
+			    GROUP BY P.MEET_CD, P.STND_YEAR, SELL_CD )AA,
+			  (
+			    SELECT P.MEET_CD,
+			      p.STND_YEAR,
+			      P.SELL_CD,
+			      SUM(P.NET_AMT) AS PT_TOT
+			    FROM VW_SDL_INFO V,
+			      VW_PC_PAYOFFS P
+			    WHERE V.MEET_CD	= ? -- 2:MEET_CD '001'
+			      AND V.RACE_DAY<= ? -- 3:RACE_DAY '20100124'
+			      AND V.STND_YEAR = SUBSTR(?, 1, 4) -- 4:RACE_DAY '20100124'
+			      AND SELL_CD IN ('02','04')
+			      AND P.MEET_CD=V.MEET_CD
+			      AND P.STND_YEAR=V.STND_YEAR
+			      AND P.TMS=V.TMS
+			      AND P.DAY_ORD=V.DAY_ORD
+			    GROUP BY P.MEET_CD, P.STND_YEAR, SELL_CD )BB
+			WHERE AA.MEET_CD = BB.MEET_CD
+			  AND AA.STND_YEAR= BB.STND_YEAR
+			  AND AA.SELL_CD= BB.SELL_CD
+			ORDER BY MEET_CD, SELL_CD
+			                                                                                                                                                                                                                                                                                                                                       
+        ]]>
+    </query>
+    
+    
+    
+</queryMap>

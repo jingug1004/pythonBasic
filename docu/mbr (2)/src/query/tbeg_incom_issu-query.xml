@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_incom_issu 사업소득 증명원 발급 신청  관리">
+    <query id="tbeg_incom_issu_ff001" desc="사업소득 증명원 발급 신청 조회" fetchSize="50">
+        <![CDATA[
+            /* 사업소득 증명원 발급 신청 조회  */
+            SELECT ROWNUM AS NUM, T1.* FROM (
+				SELECT 
+					STND_YEAR_MONTH,	-- 기준년도 
+					INCOM_ISSU_SEQ, -- 요청일련번호 
+					STND_YEAR_MONTH||LPAD(INCOM_ISSU_SEQ,4,'0') AS INCOM_ISSU_NO,		-- 발급번호  
+					REQ_DEPT_CD,	--요청 부서 
+					TO_CHAR(REQ_DTM, 'YYYYMMDD') REQ_DTM, 	-- 요청 부서명 
+					REQ_USER_ID, 	-- 요청자 ID
+					TU.USER_NM AS REQ_USER_NM,	-- 요청자명  
+					TII.RACER_NO, 	-- 선수 등록번호 
+					TRM.NM_KOR AS RACER_NM, 	-- 선수명 
+					REQ_YEAR, 	-- 요청 귀속 년도 
+					ISSU_CNT, 	-- 발생 부수 
+					USE_GOAL, -- 사용목먹 
+					SUBMIT_OFFICE, -- 제출처 
+					PRS_STAT_CD, 	-- 진행 상태 
+					CASE WHEN ISSU_YN ='Y' THEN '발급' END AS ISSU_YN	-- 발금 여부 
+				FROM  TBEG_INCOM_ISSU TII, VWEA_USER TU, (SELECT CD, CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD='E00042')  TSC, TBEC_RACER_MASTER TRM
+				WHERE TII.REQ_USER_ID = TU.USER_ID
+				AND TII.RACER_NO = TRM.RACER_NO
+				AND TII.REQ_DEPT_CD = TSC.CD
+				AND STND_YEAR_MONTH LIKE ?||'%'
+				AND REQ_DEPT_CD = DECODE(?, NULL, REQ_DEPT_CD, ?)
+				ORDER BY INCOM_ISSU_NO DESC
+			)T1
+        ]]>
+    </query> 
+    <query id="tbeg_incom_issu_ff002" desc="대상선수 조회" fetchSize="50">
+        <![CDATA[
+            /* 사업소득 증명원 발급 신청 조회  */
+			SELECT
+			         '' CHK
+			       , RACER_NO
+			       , NM_KOR RACER_NM
+			       , DECODE(RACER_STAT_CD, '002', '신인', '003', '취소', '') RACER_STAT_CD
+			FROM     TBEC_RACER_MASTER
+			ORDER BY RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeg_incom_issu_if001" desc="사업소득 증명원 발급 신청 등록" fetchSize="10">
+        <![CDATA[
+            /* 사업소득 증명원 발급 신청 등록  */
+			INSERT INTO TBEG_INCOM_ISSU (
+			   STND_YEAR_MONTH,	-- 기준년도 
+			   INCOM_ISSU_SEQ,	-- 발급 요청 번호 
+			   REQ_DTM, 	-- 발금 요청 일시 
+			   REQ_DEPT_CD, 	-- 발급 요청 부서 
+			   REQ_USER_ID, 	-- 발급 요청자 
+			   RACER_NO, 	-- 대상  선수 등록 번호 
+			   REQ_YEAR, 	-- 대상 귀속 년도 
+			   ISSU_CNT, 	-- 발행 부수 
+			   USE_GOAL, -- 사용목적
+			   SUBMIT_OFFICE, -- 제출처 
+			   PRS_STAT_CD,	-- 진행 상태 
+			   INST_ID, 	-- 작성자 
+			   INST_DTM	-- 작성일시 
+			   ) 
+			SELECT 
+			   TO_CHAR(SYSDATE, 'YYYYMM') AS STND_YEAR_MONTH ,	-- 기준년도 
+			   NVL((SELECT MAX(INCOM_ISSU_SEQ) FROM TBEG_INCOM_ISSU WHERE STND_YEAR_MONTH=TO_CHAR(SYSDATE, 'YYYYMM')),0)+1 AS INCOM_ISSU_SEQ,	-- 발급 요청 번호 
+			   SYSDATE AS REQ_DTM, 	-- 발금 요청 일시 
+			   ? AS REQ_DEPT_CD, 	-- 발급 요청 부서 
+			   ? AS REQ_USER_ID, 	-- 발급 요청자 
+			   ? AS RACER_NO, 	-- 대상  선수 등록 번호 
+			   ? AS REQ_YEAR, 	-- 대상 귀속 년도 
+			   ? AS ISSU_CNT, 	-- 발행 부수 
+			   ? AS USE_GOAL, -- 사용목적
+			   ? AS SUBMIT_OFFICE, -- 제출처 
+			   '001' PRS_STAT_CD,	-- 진행 상태 
+			   ? AS INST_ID, 	-- 작성자 
+			   SYSDATE INST_DTM	-- 작성일시 
+			 FROM DUAL
+        ]]>
+    </query> 
+    <query id="tbeg_incom_issu_uf001" desc="사업소득 증명원 발급 신청 확인 " fetchSize="10">
+        <![CDATA[
+            /*사업소득 증명원 발급 신청 수정  */
+			UPDATE TBEG_INCOM_ISSU
+			SET    PRS_STAT_CD    = ?,
+			       CONFIRM_DTM    = SYSDATE,
+			       UPDT_ID        = ?,
+			       UPDT_DTM       = SYSDATE
+			 WHERE STND_YEAR_MONTH      = ?
+			       AND INCOM_ISSU_SEQ = ?
+
+		]]>
+    </query> 
+    
+    <query id="tbeg_incom_issu_uf002" desc="사업소득 증명원 발급 Update " fetchSize="10">
+        <![CDATA[
+           /*사업소득 증명원 발급 신청 수정  */
+			UPDATE TBEG_INCOM_ISSU
+			SET    PRS_STAT_CD	= ? ,
+				   ISSU_YN		= 'Y' ,
+			       ISSU_DTM 	= SYSDATE,
+			       UPDT_ID 		= ?,
+			       UPDT_DTM 	= SYSDATE
+			 WHERE STND_YEAR_MONTH 	= ?
+			       AND INCOM_ISSU_SEQ = ?
+				 ]]>
+    </query> 
+    
+    <query id="tbeg_incom_issu_df001" desc="사업소득 증명원 발급 삭제 " fetchSize="10">
+        <![CDATA[
+           /*사업소득 증명원 발급 신청 수정  */
+			DELETE TBEG_INCOM_ISSU
+			 WHERE STND_YEAR_MONTH 	= ?
+			       AND INCOM_ISSU_SEQ = ?
+				 ]]>
+    </query> 
+</queryMap>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_trng_rqst">
+    <query id="tbeb_trng_rqst_fb001" desc="훈련신청 조회(커뮤니티)" fetchSize="10">
+        <![CDATA[
+        	SELECT      /* tbeb_trng_rqst_fb001 */
+        	             ''													AS CHK
+        				,A.TRNG_RQST_SEQ
+			            ,A.RACER_NO
+			            ,B.NM_KOR
+			            ,B.RACER_GRD_CD
+			            ,TO_DATE(A.TRNG_END_DT,'yyyymmdd') - TO_DATE(A.TRNG_STRT_DT,'yyyymmdd')		AS TRNG_RQST_DD_NUM	
+			            ,TO_CHAR(A.INST_DT, 'yyyymmdd')		AS INST_DT
+			            ,A.TRNG_STRT_DT   			AS TRNG_STRT_DT
+			            ,A.TRNG_END_DT    			AS TRNG_END_DT
+			            ,A.MENTO_YN
+			            ,A.COMMUTE_YN
+			            ,A.RMK
+			            ,A.ACCEPT_STAT
+			            ,A.ACCEPT_STAT										AS ACCEPT_STAT_CHK
+			            ,C.USER_NM
+			            ,TO_CHAR(A.ACCEPT_DT, 'yyyymmdd') 				AS ACCEPT_DT
+			            ,A.REJECT_REASON
+			            ,D.CELPON_NO
+			            ,A.TRNG_RSN_CD --'004'							AS TRNG_RSN_CD
+			FROM        TBEB_TRNG_RQST        A
+			            ,TBEC_RACER_MASTER    B
+			            ,VWEA_USER			  C
+			            ,TBEC_RACER_DETAIL	  D
+			WHERE       A.RACER_NO            = B.RACER_NO
+			AND			A.ACCEPT_ID			  = C.USER_ID(+)
+			AND			A.RACER_NO			  = D.RACER_NO
+			AND         (
+			              (A.TRNG_STRT_DT >= ? AND A.TRNG_STRT_DT <= ?) 
+			              OR 
+			              (A.TRNG_END_DT >= ? AND A.TRNG_END_DT <= ?)
+			            )
+			AND         A.RACER_NO            = NVL(?, A.RACER_NO) 
+			AND         B.NM_KOR              LIKE '%' || NVL(?,  B.NM_KOR) || '%'
+			ORDER BY    A.INST_DT             DESC
+        ]]>
+    </query> 
+    
+    <query id="tbeb_trng_rqst_ub001" desc="훈련신청 변경내역 저장" fetchSize="10">
+        <![CDATA[
+			UPDATE		/* tbeb_trng_rqst_ub001 */
+			            TBEB_TRNG_RQST	
+			SET
+						RMK				= ?
+						,ACCEPT_STAT	= ?
+						,ACCEPT_ID		= DECODE(?, 'STAY_ID', ACCEPT_ID, ?)
+						,ACCEPT_DT		= DECODE(?, 'STAY_DT', ACCEPT_DT, SYSDATE)
+						,REJECT_REASON	= ?
+						,UPDT_ID		= ?
+						,UPDT_DT		= SYSDATE
+			WHERE		TRNG_RQST_SEQ	= ?						
+        ]]>
+    </query>
+    
+    <query id="tbeb_trng_rqst_ub002" desc="훈련신청 승인" fetchSize="10">
+        <![CDATA[
+			UPDATE		/* tbeb_trng_rqst_ub002 */
+			            TBEB_TRNG_RQST	
+			SET
+						ACCEPT_STAT		= '200'
+						,ACCEPT_ID		= ?
+						,ACCEPT_DT		= SYSDATE
+						,UPDT_ID		= ?
+						,UPDT_DT		= SYSDATE
+			WHERE		TRNG_RQST_SEQ	= ?						
+        ]]>
+    </query> 
+</queryMap>

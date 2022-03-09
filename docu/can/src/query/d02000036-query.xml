@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_grd_estm_bas_scr(등급사정)">
+
+	<query id="tbdb_detl_race_sche_race_point_fb001" desc="위반점조회" fetchSize="10">
+        <![CDATA[
+	        SELECT	TVSC.VIOL_CD, 
+					TVSC.VIOL_NM, 
+					TVSC.VIOL_SCR, 
+					TVSC.SEQ
+			FROM	TBDB_VIOL_SCR_CD	TVSC
+			ORDER BY TVSC.SEQ
+		]]>
+    </query>
+    <query id="tbdb_grd_estm_bas_scr_fb001" desc="등급사정 조회" fetchSize="10">
+    <![CDATA[
+      SELECT 	RACE_YY,
+	    			CAND_NO,
+			        CAND_NM,
+			        GRD,
+			        ROUND_CNT,
+			        AVG_POINT,
+			        RANK_01,
+					RANK_02,
+			        RANK_03,
+			        VIOL_011,
+			        VIOL_021,
+			        VIOL_031,
+			        PRIZE_POINT,
+			        OFFENSE_POINT,
+	     			VALUATION,
+	     			RANK() OVER(ORDER BY VALUATION DESC ) AS RANK	
+	   FROM(																		
+		     SELECT    (SELECT CD_NM
+						FROM TBDA_SPEC_CD	
+						WHERE GRP_CD = 'A10001'
+						AND TRIM(RMK) = A.RACE_YY) AS RACE_YY,
+						A.CAND_NO,
+				        A.CAND_NM,
+				        A.GRD,
+				        A.ROUND_CNT,
+				        decode(A.ROUND_CNT,0,YY_AVG_RACE_SCR,A.AVG_POINT) AVG_POINT,
+				        A.RANK_01,
+						A.RANK_02,
+				        A.RANK_03,
+				        A.VIOL_011,
+				        A.VIOL_021,
+				        A.VIOL_031,
+				        ROUND(A.PRIZE_POINT, 3)		PRIZE_POINT,
+				        ROUND(A.OFFENSE_POINT, 3)	OFFENSE_POINT,
+				        --평가점
+				        --출주회수 >= 기본출주 회수 일때 	  평균득점 + 입상점 - 위반점
+				        --출주회수 <  기본출주 회수 일때 	  (득점합 + (부족일수 * 최하위득점) / 일수합 + 부족일수)+ 입상점 - 위반점
+				        --출주회수 =  0 일때			 TBDB_REC_TOT.YY_AVG_RACE_SCR(기존평가점) * 0.95
+				        CASE
+				         	WHEN A.ROUND_CNT =	0	THEN
+				            	--ROUND(YY_AVG_RACE_SCR * (A.PROP_SCR/100), 3)
+				            	ROUND(YY_AVG_RACE_SCR * 0.95, 3) 
+				        	WHEN A.ROUND_CNT >=	?	THEN
+				            	ROUND(AVG_POINT + PRIZE_POINT - OFFENSE_POINT, 3)
+				            WHEN A.ROUND_CNT <	?	THEN				 
+								ROUND((A.POINT_MARKS_SUM + ((? - A.ROUND_CNT) * (A.PROP_SCR - 6)))/ (A.DAY_CNT_SUM + (? - A.ROUND_CNT))+ PRIZE_POINT - OFFENSE_POINT, 3)
+				       		END				VALUATION						--평가점
+				FROM	(
+				        SELECT	TRT.RACE_YY, 
+				        		TRT.CAND_NO,																	--후보생번호
+				        		(SELECT NM_KOR FROM TBDB_CAND_IDENT WHERE TRT.CAND_NO = CAND_NO) AS CAND_NM,																	--후보생명
+				                TRT.GRD,
+								TRRT.YY_AVG_RACE_SCR,																--등급
+				                COUNT(TRP.ROUND)												ROUND_CNT,		--출주회수
+				        		SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.POINT_MARKS END)       POINT_MARKS_SUM,
+								SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.DAY_CNT END)			DAY_CNT_SUM,
+								ROUND(
+				                  SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.POINT_MARKS END) 
+				                  /SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.DAY_CNT END), 3)	AVG_POINT,		--평균득점***기존소스(vb)에 Round된 값으로 계산후 다시 Round...
+				        		COUNT(CASE WHEN TRRD.RANK = 1 	 	THEN 1 END)					RANK_01,		--1위
+				        		COUNT(CASE WHEN TRRD.RANK = 2 	 	THEN 1 END)					RANK_02,		--2위
+				        		COUNT(CASE WHEN TRRD.RANK = 3 	 	THEN 1 END)					RANK_03,		--3위
+				                NVL(SUM(TVA.VIOL_011), 0)										VIOL_011,		--실격
+				                NVL(SUM(TVA.VIOL_021), 0)										VIOL_021,		--경고
+				                NVL(SUM(TVA.VIOL_031), 0)										VIOL_031,		--주의
+				                (COUNT(CASE WHEN TRRD.RANK = 1 	 	THEN 1 END) * ?  +
+				                COUNT(CASE WHEN TRRD.RANK = 2 	 	THEN 1 END) * ?  +
+				                COUNT(CASE WHEN TRRD.RANK = 3 	 	THEN 1 END) * ?) /
+				                COUNT(TRP.ROUND)											PRIZE_POINT,	--입상점
+				                NVL(SUM(TVA.VIOL_011), 0) * ?	+
+				                NVL(SUM(TVA.VIOL_021), 0) * ?	+
+				                NVL(SUM(TVA.VIOL_031), 0) * ?	+	
+				                NVL(SUM(TVA.VIOL_377), 0) * ?								OFFENSE_POINT,	--위반점
+				       			TGS.PROP_SCR
+						FROM	TBDB_CAND_ASSIGN		TRT
+						INNER JOIN
+							    TBDB_CAND_IDENT         TCI
+						ON     TRT.CAND_NO = TCI.CAND_NO 
+						INNER JOIN 
+							  	TBDB_REC_TOT           TRRT
+						ON		TRT.RACE_YY = TRRT.RACE_YY
+				        AND		TRT.CAND_NO = TRRT.CAND_NO   
+				        INNER JOIN
+				        		TBDB_RACE_POINT		TRP
+				        ON		TRT.RACE_YY = TRP.RACE_YY
+				        AND		TRT.CAND_NO = TRP.CAND_NO
+						AND     TRT.ROUND = TRP.ROUND
+				        INNER JOIN
+				        		TBDB_RACE_REC_DETL	TRRD
+				        ON		TRP.RACE_YY = TRRD.RACE_YY
+				        AND		TRP.ROUND	= TRRD.ROUND
+				        AND		TRP.CAND_NO = TRRD.CAND_NO
+					     INNER JOIN
+							  	TBDB_RACER_GRD_SCR	TGS
+						ON		TRT.RACE_YY = TGS.RACE_YY
+						AND     TRP.ROUND = TGS.ROUND --추가
+						AND		TRT.GRD = TGS.GRD
+				        LEFT JOIN (
+				        		SELECT	TVA.RACE_YY, 
+				                		TVA.ROUND, 
+				                        TVA.CAND_NO,
+				                        COUNT(CASE WHEN TVA.VIOL_CD = '011'	THEN 1 END)	VIOL_011,				--실격
+				                        COUNT(CASE WHEN TVA.VIOL_CD = '021' THEN 1 END)	VIOL_021,				--경고
+				                        COUNT(CASE WHEN TVA.VIOL_CD = '031' THEN 1 END)	VIOL_031,				--주의
+				                        COUNT(CASE WHEN TVA.VIOL_CD = '377' THEN 1 END)	VIOL_377				--주의
+				                FROM	TBDB_VIOL_ACT		TVA
+				                GROUP BY TVA.RACE_YY, TVA.ROUND, TVA.CAND_NO)	TVA
+				        ON		TRRD.RACE_YY	= TVA.RACE_YY
+				        AND		TRRD.ROUND		= TVA.ROUND
+				        AND		TRRD.CAND_NO	= TVA.CAND_NO
+				        WHERE	TRT.RACE_YY	 = ?
+				        AND		TRT.ROUND 	>= ?
+				        AND		TRT.ROUND 	<= ?
+				        AND     TCI.GRDU_GBN NOT IN('004','005')
+				        GROUP BY TRT.RACE_YY, TRT.CAND_NO, TRT.GRD,TRRT.YY_AVG_RACE_SCR,TGS.PROP_SCR
+				        
+				        union
+				        
+				        SELECT
+						TRT.RACE_YY,
+						TRT.CAND_NO,																	--후보생번호
+						(SELECT NM_KOR FROM TBDB_CAND_IDENT WHERE TRT.CAND_NO = CAND_NO) AS CAND_NM,																	--후보생명
+						TRT.GRD,
+						TRRT.YY_AVG_RACE_SCR,															--년도평균득점
+						0	ROUND_CNT,		--출주회수
+						0   POINT_MARKS_SUM,
+						0	DAY_CNT_SUM,
+						0	AVG_POINT,		--평균득점***기존소스(vb)에 Round된 값으로 계산후 다시 Round...
+						0	RANK_01,		--1위
+						0	RANK_02,		--2위
+						0	RANK_03,		--3위
+						0	VIOL_011,		--실격
+						0	VIOL_021,		--경고
+						0	VIOL_031,		--주의
+						0   PRIZE_POINT,
+						0   OFFENSE_POINT,
+						0 	PROP_SCR
+					
+						FROM	TBDB_CAND_ASSIGN		TRT
+						INNER JOIN
+							    TBDB_CAND_IDENT         TCI
+						ON     TRT.CAND_NO = TCI.CAND_NO
+					
+						INNER JOIN
+							  	TBDB_REC_TOT           TRRT
+						ON		TRT.RACE_YY = TRRT.RACE_YY
+					    AND		TRT.CAND_NO = TRRT.CAND_NO
+					
+					    WHERE	TRT.RACE_YY	 = ?
+					    AND     TCI.GRDU_GBN NOT IN('004','005')
+					    AND		TRT.CAND_NO not in (
+					    	select distinct TRP.CAND_NO
+							from TBDB_RACE_POINT  TRP, TBDB_CAND_IDENT TCI
+							where TRP.ROUND 	>= ? and TRP.ROUND 	<= ?
+							and TRP.RACE_YY = ?
+							and TRP.CAND_NO = TCI.CAND_NO
+							and TCI.GRDU_GBN NOT IN('004','005')
+					    )
+					    GROUP BY TRT.RACE_YY, TRT.CAND_NO, TRT.GRD,TRRT.YY_AVG_RACE_SCR
+				        
+						ORDER BY CAND_NO
+			)A
+		)
+		ORDER BY RANK
+    ]]>
+    </query>
+    <query id="tbdb_grd_estm_bas_scr_fb003" desc="등급사정조회(BACKUP)" fetchSize="10">
+        <![CDATA[
+	     SELECT 	RACE_YY,
+	    			CAND_NO,
+			        CAND_NM,
+			        GRD,
+			        ROUND_CNT,
+			        AVG_POINT,
+			        RANK_01,
+					RANK_02,
+			        RANK_03,
+			        VIOL_011,
+			        VIOL_021,
+			        VIOL_031,
+			        PRIZE_POINT,
+			        OFFENSE_POINT,
+	     			VALUATION,
+	     			RANK() OVER(ORDER BY VALUATION DESC ) AS RANK	
+	     FROM(																		
+	     SELECT    (SELECT CD_NM
+					FROM TBDA_SPEC_CD	
+					WHERE GRP_CD = 'A10001'
+					AND TRIM(RMK) = A.RACE_YY) AS RACE_YY,
+					A.CAND_NO,
+			        A.CAND_NM,
+			        A.GRD,
+			        A.ROUND_CNT,
+			        A.AVG_POINT,
+			        A.RANK_01,
+					A.RANK_02,
+			        A.RANK_03,
+			        A.VIOL_011,
+			        A.VIOL_021,
+			        A.VIOL_031,
+			        ROUND(A.PRIZE_POINT, 3)		PRIZE_POINT,
+			        ROUND(A.OFFENSE_POINT, 3)	OFFENSE_POINT,
+			        --평가점
+			        --출주회수 >= 기본출주 회수 일때 	  평균득점 + 입상점 - 위반점
+			        --출주회수 <  기본출주 회수 일때 	  (득점합 + (부족일수 * 최하위득점) / 일수합 + 부족일수)+ 입상점 - 위반점
+			        --출주회수 =  0 일때			 TBDB_REC_TOT.YY_AVG_RACE_SCR(기존평가점) * 0.95
+			        CASE 
+			        	WHEN A.ROUND_CNT >=	?	THEN
+			            	ROUND(AVG_POINT + PRIZE_POINT - OFFENSE_POINT, 3)
+			            WHEN A.ROUND_CNT <	?	THEN				 
+							ROUND(
+			            		 (A.POINT_MARKS_SUM + ((? - A.ROUND_CNT) * (A.PROP_SCR - 6)))/ (A.DAY_CNT_SUM + (? - A.ROUND_CNT))+ PRIZE_POINT - OFFENSE_POINT, 3)
+			            WHEN A.ROUND_CNT =	0	THEN
+			            	ROUND(YY_AVG_RACE_SCR * (A.PROP_SCR/100), 3)
+			       		END				VALUATION						--평가점
+			FROM	(
+			        SELECT	TRT.RACE_YY, 
+			        		TRT.CAND_NO,																	--후보생번호
+			        		TRT.CAND_NM,																	--후보생명
+			                TRT.GRD,																		--등급
+			                TRT.YY_AVG_RACE_SCR,															--기존평가점
+			                COUNT(TRP.ROUND)												ROUND_CNT,		--출주회수
+			        		SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.POINT_MARKS END)       POINT_MARKS_SUM,
+							SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.DAY_CNT END)			DAY_CNT_SUM,
+							ROUND(
+			                  SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.POINT_MARKS END) 
+			                  /SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.DAY_CNT END), 3)	AVG_POINT,		--평균득점***기존소스(vb)에 Round된 값으로 계산후 다시 Round...
+			        		COUNT(CASE WHEN TRRD.RANK = 1 	 	THEN 1 END)					RANK_01,		--1위
+			        		COUNT(CASE WHEN TRRD.RANK = 2 	 	THEN 1 END)					RANK_02,		--2위
+			        		COUNT(CASE WHEN TRRD.RANK = 3 	 	THEN 1 END)					RANK_03,		--3위
+			                NVL(SUM(TVA.VIOL_011), 0)										VIOL_011,		--실격
+			                NVL(SUM(TVA.VIOL_021), 0)										VIOL_021,		--경고
+			                NVL(SUM(TVA.VIOL_031), 0)										VIOL_031,		--주의
+			                (COUNT(CASE WHEN TRRD.RANK = 1 	 	THEN 1 END) * ?  +
+			                COUNT(CASE WHEN TRRD.RANK = 2 	 	THEN 1 END) * ?  +
+			                COUNT(CASE WHEN TRRD.RANK = 3 	 	THEN 1 END) * ?) /
+			                COUNT(TRP.ROUND)											PRIZE_POINT,	--입상점
+			                NVL(SUM(TVA.VIOL_011), 0) * ?	+
+			                NVL(SUM(TVA.VIOL_021), 0) * ?	+
+			                NVL(SUM(TVA.VIOL_031), 0) * ?	+	
+			                NVL(SUM(TVA.VIOL_377), 0) * ?								OFFENSE_POINT,	--위반점
+			       			TGS.PROP_SCR
+					FROM	TBDB_REC_TOT		TRT
+			        INNER JOIN
+			        		TBDB_RACE_POINT		TRP
+			        ON		TRT.RACE_YY = TRP.RACE_YY
+			        AND		TRT.CAND_NO = TRP.CAND_NO
+			        INNER JOIN
+			        		TBDB_RACE_REC_DETL	TRRD
+			        ON		TRP.RACE_YY = TRRD.RACE_YY
+			        AND		TRP.ROUND	= TRRD.ROUND
+			        AND		TRP.CAND_NO = TRRD.CAND_NO
+					INNER JOIN
+						  	TBDB_RACER_GRD_SCR	TGS
+					ON		TRT.RACE_YY = TGS.RACE_YY
+					AND     TRP.ROUND = TGS.ROUND --추가
+					AND		TRT.GRD = TGS.GRD
+			        LEFT JOIN (
+			        		SELECT	TVA.RACE_YY, 
+			                		TVA.ROUND, 
+			                        TVA.CAND_NO,
+			                        COUNT(CASE WHEN TVA.VIOL_CD = '011'	THEN 1 END)	VIOL_011,				--실격
+			                        COUNT(CASE WHEN TVA.VIOL_CD = '021' THEN 1 END)	VIOL_021,				--경고
+			                        COUNT(CASE WHEN TVA.VIOL_CD = '031' THEN 1 END)	VIOL_031,				--주의
+			                        COUNT(CASE WHEN TVA.VIOL_CD = '377' THEN 1 END)	VIOL_377				--주의
+			                FROM	TBDB_VIOL_ACT		TVA
+			                GROUP BY TVA.RACE_YY, TVA.ROUND, TVA.CAND_NO)	TVA
+			        ON		TRRD.RACE_YY	= TVA.RACE_YY
+			        AND		TRRD.ROUND		= TVA.ROUND
+			        AND		TRRD.CAND_NO	= TVA.CAND_NO
+			        WHERE	TRT.RACE_YY	 = ?
+			        AND		TRP.ROUND 	>= ?
+			        AND		TRP.ROUND 	<= ?
+			        GROUP BY TRT.RACE_YY, TRT.CAND_NO, TRT.CAND_NM, TRT.GRD, TRT.YY_AVG_RACE_SCR,TGS.PROP_SCR
+					)A
+					)
+			ORDER BY RANK
+		]]>
+    </query>
+    <query id="tbdb_grd_estm_bas_scr_fb002" desc="조회x" fetchSize="10">
+        <![CDATA[
+	        SELECT	A.RACE_YY,
+					A.CAND_NO,
+			        A.CAND_NM,
+			        A.GRD,
+			        A.ROUND_CNT,
+			        A.AVG_POINT,
+			        --평가점
+			        --출주회수 >= 기본출주 회수 일때 	  득점합 / 일수합
+			        --출주회수 <  기본출주 회수 일때 	  득점합 + (부족일수 * 최하위득점) / 일수합 + 부족일수
+			        --출주회수 =  0 일때			 TBDB_REC_TOT.YY_AVG_RACE_SCR(기존평가점) * 0.95
+			        CASE 
+			        	WHEN A.ROUND_CNT >=	?	THEN
+			            	ROUND(POINT_MARKS_SUM / DAY_CNT_SUM, 3)
+			            WHEN A.ROUND_CNT <	?	THEN
+			            	ROUND(
+			            		 (POINT_MARKS_SUM + ((? - A.ROUND_CNT) * ?) 
+			            		 / 
+			            		 (DAY_CNT_SUM + (? - A.ROUND_CNT))
+			            	, 3)
+			            WHEN A.ROUND_CNT =	0	THEN
+			            	ROUND(YY_AVG_RACE_SCR * 0.95, 3)
+			        END				VALUATION																--평가점
+			FROM	(
+			        SELECT	TRT.RACE_YY, 
+			        		TRT.CAND_NO,																	--후보생번호
+			        		TRT.CAND_NM,																	--후보생명
+			                TRT.GRD,																		--등급
+			                TRT.YY_AVG_RACE_SCR,															--기존평가점
+			                COUNT(TRP.ROUND)												ROUND_CNT,		--출주회수
+							SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.POINT_MARKS END) 		POINT_MARKS_SUM,--득점합
+							SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.DAY_CNT END)			DAY_CNT_SUM		--일수합
+			        FROM	TBDB_REC_TOT		TRT
+			        INNER JOIN
+			        		TBDB_RACE_POINT		TRP
+			        ON		TRT.RACE_YY = TRP.RACE_YY
+			        AND		TRT.CAND_NO = TRP.CAND_NO
+			        WHERE	TRT.RACE_YY	 = ?
+			        AND		TRP.ROUND 	>= ?
+			        AND		TRP.ROUND 	<= ?
+			        GROUP BY TRT.RACE_YY, TRT.CAND_NO, TRT.CAND_NM, TRT.GRD, TRT.YY_AVG_RACE_SCR)		A
+			ORDER BY A.RANK
+		]]>
+    </query>
+    
+</queryMap>

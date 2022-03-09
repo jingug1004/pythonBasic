@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbee_race_estimate(경주예상결과조회)">
+    <query id="tbee_race_estimate_fe001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	TOR.STND_YEAR
+                  , TOR.TMS
+                  , TOR.RACE_REG_NO
+                  , TRM.NM_KOR
+                  , NVL(RACER_SCR, 0)		RACER_SCR	--선수성적
+                  , NVL(MOT_SCR, 0)			MOT_SCR		--모터평균착순점
+                  , NVL(BOAT_SCR, 0)		BOAT_SCR	--보트평균착순점
+                  , ((NVL(RACER_SCR, 0) * ?)+(NVL(MOT_SCR, 0) * ?)+(NVL(BOAT_SCR, 0) * ?))/100 TOTAL_SCR	--환산점수
+                  , RANK() OVER(ORDER BY (NVL(RACER_SCR, 0) * ?)+(NVL(MOT_SCR, 0) * ?)+(NVL(BOAT_SCR, 0) * ?) DESC)	RANKING			--예상순위
+                  , TOR.RANK							--실제순위
+			FROM    TBEB_ORGAN TOR
+                  , TBEC_RACER_MASTER TRM
+                  , (
+                        SELECT  RACER_NO
+                              , CASE ?
+						            WHEN '001' THEN NVL(TMS_6_AVG_RANK_SCR, 0)
+						            WHEN '002' THEN NVL(TMS_6_AVG_SCR, 0)
+					            END	RACER_SCR			--선수성적
+                        FROM   (
+                                    SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+                                           , TRRAS.*
+                                    FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+                                    WHERE  TRRAS.APLY_DT < (
+                                                                SELECT
+                                                                       MAX(TRDO.RACE_DAY) RACE_DAY
+                                                                FROM   TBEB_RACE_DAY_ORD TRDO
+                                                                WHERE  TRDO.STND_YEAR = ?
+                                                                AND    TRDO.MBR_CD    = ?
+                                                                AND    TRDO.TMS       = ?
+                                                            )
+                                    AND   MBR_CD = '000'
+                                    AND   TMS    = 0
+                                    AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+                               )
+                        WHERE  RANK = 1
+                     ) TRRAS -- 선수성적
+                   , (
+                        SELECT  MOT_NO
+                              , AVG_RANK_SCR MOT_SCR
+                        FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TMRAS.MOT_NO 
+                                                            ORDER BY TMRAS.STND_YEAR DESC
+                                                                   , TMRAS.TMS DESC 
+                                                       ) RANK
+                                         , TMRAS.*
+                                  FROM   TBEB_MOT_RECD_ACCU_SUM TMRAS
+                                  WHERE  TMRAS.MBR_CD = ?
+                                  AND    TMRAS.STND_YEAR || LPAD(TMRAS.TMS, 3, '0') < ? || LPAD(?, 3, '0')
+                               )
+                        WHERE  RANK = 1
+                     ) TMRAS -- 모터성적
+                   , (
+                        SELECT  BOAT_NO
+                              , AVG_RANK_SCR BOAT_SCR
+                        FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO 
+                                                            ORDER BY TBRAS.STND_YEAR DESC
+                                                                   , TBRAS.TMS DESC 
+                                                       ) RANK
+                                         , TBRAS.*
+                                  FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                  WHERE  TBRAS.MBR_CD = ?
+                                  AND    TBRAS.STND_YEAR || LPAD(TBRAS.TMS, 3, '0') < ? || LPAD(?, 3, '0')
+                                  AND    TBRAS.ST_MTHD_CD = '000' --ST방식전체설정
+                               )
+                        WHERE  RANK = 1
+                     ) TBRAS -- 보트최근성적
+          WHERE    TOR.RACER_NO  = TRM.RACER_NO
+            AND    TOR.RACER_NO  = TRRAS.RACER_NO (+)
+            AND    TOR.MOT_NO    = TMRAS.MOT_NO   (+)
+            AND    TOR.BOAT_NO   = TBRAS.BOAT_NO  (+)
+            AND    TOR.STND_YEAR = ?
+            AND    TOR.MBR_CD = ?
+            AND    TOR.TMS = ?
+            AND    TOR.DAY_ORD = ?
+            AND    TOR.RACE_NO = ?
+          ORDER BY TOR.RACE_REG_NO
+        ]]>
+    </query>
+</queryMap>

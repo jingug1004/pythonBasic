@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_edu_abs_mngr(교육이수현황)">
+
+    <query id="tbdb_edu_isu_fb001" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+			SELECT CD_NM AS RACER_PERIO_NO
+			FROM TBDA_SPEC_CD	
+			WHERE GRP_CD = 'A10001'
+			ORDER BY CD DESC	
+		]]>
+    </query>   
+    
+    <query id="tbdb_edu_isu_fb002" desc="교육이수 연도/월  조회" fetchSize="10">
+    <![CDATA[
+            SELECT   SUBSTR(B.DT,1,6) AS YY
+					 ,SUM(B.EDU_TIME) AS EDU_TIME
+					 ,(SELECT COUNT(*) AS  TOT_COUNT FROM TBDB_CAND_IDENT WHERE RACER_PERIO_NO = ? AND DEL_YN = 'N'
+					 AND GRDU_GBN NOT IN(004,005)) AS CAND_COUNT					 
+			FROM   TBDB_CAND_IDENT       A
+				  ,TBDB_DETL_EDU_ASSIGN B 
+			WHERE
+				A.RACER_PERIO_NO = B.RACER_PERIO_NO 	
+				AND  A.RACER_PERIO_NO = ? 
+				AND A.DEL_YN= 'N' 
+				AND GRDU_GBN NOT IN(004,005)		 		 
+			GROUP BY 
+					 B.RACER_PERIO_NO,A.CAND_NO, SUBSTR(B.DT,1,6)
+			ORDER BY 		 
+					 A.CAND_NO, SUBSTR(B.DT,1,6)		 
+	]]>
+    </query>  
+    				 
+    <query id="tbdb_edu_isu_fb004" desc="정상 교육시간 조회" fetchSize="10">
+        <![CDATA[
+	        SELECT
+				   B.RACER_PERIO_NO   RACER_PERIO_NO
+				  ,A.CAND_NO         CAND_NO
+				  ,A.NM_KOR          NM_KOR
+				  ,SUBSTR(B.DT,1,6)  DT
+				  ,CASE WHEN SUBSTR(A.LEAVE_DT,1,6) = SUBSTR(B.DT,1,6)  THEN 
+				   (SELECT SUM(EDU_TIME) FROM TBDB_TRNG_DIARY_DETL WHERE DT BETWEEN SUBSTR(A.LEAVE_DT,1,6)||'01' AND A.LEAVE_DT)
+				   WHEN SUBSTR(A.LEAVE_DT,1,6) < SUBSTR(B.DT,1,6) THEN 0 
+				   ELSE SUM(B.EDU_TIME) END   EDU_TIME
+				  ,(SELECT SUM(EDU_TIME) AS TOT_EDU_TIME FROM TBDB_DETL_EDU_ASSIGN WHERE RACER_PERIO_NO = ?) AS TOT_EDU_TIME
+			FROM    
+				 TBDB_CAND_IDENT      A
+				,TBDB_TRNG_DIARY_DETL B
+			WHERE
+				 	A.RACER_PERIO_NO = B.RACER_PERIO_NO 	
+				AND A.RACER_PERIO_NO = ? AND A.DEL_YN='N' 	 		 
+			GROUP BY B.RACER_PERIO_NO, A.CAND_NO, A.NM_KOR, SUBSTR(B.DT,1,6),A.LEAVE_DT
+			ORDER BY A.CAND_NO, SUBSTR(B.DT,1,6) 
+		]]>
+    </query>
+    
+    <query id="tbdb_edu_isu_fb005" desc="결석내용 조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+				  C.RACER_PERIO_NO   RACER_PERIO_NO
+				  ,C.CAND_NO         CAND_NO
+				  ,SUBSTR(C.DT,1,6)  DT
+				  ,SUM(C.EDU_TIME)   EDU_TIME
+			FROM    
+					 TBDB_TRNG_DIARY_ABS  C
+			WHERE
+					 C.RACER_PERIO_NO = ? 	 		 
+			GROUP BY 
+					 C.RACER_PERIO_NO, C.CAND_NO, SUBSTR(C.DT,1,6)
+			ORDER BY 		 
+					 C.CAND_NO, SUBSTR(C.DT,1,6)			        				
+        ]]>
+    </query>
+
+</queryMap>

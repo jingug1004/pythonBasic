@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM1030(PC파일 검증대장)">
+    <query id="rsm1030_s01" desc="PC파일 검증대장목록" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1030_s01 */
+					'0' AS CHK,		-- 수정 여부 값
+			        A.STND_YEAR,		-- 기준년도
+			        A.DT,
+					A.MEET_GUBUN,
+					DECODE(A.MEET_GUBUN,'001','경륜','003','경정','평일') AS MEET_GUBUN_DESC,
+					A.TMS,         -- 회차
+					A.DAY_ORD,     -- 일차
+			        A.RACE_DAY,			-- 경기일자
+			        A.G_TMS, A.G_DAY,	-- 광명회차, 광명일차
+			        A.C_TMS, A.C_DAY,	-- 창원 회차, 창원 일차
+			        A.M_TMS, A.M_DAY,	-- 경정 회차, 경정 일차
+			        A.B_TMS, A.B_DAY,	-- 부산 회차, 부산 일차
+			        C.FILE_VERI,		-- 파일 업로드
+			       TO_CHAR(C.FILE_VERI_DT,'YYYY-MM-DD') AS FILE_VERI_DT, 	-- 파일 업로드 일자
+			       DECODE(C.FILE_VERI,'001','업로드','002','실패') AS FILE_VERI_DESC,		-- 파일 업로드
+			       C.FST_VERI,	-- 1차 검증
+				   C.SND_VERI,	-- 2차 검증
+			       CASE WHEN MEET_GUBUN !='999' THEN C.VERI END AS VERI,		--  검증
+			       TO_CHAR(C.VERI_DT,'YYYY-MM-DD') AS VERI_DT, 	-- 1차 검증일
+			       CASE WHEN MEET_GUBUN !='999' THEN DECODE(C.FST_VERI,'001','일치','002','불일치') END AS FST_VERI_DESC,		-- 1차 검증 설명
+			       CASE WHEN MEET_GUBUN !='999' THEN DECODE(C.SND_VERI,'001','일치','002','불일치') END AS SND_VERI_DESC,		-- 2차 검증 설명
+			       CASE WHEN MEET_GUBUN !='999' THEN DECODE(C.VERI,'001','일치','002','불일치') END AS VERI_DESC,		-- 2차 검증 설명
+			       C.INST_ID, 		-- 입력자 아이디
+			       C.INST_DT,			-- 입력일
+			       C.UPDT_ID, 		-- 수정자 아이디
+			       C.UPDT_DT			-- 수정일
+			 FROM
+	
+	        (
+			    SELECT STND_YEAR,
+			           SUBSTR(RACE_DAY,5,7) AS DT,
+			            RACE_DAY,        
+			            MAX(DECODE(MEET_CD,'003','003','001')) AS MEET_GUBUN,
+			            MAX(DECODE(MEET_CD,'001',TMS,'003',TMS)) AS TMS,
+			            MIN(DAY_ORD) AS DAY_ORD,
+			            AVG(CASE WHEN MEET_CD = '001' THEN TMS END) AS G_TMS,
+			            AVG(CASE WHEN MEET_CD = '001' THEN DAY_ORD END) AS G_DAY,
+			            AVG(CASE WHEN MEET_CD = '002' THEN TMS END) AS C_TMS,
+			            AVG(CASE WHEN MEET_CD = '002' THEN DAY_ORD END) AS C_DAY,
+			            AVG(CASE WHEN MEET_CD = '003' THEN TMS END) AS M_TMS,
+			            AVG(CASE WHEN MEET_CD = '003' THEN DAY_ORD END) AS M_DAY,
+			            AVG(CASE WHEN MEET_CD = '004' THEN TMS END) AS B_TMS,
+			            AVG(CASE WHEN MEET_CD = '004' THEN DAY_ORD END) AS B_DAY
+			      FROM  VW_SDL_INFO					-- 경주일자     			
+			     WHERE  STND_YEAR   = ?		       --조건  0:STND_YEAR 기준년도
+			    GROUP BY STND_YEAR, SUBSTR(RACE_DAY,5,7),RACE_DAY
+			    UNION ALL 
+			     SELECT STND_YEAR,
+			            DT,
+			            '' AS RACE_DAY,
+			            MEET_CD, 
+			            null AS TMS,
+			            null AS DAY_ORD,
+			            null AS G_TMS,
+			            null AS G_DAY,
+			            null AS C_TMS,
+			            null AS C_DAY,
+			            null AS M_TMS,
+			            null AS M_DAY,
+			            null AS B_TMS,
+			            null AS B_DAY
+			      FROM  TBJI_PC_FILE					-- 경주일자     			
+			     WHERE  STND_YEAR   = ?	       --조건 1:STND_YEAR 기준년도
+			       AND  MEET_CD     = '999'     -- 평일  
+			    GROUP BY STND_YEAR, DT,MEET_CD
+			)A,
+			TBJI_PC_FILE_VERI C	
+			WHERE 1=1		        
+			AND A.MEET_GUBUN   = C.MEET_CD(+)
+			AND A.STND_YEAR   = C.STND_YEAR(+)
+			AND A.DT    = C.DT(+)
+			ORDER BY STND_YEAR DESC, DT DESC		       
+        ]]>
+
+    </query>   
+    
+    
+    
+    <query id="rsm1030_s01(X)" desc="PC파일 검증대장목록" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1030_s01 */
+				   C.STND_YEAR, 		-- 기준년도
+				   C.DT, 				-- 일자
+				   A.TMS,				-- 회차
+				   A.DAY_ORD,			-- 일차
+				   A.RACE_DAY,			-- 경주일
+				   A.MEET_CD,		-- 지점코드
+				   DECODE(A.MEET_CD,'001','광명','002','창원','003','경정','004','부산','평일') AS MEET_DESC,		-- 지점코드
+				   A.MEET_GUBUN,         -- 경륜,경정,평일 구분
+				   C.FILE_VERI,		-- 파일 업로드
+			       TO_CHAR(C.FILE_VERI_DT,'YYYY-MM-DD') AS FILE_VERI_DT, 	-- 파일 업로드 일자
+			       DECODE(C.FILE_VERI,'001','성공','실패') AS FILE_VERI_DESC,		-- 파일 업로드
+			       C.VERI,		-- 1차 검증
+			       TO_CHAR(C.VERI_DT,'YYYY-MM-DD') AS VERI_DT, 	-- 1차 검증일
+			       DECODE(C.VERI,'001','일치','불일치') AS FST_VERI_DESC,		-- 1차 검증 설명
+			       
+			       
+			       C.INST_ID, 		-- 입력자 아이디
+			       C.INST_DT,			-- 입력일
+			       C.UPDT_ID, 		-- 수정자 아이디
+			       C.UPDT_DT			-- 수정일
+				FROM  
+			        (SELECT  A.STND_YEAR,
+			                 A.DT,
+			                A.RACE_DAY,
+			                A.MEET_CD,
+			                MEET_GUBUN,
+			                MAX(TMS) AS TMS,
+			                MAX(DAY_ORD) AS DAY_ORD
+			          FROM        
+			                (
+			                SELECT STND_YEAR,
+			                       SUBSTR(RACE_DAY,5,7) AS DT,
+			                        RACE_DAY,
+			                        MEET_CD,
+			                        '001'               MEET_GUBUN,
+			                        TMS, 
+			                        DAY_ORD
+			                        
+			                  FROM  VW_SDL_INFO				-- 경주일 정보	
+			                 WHERE  STND_YEAR   = ?		       --조건  0:STND_YEAR 기준년도
+			                   AND  MEET_CD     = '001'        --광명
+			                UNION ALL
+			                
+			                -- 창원
+			                SELECT  STND_YEAR,
+			                        SUBSTR(RACE_DAY,5,7) AS DT,
+			                        RACE_DAY,
+			                        MEET_CD,
+			                        '001'               MEET_GUBUN,
+			                        TMS, 
+			                        DAY_ORD
+			                  FROM  VW_SDL_INFO        			-- 경주일 정보
+			                 WHERE  STND_YEAR   = ?            --조건  1:STND_YEAR 기준년도
+			                   AND  MEET_CD     = '002'        --창원
+			                UNION ALL
+			                
+			                -- 경정
+			                SELECT  STND_YEAR,
+			                        SUBSTR(RACE_DAY,5,7) AS DT,
+			                        RACE_DAY,
+			                        MEET_CD,
+			                        '003'               MEET_GUBUN,
+			                        TMS, 
+			                        DAY_ORD
+			                  FROM  VW_SDL_INFO      			-- 경주일 정보  
+			                 WHERE  STND_YEAR   = ?            --조건 2:STND_YEAR  기준년도
+			                   AND  MEET_CD     = '003'        --경정
+			                UNION ALL
+			                
+			                -- 부산
+			                SELECT  STND_YEAR,
+			                        SUBSTR(RACE_DAY,5,7) AS DT,
+			                        RACE_DAY,
+			                        MEET_CD,
+			                        '001'               MEET_GUBUN,
+			                        TMS, 
+			                        DAY_ORD
+			                  FROM  VW_SDL_INFO        		-- 경주일 정보
+			                 WHERE  STND_YEAR   = ?           --조건 3 :STND_YEAR 기준년도
+			                   AND  MEET_CD     = '004'        --부산
+			                 UNION ALL 
+			                 
+			                 -- 평일
+			                 SELECT STND_YEAR,
+			                        DT,
+			                        '' AS RACE_DAY,
+			                        '999'	AS MEET_CD,
+			                        '999'               MEET_GUBUN,
+			                        TMS, 
+			                        DAY_ORD
+			                  FROM  TBJI_PC_FILE			-- 매출관리_PC파일검증     			
+			                 WHERE  1=1
+			                   AND STND_YEAR   = ?	       --조건 4:STND_YEAR 기준년도
+			                   AND  MEET_CD     = '999'     -- 평일  
+			                ) A			               
+			          -- WHERE   A.MEET_GUBUN       = ?                           --조건 : 경륜(001)/경정(002) 구분코드
+			          	       
+			        GROUP BY  A.STND_YEAR, A.DT, A.RACE_DAY,A.MEET_CD,A.MEET_GUBUN
+			        ORDER BY  A.STND_YEAR, A.RACE_DAY DESC
+			        ) A,			        
+			         TBJI_PC_FILE_VERI C			        
+			 WHERE  1=1
+			  AND A.STND_YEAR   = C.STND_YEAR
+			  AND A.DT   = C.DT
+			  AND A.MEET_CD   = C.MEET_CD
+			  AND A.MEET_GUBUN = ? --5:MEET_CD 경륜,경정, 평일 구분값
+			ORDER BY A.STND_YEAR, DT DESC,A.RACE_DAY DESC        			       
+        ]]>
+
+    </query>   
+    
+    
+
+</queryMap>

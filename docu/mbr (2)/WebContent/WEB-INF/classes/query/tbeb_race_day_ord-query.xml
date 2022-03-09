@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_race_day_ord(경주일차)">
+    <query id="tbeb_race_day_ord_fb000" desc="경주일차조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			        TRT .STND_YEAR           -- 기준년도
+			      , TRT .MBR_CD              -- 경정장코드
+			      , TRT .TMS                 -- 회차    
+			      , TRT .QURT_CD             -- 분기
+			      , TRT .MONTH               -- 월    
+			      , TRT .RACE_TMS_STAT_CD    -- 경주회차상태코드
+			      , TRT .ARRANGE_CMPL_YN     -- 주선완료여부
+			      , TRT .EQUIP_DRWLT_CMPL_YN -- 장비추첨완료여부
+			      , TRDO.DAY_ORD             -- 일차    
+			      , TRDO.RACE_DAY            -- 경주일자
+			      , TRDO.RACE_CNT            -- 경주수
+			      , TRDO.ORGAN_STAT_CD       -- 편성상태코드
+			      , MC  .MONTH_COUNT
+			      , TC  .TMS_COUNT
+			FROM    TBEB_RACE_TMS     TRT
+			      , TBEB_RACE_DAY_ORD TRDO
+			      , (
+                        SELECT   TRT.MONTH
+                               , COUNT(TRT.MONTH) MONTH_COUNT
+                        FROM     TBEB_RACE_TMS     TRT
+                               , TBEB_RACE_DAY_ORD TRDO
+                        WHERE  TRT .STND_YEAR = TRDO.STND_YEAR
+                        AND    TRT .MBR_CD    = TRDO.MBR_CD
+                        AND    TRT .TMS       = TRDO.TMS
+                        AND    TRT .STND_YEAR = ?
+                        AND    TRT .MBR_CD    = ?
+                        AND    TRT .TMS BETWEEN ?
+                                            AND ?
+                        GROUP  BY TRT.MONTH
+                    ) MC
+                  , (    
+                        SELECT   TRT.TMS
+                               , COUNT(TRT.TMS) TMS_COUNT
+                        FROM     TBEB_RACE_TMS     TRT
+                               , TBEB_RACE_DAY_ORD TRDO
+                        WHERE  TRT .STND_YEAR = TRDO.STND_YEAR
+                        AND    TRT .MBR_CD    = TRDO.MBR_CD
+                        AND    TRT .TMS       = TRDO.TMS
+                        AND    TRT .STND_YEAR = ?
+                        AND    TRT .MBR_CD    = ?
+                        AND    TRT .TMS BETWEEN ?
+                                            AND ?
+                        GROUP BY TRT.TMS
+                    ) TC
+			WHERE TRT .STND_YEAR = TRDO.STND_YEAR
+			AND   TRT .TMS       = TRDO.TMS
+			AND   TRT .MONTH     = MC  .MONTH
+			AND   TRT .TMS       = TC  .TMS
+			AND   TRT .STND_YEAR = ?
+	        AND   TRT .MBR_CD    = ?
+            AND   TRT .TMS BETWEEN ?
+                               AND ?
+		    ORDER BY TRT .MONTH          -- 월    
+			       , TRT .TMS            -- 회차    
+			       , TRDO.DAY_ORD        -- 일차    
+        ]]>
+    </query> 
+    <query id="tbeb_race_day_ord_fb001" desc="경주일차조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			        TRDO.STND_YEAR      -- 기준년도
+			      , TRDO.MBR_CD         -- 경정장코드
+			      , TRDO.TMS            -- 회차    
+			      , TRDO.DAY_ORD        -- 일차    
+			      , TRDO.RACE_DAY       -- 경주일자
+			      , TRDO.RACE_CNT       -- 경주수
+			      , TRDO.ORGAN_STAT_CD  -- 편성상태코드
+			      , TRDO.INST_ID        -- 작성자ID
+			      , TRDO.INST_DTM       -- 작성일시
+			      , TRDO.UPDT_ID        -- 수정자ID
+			      , TRDO.UPDT_DTM       -- 수정일시
+			FROM  TBEB_RACE_DAY_ORD TRDO
+			WHERE TRDO.STND_YEAR = ?
+			AND   TRDO.MBR_CD    = ?
+			AND   TRDO.TMS       = ?
+			AND   TRDO.DAY_ORD   = NVL(?, TRDO.DAY_ORD)
+        ]]>
+    </query> 
+    <query id="tbeb_race_day_ord_fb002" desc="경주일차조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+			         MIN(TRDO.RACE_DAY) STR_DT
+			       , MAX(TRDO.RACE_DAY) END_DT
+			FROM     TBEB_RACE_DAY_ORD TRDO
+			       , TBEB_RACE_TMS     TRT
+			WHERE  TRT.STND_YEAR = TRDO.STND_YEAR
+			AND    TRT.MBR_CD    = TRDO.MBR_CD   
+			AND    TRT.TMS       = TRDO.TMS
+			AND    TRT.STND_YEAR = ?
+			AND    TRT.MBR_CD    = ?
+			AND    TRT.QURT_CD   = ?
+		]]>
+    </query> 
+    <query id="tbeb_race_day_ord_ib001" desc="경주일차저장" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBEB_RACE_DAY_ORD TRDO
+			USING (
+			        SELECT
+						      ? STND_YEAR       -- 기준년도
+						    , ? MBR_CD          -- 경정장코드
+						    , ? TMS             -- 회차
+						    , DAY_ORD           -- 일차
+			   			    , TO_CHAR(TO_DATE(?, 'YYYYMMDD') + DAY_ORD - 1, 'YYYYMMDD') RACE_DAY -- 경주일자
+						    , RACE_CNT          -- 경주수
+						    , ? ORGAN_STAT_CD   -- 편성상태코드
+			                , ? INST_ID         -- 작성자ID
+			                , SYSDATE INST_DTM  -- 작성일시
+			                , ? UPDT_ID         -- 수정자ID
+			                , SYSDATE UPDT_DTM  -- 수정일시
+			        FROM    TBEB_CFRNT_DAY
+			        WHERE   CFRNT_CD = ?
+			      ) TCD
+			ON (    TRDO.STND_YEAR = TCD.STND_YEAR
+			    AND TRDO.MBR_CD    = TCD.MBR_CD
+			    AND TRDO.TMS       = TCD.TMS
+			    AND TRDO.DAY_ORD   = TCD.DAY_ORD
+			    )
+			WHEN MATCHED THEN                          --데이터 중복건이 있는경우 Update
+			           UPDATE SET
+			                        TRDO.RACE_DAY      = TCD.RACE_DAY
+			                      , TRDO.RACE_CNT      = TCD.RACE_CNT
+			                      , TRDO.UPDT_ID       = TCD.UPDT_ID
+			                      , TRDO.UPDT_DTM      = TCD.UPDT_DTM
+			WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+			           INSERT (
+			                        TRDO.STND_YEAR
+			                      , TRDO.MBR_CD
+			                      , TRDO.TMS
+			                      , TRDO.DAY_ORD
+			                      , TRDO.RACE_DAY
+			                      , TRDO.RACE_CNT
+			                      , TRDO.ORGAN_STAT_CD
+			                      , TRDO.INST_ID
+			                      , TRDO.INST_DTM
+			                      , TRDO.UPDT_ID
+			                      , TRDO.UPDT_DTM
+			                  ) VALUES (
+			                        TCD.STND_YEAR
+			                      , TCD.MBR_CD
+			                      , TCD.TMS
+			                      , TCD.DAY_ORD
+			                      , TCD.RACE_DAY
+			                      , TCD.RACE_CNT
+			                      , TCD.ORGAN_STAT_CD
+			                      , TCD.INST_ID
+			                      , TCD.INST_DTM
+			                      , TCD.UPDT_ID
+			                      , TCD.UPDT_DTM
+			                  )
+        ]]>
+    </query> 
+    <query id="tbeb_race_day_ord_ib002" desc="경주일차입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_RACE_DAY_ORD
+			(
+			        STND_YEAR      -- 기준년도
+			      , MBR_CD         -- 경정장코드
+			      , TMS            -- 회차    
+			      , DAY_ORD        -- 일차    
+			      , RACE_DAY       -- 경주일자
+			      , RACE_CNT       -- 경주수
+			      , ORGAN_STAT_CD  -- 편성상태코드
+			      , INST_ID        -- 작성자ID
+			      , INST_DTM       -- 작성일시
+			      , UPDT_ID        -- 수정자ID
+			      , UPDT_DTM       -- 수정일시
+			) SELECT 
+    			        ?                -- 기준년도
+				      , ?                -- 경정장코드
+    			      , ?                -- 회차    
+    			      , DAY_ORD          -- 일차    
+       			      , TO_CHAR(TO_DATE(?, 'YYYYMMDD') + DAY_ORD - 1, 'YYYYMMDD') -- 경주일자
+    			      , RACE_CNT         -- 경주수 
+    			      , ?                -- 편성상태코드
+    			      , ?                -- 작성자ID
+    			      , SYSDATE          -- 작성일시
+    			      , ?                -- 수정자ID
+    			      , SYSDATE          -- 수정일시
+			  FROM  TBEB_CFRNT_DAY
+			  WHERE CFRNT_CD = ?
+        ]]>
+    </query> 
+    <query id="tbeb_race_day_ord_ub001" desc="경주일차수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_RACE_DAY_ORD SET
+			        ORGAN_STAT_CD = ?       -- 편성상태코드
+			      , UPDT_ID       = ?       -- 수정자ID
+			      , UPDT_DTM      = SYSDATE -- 수정일시
+			WHERE STND_YEAR       = ?       -- 기준년도
+			AND   MBR_CD          = ?       -- 경정장코드
+			AND   TMS             = ?       -- 회차    
+			AND   DAY_ORD         = ?       -- 일차    
+        ]]>
+    </query> 
+    <query id="tbeb_race_day_ord_ub002" desc="경주일차수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_RACE_DAY_ORD SET
+			        RACE_DAY      = ?       -- 경주일
+			      , UPDT_ID       = ?       -- 수정자ID
+			      , UPDT_DTM      = SYSDATE -- 수정일시
+			WHERE STND_YEAR       = ?       -- 기준년도
+			AND   MBR_CD          = ?       -- 경정장코드
+			AND   TMS             = ?       -- 회차    
+			AND   DAY_ORD         = ?       -- 일차    
+        ]]>
+    </query> 
+    <query id="tbeb_race_day_ord_db001" desc="경주일차삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM  TBEB_RACE_DAY_ORD
+			WHERE STND_YEAR    = ?               -- 기준년도
+			AND   MBR_CD       = ?               -- 경정장코드
+			AND   TMS          = ?               -- 회차    
+			AND   DAY_ORD      = NVL(?, DAY_ORD) -- 일차    
+        ]]>
+    </query> 
+    <query id="tbeb_race_day_ord_db002" desc="경주일차삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM  TBEB_RACE_DAY_ORD
+			WHERE STND_YEAR    = ?               -- 기준년도
+			AND   MBR_CD       = ?               -- 경정장코드
+			AND   TMS          = ?               -- 회차    
+			AND    ( STND_YEAR
+			       , MBR_CD
+			       , TMS
+			       , DAY_ORD ) NOT IN (
+			                                SELECT
+			                                         TRT.STND_YEAR
+			                                       , TRT.MBR_CD
+			                                       , TRT.TMS
+			                                       , TCD.DAY_ORD
+			                                FROM     TBEB_RACE_TMS     TRT
+			                                       , TBEB_CFRNT_DAY    TCD
+			                                WHERE  TRT.CFRNT_CD = TCD .CFRNT_CD
+			                                AND    STND_YEAR    = ?               -- 기준년도
+			                                AND    MBR_CD       = ?               -- 경정장코드
+			                                AND    TMS          = ?               -- 회차    
+			                           )
+        ]]>
+    </query> 
+</queryMap>

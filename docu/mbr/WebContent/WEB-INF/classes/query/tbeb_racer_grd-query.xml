@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_racer_grd(선수등급)">
+    <query id="tbeb_racer_grd_fb001" desc="선수별 등급 조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+			         TRT.RACER_NO
+			       , TRT.CHG_DT
+			       , TRG.RACER_GRD_CD
+			       , TRT.STND_YEAR
+			       , TRT.QURT_CD
+            FROM     TBEB_RACER_GRD    TRG
+                   , (
+                        SELECT 
+            			         TRG.RACER_NO
+            			       , MAX(TRG.CHG_DT) CHG_DT
+            			       , TRT.STND_YEAR
+            			       , TRT.QURT_CD
+            			FROM     TBEB_RACER_GRD    TRG
+            			       , TBEC_RACER_MASTER TRM
+            			       , (
+            			            SELECT
+            			                     STND_YEAR
+            			                   , QURT_CD
+            			                   , NVL(LAG(END_DT) OVER (ORDER BY SEQ), '0000' || '0000') STR_DT
+            			                   , END_DT
+            			                   , RANK() OVER (ORDER BY STND_YEAR
+            			                                        , QURT_CD  ) SEQ
+            			            FROM   (
+            			                        SELECT
+            			                                 STND_YEAR
+            			                               , QURT_CD
+            			                               , MAX(END_DT) END_DT
+            			                               , RANK() OVER (ORDER BY STND_YEAR
+            			                                                    , QURT_CD  ) SEQ
+            			                        --FROM   TBEB_RACE_TMS		-- 분기가 주선기준
+            			                        FROM   TBEB_RECD_STND_TERM	-- 분기가 성적기준
+            			                        WHERE  STND_YEAR BETWEEN ? - 1
+            			                                             AND ?
+            			                        GROUP BY 
+            			                                 STND_YEAR
+            			                               , QURT_CD
+            			                     )
+            			         ) TRT
+            			WHERE  TRM.RACER_NO   = TRG.RACER_NO
+            			AND    TRG.CHG_DT    >  TRT.STR_DT
+            			AND    TRG.CHG_DT    <= TRT.END_DT
+            			AND    TRT.STND_YEAR >= ?
+            			AND    TRM.NM_KOR      LIKE NVL('%' || ? || '%', TRM.NM_KOR)
+                        GROUP BY 
+            			         TRG.RACER_NO
+            			       , TRT.STND_YEAR
+            			       , TRT.QURT_CD
+                     ) TRT
+            WHERE  TRT.RACER_NO = TRG.RACER_NO
+            AND    TRT.CHG_DT   = TRG.CHG_DT
+        ]]>
+    </query> 
+    <query id="tbeb_racer_grd_fb002" desc="기수별 등급 현황조회" fetchSize="10">
+        <![CDATA[
+            SELECT 
+			         TRG.RACER_NO
+			       , NM_KOR
+			FROM     TBEB_RACER_GRD    TRG
+			       , TBEC_RACER_MASTER TRM
+			       , (
+			            SELECT
+			                     STND_YEAR
+			                   , QURT_CD
+			                   , NVL(LAG(END_DT) OVER (ORDER BY SEQ), '0000' || '0000') STR_DT
+			                   , END_DT
+			                   , RANK() OVER (ORDER BY STND_YEAR
+			                                        , QURT_CD  ) SEQ
+			            FROM   (
+			                        SELECT
+			                                 STND_YEAR
+			                               , QURT_CD
+			                               , MAX(END_DT) END_DT
+			                               , RANK() OVER (ORDER BY STND_YEAR
+			                                                    , QURT_CD  ) SEQ
+			                        FROM   TBEB_RACE_TMS
+			                        WHERE  STND_YEAR BETWEEN ? - 1
+			                                             AND ?
+			                        GROUP BY 
+			                                 STND_YEAR
+			                               , QURT_CD
+			                     )
+			         ) TRT
+			WHERE  TRM.RACER_NO   = TRG.RACER_NO
+			AND    TRG.CHG_DT    >  TRT.STR_DT
+			AND    TRG.CHG_DT    <= TRT.END_DT
+			AND    TRT.STND_YEAR >= ?
+			AND    TRM.NM_KOR      LIKE NVL('%' || ? || '%', TRM.NM_KOR)
+            GROUP BY 
+			         TRG.RACER_NO
+			       , TRM.NM_KOR
+            ORDER BY 
+			         TRG.RACER_NO
+        ]]>
+    </query>     
+    <query id="tbeb_racer_grd_fb003" desc="등급변경이력조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TRG.RACER_NO
+			       , TRM.NM_KOR
+			       , TRG.CHG_DT
+			       , TRG.RACER_GRD_CD
+			       , TRG.PRE_RACER_GRD_CD
+			       , TRG.RMK
+			FROM     (
+			            SELECT
+			                     RACER_NO
+			                   , CHG_DT
+			                   , RACER_GRD_CD
+			                   , LEAD(RACER_GRD_CD) OVER (PARTITION BY RACER_NO ORDER BY SEQ) PRE_RACER_GRD_CD
+			                   , RMK
+			            FROM   (
+			                        SELECT
+			                                 RACER_NO
+			                               , CHG_DT
+			                               , RACER_GRD_CD
+			                               , RMK
+			                               , RANK() OVER (PARTITION BY RACER_NO
+			                                                  ORDER BY CHG_DT DESC ) SEQ
+			                        FROM   TBEB_RACER_GRD
+			                   )
+			         ) TRG
+			       , TBEC_RACER_MASTER TRM
+			WHERE  TRG.RACER_NO     = TRM.RACER_NO
+			AND    TRG.CHG_DT BETWEEN ?
+			                      AND ?
+			AND    TRM.NM_KOR    LIKE ? || '%'
+			ORDER BY TRG.CHG_DT DESC
+        ]]>
+    </query> 
+</queryMap>

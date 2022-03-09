@@ -1,0 +1,660 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="심판통계자료"> 
+    <query id="tbea_race_weather_rio001" desc="기상정보조회" fetchSize="10">
+		<![CDATA[
+			SELECT     STND_YEAR,                   							--기준년도
+			           MBR_CD,                  								--경정장코드  
+			           TMS,                     								--회차
+			           DAY_ORD,                 								--일차
+			           RACE_NO,                 								--경주번호
+			           RACE_DGRE_CD,            								--경주등급코드
+			           ST_MTHD_CD,              								--스타트방법코드
+			           STRT_TIME,               								--출발시간
+			           RACE_DIST,               								--경주거리
+			           TURN_CNT,                								--주횟수
+			           GET_CD_NM ( 'E00030', WEATH_CD) AS WEATH_NM,             --기상코드                    
+			           TEMPT,                   								--기온                   
+			           GET_CD_NM ( 'E00031', WIND_DIRC_CD) AS WIND_DIRC_NM,     --풍향코드
+			           WIND_SPD,                    							--풍속                    
+			           HUMIDITY,                    							--습도
+			           WATER_TEMPT,                 							--수온
+			           WATER_LVL                    							--수위
+			FROM  TBEB_RACE 
+			WHERE 1=1
+			      AND STND_YEAR = ?
+			      AND MBR_CD    = ?
+			      AND TMS       = NVL(?, TMS)
+			      AND RACE_END_YN = 'Y'
+	    ]]>
+    </query>
+
+    <query id="tbea_race_tms_rio001" desc="회차정보조회" fetchSize="10">
+		<![CDATA[
+				SELECT STND_YEAR, 
+				       TO_CHAR(TMS) AS TMS_NM, 
+				       TMS AS TMS_CD
+				FROM TBEB_RACE_TMS
+				WHERE 1=1
+					  AND STND_YEAR =  ?
+				      AND MBR_CD    =  ?
+				UNION ALL
+				SELECT ? AS STND_YEAR, 
+					   '전체' AS TMS_NM, 
+					   NULL AS TMS_CD 
+				FROM DUAL
+				ORDER BY TMS_CD DESC
+	    ]]>
+    </query>
+
+    <query id="tbea_race_result_rio001" desc="경주결과(매출포함)조회" fetchSize="10">
+		<![CDATA[
+			 SELECT 
+			            TR.STND_YEAR 
+			           ,TR.MBR_CD 
+			           ,TR.TMS 
+			           ,TR.DAY_ORD 
+			           ,TR.RACE_NO
+			           , GET_RSLT_RANK6(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO) RSLT_RANK
+			           ,NVL(TOR.RACE_REG_NO1, '-') AS RACE_REG_NO1
+			           ,NVL(TOR.RACE_REG_NO2, '-') AS RACE_REG_NO2
+			           ,NVL(TOR.RACE_REG_NO3, '-') AS RACE_REG_NO3
+			           ,NVL(TOR.RACE_REG_NO4, '-') AS RACE_REG_NO4
+			           ,NVL(TOR.RACE_REG_NO5, '-') AS RACE_REG_NO5
+			           ,NVL(TOR.RACE_REG_NO6, '-') AS RACE_REG_NO6
+                       ,NVL(TRM.RANK_1, '-') AS RANK_1
+                       ,NVL(TRM.RANK_2, '-') AS RANK_2
+                       ,NVL(TRM.RANK_3, '-') AS RANK_3
+                       ,NVL(TRM.RANK_4, '-') AS RANK_4
+                       ,NVL(TRM.RANK_5, '-') AS RANK_5
+                       ,NVL(TRM.RANK_6, '-') AS RANK_6
+                       ,TRM.RANK_0			 AS RANK_0
+			           ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '001', NULL) FIXMONEY_W
+			           ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '002', '1' ) FIXMONEY_P
+			           ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '002', '2' ) FIXMONEY_P2
+			           ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '004', NULL) FIXMONEY_E
+			           ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '005', NULL) FIXMONEY_Q
+			           ,GET_RSLT_PAYOFF(TR.STND_YEAR, '003', TR.TMS, TR.DAY_ORD, TR.RACE_NO, '006', NULL) FIXMONEY_T
+					   ,TRIM(TO_CHAR(TSR.PAYOFF_AVG, '999990.0')) AS PAYOFF_AVG
+			           ,MON.BONJANG_TOTAL
+			           ,MON.JIJUM_TOTAL
+			           ,MON.DIV_TOTAL
+			           ,MON.REFUND
+			           ,ACT.RACER_NM_ACT
+			 FROM 
+			         TBEB_RACE TR,
+			        (  SELECT
+			                      TOR.STND_YEAR
+			                    , TOR.MBR_CD
+			                    , TOR.TMS
+			                    , TOR.DAY_ORD  
+			                    , TOR.RACE_NO
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '1', NM_KOR)) RACE_REG_NO1
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '2', NM_KOR)) RACE_REG_NO2
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '3', NM_KOR)) RACE_REG_NO3
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '4', NM_KOR)) RACE_REG_NO4
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '5', NM_KOR)) RACE_REG_NO5
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '6', NM_KOR)) RACE_REG_NO6
+			         FROM  TBEB_ORGAN TOR, TBEC_RACER_MASTER TRM
+			         WHERE   TOR.RACER_NO   = TRM.RACER_NO
+			                     AND    TOR.STND_YEAR  =  ?
+			                     AND    TOR.MBR_CD     =  ?
+			                     AND    TOR.TMS        =  NVL(?, TOR.TMS)
+			         GROUP BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO
+			         ) TOR,
+			          (  SELECT
+			              STND_YEAR
+			            , MBR_CD
+			            , TMS
+			            , DAY_ORD
+			            , RACE_NO
+			            , MIN(DECODE(RANK, '1', NM_KOR)) RANK_1
+			            , MIN(DECODE(RANK, '2', NM_KOR)) RANK_2
+			            , MIN(DECODE(RANK, '3', NM_KOR)) RANK_3
+			            , MIN(DECODE(RANK, '4', NM_KOR)) RANK_4
+			            , MIN(DECODE(RANK, '5', NM_KOR)) RANK_5
+			            , MIN(DECODE(RANK, '6', NM_KOR)) RANK_6
+			            , MIN(DECODE(RANK, '0', NM_KOR)) RANK_0
+			             FROM   (
+			                     SELECT
+			                              STND_YEAR
+			                            , MBR_CD
+			                            , TMS
+			                            , DAY_ORD
+			                            , RACE_NO
+			                            , RANK
+			                            , SUBSTR(MAX(SYS_CONNECT_BY_PATH (NM_KOR, '/')), 2) NM_KOR
+			                     FROM   (
+			                             SELECT
+			                                      TOR.STND_YEAR
+			                                    , TOR.MBR_CD
+			                                    , TOR.TMS
+			                                    , TOR.DAY_ORD
+			                                    , TOR.RACE_NO
+			                                    , TOR.RACE_REG_NO
+			                                    , TOR.RACER_NO
+			                                    , TOR.RANK
+			                                    , TRM.NM_KOR
+			                                    , RANK() OVER (PARTITION BY TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO
+			                                                              , TOR.RANK
+			                                                       ORDER BY TOR.RACER_NO) SEQ
+			                             FROM     TBEB_ORGAN        TOR
+			                                    , TBEC_RACER_MASTER TRM
+			                             WHERE  TOR.RACER_NO   = TRM.RACER_NO
+			                             AND    TOR.STND_YEAR  =  ?
+			                             AND    TOR.MBR_CD     =  ?
+			                             AND    TOR.TMS        =  NVL(?, TOR.TMS)
+			                            )
+			                     START WITH SEQ = 1
+			                     CONNECT BY PRIOR SEQ = SEQ - 1 
+			                     AND  PRIOR STND_YEAR = STND_YEAR AND PRIOR MBR_CD = MBR_CD AND PRIOR TMS = TMS AND PRIOR DAY_ORD = DAY_ORD
+			                     AND PRIOR RACE_NO = RACE_NO AND PRIOR  RANK = RANK
+			                     GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RANK
+			                    )
+			             GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD,  RACE_NO) TRM,
+			             (
+			                SELECT                                                                            
+			                           D.STND_YEAR,                                                                 
+			                           DECODE(D.MEET_CD, '003', '001') AS MBR_CD,                                                                   
+			                           D.TMS,                                                                       
+			                           D.DAY_ORD,                                                                   
+			                           D.RACE_NO,
+			                           SUM(                                                                        
+			                               CASE                                                                    
+			                                 WHEN D.SELL_CD='03' AND D.COMM_NO!='06' THEN D.DIV_TOTAL                                    
+			                                 ELSE 0                                                                
+			                               END                                                                     
+			                           ) BONJANG_TOTAL,                                                            
+			                           SUM(                                                                        
+			                               CASE                                                                    
+			                                 WHEN D.SELL_CD!='03' OR D.COMM_NO='06' THEN D.DIV_TOTAL                                     
+			                               END                                                                     
+			                           ) JIJUM_TOTAL,                                                              
+			                           SUM(D.REFUND) REFUND,
+			                           SUM(D.DIV_TOTAL) AS DIV_TOTAL                                                         
+			                 FROM   USRBM.VW_SDL_DT D                                                              
+			                 WHERE 1=1                                                                             
+			                             AND D.STND_YEAR  =  ?
+			                             AND D.MEET_CD    =  '003'
+			                             AND D.TMS        =  NVL(?, D.TMS)
+			                 GROUP BY                                                                          
+			                               D.STND_YEAR,                                                                 
+			                               D.MEET_CD,                                                                   
+			                               D.TMS,                                                                       
+			                               D.DAY_ORD,                                                                   
+			                               ROLLUP(D.RACE_NO)
+			             ) MON,
+			             (
+			                SELECT 
+			                         STND_YEAR,
+			                         MBR_CD,
+			                         TMS,
+			                         DAY_ORD,
+			                         RACE_NO,
+			                         SUBSTR(MAX(SYS_CONNECT_BY_PATH (RACER_NM_ACT, '/')), 2) RACER_NM_ACT
+			                FROM (
+			                            SELECT 
+			                                     A.STND_YEAR,
+			                                     A.MBR_CD,
+			                                     A.TMS,
+			                                     A.DAY_ORD,
+			                                     A.RACE_NO, 
+			                                     FC_GET_RACERNAME(A.RACER_NO) || '(' || MIN(B.CD_NM) || ')'  AS RACER_NM_ACT,
+			                                     RANK() OVER (PARTITION BY A.TMS, A.DAY_ORD, A.RACE_NO ORDER BY A.RACER_NO) SEQ
+			                            FROM TBED_RACE_VOIL_ACT A, TBEA_SPEC_CD B, TBEB_ORGAN C
+			                            WHERE 1=1
+			                                      AND A.VOIL_CD = B.CD
+			                                      AND A.STND_YEAR = C.STND_YEAR
+			                                      AND A.MBR_CD = C.MBR_CD
+			                                      AND A.TMS = C.TMS
+			                                      AND A.DAY_ORD = C.DAY_ORD
+			                                      AND A.RACE_NO = C.RACE_NO
+			                                      AND A.RACER_NO = C.RACER_NO
+			                                      AND B.GRP_CD = 'E00035'
+			                                      AND B.RMK2 = 'OUT'
+			                                      AND C.RANK = '0'
+			                                      AND A.STND_YEAR  =  ?
+			                                      AND A.MBR_CD     =  ?
+			                                      AND A.TMS        =  NVL(?, A.TMS)
+			                            GROUP BY  A.STND_YEAR, A.MBR_CD, A.TMS, A.DAY_ORD, A.RACE_NO, A.RACE_NO, A.RACER_NO
+			                        )
+			                START WITH SEQ = 1
+			                CONNECT BY PRIOR SEQ = SEQ - 1 AND PRIOR STND_YEAR = STND_YEAR AND PRIOR MBR_CD = MBR_CD AND PRIOR TMS = TMS AND PRIOR DAY_ORD = DAY_ORD AND PRIOR RACE_NO = RACE_NO
+			                GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO
+			             ) ACT,
+                         (SELECT STND_YEAR,
+                                       TMS,
+                                       DAY_ORD,
+                                       RACE_NO,
+                                       ROUND(AVG(PAYOFF), 1) AS PAYOFF_AVG
+                            FROM USRBM.TBES_SDL_RS
+                            WHERE 1=1
+                                      AND MEET_CD = '003'
+                                      AND STND_YEAR = ?
+                                      AND TMS = NVL(?, TMS)
+                            GROUP BY STND_YEAR, TMS, DAY_ORD, RACE_NO) TSR			             
+			WHERE 1=1
+			          AND TR.TMS        = TOR.TMS(+)
+			          AND TR.DAY_ORD = TOR.DAY_ORD(+)
+			          AND TR.RACE_NO = TOR.RACE_NO(+)
+			          AND TR.TMS        = TRM.TMS(+)
+			          AND TR.DAY_ORD = TRM.DAY_ORD(+)
+			          AND TR.RACE_NO = TRM.RACE_NO(+)
+			          AND TR.TMS        = MON.TMS(+)
+			          AND TR.DAY_ORD = MON.DAY_ORD(+)
+			          AND TR.RACE_NO = MON.RACE_NO(+)
+			          AND TR.TMS        = ACT.TMS(+)
+			          AND TR.DAY_ORD = ACT.DAY_ORD(+)
+			          AND TR.RACE_NO = ACT.RACE_NO(+)
+			          AND TR.TMS        = TSR.TMS(+)
+			          AND TR.DAY_ORD = TSR.DAY_ORD(+)
+			          AND TR.RACE_NO = TSR.RACE_NO(+)
+			          AND TR.STND_YEAR  =  ?
+			          AND TR.MBR_CD     =  ?
+			          AND TR.TMS        =  NVL(?, TR.TMS)
+			          AND TR.RACE_END_YN = 'Y'
+			 UNION ALL
+			 SELECT 
+			             TR.STND_YEAR 
+           			   	,TR.MBR_CD 
+           				,TR.TMS 
+           				,TR.DAY_ORD 
+           				,NULL AS RACE_NO
+           				,'소    계' AS RSLT_RANK
+           				,NULL AS RACE_REG_NO1
+           				,NULL AS RACE_REG_NO2
+           				,NULL AS RACE_REG_NO3
+           				,NULL AS RACE_REG_NO4
+           				,NULL AS RACE_REG_NO5
+           				,NULL AS RACE_REG_NO6
+           				,NULL AS RANK_1
+           				,NULL AS RANK_2
+           				,NULL AS RANK_3
+           				,NULL AS RANK_4
+           				,NULL AS RANK_5
+           				,NULL AS RANK_6
+           				,NULL AS RANK_0
+                        ,TRIM(TO_CHAR(ROUND(AVG(TSR.PAYOFF1), 1), '999990.0')) AS FIXMONEY_W
+                        ,TRIM(TO_CHAR(ROUND(AVG(TSR.PAYOFF2), 1), '999990.0')) AS FIXMONEY_P
+                        ,TRIM(TO_CHAR(ROUND(AVG(TSR.PAYOFF3), 1), '999990.0')) AS FIXMONEY_P2
+                        ,TRIM(TO_CHAR(ROUND(AVG(TSR.PAYOFF4), 1), '999990.0')) AS FIXMONEY_E
+                        ,TRIM(TO_CHAR(ROUND(AVG(TSR.PAYOFF5), 1), '999990.0')) AS FIXMONEY_Q
+                        ,TRIM(TO_CHAR(ROUND(AVG(TSR.PAYOFF6), 1), '999990.0')) AS FIXMONEY_T
+                        ,TRIM(TO_CHAR(ROUND(AVG(TSR.PAYOFF_AVG), 1), '999990.0')) AS PAYOFF_AVG
+           				,SUM(MON.BONJANG_TOTAL) AS BONJANG_TOTAL
+           				,SUM(MON.JIJUM_TOTAL) AS JIJUM_TOTAL
+           				,SUM(MON.DIV_TOTAL) AS DIV_TOTAL
+           				,SUM(MON.REFUND) AS REFUND
+           				,NULL AS RACER_NM_ACT
+			 FROM 
+			         TBEB_RACE TR,
+			        (  SELECT
+			                      TOR.STND_YEAR
+			                    , TOR.MBR_CD
+			                    , TOR.TMS
+			                    , TOR.DAY_ORD  
+			                    , TOR.RACE_NO
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '1', NM_KOR)) RACE_REG_NO1
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '2', NM_KOR)) RACE_REG_NO2
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '3', NM_KOR)) RACE_REG_NO3
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '4', NM_KOR)) RACE_REG_NO4
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '5', NM_KOR)) RACE_REG_NO5
+			                    , MIN(DECODE(TOR.RACE_REG_NO, '6', NM_KOR)) RACE_REG_NO6
+			         FROM  TBEB_ORGAN TOR, TBEC_RACER_MASTER TRM
+			         WHERE   TOR.RACER_NO   = TRM.RACER_NO
+			                     AND    TOR.STND_YEAR  =  ?
+			                     AND    TOR.MBR_CD     =  ?
+			                     AND    TOR.TMS        =  NVL(?, TOR.TMS)
+			         GROUP BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO
+			         ) TOR,
+			          (  SELECT
+			              STND_YEAR
+			            , MBR_CD
+			            , TMS
+			            , DAY_ORD
+			            , RACE_NO
+			            , MIN(DECODE(RANK, '1', NM_KOR)) RANK_1
+			            , MIN(DECODE(RANK, '2', NM_KOR)) RANK_2
+			            , MIN(DECODE(RANK, '3', NM_KOR)) RANK_3
+			            , MIN(DECODE(RANK, '4', NM_KOR)) RANK_4
+			            , MIN(DECODE(RANK, '5', NM_KOR)) RANK_5
+			            , MIN(DECODE(RANK, '6', NM_KOR)) RANK_6
+			            , MIN(DECODE(RANK, '0', NM_KOR)) RANK_0
+			             FROM   (
+			                     SELECT
+			                              STND_YEAR
+			                            , MBR_CD
+			                            , TMS
+			                            , DAY_ORD
+			                            , RACE_NO
+			                            , RANK
+			                            , SUBSTR(MAX(SYS_CONNECT_BY_PATH (NM_KOR, '/')), 2) NM_KOR
+			                     FROM   (
+			                             SELECT
+			                                      TOR.STND_YEAR
+			                                    , TOR.MBR_CD
+			                                    , TOR.TMS
+			                                    , TOR.DAY_ORD
+			                                    , TOR.RACE_NO
+			                                    , TOR.RACE_REG_NO
+			                                    , TOR.RACER_NO
+			                                    , TOR.RANK
+			                                    , TRM.NM_KOR
+			                                    , RANK() OVER (PARTITION BY TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO
+			                                                              , TOR.RANK
+			                                                       ORDER BY TOR.RACER_NO) SEQ
+			                             FROM     TBEB_ORGAN        TOR
+			                                    , TBEC_RACER_MASTER TRM
+			                             WHERE  TOR.RACER_NO   = TRM.RACER_NO
+			                             AND    TOR.STND_YEAR  =  ?
+			                             AND    TOR.MBR_CD     =  ?
+			                             AND    TOR.TMS        =  NVL(?, TOR.TMS)
+			                            )
+			                     START WITH SEQ = 1
+			                     CONNECT BY PRIOR SEQ = SEQ - 1 
+			                     AND  PRIOR STND_YEAR = STND_YEAR AND PRIOR MBR_CD = MBR_CD AND PRIOR TMS = TMS AND PRIOR DAY_ORD = DAY_ORD
+			                     AND PRIOR RACE_NO = RACE_NO AND PRIOR  RANK = RANK
+			                     GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO, RANK
+			                    )
+			             GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD,  RACE_NO) TRM,
+			             (
+			                SELECT                                                                            
+			                           D.STND_YEAR,                                                                 
+			                           DECODE(D.MEET_CD, '003', '001') AS MBR_CD,                                                                   
+			                           D.TMS,                                                                       
+			                           D.DAY_ORD,                                                                   
+			                           D.RACE_NO,
+			                           SUM(                                                                        
+			                               CASE                                                                    
+			                                 WHEN D.SELL_CD='03' AND D.COMM_NO!='06' THEN D.DIV_TOTAL                                    
+			                                 ELSE 0                                                                
+			                               END                                                                     
+			                           ) BONJANG_TOTAL,                                                            
+			                           SUM(                                                                        
+			                               CASE                                                                    
+			                                 WHEN D.SELL_CD!='03' OR D.COMM_NO='06' THEN D.DIV_TOTAL                                     
+			                               END                                                                     
+			                           ) JIJUM_TOTAL,                                                              
+			                           SUM(D.REFUND) REFUND,
+			                           SUM(D.DIV_TOTAL) AS DIV_TOTAL                                                         
+			                 FROM   USRBM.VW_SDL_DT D                                                              
+			                 WHERE 1=1                                                                             
+			                             AND D.STND_YEAR  =  ?
+			                             AND D.MEET_CD    =  '003'
+			                             AND D.TMS        =  NVL(?, D.TMS)
+			                 GROUP BY                                                                          
+			                               D.STND_YEAR,                                                                 
+			                               D.MEET_CD,                                                                   
+			                               D.TMS,                                                                       
+			                               D.DAY_ORD,                                                                   
+			                               ROLLUP(D.RACE_NO)
+			             ) MON,
+			             (
+			                SELECT 
+			                         STND_YEAR,
+			                         MBR_CD,
+			                         TMS,
+			                         DAY_ORD,
+			                         RACE_NO,
+			                         SUBSTR(MAX(SYS_CONNECT_BY_PATH (RACER_NM_ACT, '/')), 2) RACER_NM_ACT
+			                FROM (
+			                            SELECT 
+			                                     A.STND_YEAR,
+			                                     A.MBR_CD,
+			                                     A.TMS,
+			                                     A.DAY_ORD,
+			                                     A.RACE_NO, 
+			                                     FC_GET_RACERNAME(A.RACER_NO) || '(' || MIN(B.CD_NM) || ')'  AS RACER_NM_ACT,
+			                                     RANK() OVER (PARTITION BY A.TMS, A.DAY_ORD, A.RACE_NO ORDER BY A.RACER_NO) SEQ
+			                            FROM TBED_RACE_VOIL_ACT A, TBEA_SPEC_CD B, TBEB_ORGAN C
+			                            WHERE 1=1
+			                                      AND A.VOIL_CD = B.CD
+			                                      AND A.STND_YEAR = C.STND_YEAR
+			                                      AND A.MBR_CD = C.MBR_CD
+			                                      AND A.TMS = C.TMS
+			                                      AND A.DAY_ORD = C.DAY_ORD
+			                                      AND A.RACE_NO = C.RACE_NO
+			                                      AND A.RACER_NO = C.RACER_NO
+			                                      AND B.GRP_CD = 'E00035'
+			                                      AND B.RMK2 = 'OUT'
+			                                      AND C.RANK = '0'
+			                                      AND A.STND_YEAR  =  ?
+			                                      AND A.MBR_CD     =  ?
+			                                      AND A.TMS        =  NVL(?, A.TMS)
+			                            GROUP BY  A.STND_YEAR, A.MBR_CD, A.TMS, A.DAY_ORD, A.RACE_NO, A.RACE_NO, A.RACER_NO
+			                        )
+			                START WITH SEQ = 1
+			                CONNECT BY PRIOR SEQ = SEQ - 1 AND PRIOR STND_YEAR = STND_YEAR AND PRIOR MBR_CD = MBR_CD AND PRIOR TMS = TMS AND PRIOR DAY_ORD = DAY_ORD AND PRIOR RACE_NO = RACE_NO
+			                GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACE_NO
+			             ) ACT,
+                         (SELECT  STND_YEAR,
+                                       TMS,
+                                       DAY_ORD,
+                                       RACE_NO,
+                                       COUNT(POOL_CD) AS POOL_COUNT,
+                                       MIN(CASE WHEN POOL_CD = '001' THEN PAYOFF END) AS PAYOFF1,
+                                       MIN(CASE WHEN POOL_CD = '002'  AND RS_SEQ = '1' THEN PAYOFF END) AS PAYOFF2,
+                                       MIN(CASE WHEN POOL_CD = '002'  AND RS_SEQ = '2' THEN PAYOFF END) AS PAYOFF3,
+                                       MIN(CASE WHEN POOL_CD = '004'  THEN PAYOFF END) AS PAYOFF4,
+                                       MIN(CASE WHEN POOL_CD = '005'  THEN PAYOFF END) AS PAYOFF5,
+                                       MIN(CASE WHEN POOL_CD = '006'  THEN PAYOFF END) AS PAYOFF6,
+                                       ROUND(AVG(PAYOFF), 1) AS PAYOFF_AVG
+                            FROM USRBM.TBES_SDL_RS
+                            WHERE 1=1
+                                      AND MEET_CD = '003'
+                                      AND STND_YEAR = ?
+                                      AND TMS = NVL(?, TMS)
+                            GROUP BY STND_YEAR, TMS, DAY_ORD, RACE_NO) TSR			             
+			WHERE 1=1
+			          AND TR.TMS        = TOR.TMS(+)
+			          AND TR.DAY_ORD = TOR.DAY_ORD(+)
+			          AND TR.RACE_NO = TOR.RACE_NO(+)
+			          AND TR.TMS        = TRM.TMS(+)
+			          AND TR.DAY_ORD = TRM.DAY_ORD(+)
+			          AND TR.RACE_NO = TRM.RACE_NO(+)
+			          AND TR.TMS        = MON.TMS(+)
+			          AND TR.DAY_ORD = MON.DAY_ORD(+)
+			          AND TR.RACE_NO = MON.RACE_NO(+)
+			          AND TR.TMS        = ACT.TMS(+)
+			          AND TR.DAY_ORD = ACT.DAY_ORD(+)
+			          AND TR.RACE_NO = ACT.RACE_NO(+)
+			          AND TR.TMS        = TSR.TMS(+)
+			          AND TR.DAY_ORD = TSR.DAY_ORD(+)
+			          AND TR.RACE_NO = TSR.RACE_NO(+)
+			          AND TR.STND_YEAR  =  ?
+			          AND TR.MBR_CD     =  ?
+			          AND TR.TMS        =  NVL(?, TR.TMS)
+			          AND TR.RACE_END_YN = 'Y'
+			GROUP BY TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD
+			ORDER BY TMS, DAY_ORD, RACE_NO			
+	    ]]>
+    </query>
+
+    <query id="tbea_sang_data_rio001" desc="경주 위반행위 정보 가져오기" fetchSize="10">
+		<![CDATA[
+			SELECT 
+			            NVL(A.STND_YEAR, B.STND_YEAR) AS STND_YEAR,
+			            NVL(A.MBR_CD, B.MBR_CD) AS MBR_CD,
+			            NVL(A.TMS, B.TMS) AS TMS,
+			            NVL(A.DAY_ORD, B.DAY_ORD) AS DAY_ORD,
+			            NVL(A.RACE_NO, B.RACE_NO) AS RACE_NO,
+			            NVL(A.RACER_NO, B.RACER_NO) AS RACER_NO,
+			            NVL(A.NM_KOR, B.NM_KOR) AS NM_KOR,
+			            NVL(A.RACER_PERIO_NO, B.RACER_PERIO_NO) AS RACER_PERIO_NO,
+			            NVL(A.RACER_GRD_CD, B.RACER_GRD_CD) AS RACER_GRD_CD,
+			            A.RACE_REG_NO,
+			            A.CIRCUIT_CNT_NM,
+			            A.ACDNT_LOC_NM,
+			            A.VOID_CD1,                                                    --출주(1)    
+			            A.VOID_CD2,                                                 --출주(2)    
+			            A.VOID_CD3,                                                 --출주면책   
+			            A.VOID_CD4,                                                 --사전출발(F)
+			            A.VOID_CD5,                                                 --출발지체(L)
+			            A.VOID_CD6,                                                 --반칙실격   
+			            A.VOID_CD7,                                                 --실격       
+			            A.VOID_CD8,                                                 --실격면책   
+			            A.VOID_CD9,                                                 --반칙경고   
+			            A.VOID_CD10,                                                --경고       
+			            A.VOID_CD11,                                                --경고(면책) 
+			            A.VOID_CD12,                                                --주의
+			           (NVL(A.VOID_CD1, 0) + NVL(A.VOID_CD2, 0) + NVL(A.VOID_CD3, 0) + NVL(A.VOID_CD4, 0) +
+			            NVL(A.VOID_CD5, 0) + NVL(A.VOID_CD6, 0) + NVL(A.VOID_CD7, 0) + NVL(A.VOID_CD8, 0) +
+			            NVL(A.VOID_CD9, 0) + NVL(A.VOID_CD10, 0) + NVL(A.VOID_CD11, 0) + NVL(A.VOID_CD12, 0)) AS VOID_SUM,         
+			            A.VOIL_JO47,                                                --47조       
+			            A.VOIL_JO50,                                                --50조       
+			            A.VOIL_JO52,                                                --52조       
+			            A.VOIL_JO53,                                                --53조       
+			            A.VOIL_JO55,                                                --55조       
+			            A.VOIL_JO56,                                                --56조       
+			            A.VOIL_JO58,                                                --58조       
+			            A.VOIL_JO60,                                                --60조       
+			            A.VOIL_JO62,                                                --62조       
+			            A.VOIL_JO63,                                                --63조       
+			            A.VOIL_JO64,                                                --64조       
+			            A.VOIL_JO65,                                                --65조       
+			            A.VOIL_JO66,                                                --66조       
+			            A.VOIL_JO67,                                                --67조       
+			            A.VOIL_JO68,                                                --68조       
+			            A.VOIL_JO_ETC,                                              --기타       
+			            A.VOIL_DESC,                                                --위반내용  
+			            B.SANC_CD_302,                                              --심판제재30-2
+			            B.SANC_CD_305,                                              --심판제재30-5
+			            B.SANC_TERM													--확정회차
+			FROM (
+			            SELECT 
+			                      A.STND_YEAR, 
+			                      A.MBR_CD, 
+			                      A.TMS, 
+			                      A.DAY_ORD,
+			                      A.RACE_NO,
+			                      A.RACER_NO,
+			                      A.RACE_REG_NO,
+                                  A.SANC_ISSUE_NO,			                      
+			                      B.NM_KOR,         
+			                      B.RACER_PERIO_NO||'기' AS RACER_PERIO_NO,
+			                      B.RACER_GRD_CD,  
+			                      GET_CD_NM('E00045', A.CIRCUIT_CNT_CD) AS CIRCUIT_CNT_NM,
+			                      GET_CD_NM('E00034', A.ACDNT_LOC_CD) AS ACDNT_LOC_NM,
+			                      CASE WHEN A.VOIL_CD = '995' THEN '1' END AS VOID_CD1,                         
+			                      CASE WHEN A.VOIL_CD = '997' THEN '1' END AS VOID_CD2,                         
+			                      CASE WHEN A.VOIL_CD IN('993', '994', '996', '998') THEN '1' END AS VOID_CD3,  
+			                      CASE WHEN A.VOIL_CD = '110' THEN '1' END AS VOID_CD4,                         
+			                      CASE WHEN A.VOIL_CD = '120' THEN '1' END AS VOID_CD5,                         
+			                      CASE WHEN A.VOIL_CD IN('125', '126') THEN '1' END AS VOID_CD6,                
+			                      CASE WHEN A.VOIL_CD = '140' THEN '1' END AS VOID_CD7,                         
+			                      CASE WHEN A.VOIL_CD = '999' THEN '1' END AS VOID_CD8,                         
+			                      CASE WHEN A.VOIL_CD IN('150', '151', '152') THEN '1' END AS VOID_CD9,         
+			                      CASE WHEN A.VOIL_CD = '210' THEN '1' END AS VOID_CD10,                        
+			                      CASE WHEN A.VOIL_CD = '211' THEN '1' END AS VOID_CD11,                        
+			                      CASE WHEN A.VOIL_CD = '220' THEN '1' END AS VOID_CD12,                        
+			                      CASE WHEN A.VOIL_JO = '47' THEN '1' END AS VOIL_JO47,                         
+			                      CASE WHEN A.VOIL_JO = '50' THEN '1' END AS VOIL_JO50,                         
+			                      CASE WHEN A.VOIL_JO = '52' THEN '1' END AS VOIL_JO52,                         
+			                      CASE WHEN A.VOIL_JO = '53' THEN '1' END AS VOIL_JO53,                         
+			                      CASE WHEN A.VOIL_JO = '55' THEN '1' END AS VOIL_JO55,                         
+			                      CASE WHEN A.VOIL_JO = '56' THEN '1' END AS VOIL_JO56,                         
+			                      CASE WHEN A.VOIL_JO = '58' THEN '1' END AS VOIL_JO58,                         
+			                      CASE WHEN A.VOIL_JO = '60' THEN '1' END AS VOIL_JO60,                         
+			                      CASE WHEN A.VOIL_JO = '62' THEN '1' END AS VOIL_JO62,                         
+			                      CASE WHEN A.VOIL_JO = '63' THEN '1' END AS VOIL_JO63,                         
+			                      CASE WHEN A.VOIL_JO = '64' THEN '1' END AS VOIL_JO64,                         
+			                      CASE WHEN A.VOIL_JO IN('65', '652', '653') THEN '1' END AS VOIL_JO65,
+			                      CASE WHEN A.VOIL_JO = '66' THEN '1' END AS VOIL_JO66,
+			                      CASE WHEN A.VOIL_JO = '67' THEN '1' END AS VOIL_JO67,
+			                      CASE WHEN A.VOIL_JO = '68' THEN '1' END AS VOIL_JO68,
+			                      CASE WHEN A.VOIL_JO IN('61', '69') THEN '1' END AS VOIL_JO_ETC,               
+			                      A.VOIL_DESC 
+			            FROM TBED_RACE_VOIL_ACT A, TBEC_RACER_MASTER B
+			            WHERE 1=1
+			                      AND A.RACER_NO = B.RACER_NO
+			                      AND STND_YEAR  = ?
+			                      AND MBR_CD     = ?
+			                      AND TMS        = NVL(?, TMS) ) A FULL OUTER JOIN
+			            (                      
+			                SELECT
+			                          A.STND_YEAR, 
+			                          A.MBR_CD, 
+			                          A.TMS, 
+			                          A.DAY_ORD, 
+			                          A.RACE_NO, 
+			                          A.RACER_NO,
+			                          A.SANC_ISSUE_NO,
+			                          A.SANC_TERM,
+			                          B.NM_KOR,         
+			                          B.RACER_PERIO_NO||'기' AS RACER_PERIO_NO,
+			                          B.RACER_GRD_CD,
+			                          CASE WHEN A.SANC_BASIS_CD =  '300002'  THEN '1' END AS SANC_CD_302,
+			                          CASE WHEN A.SANC_BASIS_CD =  '300005'  THEN '1' END AS SANC_CD_305
+			                FROM TBEE_RACER_SANC A, TBEC_RACER_MASTER B
+			                WHERE 1=1
+			                          AND A.RACER_NO  = B.RACER_NO
+			                          AND A.STND_YEAR = ?
+			                          AND A.MBR_CD    = ?
+			                          AND A.TMS       = NVL(?, TMS)
+			                          AND A.SANC_BASIS_CD IN ('300002', '300005')
+			                          AND A.SANC_DEPT = 'S') B
+			                ON A.STND_YEAR = B.STND_YEAR AND  A.MBR_CD = B.MBR_CD AND A.TMS = B.TMS AND A.DAY_ORD = B.DAY_ORD AND A.RACE_NO = B.RACE_NO AND A.RACER_NO = B.RACER_NO AND A.SANC_ISSUE_NO = B.SANC_ISSUE_NO 
+			ORDER BY  NVL(A.STND_YEAR, B.STND_YEAR), NVL(A.MBR_CD, B.MBR_CD), NVL(A.TMS, B.TMS), NVL(A.DAY_ORD, B.DAY_ORD), NVL(A.RACE_NO, B.RACE_NO), NVL(A.RACER_NO, B.RACER_NO),
+			               NVL(A.RACER_GRD_CD, B.RACER_GRD_CD) 		
+	    ]]>
+    </query>
+    
+    <query id="tbea_sang_sum_rio001" desc="경주 위반행위 회차별 집계 정보 가져오기" fetchSize="10">
+		<![CDATA[
+			SELECT 
+			            NVL(A.STND_YEAR, B.STND_YEAR) AS STND_YEAR,
+			            NVL(A.MBR_CD, B.MBR_CD) AS MBR_CD,
+			            NVL(A.TMS, B.TMS) AS TMS,
+			            NVL(VOID_CD1, 0)  AS VOID_CD1,                          		   --출주(1)    
+			            NVL(VOID_CD2, 0)  AS VOID_CD2,                                     --출주(2)    
+			            NVL(VOID_CD3, 0)  AS VOID_CD3,                                     --출주면책   
+			            NVL(VOID_CD4, 0)  AS VOID_CD4,                                     --사전출발(F)
+			            NVL(VOID_CD5, 0)  AS VOID_CD5,                                     --출발지체(L)
+			            NVL(VOID_CD6, 0)  AS VOID_CD6,                                     --반칙실격   
+			            NVL(VOID_CD7, 0)  AS VOID_CD7,                                     --실격       
+			            NVL(VOID_CD8, 0)  AS VOID_CD8,                                     --실격면책   
+			            NVL(VOID_CD9, 0)  AS VOID_CD9,                                     --반칙경고   
+			            NVL(VOID_CD10, 0)  AS VOID_CD10,                                   --경고       
+			            NVL(VOID_CD11, 0)  AS VOID_CD11,                                   --경고(면책) 
+			            NVL(VOID_CD12, 0)  AS VOID_CD12,                                   --주의       
+			            NVL(SANC_COUNT, 0)  AS SANC_COUNT							   	   --심판제재
+			FROM (
+			            SELECT 
+			                      STND_YEAR, 
+			                      MBR_CD, 
+			                      TMS, 
+			                      SUM(CASE WHEN VOIL_CD = '995' THEN '1' END) AS VOID_CD1,                       
+			                      SUM(CASE WHEN VOIL_CD = '997' THEN '1' END) AS VOID_CD2,                       
+			                      SUM(CASE WHEN VOIL_CD IN('993', '994', '996', '998') THEN '1' END) AS VOID_CD3,
+			                      SUM(CASE WHEN VOIL_CD = '110' THEN '1' END) AS VOID_CD4,                       
+			                      SUM(CASE WHEN VOIL_CD = '120' THEN '1' END) AS VOID_CD5,                       
+			                      SUM(CASE WHEN VOIL_CD IN('125', '126') THEN '1' END) AS VOID_CD6,              
+			                      SUM(CASE WHEN VOIL_CD = '140' THEN '1' END) AS VOID_CD7,                       
+			                      SUM(CASE WHEN VOIL_CD = '999' THEN '1' END) AS VOID_CD8,                       
+			                      SUM(CASE WHEN VOIL_CD IN('150', '151', '152') THEN '1' END) AS VOID_CD9,       
+			                      SUM(CASE WHEN VOIL_CD = '210' THEN '1' END) AS VOID_CD10,                      
+			                      SUM(CASE WHEN VOIL_CD = '211' THEN '1' END) AS VOID_CD11,                      
+			                      SUM(CASE WHEN VOIL_CD = '220' THEN '1' END) AS VOID_CD12                      
+			            FROM TBED_RACE_VOIL_ACT
+			            WHERE 1=1
+			                      AND STND_YEAR   = ?
+			                      AND MBR_CD      = ?
+			            GROUP BY  STND_YEAR, MBR_CD, TMS ) A FULL OUTER JOIN
+			        (            
+			            SELECT 
+			                       STND_YEAR,
+			                       MBR_CD,
+			                       TMS,
+			                       COUNT(*) AS  SANC_COUNT
+			            FROM TBEE_RACER_SANC
+			            WHERE 1=1
+			                  AND STND_YEAR = ?
+			                  AND MBR_CD 	= ?
+			                  AND SANC_DEPT = 'S'
+			                  AND SANC_BASIS_CD IN ('300002', '300005')
+			            GROUP BY STND_YEAR, MBR_CD, TMS) B
+			        ON A.STND_YEAR = B.STND_YEAR AND  A.MBR_CD = B.MBR_CD AND A.TMS = B.TMS
+			ORDER BY NVL(A.STND_YEAR, B.STND_YEAR), NVL(A.MBR_CD, B.MBR_CD), NVL(A.TMS, B.TMS)           
+	    ]]>
+    </query>
+    
+</queryMap>

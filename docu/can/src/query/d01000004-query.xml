@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbda_auth_mngr(메뉴권한관리)">
+
+	<query id="tbda_mn_auth_fa001" desc="USERLIST쿼리" fetchSize="10">
+        <![CDATA[
+			SELECT
+			       A.USER_ID     -- 사용자ID         
+			       , A.USER_NM     -- 사용자명         
+			       , A.PSWD        -- 비밀번호
+			       , B.MENU_USE	   -- 메뉴사용 여부         
+			       , B.DUTY_GRP_CD -- 업무그룹코드     
+			       , A.DEPT_CD     -- 부서코드
+			       , A.DEPT_NM	   -- 부서이름
+			       , A.TEAM_CD	   -- 팀코드
+			       , A.TEAM_NM	   -- 팀이름
+			       , A.FLOC		   -- 직위코드
+			       , A.FGRADE	   -- 직위         
+			       , A.TEL_NO      -- 전화번호         
+			       , B.HP_NO       -- 휴대폰번호
+			       , A.EMAIL	   -- 이메일       
+			       , B.STR_DT      -- 유효기간 시작일자
+			       , B.END_DT      -- 유효기간 종료일자
+			       , B.INST_ID     -- 작성자ID         
+			       , B.INST_DTM    -- 작성일시         
+			       , B.UPDT_ID     -- 수정자ID         
+			       , B.UPDT_DTM    -- 수정일시         
+			FROM   TBRK_USER A, TBDA_USER B
+			WHERE  A.USER_ID = B.USER_ID(+)
+			AND    A.DEPT_CD LIKE '%'||'GA12'||'%'
+			AND    B.MENU_USE = '001'
+			AND	   A.USER_NM LIKE NVL('%'|| ? ||'%', A.USER_NM)
+			
+        ]]>
+    </query>
+
+     <query id="tbda_mn_auth_fa002" desc="MENUAUTHLIST쿼리" fetchSize="10">
+        <![CDATA[
+			SELECT
+			      A.USER_ID
+			    , B.MN_ID
+			    , SRCH_YN
+			    , INPT_YN
+			    , A.INST_ID
+			    , A.INST_DTM
+			    , A.UPDT_ID
+			    , A.UPDT_DTM
+			    , B.MN_NM
+			    , B.UPMNNM
+			    , B.ISGRP
+			    , SUBSTR(B.MN_ID, 1, 4) ACHK
+			FROM (SELECT
+			              USER_ID
+			            , MN_ID
+			            , DECODE(SRCH_YN, 'Y', 1, 0) SRCH_YN
+			            , DECODE(INPT_YN, 'Y', 1, 0) INPT_YN
+			            , INST_ID
+			            , INST_DTM
+			            , UPDT_ID
+			            , UPDT_DTM
+			        FROM TBDA_MN_AUTH
+			        WHERE USER_ID = ?) A
+			    , (SELECT 
+			              A.MN_ID
+			            , A.MN_NM
+			            , A.UP_MN_ID
+			            , B.MN_NM UPMNNM
+			            , (CASE WHEN A.UP_MN_ID = '000000000' THEN '1' ELSE '0' END) ISGRP
+			        FROM (SELECT 
+			                  MN_ID
+			                , MN_NM
+			                , UP_MN_ID
+			            FROM TBDA_MN
+			            START WITH UP_MN_ID = '000000000'
+			            CONNECT BY UP_MN_ID = PRIOR MN_ID) A
+			        , TBDA_MN B
+			        WHERE SUBSTR(A.MN_ID, 0, 4)||'00000' = B.MN_ID
+			        ORDER BY A.MN_ID ASC) B
+			WHERE A.MN_ID(+) = B.MN_ID
+			AND B.ISGRP = 0
+        ]]>
+    </query>       
+
+
+    <query id="tbda_mn_auth_ia001" desc="MENUAUTHINSERT쿼리" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDA_MN_AUTH (
+			      USER_ID
+			    , MN_ID
+			    , SRCH_YN
+			    , INPT_YN
+			    , INST_ID
+			    , INST_DTM
+			    , UPDT_ID
+			    , UPDT_DTM
+			) VALUES (
+			      ?                 -- USER_ID
+			    , ?                 -- MN_ID
+			    , DECODE( ?, 1, 'Y', 'N' )                 -- SRCH_YN
+			    , DECODE( ?, 1, 'Y', 'N' )                 -- INPT_YN
+			    , ?                 -- INST_ID			    
+			    , SYSDATE           -- INST_DTM
+			    , ?                 -- UPDT_ID
+			    , SYSDATE           -- UPDT_DTM
+			)
+        ]]>
+    </query>  
+    
+
+     <query id="tbda_mn_auth_da001" desc="MENUAUTHDELETE쿼리" fetchSize="10">
+        <![CDATA[
+			DELETE FROM TBDA_MN_AUTH
+			WHERE USER_ID = ?
+        ]]>
+    </query>   
+          
+          
+		
+    <query id="tbda_mn_auth_backup_cnt" desc="백업데이터존재여부" fetchSize="10">
+        <![CDATA[
+		    SELECT count(*) cnt
+		    FROM  TBDA_MN_AUTH_BACKUP
+		    WHERE BACKUP_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ]]>
+    </query>   
+
+    <query id="tbda_auth_backup" desc="백업" fetchSize="10">
+
+        <![CDATA[
+				INSERT INTO TBDA_MN_AUTH_BACKUP
+				SELECT 
+				    TO_CHAR(SYSDATE, 'YYYYMMDD') AS BACKUP_DT
+						, USER_ID
+						, MN_ID
+						, SRCH_YN
+						, INPT_YN
+						, INST_ID
+						, INST_DTM
+						, UPDT_ID
+						, UPDT_DTM
+				FROM TBDA_MN_AUTH
+        ]]>
+
+    </query> 
+</queryMap>

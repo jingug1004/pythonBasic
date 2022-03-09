@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm6050(분실신고서 접수)">
+  <query id="rsm6050_s01" desc="분실신고서 접수 대상목록 조회" fetchSize="10">
+      <![CDATA[
+
+			SELECT	/* rsm6050_s01 */
+				PUBL_DT          
+				,TSN_NO           
+				,BRNC_CD
+				,C.CD_NM AS BRNC_NM
+				,DIV_NO           
+				,PLC_NO           
+				,RACE_NO          
+				,CNCL_CD          
+				,TIC_TYPE_CD      
+				,TIC_STAS         
+				,TIC_CONT         
+				,STOPPAY_REQ_DEPT 
+				,STOPPAY_REQ_NM   
+				,STOPPAY_ID   
+				,(SELECT USER_NM FROM TBRK_USER WHERE USER_ID=A.STOPPAY_ID) STOPPAY_NM 	--지급정지 요청자명
+				,(SELECT HP_NO FROM TBRK_USER WHERE USER_ID=A.STOPPAY_ID) HP_NO 			--지급정지 요청자 핸드폰번호         
+				,STOPPAY_DT       
+				,RCPT_DT
+				,RCPT_DEPT_NM																				-- 분실신고서 접수자부서
+				,RCPT_ID
+				,(SELECT USER_NM FROM TBRK_USER WHERE USER_ID=A.RCPT_ID) RCPT_NM 			-- 분실신고서접수자명          
+				,CNCL_REQ_DEPT    
+				,CNCL_REQ_ID
+				,(SELECT USER_NM FROM TBRK_USER WHERE USER_ID=A.CNCL_REQ_ID) CNCL_REQ_NM 	-- 지급정지 해지요청자자명      
+				,CNCL_ID
+				,(SELECT USER_NM FROM TBRK_USER WHERE USER_ID=A.CNCL_ID) CNCL_NM 			-- 지급정지 해지자명   
+				,CNCL_DT          
+				,VERI_RSLT_CD     
+				,VERI_RSLT_DT
+				,DECODE(NVL(VERI_RSLT_CD,''),'','미검증','검증') VERI_RSLT_YN     
+				,MISS_REPO_NO     
+				,MISS_REPO_CD     
+				,ACDNT_TY_CD      
+				,SALES_AMT        
+				,REFUND_TY_CD     
+				,REFUND_AMT       
+				,CUST_NM          
+				,CUST_PHONE_NO    
+				,CUST_ADDR 
+				,BIRTH_DAY       
+				,RMK
+				,ATT_FILE_KEY              
+				,INST_ID          
+				,INST_DT          
+				,UPDT_ID          
+				,UPDT_DT
+			FROM   TBRD_STOPPAY_CNCL_CNTNT A,		 
+				  (
+					SELECT CD,CD_NM
+					FROM 
+					TBRK_SPEC_CD C
+					WHERE  1=1    
+					AND C.GRP_CD IN ('018')
+				  ) C
+			WHERE   1=1
+			AND A.BRNC_CD=C.CD(+)           
+			AND  REGEXP_LIKE (DECODE(?, '', '1',TIC_STAS),DECODE(?,'','1',?) )-- 티켓타입
+			-- AND  MISS_REPO_CD ='002'   		-- 분신신고유형(오프라인)         
+			AND  DECODE(?, '2', CNCL_DT, STOPPAY_DT) BETWEEN ? AND ?	-- 지불정지일자 조건
+			AND  TSN_NO    LIKE  '%' || NVL(? , TSN_NO)  || '%'     	  
+		
+			AND  REGEXP_LIKE (DECODE(?, '', '1',BRNC_CD),DECODE(?,'','1',?) )
+			--AND  VERI_RSLT_DT IS NOT NULL	-- 검증이 완료된 건만 조회 한다.
+			ORDER BY STOPPAY_DT DESC	      	
+        ]]>
+   </query>
+   
+   
+   <query id="rsm6050_u01" desc="분실신고서 접수및 기타 프로세스 변경" fetchSize="10">
+      <![CDATA[
+               
+      		UPDATE TBRD_STOPPAY_CNCL_CNTNT 
+      			SET 
+      					ACDNT_TY_CD		= ?		-- 사고유형
+      				,	REFUND_TY_CD	= ?		-- 환급유형
+      				,	RCPT_DT			= ?		-- 접수일자
+     				,	RCPT_DEPT_NM	= ?		-- 접수자부서명
+     				,	RCPT_ID			= ?		-- 접수자ID
+      				,	REFUND_AMT		= ?		-- 환급금액
+      				,	RMK				= ?		-- 비고
+      				,	CUST_NM			= ?		-- 고객명
+      				,	CUST_PHONE_NO	= ?		-- 고객연락처
+      				,	CUST_ADDR		= ?		-- 고객주소
+      				,	BIRTH_DAY		= ?		-- 고객생년월일
+      				,	TIC_STAS 		= ?		-- 티켓상태 (해지요청)
+      				,	CNCL_REQ_DEPT	= ?		-- 해지요청자부서명
+      				,	CNCL_REQ_ID		= ?		-- 해지요청자ID		
+      				, 	UPDT_ID			= ?		-- 처리
+      				, 	UPDT_DT 		= SYSDATE      				
+      		 WHERE 	MISS_REPO_NO		 		= ?
+      		   AND	TSN_NO 				= ?
+		
+        ]]>
+    </query>
+    
+    <query id="rsm6050_u02" desc="분실신고서 데이타 저장" fetchSize="10">
+      <![CDATA[
+       
+      		UPDATE TBRD_STOPPAY_CNCL_CNTNT 
+      			SET 
+      					ACDNT_TY_CD		= ?		-- 사고유형
+      				,	REFUND_TY_CD	= ?		-- 환급유형       				
+      				,	REFUND_AMT		= ?		-- 환급금액
+      				,	RMK				= ?		-- 비고
+      				,	CUST_NM			= ?		-- 고객명
+      				,	CUST_PHONE_NO	= ?		-- 고객연락처
+      				,	CUST_ADDR		= ?		-- 고객주소
+      				,	BIRTH_DAY		= ?		-- 고객생년월일      	
+      				, 	UPDT_ID			= ?		-- 처리자ID
+      				, 	UPDT_DT 		= SYSDATE      				
+      		 WHERE 	MISS_REPO_NO		 		= ?
+      		   AND	TSN_NO 				= ?
+		
+        ]]>
+    </query>
+    
+    <query id="rsm6050_u03" desc="분실신고서 데이타 저장" fetchSize="10">
+      <![CDATA[
+       
+            UPDATE /* rsm6050_u03 */
+                   TBRD_STOPPAY_CNCL_CNTNT 
+                SET 
+                     ATT_FILE_KEY     = ?     -- 첨부파일키             
+             WHERE  MISS_REPO_NO      = ?
+               AND  TSN_NO            = ?
+        
+        ]]>
+    </query>
+</queryMap>

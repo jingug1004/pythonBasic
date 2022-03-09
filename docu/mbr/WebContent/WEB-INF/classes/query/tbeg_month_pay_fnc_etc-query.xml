@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_month_pay_fnc_etc 기타 지급 내역  등록  ">
+   
+     <query id="tbeg_month_pay_fnc_etc_ff001" desc=" 기타 지급 내역  조회    " fetchSize="10">
+        <![CDATA[
+			-- 개인별 기타 지급 내역 등록 
+			SELECT ROWNUM AS NUM , TP.* FROM (
+				SELECT 
+				    STND_YEAR,  -- 기준년도 
+				    PAY_MONTH,  -- 기준월
+				    '6' AS PAY_TPE,    -- 유형 
+				    TMP.RACER_NO,   -- 선수등록번호
+				    TRM.NM_KOR AS RACER_NM, -- 선수명
+				    SUPP_AMT_07,    -- 지급항목 - 기타수당(기타항목)
+				    SUPP_AMT_10,    -- 지급공제항목 - 식대(지급)
+				    SUPP_AMT_12,    -- 지급공제항목 - 선수연금(사업자부담)
+				    SUPP_AMT_14,    -- 지급공제항목 - 상행보험료(지급)
+				    SUPP_AMT_15,    -- 지급공제항목 - 현물제공(지급)
+				    SUPP_AMT_16,    -- 지급공제항목 - 기타항목(지급)
+				    SUPP_AMT_19,    -- 지급항목 - 기타수당(훈련참가보조수당)
+				    SUPP_AMT_20,    -- 지급항목 - 기타수당(예행연습보조수당)
+				    AID_AMT_01, 	-- 공제항목 - 소득세
+				    AID_AMT_02, 	-- 공제항목 - 주민세
+				    AID_AMT_03, 	-- 공제항목 - 기타항목
+				    AID_AMT_10,    	-- 지급공제항목 - 식대(공제 )
+				    AID_AMT_11,    	-- 지급공제항목 - 상행보험료(공제)
+				    AID_AMT_12,    	-- 지급공제항목 - 선수연금(선수부담분)
+				    AID_AMT_13,    	-- 지급공제항목 - 현물제공(공제)
+				    AID_AMT_14    	-- 지급공제항목 - 기타항목(공제)
+				FROM TBEG_MONTH_PAY TMP, TBEC_RACER_MASTER TRM
+				WHERE TMP.RACER_NO = TRM.RACER_NO
+				AND STND_YEAR=?
+				AND PAY_MONTH=TO_NUMBER(?)
+				AND PAY_TPE='6'
+				AND 'X' = (SELECT 'X' FROM DUAL WHERE EXISTS (SELECT * FROM TBEG_MONTH_PAY WHERE STND_YEAR=? AND PAY_MONTH=TO_NUMBER(?) AND PAY_TPE='6'))
+				AND TRM.NM_KOR LIKE '%'||?||'%'
+				-- 개인별 기타 지급 내역 등록 
+				UNION ALL 
+				SELECT 
+				    ? AS STND_YEAR,    -- 기준년도 
+				    TO_NUMBER(?) AS PAY_MONTH, -- 기준월
+				    '6' AS PAY_TPE, -- 유형 
+				    TRM.RACER_NO,   -- 선수등록번호
+				    TRM.NM_KOR AS RACER_NM, -- 선수명
+				    0 AS SUPP_AMT_07,    -- 지급항목 - 기타수당(기타항목)
+				    0 AS SUPP_AMT_10,    -- 지급공제항목 - 식대(지급)
+				    0 AS SUPP_AMT_12,    -- 지급공제항목 - 선수연금(사업자부담)
+				    0 AS SUPP_AMT_14,    -- 지급공제항목 - 상행보험료(지급)
+				    0 AS SUPP_AMT_15,    -- 지급공제항목 - 현물제공(지급)
+				    0 AS SUPP_AMT_16,    -- 지급공제항목 - 기타항목(지급)
+				    0 AS SUPP_AMT_19,    -- 지급항목 - 기타수당(훈련참가보조수당)
+				    0 AS SUPP_AMT_20,    -- 지급항목 - 기타수당(예행연습보조수당)
+				    0 AS AID_AMT_01, 	-- 공제항목 - 소득세
+				    0 AS AID_AMT_02, 	-- 공제항목 - 주민세
+				    0 AS AID_AMT_03, 	-- 공제항목 - 기타항목
+				    0 AS AID_AMT_10,    	-- 지급공제항목 - 식대(공제 )
+				    0 AS AID_AMT_11,    	-- 지급공제항목 - 상행보험료(공제)
+				    0 AS AID_AMT_12,    	-- 지급공제항목 - 선수연금(선수부담분)
+				    0 AS AID_AMT_13,    	-- 지급공제항목 - 현물제공(공제)
+				    0 AS AID_AMT_14    		-- 지급공제항목 - 기타항목(공제)
+	            FROM TBEC_RACER_MASTER TRM
+	            WHERE TRM.RACER_STAT_CD IN ('001', '002')
+				AND 'X' = (SELECT 'X' FROM DUAL WHERE NOT EXISTS (SELECT * FROM TBEG_MONTH_PAY WHERE STND_YEAR=? AND PAY_MONTH=TO_NUMBER(?) AND PAY_TPE='6'))
+				AND TRM.NM_KOR LIKE '%'||?||'%'
+				ORDER BY RACER_NO
+			)TP
+        ]]>
+    </query> 
+   
+   
+   <query id="tbeg_month_pay_fnc_etc_mf001" desc=" 기타 지급 내역  등록   " fetchSize="10">
+        <![CDATA[
+			-- 개인별 기타수당및 공제 등록 
+			MERGE INTO TBEG_MONTH_PAY TMP
+			USING (
+				SELECT
+					? AS STND_YEAR,  -- 기준년도 
+				    ? AS PAY_MONTH,  -- 기준월
+				    ? AS PAY_TPE,    -- 유형 
+				    ? AS RACER_NO,   -- 선수등록번호
+				    NVL(?,0) AS SUPP_AMT_07,    -- 지급항목 - 기타수당(기타항목)
+				    NVL(?,0) AS SUPP_AMT_10,    -- 지급공제항목 - 식대(지급)
+				    NVL(?,0) AS SUPP_AMT_12,    -- 지급공제항목 - 선수연금(사업자부담)
+				    NVL(?,0) AS SUPP_AMT_14,    -- 지급공제항목 - 상행보험료(지급)
+				    NVL(?,0) AS SUPP_AMT_15,    -- 지급공제항목 - 현물제공(지급)
+				    NVL(?,0) AS SUPP_AMT_16,    -- 지급공제항목 - 기타항목(지급)
+				    NVL(?,0) AS SUPP_AMT_19,    -- 지급항목 - 기타수당(훈련참가보조수당)
+				    NVL(?,0) AS SUPP_AMT_20,    -- 지급항목 - 기타수당(예행연습보조수당)
+				    NVL(?,0) AS AID_AMT_01, 	-- 공제항목 - 소득세
+				    NVL(?,0) AS AID_AMT_02, 	-- 공제항목 - 주민세
+				    NVL(?,0) AS AID_AMT_03, 	-- 공제항목 - 기타항목
+				    NVL(?,0) AS AID_AMT_10,    	-- 지급공제항목 - 식대(공제 )
+				    NVL(?,0) AS AID_AMT_11,    	-- 지급공제항목 - 상행보험료(공제)
+				    NVL(?,0) AS AID_AMT_12,    	-- 지급공제항목 - 선수연금(선수부담분)
+				    NVL(?,0) AS AID_AMT_13,    	-- 지급공제항목 - 현물제공(공제)
+				    NVL(?,0) AS AID_AMT_14,    	-- 지급공제항목 - 기타항목(공제)
+				    ? AS USER_ID -- 사용자 ID
+			    FROM DUAL ) TP
+			ON (TMP.STND_YEAR = TP.STND_YEAR  -- 기준년도 
+			    AND TMP.PAY_MONTH = TP.PAY_MONTH  -- 기준월
+			    AND TMP.PAY_TPE = TP.PAY_TPE    -- 유형 
+			    AND TMP.RACER_NO = TP.RACER_NO   -- 선수등록번호
+			    )
+			WHEN MATCHED THEN
+			UPDATE 
+			SET
+			    TMP.SUPP_AMT_07 = TP.SUPP_AMT_07,    -- 지급항목 - 기타수당(기타항목)
+			    TMP.SUPP_AMT_10 = TP.SUPP_AMT_10,    -- 지급공제항목 - 식대(지급)
+			    TMP.SUPP_AMT_12 = TP.SUPP_AMT_12,    -- 지급공제항목 - 선수연금(사업자부담)
+			    TMP.SUPP_AMT_14 = TP.SUPP_AMT_14,    -- 지급공제항목 - 상행보험료(지급)
+			    TMP.SUPP_AMT_15 = TP.SUPP_AMT_15,    -- 지급공제항목 - 현물제공(지급)
+			    TMP.SUPP_AMT_16 = TP.SUPP_AMT_16,    -- 지급공제항목 - 기타항목(지급)
+			    TMP.SUPP_AMT_19 = TP.SUPP_AMT_19,    -- 지급항목 - 기타수당(훈련참가보조수당)
+			    TMP.SUPP_AMT_20 = TP.SUPP_AMT_20,    -- 지급항목 - 기타수당(예행연습보조수당)
+			    TMP.AID_AMT_01 = TP.AID_AMT_01, 	-- 공제항목 - 소득세
+			    TMP.AID_AMT_02 = TP.AID_AMT_02, 	-- 공제항목 - 주민세
+			    TMP.AID_AMT_03 = TP.AID_AMT_03, 	-- 공제항목 - 기타항목
+			    TMP.AID_AMT_10 = TP.AID_AMT_10,    	-- 지급공제항목 - 식대(공제 )
+			    TMP.AID_AMT_11 = TP.AID_AMT_11,    	-- 지급공제항목 - 상행보험료(공제)
+			    TMP.AID_AMT_12 = TP.AID_AMT_12,    	-- 지급공제항목 - 선수연금(선수부담분)
+			    TMP.AID_AMT_13 = TP.AID_AMT_13,    	-- 지급공제항목 - 현물제공(공제)
+			    TMP.AID_AMT_14 = TP.AID_AMT_14,    	-- 지급공제항목 - 기타항목(공제)
+			    TMP.SUPP_AMT_30 = TP.SUPP_AMT_07 + TP.SUPP_AMT_10 + TP.SUPP_AMT_12 + TP.SUPP_AMT_14 + TP.SUPP_AMT_15 + TP.SUPP_AMT_16 + TP.SUPP_AMT_19 + TP.SUPP_AMT_20,
+			    TMP.AID_AMT_20 = TP.AID_AMT_01 + TP.AID_AMT_02+ TP.AID_AMT_03 + TP.AID_AMT_10 + TP.AID_AMT_11 + TP.AID_AMT_12 + TP.AID_AMT_13 + TP.AID_AMT_14,
+			    TMP.REAL_SUPP_AMT =(TP.SUPP_AMT_07 + TP.SUPP_AMT_10 + TP.SUPP_AMT_12 + TP.SUPP_AMT_14 + TP.SUPP_AMT_15 + TP.SUPP_AMT_16 + TP.SUPP_AMT_19 + TP.SUPP_AMT_20)
+			    					- (TP.AID_AMT_01 + TP.AID_AMT_02+ TP.AID_AMT_03 + TP.AID_AMT_10 + TP.AID_AMT_11 + TP.AID_AMT_12 + TP.AID_AMT_13 + TP.AID_AMT_14),
+			    TMP.UPDT_ID = TP.USER_ID,
+			    TMP.UPDT_DTM = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (
+				TMP.STND_YEAR,  -- 기준년도 
+			    TMP.PAY_MONTH,  -- 기준월
+			    TMP.PAY_TPE,    -- 유형 
+			    TMP.RACER_NO,   -- 선수등록번호
+			    TMP.SUPP_AMT_07,    -- 지급항목 - 기타수당(기타항목)
+			    TMP.SUPP_AMT_10,    -- 지급공제항목 - 식대(지급)
+			    TMP.SUPP_AMT_12,    -- 지급공제항목 - 선수연금(사업자부담)
+			    TMP.SUPP_AMT_14,    -- 지급공제항목 - 상행보험료(지급)
+			    TMP.SUPP_AMT_15,    -- 지급공제항목 - 현물제공(지급)
+			    TMP.SUPP_AMT_16,    -- 지급공제항목 - 기타항목(지급)
+			    TMP.SUPP_AMT_19,    -- 지급항목 - 기타수당(훈련참가보조수당)
+			    TMP.SUPP_AMT_20,    -- 지급항목 - 기타수당(예행연습보조수당)
+			    TMP.AID_AMT_01, 	-- 공제항목 - 소득세
+			    TMP.AID_AMT_02, 	-- 공제항목 - 주민세
+			    TMP.AID_AMT_03, 	-- 공제항목 - 기타항목
+			    TMP.AID_AMT_10,    	-- 지급공제항목 - 식대(공제 )
+			    TMP.AID_AMT_11,    	-- 지급공제항목 - 상행보험료(공제)
+			    TMP.AID_AMT_12,    	-- 지급공제항목 - 선수연금(선수부담분)
+			    TMP.AID_AMT_13,    	-- 지급공제항목 - 현물제공(공제)
+			    TMP.AID_AMT_14,    	-- 지급공제항목 - 기타항목(공제)
+			    TMP.SUPP_AMT_30,	-- 지급계
+			    TMP.AID_AMT_20, -- 공제계 
+			    TMP.REAL_SUPP_AMT, --실지급액
+			    TMP.INST_ID,
+			    TMP.INST_DTM
+			)			    
+			VALUES(
+				TP.STND_YEAR,  -- 기준년도 
+			    TP.PAY_MONTH,  -- 기준월
+			    TP.PAY_TPE,    -- 유형 
+			    TP.RACER_NO,   -- 선수등록번호
+			    TP.SUPP_AMT_07,    -- 지급항목 - 기타수당(기타항목)
+			    TP.SUPP_AMT_10,    -- 지급공제항목 - 식대(지급)
+			    TP.SUPP_AMT_12,    -- 지급공제항목 - 선수연금(사업자부담)
+			    TP.SUPP_AMT_14,    -- 지급공제항목 - 상행보험료(지급)
+			    TP.SUPP_AMT_15,    -- 지급공제항목 - 현물제공(지급)
+			    TP.SUPP_AMT_16,    -- 지급공제항목 - 기타항목(지급)
+			    TP.SUPP_AMT_19,    -- 지급항목 - 기타수당(훈련참가보조수당)
+			    TP.SUPP_AMT_20,    -- 지급항목 - 기타수당(예행연습보조수당)
+			    TP.AID_AMT_01, 	-- 공제항목 - 소득세
+			    TP.AID_AMT_02, 	-- 공제항목 - 주민세
+			    TP.AID_AMT_03, 	-- 공제항목 - 기타항목
+			    TP.AID_AMT_10,    	-- 지급공제항목 - 식대(공제 )
+			    TP.AID_AMT_11,    	-- 지급공제항목 - 상행보험료(공제)
+			    TP.AID_AMT_12,    	-- 지급공제항목 - 선수연금(선수부담분)
+			    TP.AID_AMT_13,    	-- 지급공제항목 - 현물제공(공제)
+			    TP.AID_AMT_14,    	-- 지급공제항목 - 기타항목(공제)
+			    TP.SUPP_AMT_07 + TP.SUPP_AMT_10 + TP.SUPP_AMT_12 + TP.SUPP_AMT_14 + TP.SUPP_AMT_15 + TP.SUPP_AMT_16 + TP.SUPP_AMT_19 + TP.SUPP_AMT_20,
+			    TP.AID_AMT_01 + TP.AID_AMT_02+ TP.AID_AMT_03 + TP.AID_AMT_10 + TP.AID_AMT_11 + TP.AID_AMT_12 + TP.AID_AMT_13 + TP.AID_AMT_14,
+			    (TP.SUPP_AMT_07 + TP.SUPP_AMT_10 + TP.SUPP_AMT_12 + TP.SUPP_AMT_14 + TP.SUPP_AMT_15 + TP.SUPP_AMT_16 + TP.SUPP_AMT_19 + TP.SUPP_AMT_20)
+			    					- (TP.AID_AMT_01 + TP.AID_AMT_02+ TP.AID_AMT_03 + TP.AID_AMT_10 + TP.AID_AMT_11 + TP.AID_AMT_12 + TP.AID_AMT_13 + TP.AID_AMT_14),
+			    TP.USER_ID,
+			    SYSDATE
+			  )
+        ]]>
+    </query> 
+   
+</queryMap>

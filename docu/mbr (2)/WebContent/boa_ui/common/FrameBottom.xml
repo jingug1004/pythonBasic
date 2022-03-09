@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form BKColor="#accef3" Height="46" Id="FrameBottom" Left="8" OnLoadCompleted="FrameBottom_OnLoadCompleted" OnSize="FrameBottom_OnSize" OnTimer="fcOnTimer" OnUnloadCompleted="FrameBottom_OnUnloadCompleted" PidAttrib="7" Style="XP" Title="FrameBottom" Top="8" Ver="1.0" Width="1280" WorkArea="true">
+		<Div Height="20" Id="ChoiceDiv" Left="-3" TabOrder="2" Text="Div0" Top="22" Width="1219">
+			<Contents>
+				<Tab Border="Flat" BorderColor="#accef3" Color="#5b5b5b" FixedImage="FALSE" Height="20" Id="tab_Menu" Left="4" MouseOverColor="#b26540" OnChanged="fcTabChanged" SelColor="#3b5e99" TabOrder="1" Top="2" Width="1214">
+					<Contents>
+						<TabPage Height="-2" Id="E00000000" ImageEdgeWidth="10" ImageID="b_tab" Left="2" SyncContents="true" TabOrder="1" Text="메인화면" Top="20" Width="1210"></TabPage>
+					</Contents>
+				</Tab>
+			</Contents>
+		</Div>
+		<Div Height="22" Id="BottomDiv" Left="1217" TabOrder="1" Text="Div0" Top="22" Width="63">
+			<Contents>
+				<Button Height="21" Id="btn_allclose" ImageID="btn_allclose" Left="1" OnClick="btn_allclose_OnClick" TabOrder="1" Text="allcose" Transparent="TRUE" Width="61"></Button>
+			</Contents>
+		</Div>
+		<Static BKColor="#e9e9e9" Color="#333333" Height="22" Id="ed_msg" Left="16" TabOrder="3" Text="조회중입니다." Top="1" VAlign="Middle" Width="976"></Static>
+		<Static BKColor="#e9e9e9" Height="22" Id="Static1" TabOrder="4" Top="1" Width="16"></Static>
+		<Static BKColor="#e9e9e9" Color="#333333" Height="22" Id="stLastLoginDt" Left="996" TabOrder="6" Top="1" VAlign="Middle" Width="280"></Static>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::boa_common_script.js";
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var nMaxWinCnt = 12;
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  01. Resize 처리부분
++-------------------------------------------------------------------------------------------------*/
+function FrameBottom_OnSize(obj,nCx,nCy,nState){
+	BottomDiv.Left = nCx - BottomDiv.Width;
+	
+	ed_msg.width = nCx - stLastLoginDt.width - 18;
+	stLastLoginDt.left = nCx - stLastLoginDt.width;
+}
+/*-------------------------------------------------------------------------------------------------+
+>>  02. 폼초기화 : 첫번째 tab 삭제
++-------------------------------------------------------------------------------------------------*/
+function FrameBottom_OnLoadCompleted(obj){
+    for ( var i = ChoiceDiv.tab_Menu.TabCount; i >= 0; i-- ) {
+        ChoiceDiv.tab_Menu.DeleteTab(i);
+    }
+
+    fcOpenMdiForm("E00000000", "메인화면", "common::comMain.xml");    
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  03. ID를 이용해서 오픈되어 있는 폼 검색
++-------------------------------------------------------------------------------------------------*/
+function fcfindOpenForm(sMenuId) {
+	var nCount = global.AllWindows.count;
+	for ( var i = 0; i < nCount; i++ ) {
+		if ( global.AllWindows[i].id == sMenuId ){
+			global.AllWindows[i].SetFocus();
+			return global.AllWindows[i];
+		}
+	}
+	
+	return null;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  04. 새로운 MDI 창 열기
++-------------------------------------------------------------------------------------------------*/
+function fcOpenMdiForm(sMenuId, sMenuNm, sUrl) {
+	
+	/****** admin check start ******/
+	/*
+	if(substr(sMenuId,0,4) == 'E010') {
+		var admin = gdsUser.GetColumn(0,"USER_ID");
+		var ipList = ext_GetIPAddress();
+		ip    = ipList[0];
+		var mcList = ext_GetMacAddress();
+		mac    = mcList[0];
+
+		if(admin != '05074' or ip != '160.100.52.32' or mac != '30-5a-3a-7c-12-4e') {
+			alert('시스템 관리자는 지정된 PC에서만 사용이 가능합니다.');
+			exit();
+		}
+	}
+	*/
+	/****** admin check end ******/
+	
+	if ( ChoiceDiv.tab_Menu.TabCount == nMaxWinCnt ) {
+		var sMenuId = "";
+        for ( var i = 0; i < nMaxWinCnt; i++ ) {
+            sMenuId = ChoiceDiv.tab_Menu.GetItem(i).id;
+            if ( sMenuId != "E00000000" ) {
+                ChoiceDiv.tab_Menu.DeleteTab(i);
+                break;
+            }
+        }	
+
+
+        var nCount = global.AllWindows.count-1; 
+        for ( var i = nCount; i >= 0; i-- ) {
+            if ( global.AllWindows[i].id == sMenuId ) {
+                global.windows[i].Close();
+            }
+        }
+	}	
+
+    if ( fcfindOpenForm(sMenuId) != null ) {
+        fcSearchTab(sMenuId);
+        return;
+    }
+
+    var nRow = gdsMenu.FindRowNF("MN_ID", sMenuId);
+    
+    var sArg = "";
+    if ( nRow >= 0 ) {
+        // Content로 넘겨지는 arguements
+	    sArg  = " sTarget="     + quote(gdsMenu.GetColumnNF(nRow, "URL"));
+        sArg += " sTitle="      + quote(gdsMenu.GetColumnNF(nRow, "MN_NM"));
+        sArg += " sMenuId="     + quote(gdsMenu.GetColumnNF(nRow, "MN_ID"));
+        sArg += " sIsView="     + quote(gdsMenu.GetColumnNF(nRow, "SRCH_YN"));
+        sArg += " sInpt="       + quote(gdsMenu.GetColumnNF(nRow, "INPT_YN"));
+       
+        sMenuNm = gdsMenu.GetColumnNF(nRow, "MN_NM");
+    } else {
+        // Content로 넘겨지는 arguements
+	    sArg  = " sTarget="     + sUrl;
+        sArg += " sTitle="      + sMenuNm;
+        sArg += " sMenuId="     + sMenuId;
+        sArg += " sIsView="     + "";
+        sArg += " sInpt="       + "";
+    }
+    
+    NewWindow(sMenuId, "common::comContents.xml", sArg, 1280, 1024, "OpenStyle=Max TitleBar=true");
+	fcAddTab(sMenuId, sMenuNm);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  05. 새로운 MDI 창이 열릴때  TAB 추가 
++-------------------------------------------------------------------------------------------------*/
+function fcSearchTab(sMenuId) {
+
+	//이미존재 하는 폼인지 체크
+	for ( var i = 0; i < ChoiceDiv.tab_Menu.TabCount; i++ ) {
+		if ( ChoiceDiv.tab_Menu.GetItem(i).id == sMenuId ) {
+			ChoiceDiv.tab_Menu.TabIndex = i;
+			return true;		
+		}
+	}
+
+    return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  05. 새로운 MDI 창이 열릴때  TAB 추가 
++-------------------------------------------------------------------------------------------------*/
+function fcAddTab(sMenuId, sMenuNm) {
+	var subtab_idx = ChoiceDiv.tab_Menu.InsertTab(sMenuId,-1,'',sMenuNm,"b_tab");
+	ChoiceDiv.tab_Menu.TabIndex = subtab_idx;
+    return true;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  06. TAB을 변경할때 MDI Form 변경
++-------------------------------------------------------------------------------------------------*/
+function fcTabChanged(obj,nOldIndex,nNewindex){		
+	var sTabId = ChoiceDiv.tab_Menu.GetItem(nNewindex).id;
+	
+	var sFormId = ChoiceDiv.tab_Menu.GetItem(nNewindex).id;
+	http.Sync = true;
+	GBL_PERSONALMN_CHK = "N";	
+	fnc_PersonalMnChk(sFormId);
+	http.Sync = false;
+	
+	fcfindOpenForm(sTabId);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  08. 폼이 종료될 때 Tab 삭제
++-------------------------------------------------------------------------------------------------*/
+function fcDeleteTab(sTabId) {
+	for ( var i=0;i<ChoiceDiv.tab_Menu.TabCount;i++ ) {
+		if( ChoiceDiv.tab_Menu.GetItem(i).id == sTabId ) {
+			ChoiceDiv.tab_Menu.DeleteTab(i);
+			fcfindOpenForm(ChoiceDiv.tab_Menu.GetItem(ChoiceDiv.tab_Menu.TabIndex).id);
+			return;
+		}
+	}
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  09. allclose 버튼 처리
++-------------------------------------------------------------------------------------------------*/
+function btn_allclose_OnClick(obj){
+		
+	var nCount = ChoiceDiv.tab_Menu.TabCount;
+
+	for ( var i = nCount; i >= 0; i-- ) {
+        var sMenuId = ChoiceDiv.tab_Menu.GetItem(i).id;
+        if ( sMenuId != "E00000000" ) 
+            ChoiceDiv.tab_Menu.DeleteTab(i);
+	}	
+
+	var nCount = global.AllWindows.count-1; 
+	for ( var i = nCount; i >= 0; i-- ) {
+		if ( global.AllWindows[i].id != "FrameBottom" 
+		  && global.AllWindows[i].id != "E00000000" 
+		  && global.AllWindows[i].id != "FrameTop" 
+		  && global.AllWindows[i].id != "FrameRight" 
+		   ) {
+			global.windows[i].Close();
+		}
+	}
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  11. Timer를 이용해 Message Bar Clear
++-------------------------------------------------------------------------------------------------*/
+function fcOnTimer(obj,nEventID){
+	if(nEventID==1000) {
+		this.KillTimer(1000);
+        ed_msg.Text = "";
+	}
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  12.  시스템 종료시 정속정보를 registry에 저장한다.
++-------------------------------------------------------------------------------------------------*/
+function FrameBottom_OnUnloadCompleted(obj)
+{
+ 	//로컬에서는 저장하지 않음
+	if(GBL_SERVER_URL.IndexOf("localhost") >= 0) return ;
+
+	// 마지막 로그아웃정보를 우선 윈도우 레지스트리에 저장후 다음번 로그인시 로그아웃 처리상태로 변경
+	SetReg("LastLogSeq",  GetReg("LastLogSeq")+"|"+gdsUser.GetColumn(0, "LOG_SEQ"));
+	SetReg("LastLoginDt", GetReg("LastLoginDt")+"|"+GetDate());
+}
+]]></Script>
+</Window>

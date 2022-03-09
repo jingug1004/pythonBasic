@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR5030(출주표 검수내역 조회)">
+
+	<query id="rbr5030_s01" desc="지점코드 조회" fetchSize="10">
+		<![CDATA[
+			SELECT	/*rbr5030_s01 지점코드 조회*/
+				BRNC_CD,
+				DECODE(BRNC_CD, '00', '경륜본장', '98', '경정본장', '29', '부산김해', FC_CODE_NM('060', BRNC_CD)||'지점') BRNC_NM,
+				FLOC
+			FROM TBRK_USER
+			WHERE USER_ID = ?
+        ]]>
+	</query>
+	 
+	<query id="rbr5030_s02" desc="출주표 검수상태 조회" fetchSize="10">
+		<![CDATA[
+			SELECT * FROM ( /* rbr5030_s02 출주표 검수상태 조회 */
+			SELECT
+				'1' ORD,
+				T1.STND_YEAR, T1.STND_MM, T1.BRNC_CD,
+				T1.CHG_VERI_YN, NVL(T1.CFM_VERI_YN,'N') CFM_VERI_YN,
+				DECODE(T1.CHG_VERI_YN, 'Y','확정','미확정') CHG_VERI_NM, --담당자 확정
+				DECODE(T1.CFM_VERI_YN, 'Y','확정','미확정') CFM_VERI_NM, --확인자 확정
+				DECODE(T1.MGR_CYCLE_VERI_YN, 'Y','확정','미확정') MGR_CYCLE_VERI_NM, --경륜 관리자 확정
+				DECODE(T1.MGR_BOAT_VERI_YN, 'Y','확정','미확정')  MGR_BOAT_VERI_NM,  --경정 관리자 확정
+			
+				CASE WHEN  T1.MGR_CYCLE_VERI_YN = 'Y' OR T1.MGR_BOAT_VERI_YN = 'Y' OR T1.CFM_VERI_YN = 'Y'  OR T1.CHG_VERI_YN = 'Y' THEN 'False'
+				ELSE 'True' END SAVE_ENABLE,
+			
+				CASE WHEN T2.FLOC = '지점장' OR T2.FLOC = '팀장' THEN
+					CASE WHEN  T1.CFM_VERI_YN = 'Y' THEN '확정취소'
+					ELSE '확정' END
+				ELSE
+					CASE WHEN  T1.CHG_VERI_YN = 'Y' THEN '확정취소'
+					ELSE '확정' END
+				END CFM_STAT,
+				
+				CASE WHEN T2.FLOC = '지점장' OR T2.FLOC = '팀장' THEN 'CFM'
+				ELSE 'CHG'
+				END EMP_STAT,
+			
+				CASE WHEN T2.FLOC = '지점장' OR T2.FLOC = '팀장' THEN
+					CASE WHEN  T1.CFM_VERI_YN = 'Y' THEN 'N'
+					ELSE 'Y' END
+				ELSE
+					CASE WHEN  T1.CHG_VERI_YN = 'Y' THEN 'N'
+					ELSE 'Y' END
+				END CFM_VALUE,	--확정 버튼 눌렀을 때 서버로 전송하는 값 
+
+				CASE WHEN T2.FLOC = '지점장' OR T2.FLOC = '팀장' THEN 'VERI'
+				ELSE 'CHG' END CFM_TYPE, --누가 확정 버튼을 눌렀는 지
+			/*			
+				CASE WHEN T2.FLOC = '지점장' OR T2.FLOC = '팀장' THEN
+					CASE WHEN  T1.MGR_CYCLE_VERI_YN = 'Y' OR T1.MGR_BOAT_VERI_YN = 'Y' THEN 'False'
+					     WHEN  T1.CHG_VERI_YN = 'N' OR T1.CHG_VERI_YN IS NULL THEN 'False'
+					ELSE 'True' END
+				ELSE
+					CASE WHEN  T1.MGR_CYCLE_VERI_YN = 'Y' OR T1.MGR_BOAT_VERI_YN = 'Y' OR T1.CFM_VERI_YN = 'Y' THEN 'False'
+					ELSE 'True' END
+				END CFM_ENABLE
+			*/
+				CASE WHEN T2.FLOC = '지점장' OR T2.FLOC = '팀장' THEN
+					CASE WHEN  T1.BRNC_CD IN ('11','17','18','21') AND NVL(T1.MGR_CYCLE_VERI_YN,'N') = 'N' THEN 'True' --수원, 산본, 부천, 영등포(경륜만지점)
+					     WHEN  T1.BRNC_CD = '00' AND T1.MGR_CYCLE_VERI_YN = 'N' THEN 'True' --경륜본장
+					     WHEN  T1.BRNC_CD = '98' AND T1.MGR_BOAT_VERI_YN = 'N' THEN 'True'  --경정본장
+						 WHEN  T1.BRNC_CD NOT IN ('11','17','18','21','00','98') AND (T1.MGR_CYCLE_VERI_YN = 'Y' OR T1.MGR_BOAT_VERI_YN = 'Y') THEN 'False'
+					     WHEN  T1.CHG_VERI_YN = 'N' OR T1.CHG_VERI_YN IS NULL THEN 'False'
+					ELSE 'True' END
+				ELSE
+					CASE WHEN  T1.BRNC_CD IN ('11','17','18','21') AND (T1.MGR_CYCLE_VERI_YN = 'N' OR T1.CFM_VERI_YN = 'N') THEN 'True' --수원, 산본, 부천, 영등포(경륜만지점)
+					     WHEN  T1.BRNC_CD = '00' AND (T1.MGR_CYCLE_VERI_YN = 'Y' OR T1.CFM_VERI_YN = 'Y') THEN 'True' --경륜본장
+					     WHEN  T1.BRNC_CD = '98' AND (T1.MGR_BOAT_VERI_YN = 'Y' OR T1.CFM_VERI_YN = 'Y') THEN 'True'  --경정본장
+					     WHEN  T1.BRNC_CD NOT IN ('11','17','18','21','00','98') AND (T1.MGR_CYCLE_VERI_YN = 'Y' OR T1.MGR_BOAT_VERI_YN = 'Y' OR T1.CFM_VERI_YN = 'Y') THEN 'False'
+					ELSE 'True' END
+				END CFM_ENABLE
+			FROM TBRA_ORGAN_EXAM_VERI T1, TBRK_USER T2
+			WHERE 1=1
+			AND T1.STND_YEAR = ?
+			AND T1.STND_MM = ?
+			AND T1.BRNC_CD = ?
+			AND T2.USER_ID = ?
+			UNION ALL
+			SELECT
+			'2' ORD,
+			?,  ?,  ?,'N','N','미확정','미확정','미확정' ,'미확정','True','확정','CHG','Y',
+			CASE WHEN (SELECT FLOC FROM TBRK_USER WHERE USER_ID = ?) = '지점장' OR (SELECT FLOC FROM TBRK_USER WHERE USER_ID = ?) = '팀장' THEN 'VERI'
+				 ELSE 'CHG' END CFM_TYPE, --누가 확정 버튼을 눌렀는 지
+			CASE WHEN (SELECT FLOC FROM TBRK_USER WHERE USER_ID = ?) = '지점장' OR (SELECT FLOC FROM TBRK_USER WHERE USER_ID = ?) = '팀장' THEN 'False'
+				 ELSE 'True' END CFM_ENABLE
+			FROM DUAL
+			ORDER BY ORD ASC
+			)
+			WHERE ROWNUM = 1
+        ]]>
+	</query>
+	
+	<query id="rbr5030_s03" desc="출주표 검수내역 조회" fetchSize="10">
+		<![CDATA[
+			SELECT	/*rbr5030_s03 출주표 검수내역 조회*/
+				T1.MEET_CD,
+				T1.STND_YEAR,
+				T1.STND_MM,
+				(SELECT MAX(TMS) FROM VW_SDL_INFO
+					WHERE MEET_CD = T1.MEET_CD
+				AND (
+						(RACE_DAY =  T1.DIST_DT) OR (RACE_DAY =  TO_CHAR(TO_DATE(T1.DIST_DT, 'YYYYMMDD')+1, 'YYYYMMDD'))
+					)
+				) TMS,
+				T1.DIST_DT,
+				SUBSTR(T1.DIST_DT,5,2)||'월 '||SUBSTR(T1.DIST_DT,7,2)||'일('||
+					TO_CHAR(TO_DATE(DIST_DT, 'YYYYMMDD'),'DY')||')' RACE_YOIL,
+				T1.BRNC_CD,
+				T1.ORGAN_CD,
+				FC_CODE_NM('173', ORGAN_CD)||DECODE(T1.BRNC_CD,'29','(부산)','') ORGAN_NM,
+				NVL(T1.DIST_CNT,0) DIST_CNT,
+				T1.VERI_YN
+			FROM TBRA_ORGAN_EXAM T1
+			WHERE 1=1
+			AND T1.STND_YEAR = ?
+			AND T1.STND_MM = ?
+			AND (T1.BRNC_CD = ? OR T1.BRNC_CD = DECODE(?, '98', 29, '999')) --경정본장은 부산김해 데이터 표출
+			ORDER BY MEET_CD, BRNC_CD DESC, TMS, DIST_DT, ORGAN_CD
+        ]]>
+	</query>
+	
+	<query id="rbr5030_s04" desc="메신저 쪽지 발송 대상자 조회" fetchSize="10">
+		<![CDATA[
+			SELECT	/*rbr5030_s04 메신저 쪽지 발송 대상자 조회*/
+				MIN(USER_ID) USER_ID FROM TBRK_USER
+			WHERE TEAM_CD IN (
+				SELECT TEAM_CD FROM TBRK_USER
+				WHERE USER_ID = ?
+			)
+			AND FLOC IN ('지점장','팀장')
+        ]]>
+	</query>
+	
+	<query id="rbr5030_m01" desc="출주표 검수내역 확정(담당자)" fetchSize="10">
+		<![CDATA[
+			MERGE INTO TBRA_ORGAN_EXAM_VERI  A /* rbr5030_m01 출주표 검수내역 확정(담당자) */
+            USING   
+                    (SELECT
+	                     ? AS STND_YEAR      -- 기준년도
+	                    ,? AS STND_MM        -- 기준월
+                        ,? AS BRNC_CD        -- 지점코드
+	                    ,? AS CHG_ID         -- 확정자
+	                    ,? AS CFM_VALUE      -- 확정여부       
+                    FROM    DUAL ) B  
+                
+            ON (    
+                         A.STND_YEAR= B.STND_YEAR   -- 기준년도
+                     AND A.STND_MM	= B.STND_MM  	-- 기준월
+                     AND A.BRNC_CD  = B.BRNC_CD     -- 지점코드
+            )           
+            
+            WHEN MATCHED THEN
+                UPDATE SET
+                     A.CHG_ID = B.CHG_ID           -- 확정자            
+                    ,A.CHG_VERI_YN = B.CFM_VALUE   -- 확정여부                    
+                    ,A.CHG_DT = SYSDATE            -- 확정일자                   
+            WHEN NOT MATCHED THEN 
+                INSERT (
+                     A.STND_YEAR    -- 기준년도
+                    ,A.STND_MM      -- 기준월
+                    ,A.BRNC_CD      -- 지점코드
+                    ,A.CHG_ID       -- 담당자
+                    ,A.CHG_VERI_YN  -- 확정여부
+                    ,A.CHG_DT       -- 확정일자
+                ) VALUES (
+                     B.STND_YEAR    -- 기준년도
+                    ,B.STND_MM      -- 기준월
+                    ,B.BRNC_CD      -- 지점코드
+                    ,B.CHG_ID       -- 담당자
+                    ,B.CFM_VALUE    -- 확정여부
+                    ,SYSDATE        -- 확정일자
+                )
+        ]]>
+	</query>
+	
+	<query id="rbr5030_m02" desc="출주표 검수내역 확정(확인자)" fetchSize="10">
+		<![CDATA[
+			MERGE INTO TBRA_ORGAN_EXAM_VERI  A /* rbr5030_m02 출주표 검수내역 확정(확인자) */
+            USING   
+                    (SELECT
+	                     ? AS STND_YEAR      -- 기준년도
+	                    ,? AS STND_MM        -- 기준월
+                        ,? AS BRNC_CD        -- 지점코드
+	                    ,? AS CFM_ID         -- 확정자
+	                    ,? AS CFM_VALUE      -- 확정여부       
+                    FROM    DUAL ) B  
+                
+            ON (    
+                         A.STND_YEAR= B.STND_YEAR   -- 기준년도
+                     AND A.STND_MM	= B.STND_MM  	-- 기준월
+                     AND A.BRNC_CD  = B.BRNC_CD     -- 지점코드
+            )           
+            
+            WHEN MATCHED THEN
+                UPDATE SET
+                     A.CFM_ID = B.CFM_ID           -- 확정자            
+                    ,A.CFM_VERI_YN = B.CFM_VALUE   -- 확정여부                    
+                    ,A.CFM_DT = SYSDATE            -- 확정일자                   
+            WHEN NOT MATCHED THEN 
+                INSERT (
+                     A.STND_YEAR    -- 기준년도
+                    ,A.STND_MM      -- 기준월
+                    ,A.BRNC_CD      -- 지점코드
+                    ,A.CFM_ID       -- 담당자
+                    ,A.CFM_VERI_YN  -- 확정여부
+                    ,A.CFM_DT       -- 확정일자
+                ) VALUES (
+                     B.STND_YEAR    -- 기준년도
+                    ,B.STND_MM      -- 기준월
+                    ,B.BRNC_CD      -- 지점코드
+                    ,B.CFM_ID       -- 담당자
+                    ,B.CFM_VALUE    -- 확정여부
+                    ,SYSDATE        -- 확정일자
+                )
+        ]]>
+	</query>
+
+</queryMap>

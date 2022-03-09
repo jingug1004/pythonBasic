@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_cnf_insp(확정검사)">
+    <query id="tbeb_cnf_insp_fb001" desc="확정검사조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TAEO .RACE_NO
+			       , TAEO .RACE_REG_NO
+			       , TA   .RACER_NO
+			       , TRM  .NM_KOR
+			       , TA   .MOT_NO
+			       , SUBSTR(TA   .MOT_NO , 6, 3) VIEW_MOT_NO
+			       , TA   .BOAT_NO
+			       , SUBSTR(TA   .BOAT_NO, 6, 3) VIEW_BOAT_NO
+			       , TAEO .RUN_TM_0      -- 소개항주타임
+			       , TAEO .RUN_TM        -- 소개항주타임
+			       , TAEO .OST_TM_0      -- OST 1차
+			       , TAEO .OST_TM        -- OST 2차
+			       , TCI  .WIND_SPD      -- 풍속          
+			       , TCI  .WIND_DIRC_CD  -- 풍향코드      
+			       , TCI  .HUMIDITY      -- 습도          
+			       , TRRAS.BF_TMS        -- 전회차
+			       , TCI  .TRNG_STR_DT   -- 훈련시작일자
+			       , TCI  .TRNG_END_DT   -- 훈련종료일자
+			       , NVL(TCI  .TRNG_DESC, TRI.TRNG_STAT) TRNG_DESC  -- 훈련내용      
+			       , TRI  .HEAL_STAT_CD  -- 건강상태코드
+			       , NVL(TCI  .SPEC_INFO, TRI.ETC) SPEC_INFO     	-- 특이사항      
+			       , TCI  .RMK           -- 비고          
+			       , TAETS.MOT_LINE_ACCE_CD
+			       , TAETS.MOT_TURN_CD
+			       , TAETS.START_SENSE_CD
+			       , TAETS.PROP_REPR_CD
+			       , NVL(TCI  .RACER_RMK, TAETS.RMK) RACER_RMK		-- 선수평가
+			FROM     TBEB_ARRANGE              TA
+			       , TBEB_CNF_INSP             TCI
+			       , TBEC_APPO_EXERC_ORGAN     TAEO
+			       , TBEC_RACER_INTERVIEW      TRI
+			       , TBEC_RACER_MASTER         TRM
+			       , TBEC_APPO_EXERC_TRNG_STAT TAETS
+			       , (
+						SELECT *
+						FROM   (
+						            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                   , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <  (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+						       )
+						WHERE  RANK = 1
+			         ) TRRAS -- 선수 최근 성적
+			WHERE  TA.STND_YEAR = TCI  .STND_YEAR(+)
+			AND    TA.MBR_CD    = TCI  .MBR_CD   (+)
+			AND    TA.TMS       = TCI  .TMS      (+)
+			AND    TA.RACER_NO  = TCI  .RACER_NO (+)
+			AND    TA.STND_YEAR = TAEO .STND_YEAR(+)
+			AND    TA.MBR_CD    = TAEO .MBR_CD   (+)
+			AND    TA.TMS       = TAEO .TMS      (+)
+			AND    TA.RACER_NO  = TAEO .RACER_NO (+)
+			AND    TA.STND_YEAR = TRI  .STND_YEAR(+)
+			AND    TA.MBR_CD    = TRI  .MBR_CD   (+)
+			AND    TA.TMS       = TRI  .TMS      (+)
+			AND    TA.RACER_NO  = TRI  .RACER_NO (+)
+			AND    TA.RACER_NO  = TRRAS.RACER_NO (+)
+			AND    TA.STND_YEAR = TAETS.STND_YEAR(+)
+			AND    TA.MBR_CD    = TAETS.MBR_CD   (+)
+			AND    TA.TMS       = TAETS.TMS      (+)
+			AND    TA.RACER_NO  = TAETS.RACER_NO (+)
+			AND    TA.RACER_NO  = TRM  .RACER_NO
+			AND    TAEO.DAY_ORD = 0
+			AND    TA.STND_YEAR = ?
+			AND    TA.MBR_CD    = ?
+			AND    TA.TMS       = ?
+            ORDER BY TAEO.RACE_NO
+                   , TAEO.RACE_REG_NO
+		]]>
+    </query> 
+    <query id="tbeb_cnf_insp_ib001" desc="확정검사저장" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_CNF_INSP
+			(
+			         STND_YEAR       -- 기준년도      
+			       , MBR_CD          -- 경정장코드    
+			       , TMS             -- 회차          
+			       , RACER_NO        -- 선수등록번호  
+			       , WIND_SPD        -- 풍속          
+			       , WIND_DIRC_CD    -- 풍향코드      
+			       , HUMIDITY        -- 습도          
+			       , TRNG_STR_DT     -- 훈련시작일자
+			       , TRNG_END_DT     -- 훈련종료일자
+			       , TRNG_DESC       -- 훈련내용      
+			       , SPEC_INFO       -- 특이사항      
+			       , RMK             -- 비고          
+			       , RACER_RMK       -- 선수평가          
+			       , INST_ID         -- 작성자ID      
+			       , INST_DTM        -- 작성일시      
+			       , UPDT_ID         -- 수정자ID      
+			       , UPDT_DTM        -- 수정일시      
+			) VALUES (
+			         ?               -- 기준년도      
+			       , ?               -- 경정장코드    
+			       , ?               -- 회차          
+			       , ?               -- 선수등록번호  
+			       , ?               -- 풍속          
+			       , ?               -- 풍향코드      
+			       , ?               -- 습도          
+			       , ?               -- 훈련시작일자
+			       , ?               -- 훈련종료일자
+			       , ?               -- 훈련내용      
+			       , ?               -- 특이사항      
+			       , ?               -- 비고          
+			       , ?               -- 선수평가          
+			       , ?               -- 작성자ID      
+			       , SYSDATE         -- 작성일시      
+			       , ?               -- 수정자ID      
+			       , SYSDATE         -- 수정일시      
+			)
+        ]]>
+    </query> 
+    <query id="tbeb_cnf_insp_ub001" desc="확정검사수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_CNF_INSP SET
+			         WIND_SPD     = ?       -- 풍속          
+			       , WIND_DIRC_CD = ?       -- 풍향코드      
+			       , HUMIDITY     = ?       -- 습도          
+			       , TRNG_STR_DT  = ?       -- 훈련시작일자
+			       , TRNG_END_DT  = ?       -- 훈련종료일자
+			       , TRNG_DESC    = ?       -- 훈련내용      
+			       , SPEC_INFO    = ?       -- 특이사항      
+			       , RMK          = ?       -- 비고          
+			       , RACER_RMK    = ?       -- 선수평가          
+			       , UPDT_ID      = ?       -- 수정자ID      
+			       , UPDT_DTM     = SYSDATE -- 수정일시      
+			WHERE  STND_YEAR      = ?       -- 기준년도      
+			AND    MBR_CD         = ?       -- 경정장코드    
+			AND    TMS            = ?       -- 회차          
+			AND    RACER_NO       = ?       -- 선수등록번호  
+        ]]>
+    </query> 
+</queryMap>

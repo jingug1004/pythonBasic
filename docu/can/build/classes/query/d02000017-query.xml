@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="EUC-KR" ?> 
+<queryMap desc="tbdb_cyc_assem_mngr(자전거분해조립)">
+
+	<query id="tbdb_cyc_assem_fb001" desc="기수 조회" fetchSize="10">
+ 		<![CDATA[ 
+			SELECT 
+					 DISTINCT(RACER_PERIO_NO) RACER_PERIO_NO
+			FROM
+					 TBDB_CAND_IDENT
+			ORDER BY 
+					 RACER_PERIO_NO  DESC
+		]]> 
+  	</query>
+    
+	<query id="tbdb_cyc_assem_fb002" desc="중간/기말 실기 배점기준및 환산비율  조회" fetchSize="10">
+	 	<![CDATA[ 
+	       SELECT   
+					A.RACER_PERIO_NO
+					,A.BAS100FROM_SCR
+					,A.BAS100TO_SCR
+					,A.BAS100_SCR
+					,A.BAS90FROM_SCR
+					,A.BAS90TO_SCR
+					,A.BAS90_SCR
+					,A.BAS80FROM_SCR
+					,A.BAS80TO_SCR
+					,A.BAS80_SCR
+					,A.BAS70FROM_SCR
+					,A.BAS70TO_SCR
+					,A.BAS70_SCR
+					,A.BAS60FROM_SCR
+					,A.BAS60TO_SCR
+					,A.BAS60_SCR
+					,B.FST_ASSIGN_SCR_RATE
+			FROM	
+					TBDB_EXAM_BAS_CHNG_BAS A, TBDB_EXAM_BAS_ITEM_GBN B
+			WHERE	
+					A.RACER_PERIO_NO = B.RACER_PERIO_NO
+			AND
+					A.EXAM_CD = B.EXAM_CD
+			AND
+					A.ITEM_GBN_CD = B.ITEM_GBN_CD		
+			AND		
+					A.RACER_PERIO_NO = ?
+			AND 	
+					A.EXAM_CD = ?	
+			AND		
+					A.ITEM_GBN_CD = '002'							
+			AND		
+					A.ITEM_CD IN ('201','202')                   
+	 	]]> 
+	</query>
+
+	<query id="tbdb_cyc_assem_fb003" desc="중간/기말 자전거 분해조립 조회" fetchSize="10"> 
+    	<![CDATA[
+	        SELECT 
+				A2.*
+				,'' TOT_TIME
+				,'' TOT_SCR
+				,'' TOT_RANK
+			    ,DECODE(A2.SCR_ASSEM_TIME,0,'', RANK() OVER(ORDER BY SCR_ASSEM_TIME DESC ) ) AS RANK 
+			FROM
+			(
+				SELECT 
+				    A1.*
+                FROM
+				(	
+					SELECT 	
+					       	A.RACER_PERIO_NO
+					       	,A.CAND_NO        
+							,A.NM_KOR         							
+							,(	SELECT	NVL(MAX(C.DT), '0') 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.ITEM_GBN_CD           = '002'
+                                AND     C.EXAM_CD               = ?
+                                AND		C.ITEM_CD				= '201'
+							) DT
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'201', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.ITEM_GBN_CD           = '002'
+                                AND     C.EXAM_CD               = ?
+                                AND		C.ITEM_CD				= '201'
+							) AS ASSEM_TIME	
+							,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'201', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.ITEM_GBN_CD           = '002'
+                                AND     C.EXAM_CD               = ?
+                                AND		C.ITEM_CD				= '201'
+							) AS SCR_ASSEM_TIME
+							,(	SELECT	MAX(DECODE(C.ITEM_CD,'202', C.REC,''))
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.ITEM_GBN_CD           = '002'
+                                AND     C.EXAM_CD               = ?
+                                AND		C.ITEM_CD				= '202'
+                            ) AS ADD_TIME
+                            ,(	SELECT	NVL(MAX(DECODE(C.ITEM_CD,'202', C.SCR,'')),0) 
+								FROM	TBDB_PERIO_EXAM C 
+								WHERE 	C.ITEM_GBN_CD           = '002'
+                                AND     C.EXAM_CD               = ?
+                                AND		C.ITEM_CD				= '202'
+							) AS SCR_ADD_TIME
+					FROM	
+							TBDB_CAND_IDENT A, TBDB_PERIO_EXAM B
+					WHERE	A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+					AND		A.CAND_NO = B.CAND_NO(+)
+					AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+					GROUP BY A.RACER_PERIO_NO,A.CAND_NO,A.NM_KOR
+				)A1
+				GROUP BY A1.RACER_PERIO_NO,A1.CAND_NO,A1.NM_KOR ,A1.DT
+						,A1.ASSEM_TIME ,A1.SCR_ASSEM_TIME ,A1.ADD_TIME ,A1.SCR_ADD_TIME
+			)A2
+			ORDER BY RANK ASC,A2.CAND_NO ASC          
+        ]]>
+    </query> 
+      
+  
+  	<query id="examGbn_d02000017" desc="시험구분 조회" fetchSize="10">
+ 		<![CDATA[ 
+  			SELECT 
+			        TGC.GRP_CD      -- 그룹코드
+			      , TGC.GRP_NM      -- 그룹명
+			      , TSC.CD          -- 코드
+			      , TSC.CD_NM       -- 코드명
+			      , TSC.RMK         -- 비고
+			FROM    TBDA_GRP_CD  TGC
+			      , TBDA_SPEC_CD TSC
+			WHERE TGC.GRP_CD = TSC.GRP_CD
+			AND   TSC.DEL_YN = 'N'
+			AND   TGC.GRP_CD = 'D10007'
+			AND   TSC.CD IN ('012','013','014')
+  		]]> 
+  	</query>
+    
+	<query id="tbdb_cyc_assem_ib001" desc="정기시험 자전거 실기 분해조립 입력" fetchSize="10">
+ 		<![CDATA[ 
+			INSERT INTO TBDB_PERIO_EXAM (
+			      RACER_PERIO_NO
+			    , EXAM_CD
+			    , ITEM_GBN_CD
+			    , ITEM_CD
+			    , DT
+			    , CAND_NO
+			    , REC
+			    , SCR
+			    , INST_ID
+			    , INST_DTM			   
+			)VALUES (
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,? 
+				,?
+				,?
+				,SYSDATE				
+			)    
+		
+
+  		]]> 
+  	</query>
+ 	<query id="tbdb_cyc_assem_ub001" desc="정기시험 자전거 실기 분해조립 갱신" fetchSize="10">
+ 		<![CDATA[ 
+			UPDATE TBDB_PERIO_EXAM
+			SET
+			      REC                 = ?
+			    , SCR                 = ?
+			    , UPDT_ID             = ?
+			    , UPDT_DTM            = SYSDATE
+			WHERE 
+				  RACER_PERIO_NO      = ?
+			AND    
+			      EXAM_CD             = ?
+			AND   
+			      ITEM_GBN_CD         = ?
+			AND 
+			      ITEM_CD             = ? 
+			AND
+			      DT                  = ?
+			AND
+			      CAND_NO             = ?			          
+		
+
+  		]]> 
+  	</query>
+ 	<query id="tbdb_cyc_assem_db001" desc="정기시험 자전거 실기 분해조립  삭제" fetchSize="10">
+ 		<![CDATA[ 
+			DELETE 
+			FROM   
+			      TBDB_PERIO_EXAM
+			WHERE
+			   	  RACER_PERIO_NO      = ?
+			AND    
+			      EXAM_CD             = ?
+			AND   
+			      ITEM_GBN_CD         = ?
+			AND
+			      (ITEM_CD            = ?
+			OR
+			      ITEM_CD             = ?)
+			
+			AND
+			      DT                  = ?
+			     
+
+  		]]> 
+  	</query>   
+
+  </queryMap>

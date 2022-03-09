@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem6011(무료 입장인원)">
+  
+    <query id="rem6011_s01" desc="무료 입장인원 조회" fetchSize="10">
+      <![CDATA[
+      		WITH TRADE_SUM AS(
+			  SELECT TRADE_DATE, COMM_NO, CARD_USER_TYPE, 
+			         FEE, CNT, VERI
+			    FROM TBRC_T_TRADE_SUM
+			   WHERE CARD_USER_TYPE = '5'
+			     AND TRADE_DATE BETWEEN ? AND ?
+			     AND COMM_NO = NVL(?, COMM_NO)
+			),
+			TRADE_RACE_SUM AS(
+			  SELECT TRADE_DATE, COMM_NO,
+			         CARD_USER_TYPE, FEE, 
+			         SUM(CNT) AS CNT, MEET_CD
+			    FROM TBRC_T_TRADE_RACE_SUM
+			   WHERE CARD_USER_TYPE = '5'
+			     AND TRADE_DATE BETWEEN ? AND ?
+			     AND MEET_CD = NVL(?, MEET_CD)
+			     AND COMM_NO = NVL(?, COMM_NO)
+			  GROUP BY TRADE_DATE, COMM_NO, CARD_USER_TYPE, MEET_CD, FEE    
+			)
+			SELECT '' AS CHK, TS.TRADE_DATE, TS.COMM_NO, 
+			       TS.CARD_USER_TYPE, TS.FEE, TS.CNT, 
+			       TS.VERI, TRS.MEET_CD, ? USER_ID
+			  FROM TRADE_SUM TS, TRADE_RACE_SUM TRS
+			 WHERE TS.TRADE_DATE = TRS.TRADE_DATE
+			   AND TS.COMM_NO = TRS.COMM_NO
+			   AND TS.CARD_USER_TYPE = TRS.CARD_USER_TYPE
+			ORDER BY TS.TRADE_DATE, TS.COMM_NO   
+        ]]>
+    </query>  
+    
+    <query id="rem6011_s02" desc="광명 현금 입장인원 조회" fetchSize="10">
+      <![CDATA[
+      		SELECT '' AS CHK, TRADE_DATE, CNT, FEE, ? USER_ID, CARD_USER_TYPE
+  			  FROM TBRC_T_TRADE_KM_SUM
+			 WHERE TRADE_DATE BETWEEN ? AND ?
+			   AND CARD_USER_TYPE = '5'
+        ]]>
+    </query> 
+    
+    <query id="rem6011_s03" desc="미사리 현금 입장인원 조회" fetchSize="10">
+      <![CDATA[
+      		SELECT '' AS CHK, TRADE_DATE, CNT, FEE, ? USER_ID, CARD_USER_TYPE
+  			  FROM TBRC_T_TRADE_MSR_SUM
+			 WHERE TRADE_DATE BETWEEN ? AND ?
+			   AND CARD_USER_TYPE = '5'
+        ]]>
+    </query>
+    
+    <query id="rem6011_i01" desc="무료입장인원 입력(TBRC_T_TRADE_SUM)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i01  */ 
+			INSERT INTO TBRC_T_TRADE_SUM
+			  (	         
+			   TRADE_DATE,
+			   COMM_NO,
+			   CARD_USER_TYPE,
+			   FEE,
+			   CNT,
+			   VERI,
+			   UPDT_ID,
+			   UPDT_DTM
+			  ) 
+			VALUES 
+			  (
+			    ?,      -- 1.입장일자
+			    ?,      -- 2.지점
+			    '5',    -- 3.카드종류
+			    0,    	-- 4.입장료
+			    ?,      -- 5.방문자수
+			    '002',  -- 6.검증여부
+			    ?,      -- 7.수정자
+			    SYSDATE -- 8.수정일
+			  )
+        ]]>
+    </query>
+    
+    <query id="rem6011_i02" desc="무료입장인원 입력(TBRC_T_TRADE_RACE_SUM)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i02  */ 
+			INSERT INTO TBRC_T_TRADE_RACE_SUM
+			  (	         
+			   TRADE_DATE,
+			   RACE_NO,
+			   COMM_NO,
+			   CARD_USER_TYPE,
+			   MEET_CD,
+			   FEE,
+			   CNT,
+			   K_FEE,
+			   K_CNT,
+			   UPDT_DTM
+			  ) 
+			VALUES 
+			  (
+			    ?,      -- 1.입장일자
+			    (SELECT NVL(MAX(RACE_NO),0) + 1 AS MAX_RACE_NO
+                   FROM TBRS_RACE_INFO
+                  WHERE 1=1
+                    AND RACE_DAY = ?
+                    AND MEET_CD = NVL(?, MEET_CD)
+                 ),      -- 2.경주번호(마지막 경주+1)(일자,구분코드)
+			    ?,      -- 3.지점
+			    '5',    -- 4.카드종류
+			    ?,      -- 5.경주구분
+			    0,    	-- 6.입장료
+			    ?,      -- 7.방문자수
+			    0,    	-- 8.K_FEE
+			    0,    	-- 9.K_CNT
+			    SYSDATE -- 10.수정일
+			  )
+        ]]>
+    </query>
+    
+    <query id="rem6011_i03" desc="무료입장인원 입력(TBRC_T_TRADE)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i03  */ 
+			INSERT INTO TBRC_T_TRADE
+
+			WITH TABLE_BASE AS (
+				SELECT TRADE_DATE, COMM_NO, CARD_USER_TYPE, CNT,
+				(	SELECT MEET_CD FROM VW_SDL_INFO
+					WHERE 1=1
+					AND RACE_DAY = A.TRADE_DATE
+					AND MEET_CD IN ('001','003')
+				) MEET_CD
+				FROM TBRC_T_TRADE_SUM A
+				WHERE 1=1
+				AND TRADE_DATE = ?
+				AND COMM_NO = ?
+				AND CARD_USER_TYPE = '1'
+				ORDER BY TRADE_DATE, COMM_NO
+			)
+			
+			SELECT
+				A.COMM_NO
+				,'99' DIV_NO
+				,(SELECT MAX(TRANSITION_SEQ) FROM TBRC_T_TRADE)+ROWNUM TRANSITION_SEQ  --앞의 숫자는 TRANSITION_SEQ의 맥스값을 가져와서 넣는다.
+				,'NODE' MACHINE_ID
+				,A.TRADE_DATE||DECODE(A.MEET_CD, '001','160000','150000') TRADE_DATE
+				,'NONE' TERM_ID
+				,'THIS_DATA_INSERTED_BY_ADMIN_FOR_FREE_ENTRANCE'||ROWNUM CARD_ID
+				,'NONE' CARD_SERIAL
+				,0 REQUEST_FEE
+				,'1' CARD_USER_CODE
+				,'5' CARD_USER_TYPE
+				,SYSDATE IDATE
+				,? UPDT_ID
+				,SYSDATE UPDT_DTM
+			FROM TABLE_BASE A
+			     ,(SELECT LEVEL NUM FROM DUAL CONNECT BY LEVEL <= 5000) B
+			WHERE B.NUM BETWEEN 1 AND A.CNT
+			ORDER BY 5,3
+        ]]>
+    </query>
+    
+    <query id="rem6011_i04" desc="광명현금 입장인원 입력(TBRC_T_TRADE_KM_SUM)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i04  */ 
+			INSERT INTO TBRC_T_TRADE_KM_SUM
+			  (	         
+			   TRADE_DATE,
+			   CNT,
+			   FEE,
+			   UPDT_ID,
+			   UPDT_DTM,
+			   CARD_USER_TYPE
+			  ) 
+			VALUES 
+			  (
+			    ?,			-- 1.입장일자
+			    ?,			-- 2.방문자수
+			    0,			-- 3.금액
+			    ?,			-- 4.수정자
+			    SYSDATE,	-- 5.수정일
+			    '5'			-- 6.입장구분
+			  )
+        ]]>
+    </query>
+    
+    <query id="rem6011_i05" desc="광명현금 입장인원 입력(TBRC_T_TRADE_KM)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i05  */ 
+			INSERT INTO TBRC_T_TRADE_KM
+		
+			SELECT '99999' AS MACHINE_ID,
+             (SELECT MAX(TRANSITION_SEQ) FROM TBRC_T_TRADE_KM)+ROWNUM TRANSITION_SEQ,
+             A.TRADE_DATE,
+             '175959' AS TRADE_TIME,
+             1 AS CNT,
+             0 AS FEE,
+             ? AS UPDT_ID,
+             SYSDATE AS UPDT_DTM
+			FROM TBRC_T_TRADE_KM_SUM A 
+      			,(SELECT LEVEL NUM FROM DUAL CONNECT BY LEVEL <= 5000) B
+			WHERE A.TRADE_DATE = ?
+			  AND A.CARD_USER_TYPE = '5'
+        	  AND B.NUM BETWEEN 1 AND A.CNT
+			ORDER BY 5,3
+        ]]>
+    </query>
+    
+    <query id="rem6011_i06" desc="미사리 현금 입장인원 입력(TBRC_T_TRADE_MSR_SUM)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i06  */ 
+			INSERT INTO TBRC_T_TRADE_MSR_SUM
+			  (	         
+			   TRADE_DATE,
+			   CNT,
+			   FEE,
+			   UPDT_ID,
+			   UPDT_DTM,
+			   CARD_USER_TYPE
+			  ) 
+			VALUES 
+			  (
+			    ?,			-- 1.입장일자
+			    ?,			-- 2.방문자수
+			    0,			-- 3.금액
+			    ?,			-- 4.수정자
+			    SYSDATE,	-- 5.수정일
+			    '5'			-- 6.입장구분			
+			  )
+        ]]>
+    </query>
+    
+    <query id="rem6011_i07" desc="미사리 현금 입장인원 입력(TBRC_T_TRADE_MSR)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i07  */ 
+			INSERT INTO TBRC_T_TRADE_MSR
+		
+			SELECT A.TRADE_DATE,
+			       '4' AS M_NO,
+			       (SELECT NVL(MAX(ILNO),0) FROM TBRC_T_TRADE_MSR WHERE SDATE = ?)+ROWNUM ILNO,
+			       '01' AS RTN,
+			       '10' AS USE_CD,
+			       '무료' AS PAY_GBN,
+			       1 AS QNTY,
+			       0 AS AMNT,
+			       '175959' AS FTIME,
+			       ? AS UPDT_ID,
+			       SYSDATE AS UPDT_DTM
+			  FROM TBRC_T_TRADE_MSR_SUM A
+            	  ,(SELECT LEVEL NUM FROM DUAL CONNECT BY LEVEL <= 5000) B
+			WHERE A.TRADE_DATE = ?
+			  AND A.CARD_USER_TYPE = '5'
+        	  AND B.NUM BETWEEN 1 AND A.CNT
+        ]]>
+    </query>
+    
+    <query id="rem6011_i08" desc="입장인원 입력(TBRC_T_TRADE_RACE_SUM)" fetchSize="10">
+        <![CDATA[
+            /* rem6011_i08  */ 
+			INSERT INTO TBRC_T_TRADE_RACE_SUM
+	            (TRADE_DATE, RACE_NO, COMM_NO, CARD_USER_TYPE, MEET_CD, 
+	             FEE, CNT, K_FEE, K_CNT, UPDT_DTM)
+	        WITH X AS 
+	        (
+	            SELECT SUBSTR(TRADE_DATE,1,8) AS TRADE_DATE         -- 1.무임대체: 전체인원(중복포함), 4.일반: 입장료발생인원(중복포함), 5.무임카드 : 중복제거인원
+                      ,SUBSTR(TRADE_DATE,9,4) AS TRADE_TIME
+                      ,COMM_NO
+                      ,CARD_USER_TYPE
+                      ,SUM(REQUEST_FEE) AS T_FEE                                      
+                      ,COUNT(*) AS T_CNT
+                      ,0        AS K_FEE
+                      ,0        AS K_CNT   
+	            FROM TBRC_T_TRADE
+	            WHERE 1=1
+	            AND    CARD_USER_TYPE IN ('1', '4', '5')
+	            AND   TRADE_DATE LIKE ? || '%'
+	            GROUP BY SUBSTR(TRADE_DATE,1,8),SUBSTR(TRADE_DATE,9,4), COMM_NO, CARD_USER_TYPE        
+	            UNION ALL
+	            SELECT TRADE_DATE  --광명 현금입장권 
+	                  ,TRADE_TIME 
+	                  ,'00' COMM_NO 
+	                  ,CARD_USER_TYPE
+	                  ,0 AS T_FEE
+	                  ,0 AS T_CNT
+	                  ,SUM(FEE) K_FEE
+	                  ,SUM(CNT) K_CNT
+	            FROM (
+	                    SELECT TRADE_DATE 
+	                      ,SUBSTR(TRADE_TIME,1,4) AS TRADE_TIME
+	                      ,DECODE(FEE,0,'5','4') CARD_USER_TYPE
+	                      ,FEE, CNT
+	                    FROM   TBRC_T_TRADE_KM
+	                    WHERE  TRADE_DATE  = ?
+	            )            
+	            GROUP BY TRADE_DATE, TRADE_TIME, CARD_USER_TYPE
+	            UNION ALL
+	            SELECT TRADE_DATE --미사리 현금입장권
+	                  ,TRADE_TIME
+	                  ,'98'
+	                  ,CARD_USER_TYPE
+	                  ,0 AS T_FEE
+	                  ,0 AS T_CNT
+	                  ,SUM(AMNT) AS K_FEE
+	                  ,SUM(QNTY) AS K_CNT
+	            FROM (      
+	                   SELECT SDATE TRADE_DATE 
+	                      ,SUBSTR(FTIME,1,4) AS TRADE_TIME
+	                      ,DECODE(AMNT,0,'5','4') CARD_USER_TYPE
+	                      ,AMNT, QNTY
+	                    FROM   TBRC_T_TRADE_MSR
+	                    WHERE  SDATE  = ?
+	                    AND USE_CD = '10'
+	            )        
+	            GROUP BY TRADE_DATE, TRADE_TIME, CARD_USER_TYPE
+	        )
+	        SELECT TRADE_DATE, R.RACE_NO, COMM_NO,  CARD_USER_TYPE, MEET_CD, 
+	               SUM(T_FEE) + SUM(K_FEE) AS FEE, SUM(T_CNT)+SUM(K_CNT) AS CNT, 
+	               SUM(K_FEE) AS K_FEE, SUM(K_CNT) AS K_CNT, SYSDATE
+	        FROM X, VW_RACE_INFO_END2 R
+	        WHERE X.TRADE_DATE = R.RACE_DAY
+	        AND   X.TRADE_TIME >= R.STR_TM
+	        AND   X.TRADE_TIME <  R.END_TM
+	       GROUP BY TRADE_DATE, COMM_NO, R.RACE_NO, CARD_USER_TYPE, MEET_CD
+        ]]>
+    </query>
+    
+    <query id="rem6011_d01" desc="무료입장인원 삭제(TBRC_T_TRADE_SUM)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d01 */ 
+			  FROM TBRC_T_TRADE_SUM
+			 WHERE TRADE_DATE = ?
+			   AND COMM_NO = ?
+			   AND CARD_USER_TYPE = '5'
+        ]]>
+    </query>  
+    
+    <query id="rem6011_d02" desc="무료입장인원 삭제(TBRC_T_TRADE_RACE_SUM)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d02 */ 
+			  FROM TBRC_T_TRADE_RACE_SUM
+			 WHERE TRADE_DATE = ?
+			   AND COMM_NO = ?
+			   AND MEET_CD = ?
+			   AND RACE_NO = (SELECT NVL(MAX(RACE_NO),0) + 1 AS MAX_RACE_NO
+	                          FROM TBRS_RACE_INFO
+	                         WHERE 1=1
+	                           AND RACE_DAY = ?
+	                           AND MEET_CD = NVL( ?, MEET_CD)
+	                        )
+			   AND CARD_USER_TYPE = '5'
+        ]]>
+    </query>  
+    
+    <query id="rem6011_d03" desc="무료입장인원 삭제(TBRC_T_TRADE)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d03 */ 
+			  FROM TBRC_T_TRADE
+			 WHERE TRADE_DATE LIKE ? || '%'
+			   AND COMM_NO = ?
+			   AND DIV_NO = '99'
+			   AND CARD_USER_TYPE = '5'
+        ]]>
+    </query>  
+    
+    <query id="rem6011_d04" desc="광명현금 입장인원 삭제(TBRC_T_TRADE_KM_SUM)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d04 */ 
+			  FROM TBRC_T_TRADE_KM_SUM
+			 WHERE TRADE_DATE = ?
+			   AND CARD_USER_TYPE = '5'
+			   
+        ]]>
+    </query>  
+    
+    <query id="rem6011_d05" desc="광명현금 입장인원 삭제(TBRC_T_TRADE_KM)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d05 */ 
+			  FROM TBRC_T_TRADE_KM
+			 WHERE TRADE_DATE = ?
+			   AND FEE = 0
+        ]]>
+    </query>
+    
+    <query id="rem6011_d06" desc="미사리 현금 입장인원 삭제(TBRC_T_TRADE_MSR_SUM)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d06 */ 
+			  FROM TBRC_T_TRADE_MSR_SUM
+			 WHERE TRADE_DATE = ?
+			   AND CARD_USER_TYPE = '5'
+        ]]>
+    </query>  
+    
+    <query id="rem6011_d07" desc="미사리 현금 입장인원 삭제(TBRC_T_TRADE_MSR)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d07 */ 
+			  FROM TBRC_T_TRADE_MSR
+			 WHERE SDATE = ?
+			   AND AMNT = 0
+        ]]>
+    </query>
+    
+    <query id="rem6011_d08" desc="광명 입장인원 삭제(TBRC_T_TRADE_RACE_SUM)" fetchSize="10">
+        <![CDATA[
+			DELETE /* rem6011_d08 */ 
+			  FROM TBRC_T_TRADE_RACE_SUM
+			 WHERE TRADE_DATE = ?   
+        ]]>
+    </query>
+        
+</queryMap>

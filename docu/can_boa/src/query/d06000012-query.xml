@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdn_cls_organ_detl(경정반편성)"> 
+    
+    <query id="tbdn_cls_organ_perio_fn001" desc="기수조회" fetchSize="10">
+        <![CDATA[
+			 SELECT  CD  RACER_PERIO_NO
+				 FROM  TBDM_SPEC_CD
+				 WHERE GRP_CD  = 'D10000'
+				 ORDER BY CD DESC		
+		]]>
+    </query> 
+    
+    <query id="tbdn_cls_organ_detl_fn000" desc="경정반편성 조회" fetchSize="10">
+		<![CDATA[
+			SELECT  '0' CHK				
+					,RACER_PERIO_NO
+					,'선택' CLS
+					,'-1' AS CLS_CD 
+					,CAND_NO
+					,'-1' GUD_LECTR_ID
+					,'선택' LECTR_NM
+					,NM_KOR
+			FROM	TBDN_CAND_IDENT
+			WHERE	CAND_NO NOT IN (SELECT CAND_NO FROM TBDN_CLS_ORGAN)	
+			AND		RACER_PERIO_NO 	= NVL(?, RACER_PERIO_NO)
+			AND		NVL(DEL_YN, 'N') = 'N'	
+			UNION ALL
+			SELECT 
+					'0' CHK
+					,A.RACER_PERIO_NO
+					,A.CLS
+					,TRIM(A.CLS) AS CLS_CD
+					,A.CAND_NO
+					,A.GUD_LECTR_ID
+					,(SELECT C.NM_KOR FROM TBDN_GUD_LECTR C WHERE A.GUD_LECTR_ID = C.GUD_LECTR_ID) AS LECTR_NM
+					,B.NM_KOR
+			FROM	TBDN_CLS_ORGAN A, TBDN_CAND_IDENT B
+			WHERE	A.CAND_NO 				= B.CAND_NO
+			AND		A.RACER_PERIO_NO 		= NVL(?, A.RACER_PERIO_NO)
+			AND		TRIM(A.CLS) 			= NVL(?, TRIM(A.CLS))
+			AND		A.CAND_NO 				= NVL(?, A.CAND_NO)
+			AND		NVL(B.DEL_YN, 'N') 		= 'N'
+            ORDER BY CLS_CD,RACER_PERIO_NO,CAND_NO
+	    ]]>
+    </query>
+    
+    <query id="tbdn_cls_organ_detl_fn001" desc="경정반편성 조회" fetchSize="10">
+		<![CDATA[
+			SELECT 
+					'0' CHK
+					,A.RACER_PERIO_NO
+					,A.CLS
+					,A.CAND_NO
+					,A.GUD_LECTR_ID
+					,B.NM_KOR
+			FROM	TBDN_CLS_ORGAN A, TBDN_CAND_IDENT B
+			WHERE	A.CAND_NO = B.CAND_NO
+			AND		A.RACER_PERIO_NO = NVL(?, A.RACER_PERIO_NO)
+			AND		A.CLS = NVL(?, A.CLS)
+			AND		A.CAND_NO = NVL(?, A.CAND_NO)
+			AND		NVL(B.DEL_YN, 'N') = 'N'
+			ORDER BY A.RACER_PERIO_NO, A.CAND_NO
+	    ]]>
+    </query>
+ 
+    <query id="tbdn_cls_organ_detl_fn002" desc="경정호보생신상 조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+					'0' CHK				
+					,RACER_PERIO_NO
+					,CAND_NO
+					,NM_KOR
+			FROM	TBDN_CAND_IDENT
+			WHERE	CAND_NO NOT IN (SELECT CAND_NO FROM TBDN_CLS_ORGAN)	
+			AND		RACER_PERIO_NO = NVL(?, RACER_PERIO_NO)
+			AND		NVL(DEL_YN, 'N') = 'N'		
+			ORDER BY RACER_PERIO_NO, CAND_NO
+		]]>
+    </query> 
+    
+    <query id="tbdn_cls_organ_detl_fn003" desc="경정호보생신상 콤보 조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+					'0' CHK				
+					,RACER_PERIO_NO
+					,CAND_NO
+					,NM_KOR
+			FROM	TBDN_CAND_IDENT
+			WHERE	NVL(DEL_YN, 'N') = 'N'			
+		]]>
+    </query>    
+        
+    
+    <query id="tbdn_GudLectr_d06000012_fn001" desc="지도교사 조회" fetchSize="10">
+        <![CDATA[
+			SELECT 
+					RACER_PERIO_NO
+					,GUD_LECTR_ID
+					,NM_KOR AS LECTR_NM
+			FROM	TBDN_GUD_LECTR
+		]]>
+    </query>        
+    
+    <query id="tbdn_cls_organ_detl_in000" desc="경정반편성 입력" fetchSize="10">
+        <![CDATA[
+   				   MERGE INTO TBDN_CLS_ORGAN TCO
+			            USING   DUAL
+			            ON        (     TCO.RACER_PERIO_NO  		= ?     	  
+			            			AND TCO.CAND_NO      			= ?   	 	
+			                      )
+						WHEN MATCHED THEN
+						 UPDATE  SET
+ 						      CLS                 = ?
+							, GUD_LECTR_ID        = ?
+						    , UPDT_ID             = ?
+						    , UPDT_DTM            = SYSDATE
+						 WHEN NOT MATCHED THEN
+							INSERT (
+									      RACER_PERIO_NO
+									    , CLS
+									    , CAND_NO
+										, GUD_LECTR_ID	   
+									    , INST_ID
+									    , INST_DTM
+										)VALUES (
+											 ?
+											,?
+											,?
+											,?
+											,? 
+											,SYSDATE								
+										)	
+		]]>
+    </query>
+            
+    <query id="tbdn_cls_organ_detl_in001" desc="경정반편성 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_CLS_ORGAN (
+				RACER_PERIO_NO
+				,CLS
+				,CAND_NO
+				,GUD_LECTR_ID
+				,INST_ID
+				,INST_DTM
+				,UPDT_ID
+				,UPDT_DTM        
+			)VALUES
+			(			
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+    
+         
+    <query id="tbdn_cls_organ_detl_un001" desc="경정반편성 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_CLS_ORGAN 
+			SET
+					RACER_PERIO_NO		= ?
+					,CLS				= ?
+					,CAND_NO			= ?
+					,GUD_LECTR_ID		= ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	RACER_PERIO_NO		= ?
+			AND		CLS					= ?
+			AND		CAND_NO				= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_cls_organ_detl_dn001" desc="경정반편성 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_CLS_ORGAN 
+			WHERE	RACER_PERIO_NO		= ?
+			AND		CLS					= ?
+			AND		CAND_NO				= ?
+		]]>
+    </query>
+
+</queryMap>

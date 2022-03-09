@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_expendable_chg 소모성부품 교체 관리">
+    <query id="tbef_expendable_chg_ff001" desc="소모성부품 교체 조회" fetchSize="50">
+        <![CDATA[
+            /* 소모성부품 교체 조회 */
+			SELECT   TEC.STND_YEAR
+			       , TEC.MBR_CD
+			       , TEC.TMS
+			       , TEC.MOT_NO
+			       , TEC.VIEW_MOT_NO
+			       , DECODE(TEC.PREPAR_YN, 'Y', '예비', '출주') PREPAR_YN
+			       , CHG_TMS.RUN_TMS_CNT
+			       , DECODE(TEC.EXPENDABLE1_YN, 'Y', 1, 0) EXPENDABLE1_YN   -- 1.실린더헤드가스켓
+			       , DECODE(TEC.EXPENDABLE2_YN, 'Y', 1, 0) EXPENDABLE2_YN   -- 2.흡기매니폴드가스켓
+			       , DECODE(TEC.EXPENDABLE3_YN, 'Y', 1, 0) EXPENDABLE3_YN   -- 3.리드밸브바디가스켓
+			       , DECODE(TEC.EXPENDABLE4_YN, 'Y', 1, 0) EXPENDABLE4_YN   -- 4.기어케이스가스켓
+			       , DECODE(TEC.EXPENDABLE5_YN, 'Y', 1, 0) EXPENDABLE5_YN   -- 5.기화기가스켓
+			       , TEC.RMK
+			FROM   (
+			         SELECT  TEL.STND_YEAR
+			                , TEL.MBR_CD
+			                , TEL.TMS
+			                , TEL.EQUIP_NO AS MOT_NO
+			                , SUBSTR(TEL.EQUIP_NO, 6, 3) VIEW_MOT_NO
+			                , TEL.PREPAR_YN
+			                , NVL(TEC.EXPENDABLE1_YN, 'N') EXPENDABLE1_YN   -- 1.실린더헤드가스켓
+			                , NVL(TEC.EXPENDABLE2_YN, 'N') EXPENDABLE2_YN   -- 2.흡기매니폴드가스켓
+			                , NVL(TEC.EXPENDABLE3_YN, 'N') EXPENDABLE3_YN   -- 3.리드밸브바디가스켓
+			                , NVL(TEC.EXPENDABLE4_YN, 'N') EXPENDABLE4_YN   -- 4.기어케이스가스켓
+			                , NVL(TEC.EXPENDABLE5_YN, 'N') EXPENDABLE5_YN   -- 5.기화기가스켓
+			                , TEC.RMK
+			         FROM     TBEB_RACE_TMS TRT
+			                , TBEF_EQUIP_LOT TEL
+			                , TBEF_EXPENDABLE_CHG TEC
+			         WHERE    TRT.ARRANGE_CMPL_YN ='Y'
+			         AND      NVL(TRT.EQUIP_DRWLT_CMPL_YN,'N') = 'Y'
+			         AND      TRT.STND_YEAR       = TEL.STND_YEAR
+			         AND      TRT.MBR_CD          = TEL.MBR_CD
+			         AND      TRT.TMS             = TEL.TMS
+			         AND      TEL.STND_YEAR       = TEC.STND_YEAR(+)
+			         AND      TEL.MBR_CD          = TEC.MBR_CD(+)
+			         AND      TEL.TMS             = TEC.TMS(+)
+			         AND      TEL.EQUIP_NO        = TEC.MOT_NO(+)
+			         AND      TEL.STND_YEAR       = ?
+			         AND      TEL.MBR_CD          = ?
+			         AND      TEL.TMS             = ?
+			         AND      TEL.EQUIP_TPE_CD    = 'M'
+			       ) TEC
+			     , (
+			         SELECT   TEL.STND_YEAR
+			                , TEL.MBR_CD
+			                , TEL.EQUIP_NO MOT_NO
+			                , COUNT(TEL.TMS) RUN_TMS_CNT
+			         FROM     TBEF_EQUIP_LOT TEL
+			         WHERE    TEL.STND_YEAR    = ?
+			         AND      TEL.MBR_CD       = ?
+			         AND      TEL.EQUIP_TPE_CD = 'M'
+			         AND      TEL.TMS > (
+			                              --SELECT NVL(MAX(TEC.TMS),0) CHG_TMS
+			                              --FROM   TBEF_EXPENDABLE_CHG TEC
+			                              --WHERE  TEC.STND_YEAR = ?
+			                              --AND    TEC.MBR_CD    = ?
+			                              --AND    TEL.EQUIP_NO  = TEC.MOT_NO
+			                              --AND    (TEC.EXPENDABLE1_YN = 'Y' OR TEC.EXPENDABLE2_YN = 'Y' OR TEC.EXPENDABLE3_YN = 'Y' OR TEC.EXPENDABLE4_YN = 'Y' OR TEC.EXPENDABLE5_YN = 'Y')
+			                              SELECT MIN(CHG_TMS) CHG_TMS
+			                              FROM   (
+			                                       SELECT TEC.MOT_NO, MAX(NVL(TEC.TMS,0)) CHG_TMS
+			                                       FROM   TBEF_EXPENDABLE_CHG TEC
+			                                       WHERE  TEC.STND_YEAR = ?
+			                                       AND    TEC.MBR_CD    = ?
+			                                       AND    TEC.EXPENDABLE1_YN = 'Y'
+			                                       GROUP BY TEC.MOT_NO
+			                                       UNION ALL
+			                                       SELECT TEC.MOT_NO, MAX(NVL(TEC.TMS,0)) CHG_TMS
+			                                       FROM   TBEF_EXPENDABLE_CHG TEC
+			                                       WHERE  TEC.STND_YEAR = ?
+			                                       AND    TEC.MBR_CD    = ?
+			                                       AND    TEC.EXPENDABLE2_YN = 'Y'
+			                                       GROUP BY TEC.MOT_NO
+			                                       UNION ALL
+			                                       SELECT TEC.MOT_NO, MAX(NVL(TEC.TMS,0)) CHG_TMS
+			                                       FROM   TBEF_EXPENDABLE_CHG TEC
+			                                       WHERE  TEC.STND_YEAR = ?
+			                                       AND    TEC.MBR_CD    = ?
+			                                       AND    TEC.EXPENDABLE3_YN = 'Y'
+			                                       GROUP BY TEC.MOT_NO
+			                                       UNION ALL
+			                                       SELECT TEC.MOT_NO, MAX(NVL(TEC.TMS,0)) CHG_TMS
+			                                       FROM   TBEF_EXPENDABLE_CHG TEC
+			                                       WHERE  TEC.STND_YEAR = ?
+			                                       AND    TEC.MBR_CD    = ?
+			                                       AND    TEC.EXPENDABLE4_YN = 'Y'
+			                                       GROUP BY TEC.MOT_NO
+			                                       UNION ALL
+			                                       SELECT TEC.MOT_NO, MAX(NVL(TEC.TMS,0)) CHG_TMS
+			                                       FROM   TBEF_EXPENDABLE_CHG TEC
+			                                       WHERE  TEC.STND_YEAR = ?
+			                                       AND    TEC.MBR_CD    = ?
+			                                       AND    TEC.EXPENDABLE5_YN = 'Y'
+			                                       GROUP BY TEC.MOT_NO
+			                                     ) TEC
+			                              WHERE TEL.EQUIP_NO  = TEC.MOT_NO
+			                            )
+			         GROUP BY TEL.STND_YEAR
+			                , TEL.MBR_CD
+			                , TEL.EQUIP_NO
+			       ) CHG_TMS
+			WHERE    TEC.STND_YEAR = CHG_TMS.STND_YEAR(+)
+			AND      TEC.MBR_CD    = CHG_TMS.MBR_CD(+)
+			AND      TEC.MOT_NO    = CHG_TMS.MOT_NO(+)
+			ORDER BY TEC.PREPAR_YN, TEC.MOT_NO
+        ]]>
+    </query> 
+    
+    <query id="tbef_expendable_chg_ff002" desc="소모성부품 교체이력 조회" fetchSize="50">
+        <![CDATA[
+            /* 소모성부품 교체이력 조회 */
+			SELECT   TEL.TMS
+			       , SUBSTR(TEL.EQUIP_NO, 6, 3) VIEW_MOT_NO
+			       , DECODE(NVL(TEC.EXPENDABLE1_YN, 'N'), 'Y', 1, 0) EXPENDABLE1_YN
+			       , DECODE(NVL(TEC.EXPENDABLE2_YN, 'N'), 'Y', 1, 0) EXPENDABLE2_YN
+			       , DECODE(NVL(TEC.EXPENDABLE3_YN, 'N'), 'Y', 1, 0) EXPENDABLE3_YN
+			       , DECODE(NVL(TEC.EXPENDABLE4_YN, 'N'), 'Y', 1, 0) EXPENDABLE4_YN
+			       , DECODE(NVL(TEC.EXPENDABLE5_YN, 'N'), 'Y', 1, 0) EXPENDABLE5_YN
+			       , NVL(TEC.RMK, '') RMK
+			FROM     TBEF_EQUIP_LOT TEL
+			       , TBEF_EXPENDABLE_CHG TEC
+			WHERE    TEL.STND_YEAR = TEC.STND_YEAR(+)
+			AND      TEL.MBR_CD    = TEC.MBR_CD(+)
+			AND      TEL.TMS       = TEC.TMS(+)
+			AND      TEL.EQUIP_NO  = TEC.MOT_NO(+)
+			AND      TEL.EQUIP_TPE_CD = 'M'
+			AND      TEL.STND_YEAR = ?
+			AND      TEL.MBR_CD    = ?
+			AND      TEL.EQUIP_NO  = ?
+			ORDER BY TEL.TMS DESC
+        ]]>
+    </query> 
+    
+    <query id="tbef_expendable_chg_mf001" desc="소모성부품 교체정보 저장/수정 " fetchSize="10">
+        <![CDATA[
+            /* 장비 입력/수정 */
+			MERGE INTO TBEF_EXPENDABLE_CHG TEC
+            USING (
+                    SELECT 
+			                ? STND_YEAR					-- 기준년도 
+			              , ? MBR_CD					-- 경정장 코드 
+			              , ? TMS						-- 회차 
+			              , ? MOT_NO					-- 모터 번호 
+			              , ? EXPENDABLE1_YN 			-- 실린더헤드가스켓 교체여부
+			              , ? EXPENDABLE2_YN 			-- 흡기매니폴드가스켓 교체여부
+			              , ? EXPENDABLE3_YN 			-- 리드밸브바디가스켓 교체여부
+			              , ? EXPENDABLE4_YN 			-- 기어케이스가스켓 교체여부
+			              , ? EXPENDABLE5_YN 			-- 기화기가스켓 교체여부
+			              , ? RMK 						-- 비고
+			              , ? AS USER_ID 				-- 작성자 아이디 
+				    FROM    DUAL
+			      ) TP
+            ON    (       TEC.STND_YEAR  = TP.STND_YEAR	-- 기준년도 
+            	    AND   TEC.MBR_CD = TP.MBR_CD		-- 경정장 코드  
+				    AND   TEC.TMS    = TP.TMS			-- 회차
+				    AND   TEC.MOT_NO = TP.MOT_NO 		-- 모터번호  
+			      )
+			WHEN MATCHED THEN
+			     UPDATE
+			     SET  TEC.EXPENDABLE1_YN = DECODE(TP.EXPENDABLE1_YN, 1, 'Y', 'N')	-- 실린더헤드가스켓 교체여부
+			        , TEC.EXPENDABLE2_YN = DECODE(TP.EXPENDABLE2_YN, 1, 'Y', 'N')	-- 흡기매니폴드가스켓 교체여부 
+			        , TEC.EXPENDABLE3_YN = DECODE(TP.EXPENDABLE3_YN, 1, 'Y', 'N')	-- 리드밸브바디가스켓 교체여부
+			        , TEC.EXPENDABLE4_YN = DECODE(TP.EXPENDABLE4_YN, 1, 'Y', 'N')	-- 기어케이스가스켓 교체여부
+			   	    , TEC.EXPENDABLE5_YN = DECODE(TP.EXPENDABLE5_YN, 1, 'Y', 'N')	-- 기화기가스켓 교체여부
+			        , TEC.RMK            = TP.RMK									-- 비고 
+			        , TEC.UPDT_ID        = TP.USER_ID								-- 수정자 ID
+				    , TEC.UPDT_DTM       = SYSDATE   
+			WHEN NOT MATCHED THEN
+			     INSERT (
+				      TEC.STND_YEAR			-- 기준년도 
+				    , TEC.MBR_CD 			-- 경정장 코드 
+				    , TEC.TMS				-- 장비구분 
+				    , TEC.MOT_NO 			-- 모터 번호 
+				    , TEC.EXPENDABLE1_YN 	-- 실린더헤드가스켓 교체여부
+				    , TEC.EXPENDABLE2_YN	-- 흡기매니폴드가스켓 교체여부 
+				    , TEC.EXPENDABLE3_YN 	-- 리드밸브바디가스켓 교체여부
+				    , TEC.EXPENDABLE4_YN 	-- 기어케이스가스켓 교체여부
+				    , TEC.EXPENDABLE5_YN	-- 기화기가스켓 교체여부
+				    , TEC.RMK				-- 비고
+				    , TEC.INST_ID 			-- 작성자 아이디
+				    , TEC.INST_DTM 			-- 작성일시
+				    ) 
+				VALUES ( 
+					  TP.STND_YEAR			-- 기준년도 
+				    , TP.MBR_CD 			-- 경정장 코드 
+				    , TP.TMS 				-- 회차
+				    , TP.MOT_NO 			-- 모터 번호 
+				    , DECODE(TP.EXPENDABLE1_YN, 1, 'Y', 'N')	-- 실린더헤드가스켓 교체여부 
+				    , DECODE(TP.EXPENDABLE2_YN, 1, 'Y', 'N') 	-- 흡기매니폴드가스켓 교체여부 
+				    , DECODE(TP.EXPENDABLE3_YN, 1, 'Y', 'N')	-- 리드밸브바디가스켓 교체여부 
+				    , DECODE(TP.EXPENDABLE4_YN, 1, 'Y', 'N')	-- 기어케이스가스켓 교체여부 
+				    , DECODE(TP.EXPENDABLE5_YN, 1, 'Y', 'N') 	-- 기화기가스켓 교체여부
+				    , TP.RMK 				-- 비고
+				    , TP.USER_ID 			-- 작성자 아이디
+				    , SYSDATE
+				    )
+        ]]>
+    </query> 
+    
+    <query id="tbef_expendable_chg_df001" desc="소모성부품 교체정보 삭제" fetchSize="10">
+        <![CDATA[
+            /* 장비 삭제 */
+			DELETE 
+			FROM  TBEF_EXPENDABLE_CHG
+			WHERE STND_YEAR = ?		-- 기준 년도 
+			AND   MBR_CD	= ? 	-- 경정장 코드 
+			AND   TMS       = ?		-- 장비 구분  
+			AND   MOT_NO    = ?		-- 장비 번호 
+        ]]>
+    </query> 
+</queryMap>

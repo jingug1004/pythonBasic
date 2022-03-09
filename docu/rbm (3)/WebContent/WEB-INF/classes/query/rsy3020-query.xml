@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="rsy3020(메뉴권한)">
+    <query id="rsy3020_s01" desc="메뉴사용자조회" fetchSize="10">
+        <![CDATA[
+			SELECT/*rsy3020_s01*/
+			          A.USER_ID         -- 사용자ID     
+				    , USER_NM        	-- 사용자명         
+				    , PSWD           	-- 비밀번호
+				    , DEPT_CD        	-- 부서코드
+				    , DEPT_NM	    	-- 부서이름
+				    , TEAM_CD	    	-- 팀코드
+				    , TEAM_NM	    	-- 팀이름
+				    , FLOC		    	-- 직위코드
+				    , FGRADE	     	-- 직위         
+				    , TEL_NO         	-- 전화번호      
+				    , HP_NO				-- 핸드폰번호   
+				    , EMAIL	        	-- 이메일       
+				    , '0' AS CHK
+				    , DECODE(?, NULL, DECODE(B.USER_ID, NULL, 'N', 'Y'), 
+				                              DECODE(C.USER_ID, NULL, DECODE(B.USER_ID, NULL, 'N', 'Y'), 
+				                              						  'M')) AS ISAUTH
+			  FROM  TBRK_USER A, 
+			        (SELECT DISTINCT(USER_ID) 
+			         FROM   TBRK_MN_AUTH_HIST 
+			         WHERE   TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			         ) B,
+				    (SELECT USER_ID 
+				     FROM   TBRK_MN_AUTH_HIST 
+				     WHERE  MN_ID LIKE '%'|| ? ||'%' 
+				     AND    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+				     GROUP  BY USER_ID) C
+			 WHERE  A.ASSO_CD LIKE  'GA12%'
+		       AND	A.USER_NM LIKE  '%'|| NVL( ? , A.USER_NM)||'%'
+			    AND NVL(A.TEAM_CD,' ') LIKE  '%' || NVL(? , NVL(A.TEAM_CD,' ')) || '%'
+			   AND  B.USER_ID (+)= A.USER_ID
+			   AND  C.USER_ID (+)= A.USER_ID
+		  ORDER BY  A.ORD_NO,A.TEAM_CD, A.FGRADE, A.USER_ID
+        ]]>
+    </query>       
+
+    <query id="rsy3020_s02" desc="메뉴권한리스트조회" fetchSize="10">
+        <![CDATA[
+
+			SELECT  /*rsy3020_s02*/
+			          A.USER_ID  
+			        , DECODE(B.LVL, '2', B.UP_MN_ID, B.UPUP_MN_ID) UPUP_MN_ID
+			        , DECODE(B.LVL, '2', B.UPMNNM, B.UPUPMN_NM) UPUPMN_NM
+			        , B.UP_MN_ID
+			        , B.UPMNNM
+			        , B.MN_ID
+			        , B.MN_NM
+			        , A.STR_DT_TM
+			        , A.SRCH_YN
+			        , A.INPT_YN
+			        , A.APRO_YN			        
+			        , B.LVL 
+			        , B.ORD_NO
+			        , B.MN_LEVEL
+			        , A.INST_ID
+			        , A.INST_DT
+			        , A.UPDT_ID
+			        , A.UPDT_DT 
+			        , A.RMK       			        , A.PERSONAL_YN
+			        , A.PERSONAL_MN_IP
+			  FROM  (SELECT USER_ID    
+			                , MN_ID
+			                , STR_DT_TM    
+			                , DECODE(SRCH_YN, 'Y', 1, 0) SRCH_YN    
+			                , DECODE(INPT_YN, 'Y', 1, 0) INPT_YN  
+			                , DECODE(APRO_YN, 'Y', 1, 0) APRO_YN 
+			                , INST_ID    
+			                , INST_DT    
+			                , UPDT_ID    
+			                , UPDT_DT
+			                , RMK   			                , PERSONAL_YN			                , PERSONAL_MN_IP 
+			           FROM TBRK_MN_AUTH_HIST    
+			          WHERE USER_ID = ?
+			          AND   TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+			        ) A
+			        
+			        ,(SELECT A.MN_ID
+			                , A.MN_NM
+			                , A.UP_MN_ID
+			                , C.MN_NM UPMNNM
+			                , D.MN_ID UPUP_MN_ID
+			                , D.MN_NM UPUPMN_NM
+			                , A.LVL 
+			                , A.ORD_NO
+			                , A.MN_LEVEL 
+			                , ROWNUM AS SEQ           
+			          FROM  (SELECT MN_ID
+			                        , MN_NM
+			                        , UP_MN_ID
+			                        , ORD_NO
+			                        , MN_LEVEL
+			                        , URL
+			                        , LEVEL - 1 AS LVL       
+			        
+			                   FROM TBRK_MN        
+			                   START WITH MN_ID = 'R000000'
+			                   CONNECT BY PRIOR  MN_ID =  UP_MN_ID
+			                   ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+			                 ) A
+			                 , TBRK_MN B, TBRK_MN C, TBRK_MN D
+			        
+			         WHERE A.MN_ID    = B.MN_ID
+			           AND A.UP_MN_ID = C.MN_ID
+			           AND C.UP_MN_ID = D.MN_ID
+			           AND A.URL IS NOT NULL
+			        
+			       ORDER BY A.ORD_NO, TO_NUMBER(A.MN_LEVEL) ASC
+			       ) B
+			       ,(
+			         SELECT  
+			                  USER_ID    
+                            , MN_ID    
+                       FROM TBRK_ADMIN_INFO
+                      WHERE USER_ID = ?
+                    ) C
+			
+			 WHERE A.MN_ID(+) = B.MN_ID
+			     AND B.MN_ID = C.MN_ID	
+			 ORDER BY B.ORD_NO, B.SEQ
+
+        ]]>
+    </query> 
+    
+    <query id="rsy3020_d02" desc="메뉴권한정리" fetchSize="10">
+        <![CDATA[
+
+			DELETE TBRK_MN_AUTH_HIST
+			 WHERE USER_ID IN
+			            (SELECT DISTINCT USER_ID 
+			              FROM TBRK_MN_AUTH
+			              WHERE ? BETWEEN STR_DT_TM AND END_DT_TM
+			            MINUS
+			            SELECT  B.USER_ID			
+			              FROM  TBRK_MN             A,
+			                    TBRK_MN_AUTH_HIST   B			                    
+			             WHERE  A.MN_ID         = B.MN_ID
+			               AND  A.PROGRAM_ID    IS NOT NULL
+			               AND  ? BETWEEN STR_DT_TM AND END_DT_TM    
+			            GROUP BY B.USER_ID)                   
+			 AND   ? BETWEEN STR_DT_TM AND END_DT_TM            
+
+        ]]>
+    </query> 
+    
+    <query id="tbjk_mn_auth_team" desc="팀쿼리" fetchSize="10">
+        <![CDATA[
+				SELECT 
+				          GROUP_ID      TEAM_CD
+				         ,GROUP_NAME    TEAM_NM
+				FROM V_GROUP DEPT 
+				WHERE GROUP_ID LIKE 'GA12%'
+				ORDER BY GROUP_ORDER
+        ]]>
+    </query>   
+    
+    <query id="rsy3020_s03" desc="메뉴권한유무" fetchSize="10">
+        <![CDATA[
+
+			SELECT * FROM TBRK_MN_AUTH
+					WHERE USER_ID = ? 
+					  AND MN_ID   = ?                   
+
+        ]]>
+    </query>
+    
+    <query id="rsy3020_m02" desc="권한적용부서 입력" fetchSize="10">
+        <![CDATA[            
+             MERGE INTO TBRK_AUTH_APLY_DEPT A  --권한적용부서  관리 /* rsy3020_m02 */
+             USING   
+                     (SELECT                     
+                          USER_ID                       -- 사용자ID
+                        , ? AS AUTH_GBN                   -- 권한구분
+                        , ASSO_CD                       -- 대분류코드              
+                        , DEPT_CD                       -- 부서코드             
+                        , TEAM_CD                       -- 팀코드
+                        , ? AS INST_ID                    -- 작성자
+                                               
+                     FROM    TBRK_USER 
+                     WHERE USER_ID   = ? ) B  
+                 
+             ON (    
+                     A.USER_ID = B.USER_ID   
+                     AND A.AUTH_GBN   = B.AUTH_GBN
+             )           
+             
+             WHEN MATCHED THEN
+                 UPDATE SET
+
+                     A.ASSO_CD          = B.ASSO_CD            --대분류코드
+                    ,A.DEPT_CD          = B.DEPT_CD            --부서코드
+                    ,A.TEAM_CD          = B.TEAM_CD            --팀코드
+
+             WHEN NOT MATCHED THEN 
+                 
+                 INSERT (
+                 
+                          A.USER_ID                       -- 사용자ID
+                        , A.AUTH_GBN                      -- 권한구분
+                        , A.ASSO_CD                       -- 대분류코드              
+                        , A.DEPT_CD                       -- 부서코드             
+                        , A.TEAM_CD                       -- 팀코드
+                        , A.INST_ID                       -- 작성자
+                        , A.INST_DT                       -- 작성일시
+                 ) VALUES (
+                 
+                          B.USER_ID                       -- 사용자ID
+                        , B.AUTH_GBN                      -- 권한구분
+                        , B.ASSO_CD                       -- 대분류코드              
+                        , B.DEPT_CD                       -- 부서코드             
+                        , B.TEAM_CD                       -- 팀코드
+                        , B.INST_ID                       -- 작성자
+                        , SYSDATE                       -- 작성일시
+                 )
+
+        ]]>
+    </query>
+    
+   <query id="rsy3020_d03" desc="권한부서삭제" fetchSize="10">
+        <![CDATA[
+
+            DELETE /* rsy3020_d03 */
+                   FROM TBRK_AUTH_APLY_DEPT A
+            WHERE USER_ID = ?
+              AND AUTH_GBN = ?
+              AND NOT EXISTS (SELECT 1 
+                           FROM TBRK_MN_AUTH_HIST
+                           WHERE USER_ID = A.USER_ID
+                           AND   ? BETWEEN STR_DT_TM AND END_DT_TM)                  
+
+        ]]>
+    </query>
+    
+     <query id="rsy3020_s04" desc="권한에 자료 존재 여부 확인" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsy3020_s04 */
+			       USER_ID -- 건수
+			FROM   TBRK_MN_AUTH_HIST
+			WHERE  USER_ID = ?
+			AND    MN_ID   = ?
+			AND	   ? BETWEEN STR_DT_TM AND END_DT_TM 			
+        ]]>
+    </query>       
+    
+     <query id="rsy3020_s05" desc="동시 작업기준을 위한 작업시간을 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsy3020_s05 */
+			       TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') AS CUR_DTM -- 작업기준일시
+			FROM   DUAL			
+        ]]>
+    </query>       
+    
+    <query id="rsy3020_i02" desc="권한 추가" fetchSize="10">
+        <![CDATA[
+			INSERT /* rsy3020_i02 */
+			       INTO TBRK_MN_AUTH_HIST (
+			      USER_ID
+			    , MN_ID
+			    , STR_DT_TM
+			    , END_DT_TM
+			    , SRCH_YN
+			    , INPT_YN
+			    , APRO_YN
+			    , RMK
+			    , INST_ID
+			    , INST_DT			    , PERSONAL_YN			    , PERSONAL_MN_IP
+			) VALUES (
+			      ?                 -- USER_ID
+			    , ?                 -- MN_ID
+			    , ? 				-- 작업기준일시
+			    , '299912312359'
+			    , ?                 -- SRCH_YN
+			    , ?                 -- INPT_YN
+			    , ?                 -- APRO_YN
+			    , ?                 -- RMK
+			    , ?                 -- INST_ID			    
+			    , SYSDATE           -- INST_DT			    , ?					-- PERSONAL_YN			    , ?					-- PERSONAL_MN_IP
+			)
+        ]]>
+    </query>  
+    
+    <query id="rsy3020_u01" desc="특정 메뉴 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rsy3020_u01 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    STR_DT_TM  = ?		-- 시작일시분
+        ]]>
+    </query>      
+
+    <query id="rsy3020_u02" desc="권한 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rsy3020_u02 */
+			       TBRK_MN_AUTH_HIST
+			SET    SRCH_YN = ?			-- 조회권한
+			     , INPT_YN = ?			-- 저장권한
+			     , APRO_YN = ?			-- 저장권한
+			     , RMK     = ?
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    STR_DT_TM  = ?		-- 시작일시분
+        ]]>
+    </query>  
+                  
+    <query id="rsy3020_u03" desc="현재의 메뉴 권한 종료" fetchSize="10">
+        <![CDATA[
+			UPDATE /* rsy3020_u03 */
+			       TBRK_MN_AUTH_HIST
+			SET    END_DT_TM  = TO_CHAR(TO_DATE(?, 'YYYYMMDDHH24MI')-1/24/60, 'YYYYMMDDHH24MI') -- 종료일자(작업기준일시-1분)
+			     , UPDT_ID = ?			-- 수정자 사번
+			     , UPDT_DT = SYSDATE	-- 수정일시
+			WHERE  USER_ID = ?			-- 사용자 사번
+			AND    MN_ID   = ?			-- 메뉴ID
+			AND    ? BETWEEN STR_DT_TM AND END_DT_TM 		-- 작업기준일시
+        ]]>
+    </query>      
+</queryMap>

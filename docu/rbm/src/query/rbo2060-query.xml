@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBO2060(카드고객등급관리)">
+    <query id="rbo2060_s01" desc="카드고객등급 조회" fetchSize="10">
+      <![CDATA[
+            SELECT   /* RBO2060_s01 */
+                '0' AS CHK
+                ,GRN_CRD_NO             --그린카드번호
+                ,CUST_GRD_CD            --고객등급구분
+                ,RMK                    --비고
+                ,BRNC_CD                --지점코드
+                ,INST_ID                --작성자
+                ,INST_DT                --작성일시
+                ,UPDT_ID                --수정자
+                ,UPDT_DT                --수정일시
+            FROM TBRB_APPO_SEAT_CARD    --고객카드등급관리 
+            WHERE 1 = 1
+                AND GRN_CRD_NO  LIKE  '%' || NVL(? , GRN_CRD_NO) || '%'
+                AND CUST_GRD_CD LIKE  '%' || NVL(? , CUST_GRD_CD) || '%'
+                AND DECODE(?,'',1,BRNC_CD)  = DECODE(?,'',1,?) 
+        ]]>
+    </query>
+    
+    <query id="rbo2060_m01" desc="카드고객등급 저장" fetchSize="10">
+      <![CDATA[
+             MERGE INTO TBRB_APPO_SEAT_CARD A  /* RBO2060_m01 */
+             USING   
+                     (SELECT
+                         ? AS GRN_CRD_NO        --  그린카드번호
+                        ,? AS CUST_GRD_CD       --  고객등급구분
+                        ,? AS RMK               --  비고                
+                        ,? AS BRNC_CD           --  지점
+                        
+                        ,? AS INST_ID           --  작성자
+                        ,? AS UPDT_ID           --  수정자   
+                     FROM    DUAL ) B  
+                 
+             ON (    
+                     A.GRN_CRD_NO = B.GRN_CRD_NO  
+             )           
+             
+             WHEN MATCHED THEN
+                 UPDATE SET
+
+                     A.CUST_GRD_CD  = B.CUST_GRD_CD         -- 고객등급구분          
+                    ,A.RMK          = B.RMK                 -- 비고
+                    ,A.BRNC_CD      = B.BRNC_CD             -- 지점  
+                    ,A.UPDT_ID      = B.UPDT_ID             -- 수정일시     
+                    ,A.UPDT_DT      = SYSDATE               -- 수정자                   
+             WHEN NOT MATCHED THEN 
+                 
+                 INSERT (
+                     A.GRN_CRD_NO               --  그린카드번호
+                    ,A.CUST_GRD_CD              --  고객등급구분
+                    ,A.RMK                      --  비고 
+                    ,A.BRNC_CD                  --  지점                      
+                    ,A.INST_ID                  --  작성일시                    
+                    ,A.INST_DT                  --  작성자
+                 ) VALUES (
+                     B.GRN_CRD_NO               --  그린카드번호
+                    ,B.CUST_GRD_CD              --  고객등급구분
+                    ,B.RMK                      --  비고 
+                    ,B.BRNC_CD                  --  지점                      
+                    ,B.INST_ID                  --  작성일시                    
+                    ,SYSDATE                    --  작성자
+                 )              
+        ]]>
+    </query>
+    
+     <query id="rbo2060_d01" desc="카드고객등급 삭제" fetchSize="10">
+      <![CDATA[
+            DELETE TBRB_APPO_SEAT_CARD   /* rbo2060_d01 */ 
+
+            WHERE GRN_CRD_NO = ?   
+        ]]>
+    </query>
+</queryMap>

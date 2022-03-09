@@ -1,0 +1,1210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : member.xml
+  * @메뉴명 : 개인정보
+  * @최초작성일 : 2015/01/28            
+  * @author : CHOIILJI                  
+  * @수정내역 :	
+-->
+<mapper namespace="member"> 
+	<resultMap type="com.hanaph.gw.pe.member.vo.MemberVO" id="MemberVO">
+		<result property="emp_no" column="EMP_NO"/>
+		<result property="photo1" column="PHOTO1" jdbcType="BLOB" javaType="byte[]" typeHandler="org.apache.ibatis.type.BlobTypeHandler"/>
+		<result property="photo1_nm" column="PHOTO1_NM"/>
+	</resultMap>
+	
+	<!-- 로그인 START -->
+	<select id="getLogin" parameterType="hashmap" resultType="com.hanaph.gw.co.login.vo.LoginVO">
+		SELECT 'CHECK!IN1' AS pass_word
+		FROM ORAGMP.ELECTRONICSIGN
+		WHERE EMPCODE = #{emp_no}
+		AND PWD = HANACOMM.HANACRYPTPASS(#{pass_word})
+		UNION  --널인 경우
+		SELECT '1111' AS pass_word
+		FROM ORAGMP.ELECTRONICSIGN
+		WHERE EMPCODE = #{emp_no}
+		AND PWD IS NULL
+	</select>
+	<!--ml180101.ml01 김진국 여러 결재자를 등록해야 함으로 프리패스(비번 입력 없이 로그인 가능) 비밀번호 로직 AND PWD IS NOT NULL 처리-->
+	<!--<select id="getLogin" parameterType="hashmap" resultType="com.hanaph.gw.co.login.vo.LoginVO">-->
+		<!--SELECT 'CHECK!IN1' AS pass_word-->
+		<!--FROM ORAGMP.ELECTRONICSIGN-->
+		<!--WHERE EMPCODE = #{emp_no}-->
+				<!--AND PWD = HANACOMM.HANACRYPTPASS(#{pass_word})-->
+		<!--UNION  &#45;&#45;널인 경우-->
+		<!--SELECT 'CHECK!IN1' AS pass_word-->
+		<!--FROM ORAGMP.ELECTRONICSIGN-->
+		<!--WHERE EMPCODE = #{emp_no}-->
+      	<!--AND PWD IS NOT NULL-->
+	<!--</select>-->
+
+	<update id="updatePassword" parameterType="com.hanaph.gw.co.login.vo.LoginVO">
+		UPDATE ORAGMP.ELECTRONICSIGN
+		SET PWD = HANACOMM.HANACRYPTPASS(#{new_password}) 
+		WHERE EMPCODE = #{emp_no}		 
+	</update>
+	
+	<insert id="insertHisPassword" parameterType="com.hanaph.gw.pe.member.vo.PasswordHisVO">
+		<selectKey keyProperty="seq" resultType="int" order="BEFORE">
+			SELECT   NVL(MAX (SEQ), 0) + 1 AS SEQ
+			    FROM HANACOMM.CO_US_PASSWORD_HISTORY
+			   WHERE EMP_NO = #{emp_no}			
+		</selectKey>
+		
+		INSERT INTO HANACOMM.CO_US_PASSWORD_HISTORY
+	            (EMP_NO,
+	             SEQ,
+	             PW_EXPIRE_DT, PASSWORD, FIRST_EMP_NO, LAST_EMP_NO, LAST_IP
+	            )
+	     VALUES (#{emp_no}, #{seq}, TO_CHAR(SYSDATE + 90000, 'YYYYMMDD'), UTL_I18N.STRING_TO_RAW(#{password},'AL32UTF8'), #{first_emp_no}, 
+	     		 #{last_emp_no}, #{last_ip}
+	            )
+	</insert>
+	<!-- 로그인 END -->
+	
+	<!-- 개인정보 START -->
+	<select id="getMemberList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		-- 사원정보 가져온다 / getMemberList / @ member.xml / 전자결재-신규문서작성-스텝1-스텝2
+		SELECT EMP.EMPCODE AS EMP_NO
+		,EMP.EMPNAME AS EMP_KO_NM
+		,EMP.GRADEDIV AS GRAD_CD
+		,CO.DIVNAME AS GRAD_KO_NM
+		,EMP.DEPTCODE AS DEPT_CD
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,EMP.EMAIL AS E_MAIL
+		,EMP.DESKNO AS IN_TEL
+		,ORAGMP.F_GET_SORT_SEQ(EMP.EMPCODE) EMP_SORT
+		FROM ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'                
+		) CO
+		WHERE DEPT.DEPTCODE = EMP.DEPTCODE   
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND EMP.RETIREDT IS NULL   	   
+		 <if test="emp_no != null and emp_no !=''"  >  
+		AND EMP.EMPCODE = #{emp_no}
+		 </if>  
+		 <if test="dept_cd != null and dept_cd !=''">
+		AND EMP.DEPTCODE = #{dept_cd}
+		 </if> 
+		 <if test="emp_ko_nm != null and emp_ko_nm !=''">
+		AND EMP.EMPNAME LIKE '%' || #{emp_ko_nm} || '%'
+		 </if>   
+		 <if test="up_dept_cd != null and up_dept_cd !=''">
+		AND EMP.DEPTCODE IN (
+	        SELECT TC.DEPTCODE
+	        FROM ORAGMP.CMDEPTM TC                                  
+	        START WITH TC.PREDEPTCODE = #{up_dept_cd} AND USEYN = 'Y'
+	        CONNECT BY PRIOR TC.DEPTCODE = TC.PREDEPTCODE
+	        AND TC.USEYN = 'Y'
+		)   	
+		 </if>
+		 <if test="type != null and type !=''">
+			 <if test="login_emp_no != null and login_emp_no !=''">
+				<if test="type eq 'NOTICE' or type eq 'BOARD' ">
+		AND EMP.EMPCODE != #{login_emp_no}
+			 	</if>
+			 </if>
+			<if test="type eq 'AUTH'">
+		AND NOT EXISTS (
+			SELECT EMP_NO
+			FROM GW_CO_AUTH_MAPPING AUTH
+			WHERE EMP.EMPCODE = AUTH.EMP_NO
+		)
+	        </if>
+			<if test="seq != null and seq !=''">
+	        	<if test="type eq 'NOTICE'">
+   		AND NOT EXISTS (
+			SELECT EMP_NO
+ 			FROM GW_OF_NOTICE_TARGET NOTICE
+			WHERE SEQ = #{seq}
+  			AND EMP.EMPCODE = NOTICE.EMP_NO
+ 		)
+		        </if>
+		        <if test="type eq 'BOARD'">
+        AND NOT EXISTS (
+			SELECT EMP_NO
+			FROM GW_OF_BOARD_TARGET BOARD
+			WHERE SEQ = #{seq}
+			AND EMP.EMPCODE = BOARD.EMP_NO
+		)
+		        </if>
+		        <if test="type eq 'MESSAGE' or type eq 'MESSAGE_DELIVER'">
+        AND NOT EXISTS (
+			SELECT EMP_NO
+		  	FROM GW_OF_MESSAGE_TARGET MESSAGE
+			WHERE MESSAGE_SEQ = #{seq}
+			AND EMP.EMPCODE = MESSAGE.EMP_NO
+		)					   
+		        </if>
+		        <if test="type eq 'SHARE'">
+        AND NOT EXISTS (
+			SELECT EMP_NO
+			FROM GW_EA_SHARE_TARGET TARGET
+			WHERE APPROVAL_SEQ = #{seq}
+			AND EMP.EMPCODE = TARGET.EMP_NO
+			UNION  
+            SELECT EMP_NO
+            FROM GW_EA_IMPL_DEPT_EMP TARGET
+            WHERE APPROVAL_SEQ = #{seq}  
+            AND EMP.EMPCODE = TARGET.EMP_NO
+		)					   
+	        	</if>
+	        </if>
+         </if>
+		 ORDER BY EMP_SORT ASC
+	</select>
+	
+	<select id="getMemberDetail" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.MemberVO">
+		SELECT *
+		FROM (
+		        SELECT ROWNUM RNUM
+		        ,EMP.EMPCODE AS EMP_NO
+		        ,'CHECK!IN1' AS PASS_WORD
+		        ,'' AS ENGAG_DIV
+		        ,EMP.EMPNAME AS EMP_KO_NM
+		        ,EMP.EMPCHSNAME AS EMP_CH_NM
+		        ,EMP.EMPENGNAME AS EMP_EN_NM
+		        ,utl_i18n.raw_to_char(EMP.PERSONID ,'AL32UTF8') AS RESID_NO
+		        ,EMP.BIRTHDIV AS BIRTH_DIV
+		        ,EMP.BIRTHDAY AS BIRTH_DT
+		        ,EMP.EMPSTEP AS STEP_CD
+		        ,EMP.GRADEDIV AS GRAD_CD
+		        ,CO.DIVNAME AS GRAD_KO_NM
+		        ,EMP.DEPTCODE AS DEPT_CD
+		        ,DEPT.DEPTNAME AS DEPT_KO_NM
+		        ,'' AS OPRT_CD
+		        ,'' AS POS_CD
+		        ,EMP.CLASSDIV AS ASSGN_CD
+		        ,EMP.ENTERDT AS ENCMPY_DT
+		        ,EMP.EMPDIV AS ENCMPY_CD
+		        ,'' AS OCCPT_CD
+		        ,'' AS DUTY_CD
+		        ,'' AS STAT_CD
+		        ,EMP.PHONE AS PAGER_NO
+		        ,EMP.ADDRESS AS ADDR1
+		        ,EMP.DETAILADDRESS AS ADDR2
+		        ,EMP.POSTCODE AS ZIP_CD
+		        ,EMP.TELL AS TEL_NO
+		        ,EMP.EMAIL AS E_MAIL
+		        ,'' AS E_MAIL_DMNGB
+		        ,'' AS E_MAIL_FULL
+		        ,EMP.DESKNO AS IN_TEL
+		        ,EMP.LASTACHIVE AS LAST_SCLAR
+		        ,'' AS SCLAR_NM
+		        ,EMP.NATIONDIV AS FORIGEN_DIV
+		        ,EMP.NATIONCODE AS NATION_CD
+		        ,EMP.LIVEYN AS RES_DIV
+		        ,EMP.NATIONCODE AS RESNATN_CD
+		        ,EMP.PLANTCODE AS BRANCH_CD
+		        ,PROMT.APPDATE AS NPROMT_STEP_DT
+		        ,PROMT.APPDATE AS PROMT_STEP_DT
+		        ,PROMT.APPDATE AS PROMT_GRAD_DT
+		        ,EMP.RETIREDT AS RETIR_DT
+		        ,'' AS RETIR_REASON
+		        ,'' AS SUSP_FR_DATE
+		        ,'' AS SUSP_END_DT
+		        ,'' AS SUSP_REASON
+		        ,'' AS SUSP_RATE
+		        ,EMP.MIDCALCDT AS RETIR_MID_DT
+		        ,'' AS RE_ENCMPY_DT
+		        ,'' AS ELAS_WK
+		        ,'' AS KT_YN
+		        ,EMP.WORKDIV AS MEDIA_CD
+		        ,'' AS EMP_DIV
+		        ,'' AS LBUN_YN
+		        ,'' AS NIGHT_DIV
+		        ,'' AS CAR_REG_YN
+		        ,'' AS CONTT_YN
+		        ,EMP.IEMPCODE AS FIRST_EMP_NO
+		        ,EMP.INSERTDT AS FIRST_REGDATE
+		        ,EMP.UEMPCODE AS LAST_EMP_NO
+		        ,EMP.UPDATEDT AS LAST_REGDATE
+		        ,'' AS LAST_IP
+		        ,'' AS ADDR_EN
+		        ,EMP.EMPDIV AS EMP_KIND
+		        ,'' AS EMP_EXCP
+		        ,'' AS RE_ENCMPY_YN
+		        ,'' AS BEF_EMP_NO
+		        ,'' AS RETIR_DIV
+		        ,PROMT.APPDATE PROMT_DEPT_DT
+		        ,(
+		                SELECT AUTH.AUTH_NM
+		                FROM GW_CO_AUTH AUTH
+		                ,GW_CO_AUTH_MAPPING AUMAP
+		                WHERE AUTH.AUTH_SEQ = AUMAP.AUTH_SEQ
+		                AND EMP.EMPCODE = AUMAP.EMP_NO
+		        ) AUTH_NM
+		        ,PROMT.APPDATE AS PROCM_DT
+		        ,PROMT.APPDATE AS PROCM_DT2        
+		        FROM ORAGMP.CMEMPM EMP  
+		        ,ORAGMP.ELECTRONICSIGN MEM   
+		        ,ORAGMP.CMDEPTM DEPT
+		        ,(
+		                SELECT * 
+		                FROM ORAGMP.CMCOMMONM 
+		                WHERE CMMCODE = 'PS01'        
+		        ) CO    
+		        ,(
+		                SELECT EMPCODE ,MAX(ORDSDT) APPDATE
+		                FROM ORAGMP.CMEMPORDERM
+		                WHERE ORDDIV ='EA013'
+		                GROUP BY EMPCODE      
+		        ) PROMT
+		        WHERE EMP.EMPCODE = MEM.EMPCODE(+)
+		        AND EMP.EMPCODE = PROMT.EMPCODE(+)   
+		        AND EMP.DEPTCODE = DEPT.DEPTCODE        
+		        AND EMP.GRADEDIV = CO.DIVCODE               
+		        AND EMP.EMPCODE = #{emp_no}        
+		        ORDER BY PROCM_DT2 DESC
+		)
+		WHERE RNUM = 1  
+	</select>
+	
+	<select id="getMemberPhoto" resultMap="MemberVO" parameterType="hashmap" >
+		SELECT IMG.EMPCODE AS EMP_NO
+		,IMG.EMPIMAGE AS PHOTO1
+		,IMG.EMPCODE||'.jpg' AS PHOTO1_NM
+		FROM ORAGMP.CMEMPIMAGEM IMG
+		WHERE IMG.EMPCODE = #{emp_no}
+	</select>
+	
+	<!-- 개인정보 END -->
+	<!-- 급여조회 START-->
+	<select id="getSalaryList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.SalaryVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+					SELECT PAYM.YEARMONTH AS PAY_DATE --    PAY_DATE      급여지급일
+					,PAYM.EMPCODE AS EMP_NO --    EMP_NO        사원ID
+					,EMP.EMPNAME AS EMP_NAME --    EMP_NAME      사원명
+					,DEPT.DEPTNAME AS DEPT_NAME --    DEPT_NAME     부서명    
+					,CO.DIVNAME AS JIK_NAME --    JIK_NAME      직급명    
+					,PAYM.IEMPCODE AS FIRST_EMP_NO --    FIRST_EMP_NO  최초작성자사번   
+					,PAYM.INSERTDT AS FIRST_REGDATE --    FIRST_REGDATE 최초등록일자    
+					,PAYM.UEMPCODE AS LAST_EMP_NO --    LAST_EMP_NO   최종수정자사번   
+					,PAYM.UPDATEDT AS LAST_REGDATE --    LAST_REGDATE  최종수정일자    
+					,'' AS LAST_IP --    LAST_IP       최종작성IP    
+					,PAYM.REMARK AS BIGO --    BIGO          비고 
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '001' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT1 --    PAY_AMT1    기본급
+					,0 AS PAY_AMT2 --    PAY_AMT2    생휴수당
+					,0 AS PAY_AMT3 --    PAY_AMT3    출납수당
+					,0 AS PAY_AMT4 --    PAY_AMT4    특수직무수당
+					,0 AS PAY_AMT5 --    PAY_AMT5    생산비과세
+					,0 AS PAY_AMT6 --    PAY_AMT6    업무수당
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '097' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT7 --    PAY_AMT7    식대(비)
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '090' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT8 --    PAY_AMT8    식대 
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '020' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT9 --    PAY_AMT9    직급수당
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '016' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT10 --    PAY_AMT10    건강보험환급금 
+					,0 AS PAY_AMT11 --    PAY_AMT11    가족수당
+					,0 AS PAY_AMT12 --    PAY_AMT12    누락분
+					,0 AS PAY_AMT13 --    PAY_AMT13    감액
+					,0 AS PAY_AMT14 --    PAY_AMT14    기타수당
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '550' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT15 --    PAY_AMT15    기타지급
+					,0 AS PAY_AMT16 --    PAY_AMT16    특별근무시간
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '160' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT17 --    PAY_AMT17    자격수당
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '700' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT18 --    PAY_AMT18    상여금
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE IN ('300' ,'305') THEN PAYD.AMT ELSE 0 END) AS PAY_AMT19 --    PAY_AMT19    인센티브 
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '045' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT20 --    PAY_AMT20    연장근로수당   
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '200' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT21 --    PAY_AMT21    야간근로수당   
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '800' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT22 --    PAY_AMT22    휴일근로수당   
+					,0 AS PAY_AMT23 --    PAY_AMT23    특수직무수당
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '802' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT24 --    PAY_AMT24    소득세환급분  
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '807' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT25 --    PAY_AMT25    주민세환급분  
+					,0 AS PAY_AMT26 --    PAY_AMT26    농특세환급분
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '800' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT27 --    PAY_AMT27    소득세
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '805' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT28 --    PAY_AMT28    주민세    
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '010' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT29 --    PAY_AMT29    국민연금   
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '015' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT30 --    PAY_AMT30    건강보험 
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '020' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT31 --    PAY_AMT31    고용보험   
+					,0 AS PAY_AMT32 --    PAY_AMT32    상여근태감액
+					,0 AS PAY_AMT33 --    PAY_AMT33    채무공제
+					,0 AS PAY_AMT34 --    PAY_AMT34    재형저축
+					,0 AS PAY_AMT35 --    PAY_AMT35    장기저축
+					,0 AS PAY_AMT36 --    PAY_AMT36    재형기금
+					,0 AS PAY_AMT37 --    PAY_AMT37    가지급금
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '700' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT38 --    PAY_AMT38    기타공제    
+					,0 AS PAY_AMT39 --    PAY_AMT39    농특세
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '055' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT40 --    PAY_AMT40    사우회비 
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '056' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT41 --    PAY_AMT41    사우회비상환  
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '801' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT42 --    PAY_AMT42    소득세징수분  
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '806' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT43 --    PAY_AMT43    주민세징수분  
+					,0 AS PAY_AMT44 --    PAY_AMT44    농특세징수분
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '815' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT45 --    PAY_AMT45    보증보험
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT46 --    PAY_AMT46    총지급액    
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT47 --    PAY_AMT47    공제합계    
+					,SUM(CASE WHEN PAYD.SUGODIV = 'su' THEN PAYD.AMT ELSE 0 END) - SUM(CASE WHEN PAYD.SUGODIV = 'go' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT48 --    PAY_AMT48    차인지급액
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '900' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT49 --    PAY_AMT49    학자금상환
+					,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '920' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT50 --    PAY_AMT50    퇴직위로금    
+					FROM ORAGMP.PSPAYM PAYM 
+					,ORAGMP.PSPAYD PAYD 
+					,ORAGMP.CMEMPM EMP
+					,ORAGMP.CMDEPTM DEPT
+					,ORAGMP.PSPAYBONUSM CLO
+					,(
+					        SELECT * 
+					        FROM ORAGMP.CMCOMMONM 
+					        WHERE CMMCODE = 'PS01'        
+					) CO
+					WHERE PAYM.PLANTCODE = PAYD.PLANTCODE
+					AND PAYM.YEARMONTH = PAYD.YEARMONTH
+					AND PAYM.EMPCODE = PAYD.EMPCODE
+					AND PAYM.PLANTCODE = EMP.PLANTCODE
+					/*AND PAYM.DEPTCODE = EMP.DEPTCODE*/
+					AND PAYM.EMPCODE = EMP.EMPCODE
+					AND PAYM.PLANTCODE = DEPT.PLANTCODE
+					AND PAYM.DEPTCODE = DEPT.DEPTCODE
+					AND PAYM.PLANTCODE = CLO.PLANTCODE
+                    AND PAYM.YEARMONTH = CLO.YEARMONTH                    
+                    AND CLO.STATEDIV = '09'
+					AND EMP.GRADEDIV = CO.DIVCODE					
+					AND PAYM.EMPCODE  = #{emp_no}
+					<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+         			AND LAST_DAY(TO_DATE(PAYM.YEARMONTH||'01' ,'YYYY-MM-DD')) BETWEEN #{search_start_dt} AND LAST_DAY(#{search_end_dt})
+         			</if>
+					GROUP BY PAYM.YEARMONTH ,PAYM.EMPCODE ,EMP.EMPNAME ,DEPT.DEPTNAME ,CO.DIVNAME 
+					,PAYM.IEMPCODE ,PAYM.INSERTDT ,PAYM.UEMPCODE ,PAYM.UPDATEDT ,PAYM.REMARK         		
+         			ORDER BY PAYM.YEARMONTH DESC
+		 <if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getSalaryCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+		FROM (
+			SELECT PAYM.YEARMONTH ,PAYM.EMPCODE ,EMP.EMPNAME ,DEPT.DEPTNAME ,CO.DIVNAME 
+			,PAYM.IEMPCODE ,PAYM.INSERTDT ,PAYM.UEMPCODE ,PAYM.UPDATEDT ,PAYM.REMARK
+			FROM ORAGMP.PSPAYM PAYM 
+			,ORAGMP.PSPAYD PAYD 
+			,ORAGMP.CMEMPM EMP
+			,ORAGMP.CMDEPTM DEPT
+			,ORAGMP.PSPAYBONUSM CLO
+			,(
+			        SELECT * 
+			        FROM ORAGMP.CMCOMMONM 
+			        WHERE CMMCODE = 'PS01'        
+			) CO
+			WHERE PAYM.PLANTCODE = PAYD.PLANTCODE
+			AND PAYM.YEARMONTH = PAYD.YEARMONTH
+			AND PAYM.EMPCODE = PAYD.EMPCODE
+			AND PAYM.PLANTCODE = EMP.PLANTCODE
+			/*AND PAYM.DEPTCODE = EMP.DEPTCODE*/
+			AND PAYM.EMPCODE = EMP.EMPCODE
+			AND PAYM.PLANTCODE = DEPT.PLANTCODE
+			AND PAYM.DEPTCODE = DEPT.DEPTCODE
+			AND PAYM.PLANTCODE = CLO.PLANTCODE
+			AND PAYM.YEARMONTH = CLO.YEARMONTH                    
+	        AND CLO.STATEDIV = '09'		
+			AND EMP.GRADEDIV = CO.DIVCODE
+			<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+			AND LAST_DAY(TO_DATE(PAYM.YEARMONTH||'01' ,'YYYY-MM-DD')) BETWEEN #{search_start_dt} AND #{search_end_dt}
+			</if>
+			AND PAYM.EMPCODE = #{emp_no}
+			GROUP BY PAYM.YEARMONTH ,PAYM.EMPCODE ,EMP.EMPNAME ,DEPT.DEPTNAME ,CO.DIVNAME 
+			,PAYM.IEMPCODE ,PAYM.INSERTDT ,PAYM.UEMPCODE ,PAYM.UPDATEDT ,PAYM.REMARK
+		)
+	</select>
+	
+	<select id="getSalaryDetail" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.SalaryVO">
+		SELECT PAYM.YEARMONTH AS PAY_DATE --    PAY_DATE      급여지급일
+		,PAYM.EMPCODE AS EMP_NO --    EMP_NO        사원ID
+		,EMP.EMPNAME AS EMP_NAME --    EMP_NAME      사원명
+		,DEPT.DEPTNAME AS DEPT_NAME --    DEPT_NAME     부서명    
+		,CO.DIVNAME AS JIK_NAME --    JIK_NAME      직급명    
+		,PAYM.IEMPCODE AS FIRST_EMP_NO --    FIRST_EMP_NO  최초작성자사번   
+		,PAYM.INSERTDT AS FIRST_REGDATE --    FIRST_REGDATE 최초등록일자    
+		,PAYM.UEMPCODE AS LAST_EMP_NO --    LAST_EMP_NO   최종수정자사번   
+		,PAYM.UPDATEDT AS LAST_REGDATE --    LAST_REGDATE  최종수정일자    
+		,'' AS LAST_IP --    LAST_IP       최종작성IP    
+		,PAYM.REMARK AS BIGO --    BIGO          비고 
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '001' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT1 --    PAY_AMT1    기본급
+		,0 AS PAY_AMT2 --    PAY_AMT2    생휴수당
+		,0 AS PAY_AMT3 --    PAY_AMT3    출납수당
+		,0 AS PAY_AMT4 --    PAY_AMT4    특수직무수당
+		,0 AS PAY_AMT5 --    PAY_AMT5    생산비과세
+		,0 AS PAY_AMT6 --    PAY_AMT6    업무수당
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '097' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT7 --    PAY_AMT7    식대(비)
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '090' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT8 --    PAY_AMT8    식대 
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '020' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT9 --    PAY_AMT9    직급수당
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '016' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT10 --    PAY_AMT10    건강보험환급금 
+		,0 AS PAY_AMT11 --    PAY_AMT11    가족수당
+		,0 AS PAY_AMT12 --    PAY_AMT12    누락분
+		,0 AS PAY_AMT13 --    PAY_AMT13    감액
+		,0 AS PAY_AMT14 --    PAY_AMT14    기타수당
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '550' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT15 --    PAY_AMT15    기타지급
+		,0 AS PAY_AMT16 --    PAY_AMT16    특별근무시간
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '160' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT17 --    PAY_AMT17    자격수당
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '700' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT18 --    PAY_AMT18    상여금
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE IN ('300' ,'305') THEN PAYD.AMT ELSE 0 END) AS PAY_AMT19 --    PAY_AMT19    인센티브 
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '045' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT20 --    PAY_AMT20    연장근로수당   
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '200' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT21 --    PAY_AMT21    야간근로수당   
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' AND PAYD.SUGOCODE = '800' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT22 --    PAY_AMT22    휴일근로수당   
+		,0 AS PAY_AMT23 --    PAY_AMT23    특수직무수당
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '802' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT24 --    PAY_AMT24    소득세환급분  
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '807' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT25 --    PAY_AMT25    주민세환급분  
+		,0 AS PAY_AMT26 --    PAY_AMT26    농특세환급분
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '800' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT27 --    PAY_AMT27    소득세
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '805' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT28 --    PAY_AMT28    주민세    
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '010' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT29 --    PAY_AMT29    국민연금   
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '015' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT30 --    PAY_AMT30    건강보험 
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '020' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT31 --    PAY_AMT31    고용보험   
+		,0 AS PAY_AMT32 --    PAY_AMT32    상여근태감액
+		,0 AS PAY_AMT33 --    PAY_AMT33    채무공제
+		,0 AS PAY_AMT34 --    PAY_AMT34    재형저축
+		,0 AS PAY_AMT35 --    PAY_AMT35    장기저축
+		,0 AS PAY_AMT36 --    PAY_AMT36    재형기금
+		,0 AS PAY_AMT37 --    PAY_AMT37    가지급금
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '700' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT38 --    PAY_AMT38    기타공제    
+		,0 AS PAY_AMT39 --    PAY_AMT39    농특세
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '055' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT40 --    PAY_AMT40    사우회비 
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '056' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT41 --    PAY_AMT41    사우회비상환  
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '801' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT42 --    PAY_AMT42    소득세징수분  
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '806' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT43 --    PAY_AMT43    주민세징수분  
+		,0 AS PAY_AMT44 --    PAY_AMT44    농특세징수분
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '815' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT45 --    PAY_AMT45    보증보험
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT46 --    PAY_AMT46    총지급액    
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT47 --    PAY_AMT47    공제합계    
+		,SUM(CASE WHEN PAYD.SUGODIV = 'su' THEN PAYD.AMT ELSE 0 END) - SUM(CASE WHEN PAYD.SUGODIV = 'go' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT48 --    PAY_AMT48    차인지급액
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '900' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT49 --    PAY_AMT49    학자금상환
+		,SUM(CASE WHEN PAYD.SUGODIV = 'go' AND PAYD.SUGOCODE = '920' THEN PAYD.AMT ELSE 0 END) AS PAY_AMT50 --    PAY_AMT50    퇴직위로금    
+		FROM ORAGMP.PSPAYM PAYM 
+		,ORAGMP.PSPAYD PAYD 
+		,ORAGMP.CMEMPM EMP
+		,ORAGMP.CMDEPTM DEPT
+		,ORAGMP.PSPAYBONUSM CLO
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'        
+		) CO
+		WHERE PAYM.PLANTCODE = PAYD.PLANTCODE
+		AND PAYM.YEARMONTH = PAYD.YEARMONTH
+		AND PAYM.EMPCODE = PAYD.EMPCODE
+		AND PAYM.PLANTCODE = EMP.PLANTCODE
+		/*AND PAYM.DEPTCODE = EMP.DEPTCODE*/
+		AND PAYM.EMPCODE = EMP.EMPCODE
+		AND PAYM.PLANTCODE = DEPT.PLANTCODE
+		AND PAYM.DEPTCODE = DEPT.DEPTCODE
+		AND PAYM.PLANTCODE = CLO.PLANTCODE
+        AND PAYM.YEARMONTH = CLO.YEARMONTH                    
+        AND CLO.STATEDIV = '09'
+		AND EMP.GRADEDIV = CO.DIVCODE
+		AND PAYM.YEARMONTH = SUBSTR(#{pay_dt} ,1 ,4)||'-'||SUBSTR(#{pay_dt} ,5 ,2)
+		AND PAYM.EMPCODE = #{emp_no}
+		GROUP BY PAYM.YEARMONTH ,PAYM.EMPCODE ,EMP.EMPNAME ,DEPT.DEPTNAME ,CO.DIVNAME 
+		,PAYM.IEMPCODE ,PAYM.INSERTDT ,PAYM.UEMPCODE ,PAYM.UPDATEDT ,PAYM.REMARK
+	</select>
+	<!-- 급여조회 END-->
+	
+	<!-- 건강보험 START -->
+	<select id="getInsuranceList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.InsuranceVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+				SELECT SUBSTR(A.YEARMONTH ,1 ,4) AS IMPORT_YEAR
+                ,A.EMPCODE AS SAWON_NO 
+                ,EMP.EMPNAME AS SAWON_NAME
+                ,utl_i18n.raw_to_char(EMP.PERSONID ,'AL32UTF8') AS JUMIN_NO
+                ,TO_CHAR(SAL.INSUAMT ,'Fm999,999,999,990') AS PAYMENT_1
+                ,TO_CHAR(SAL.INSUAMT ,'Fm999,999,999,990') AS PAYMENT_2
+                ,TO_CHAR(SAL.INSUAMT ,'Fm999,999,999,990') AS PAYMENT_3
+                ,TO_CHAR(SAL.SALARYAMT ,'Fm999,999,999,990') AS T_PAY
+                ,CASE WHEN EMP.ENTERDT > TRIM(A.YEARMONTH)||'-01-01' THEN ( 
+                                CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2)
+                                       WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2)
+                                       ELSE SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(EMP.RETIREDT)) ,3 ,2)
+                                END                         
+                        )
+                        ELSE (
+                               CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN TO_CHAR(12)
+                                       WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2)
+                                       ELSE SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(EMP.RETIREDT)) ,3 ,2)
+                                END      
+                        )
+                END AS MONTH
+                ,CASE WHEN EMP.ENTERDT > TRIM(A.YEARMONTH)||'-01-01' THEN (
+                                CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2))) ,'Fm999,999,999,990' )
+                                       WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2))) ,'Fm999,999,999,990')
+                                       ELSE TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(EMP.RETIREDT)) ,3 ,2))) ,'Fm999,999,999,990')
+                                END                              
+                        )
+                        ELSE (
+                               CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN TO_CHAR(ROUND(SAL.SALARYAMT / 12) ,'Fm999,999,999,990')
+                                       WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2))) ,'Fm999,999,999,990')
+                                       ELSE TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(EMP.RETIREDT)) ,3 ,2))) ,'Fm999,999,999,990')
+                                END   
+                        )
+                END AS MONTH_PAY
+                ,TO_CHAR(NVL(A.FIXAMT ,0) ,'Fm999,999,999,990') AS DECIDE_1
+                ,TO_CHAR(NVL(A.FIXAMT ,0) ,'Fm999,999,999,990') AS DECIDE_2
+                ,TO_CHAR(NVL(A.FIXAMT ,0) ,'Fm999,999,999,990') AS DECIDE_3
+                ,TO_CHAR(NVL(A.FIXAMT ,0) ,'Fm999,999,999,990') AS CALC_1
+                ,TO_CHAR(NVL(A.FIXAMT ,0) ,'Fm999,999,999,990') AS CALC_2
+                ,TO_CHAR(NVL(A.FIXAMT ,0) ,'Fm999,999,999,990') AS CALC_3
+                ,TO_CHAR(NVL(A.INSUAMTP ,0) ,'Fm999,999,999,990') AS BURDEN_1
+                ,TO_CHAR(NVL(A.INSUAMTP ,0) ,'Fm999,999,999,990') AS BURDEN_2
+                ,TO_CHAR(NVL(A.INSUAMTP ,0) ,'Fm999,999,999,990') AS BURDEN_3
+                ,TO_CHAR(NVL(A.INSUAMTP ,0) + NVL(A.INSUAMTC ,0) ,'Fm999,999,999,990') AS TEMP_1
+                ,TO_CHAR(NVL(A.INSUAMTP ,0) + NVL(A.INSUAMTC ,0) ,'Fm999,999,999,990') AS TEMP_2
+                ,TO_CHAR(NVL(A.INSUAMTP ,0) + NVL(A.INSUAMTC ,0) ,'Fm999,999,999,990') AS TEMP_3
+                FROM ORAGMP.PSINSUM A
+                ,ORAGMP.CMEMPM EMP
+                ,(
+                        SELECT EMPCODE
+                        ,PLANTCODE
+                        ,SUBSTR(YEARMONTH,1,4) AS YEARMONTH      
+                        ,SUM(SALARYAMT) AS SALARYAMT
+                        ,SUM(INSUAMT) AS INSUAMT
+                        FROM ORAGMP.PSPAYM 
+                        GROUP BY EMPCODE, PLANTCODE, SUBSTR(YEARMONTH,1,4)       
+                ) SAL
+                WHERE A.EMPCODE = EMP.EMPCODE  
+                AND A.EMPCODE= #{emp_no}
+                AND A.EMPCODE = SAL.EMPCODE
+                AND A.YEARMONTH = SAL.YEARMONTH
+		 <if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getInsuranceCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+		FROM ORAGMP.PSINSUM A        
+		WHERE A.EMPCODE = #{emp_no}
+	</select>
+	
+	<select id="getInsuranceDetail" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.InsuranceVO">
+		SELECT SUBSTR(A.YEARMONTH ,1 ,4) AS IMPORT_YEAR                                                                                                        
+        ,A.EMPCODE AS SAWON_NO                                                                                                         
+        ,EMP.EMPNAME AS SAWON_NAME                                                                                                        
+        ,EMP.PERSONID AS JUMIN_NO                                                                                                        
+        ,TO_CHAR(SAL.INSUAMT , 'FM999,999,999,990') AS PAYMENT_1                                                                                                        
+        ,TO_CHAR(SAL.INSUAMT , 'FM999,999,999,990') AS PAYMENT_2                                                                                                        
+        ,TO_CHAR(SAL.INSUAMT , 'FM999,999,999,990') AS PAYMENT_3                                                                                                        
+        ,TO_CHAR(SAL.SALARYAMT , 'FM999,999,999,990') AS T_PAY                                                                                                        
+        ,CASE WHEN EMP.ENTERDT > TRIM(A.YEARMONTH)||'-01-01' THEN (                                                                                                         
+                        CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2)                                                                                                        
+                               WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2)                                                                                                        
+                               ELSE SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(EMP.RETIREDT)) ,3 ,2)                                                                                                        
+                        END                                                                                                                                 
+                )                                                                                                        
+                ELSE (                                                                                                        
+                       CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN TO_CHAR(12)                                                                                                        
+                               WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2)                                                                                                        
+                               ELSE SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(EMP.RETIREDT)) ,3 ,2)                                                                                                        
+                        END                                                                                                              
+                )                                                                                                        
+        END AS MONTH                                                                                                        
+        ,CASE WHEN EMP.ENTERDT > TRIM(A.YEARMONTH)||'-01-01' THEN (                                                                                                        
+                        CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2))))                                                                                                        
+                               WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2))))                                                                                                        
+                               ELSE TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,EMP.ENTERDT ,TRIM(EMP.RETIREDT)) ,3 ,2))))                                                                                                        
+                        END                                                                                                                                      
+                )                                                                                                        
+                ELSE (                                                                                                        
+                       CASE WHEN TRIM(EMP.RETIREDT) IS NULL THEN TO_CHAR(ROUND(SAL.SALARYAMT / 12))                                                                                                        
+                               WHEN TRIM(EMP.RETIREDT) > TRIM(A.YEARMONTH)||'-12-31'  THEN TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(A.YEARMONTH)||'-12-31') ,3 ,2))))                                                                                                        
+                               ELSE TO_CHAR(ROUND(SAL.SALARYAMT / TO_NUMBER(SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,TRIM(A.YEARMONTH)||'-01-01' ,TRIM(EMP.RETIREDT)) ,3 ,2))))                                                                                                        
+                        END                                                                                                           
+                )                                                                                                        
+        END AS MONTH_PAY                                                                                                        
+        ,TO_CHAR(A.FIXAMT , 'FM999,999,999,990') AS DECIDE_1                                                                                                        
+        ,TO_CHAR(A.FIXAMT , 'FM999,999,999,990') AS DECIDE_2                                                                                                        
+        ,TO_CHAR(A.FIXAMT , 'FM999,999,999,990') AS DECIDE_3                                                                                                        
+        ,TO_CHAR(A.FIXAMT , 'FM999,999,999,990') CALC_1                                                                                                        
+        ,TO_CHAR(A.FIXAMT , 'FM999,999,999,990') CALC_2                                                                                                        
+        ,TO_CHAR(A.FIXAMT , 'FM999,999,999,990') CALC_3                                                                                                        
+        ,TO_CHAR(A.INSUAMTP , 'FM999,999,999,990') AS BURDEN_1                                                                                                        
+        ,TO_CHAR(A.INSUAMTP , 'FM999,999,999,990') AS BURDEN_2                                                                                                        
+        ,TO_CHAR(A.INSUAMTP , 'FM999,999,999,990') AS BURDEN_3                                                                                                        
+        ,TO_CHAR(NVL(A.INSUAMTP ,0) + NVL(A.INSUAMTC ,0) , 'FM999,999,999,990') AS TEMP_1                                                                                                        
+        ,TO_CHAR(NVL(A.INSUAMTP ,0) + NVL(A.INSUAMTC ,0) , 'FM999,999,999,990') AS TEMP_2                                                                                                        
+        ,TO_CHAR(NVL(A.INSUAMTP ,0) + NVL(A.INSUAMTC ,0) , 'FM999,999,999,990') AS TEMP_3                                                                                                          
+		FROM ORAGMP.PSINSUM A                                                                                                        
+		,ORAGMP.CMEMPM EMP                                                                                                        
+		,(                                                                                                        
+		        SELECT EMPCODE                                                                                                        
+		        ,PLANTCODE                                                                                                        
+		        ,SUBSTR(YEARMONTH,1,4) AS YEARMONTH                                                                                                              
+		        ,SUM(SALARYAMT) AS SALARYAMT                                                                                                        
+		        ,SUM(INSUAMT) AS INSUAMT                                                                                                        
+		        FROM ORAGMP.PSPAYM                                                                                                         
+		        GROUP BY EMPCODE, PLANTCODE, SUBSTR(YEARMONTH,1,4)                                                                                                               
+		) SAL                                                                                                        
+		WHERE A.EMPCODE = EMP.EMPCODE                                                                                                          
+		AND A.EMPCODE= #{emp_no}  
+		AND A.YEARMONTH = #{import_year}                                                                                                      
+		AND A.EMPCODE = SAL.EMPCODE                                                                                                        
+		AND A.YEARMONTH = SAL.YEARMONTH  
+	</select>
+	<!-- 건강보험 END -->
+	
+	<!-- 연차사용내역 START -->
+	<select id="getAnnualList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualVO">
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+			SELECT DLIAPP.EMPCODE AS RQ_EMP_NO
+			,EMP.EMPNAME AS RQ_EMP_KO_NM
+			,'42020' AS RQ_VACAT_CD
+			,'' AS RQ_VACAT_NM
+			,DEPT.DEPTNAME AS DEPT_KO_NM
+			,DLIAPP.WORKDATE1 AS RQ_FR_DT
+			,DLIAPP.WORKDATE2 AS RQ_TO_DT
+			,EMP.EMPNAME AS RQ_EMP_NM
+			,CASE WHEN DLIAPP.ATTENDDIV  = '11' THEN 0.5
+			        ELSE TO_NUMBER(TO_DATE(DLIAPP.WORKDATE2) - TO_DATE(DLIAPP.WORKDATE1)) +1   
+			END AS RQ_WK_DAY
+			,DLIAPP.EXPREMARK AS RQ_REMARK
+			,DLIAPP.APPDATE AS RQ_APPRV_DT
+			,DLIAPP.EMPCODE AS RQ_APPRV_EMP_NO
+			,'' AS RQ_APPRV_YN
+			,DLIAPP.IEMPCODE AS FIRST_EMP_NO
+			,DLIAPP.INSERTDT AS FIRST_REGDATE
+			,DLIAPP.UEMPCODE AS LAST_EMP_NO
+			,DLIAPP.UPDATEDT AS LAST_REGDATE
+			,'' AS LAST_IP
+			,'' AS APPROVAL_SEQ
+			,'' AS APPROVAL_FLAG
+			FROM ORAGMP.PSWORKEXPAPPM DLIAPP  
+			,ORAGMP.CMEMPM EMP
+			,ORAGMP.CMDEPTM DEPT
+			WHERE DLIAPP.EMPCODE = EMP.EMPCODE
+			<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+			AND TO_DATE(DLIAPP.WORKDATE1 ,'YYYY-MM-DD') BETWEEN TO_DATE(#{search_start_dt} ,'YYYY-MM-DD')  AND TO_DATE(#{search_end_dt} ,'YYYY-MM-DD')
+			</if>
+			AND EMP.EMPCODE = #{emp_no}
+			AND EMP.DEPTCODE = DEPT.DEPTCODE     
+			UNION        
+			SELECT EMP.EMPCODE AS RQ_EMP_NO
+			,EMP.EMPNAME AS RQ_EMP_KO_NM
+			,'42020' AS RQ_VACAT_CD
+			,'' AS RQ_VACAT_NM
+			,DEPT.DEPTNAME AS DEPT_KO_NM
+			,DLIH.CALYMD AS RQ_FR_DT
+			,DLIH.CALYMD AS RQ_TO_DT
+			,EMP.EMPNAME AS RQ_EMP_NM
+			,1 AS RQ_WK_DAY
+			,'공동연차' AS RQ_REMARK
+			,DLIH.CALYMD AS RQ_APPRV_DT
+			,'' AS RQ_APPRV_EMP_NO
+			,'' AS RQ_APPRV_YN
+			,DLIH.IEMPCODE AS FIRST_EMP_NO
+			,DLIH.INSERTDT AS FIRST_REGDATE
+			,DLIH.UEMPCODE AS LAST_EMP_NO
+			,DLIH.UPDATEDT AS LAST_REGDATE
+			,'' AS LAST_IP
+			,'' AS APPROVAL_SEQ
+			,'' AS APPROVAL_FLAG 
+			FROM ORAGMP.PSCALM DLIH
+			,ORAGMP.CMEMPM EMP
+			,ORAGMP.CMDEPTM DEPT
+			WHERE DLIH.WORKDIV = EMP.WORKDIV
+			AND EMP.DEPTCODE = DEPT.DEPTCODE
+			AND DLIH.CALDIV = '20'
+			AND EMP.EMPCODE = #{emp_no}
+			<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+			AND TO_DATE(DLIH.CALYMD ,'YYYY-MM-DD') BETWEEN TO_DATE(#{search_start_dt} ,'YYYY-MM-DD')  AND TO_DATE(#{search_end_dt} ,'YYYY-MM-DD')
+			</if>
+			ORDER BY RQ_EMP_NO DESC  	
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getAnnualCount" parameterType="hashmap" resultType="int">
+		SELECT SUM(CNT) 
+		FROM (
+			SELECT COUNT(*) AS CNT
+			FROM ORAGMP.PSWORKEXPAPPM DLIAPP  
+			,ORAGMP.CMEMPM EMP
+			,ORAGMP.CMDEPTM DEPT
+			WHERE DLIAPP.EMPCODE = EMP.EMPCODE
+			<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+			AND TO_DATE(DLIAPP.WORKDATE1 ,'YYYY-MM-DD') BETWEEN TO_DATE(#{search_start_dt} ,'YYYY-MM-DD')  AND TO_DATE(#{search_end_dt} ,'YYYY-MM-DD')
+			</if>
+			AND EMP.EMPCODE = #{emp_no}
+			AND EMP.DEPTCODE = DEPT.DEPTCODE     
+			UNION        
+			SELECT COUNT(*) AS CNT
+			FROM ORAGMP.PSCALM DLIH
+			,ORAGMP.CMEMPM EMP
+			,ORAGMP.CMDEPTM DEPT
+			WHERE DLIH.WORKDIV = EMP.WORKDIV
+			AND EMP.DEPTCODE = DEPT.DEPTCODE
+			AND DLIH.CALDIV = '20'
+			AND EMP.EMPCODE = #{emp_no}
+			--<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+			AND TO_DATE(DLIH.CALYMD ,'YYYY-MM-DD') BETWEEN TO_DATE(#{search_start_dt} ,'YYYY-MM-DD')  AND TO_DATE(#{search_end_dt} ,'YYYY-MM-DD')
+			--</if>
+		)
+	</select>
+	
+	<select id="getAnnualUsedCount" parameterType="hashmap" resultType="float">
+		SELECT   NVL(SUM (DLIAPP.USECNT), 0) AS USED_DAYS
+		FROM ORAGMP.PSYEARLEAVEM DLIAPP
+	    ,ORAGMP.CMEMPM EMP
+	   	WHERE DLIAPP.EMPCODE = EMP.EMPCODE
+		   	<if test="(search_start_dt != null and search_start_dt !='') and (search_end_dt != null and search_end_dt !='')">
+		AND ( TO_DATE(DLIAPP.STDDATE ,'YYYY-MM-DD') BETWEEN TO_DATE(#{search_start_dt} ,'YYYY-MM-DD')  AND TO_DATE(#{search_end_dt} ,'YYYY-MM-DD')
+		OR TO_DATE(DLIAPP.STDDATE ,'YYYY-MM-DD') BETWEEN TO_DATE(#{search_start_dt} ,'YYYY-MM-DD')  AND TO_DATE(#{search_end_dt} ,'YYYY-MM-DD')
+		         )
+			</if>
+		AND EMP.EMPCODE = #{emp_no}
+		ORDER BY DLIAPP.STDDATE DESC
+	</select>
+	<!-- 연차사용내역 END -->
+	
+	<!-- 연차사용내역 END -->
+	
+	<!-- 연차사용계획 START -->
+	<select id="getAnnualPlan" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualMgrVO">
+		SELECT EMP.EMPCODE AS YR_EMP_NO ,EMP.EMPNAME AS EMP_KO_NM ,DEPT.DEPTNAME AS DEPT_KO_NM            
+		,CO.DIVNAME AS GRAD_KO_NM ,EMP.ENTERDT AS ENCMPY_DT            
+		,B.YR_YEAR_FLAG AS YR_YEAR_FLAG             
+		,MON.YR_MONTH_FLAG AS YR_MONTH_FLAG            
+		,EMP.YR_WORK_YEARS AS YR_WORK_YEARS             
+		,EMP.YR_WORK_MONTHS AS YR_WORK_MONTHS            
+		,EMP.YR_WORK_DAYS AS YR_WORK_DAYS             
+		,DECODE(B.YR_YEAR_FLAG ,1 ,TO_NUMBER(EMP.YR_WORK_YEARS)  ,TO_NUMBER(EMP.YR_WORK_YEARS) - 1) AS YR_COMPANY_YEAR            
+		,ROUND ((            
+		        CASE WHEN B.YR_YEAR_FLAG = 1 THEN TO_NUMBER(EMP.YR_WORK_YEARS)              
+		                ELSE TO_NUMBER(EMP.YR_WORK_YEARS) - 1            
+		        END             
+		        ) / 2, 0            
+		) - 1            
+		AS ADD_USEABLE_DAYS
+		,CASE WHEN (15 + TRUNC ((DECODE(B.YR_YEAR_FLAG ,1 ,TO_NUMBER(EMP.YR_WORK_YEARS)  ,TO_NUMBER(EMP.YR_WORK_YEARS) - 1)) / 2)) > 26 THEN 25            
+		        WHEN YR_YEAR_FLAG = '0' AND ORAGMP.F_GET_WORK_DAYS_YMD(EMP.EMPCODE ,'Y' ,#{yr_year}||lpad(#{yr_mmdd} ,4 ,'0') ) = '0' THEN 0            
+		        WHEN YR_YEAR_FLAG = '0' AND ORAGMP.F_GET_WORK_DAYS_YMD(EMP.EMPCODE ,'Y' ,#{yr_year}||lpad(#{yr_mmdd} ,4 ,'0') ) = '1' THEN (            
+		                CASE WHEN TO_NUMBER (#{yr_year}) - TO_NUMBER (SUBSTR (EMP.ENTERDT, 1, 4)) >= 2 THEN 15            
+		                        WHEN ROUND (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)) , 0 ) =             
+		                                ( 15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)) + 0.5 ) 
+		                                THEN 15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2))- DECODE (YR_MONTH_FLAG, 1, 0, 1))            
+		                        WHEN TRUNC (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2))- DECODE (YR_MONTH_FLAG, 1, 0, 1)) , 0 ) =            
+		                                (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)))            
+		                                THEN 15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1))            
+		                        ELSE ROUND ( 15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (YR_MONTH_FLAG, 1, 0, 1)) + 0.24, 1)            
+		                END            
+		        )                        
+		        WHEN YR_YEAR_FLAG = '1' AND ORAGMP.F_GET_WORK_DAYS_YMD(EMP.EMPCODE ,'Y' ,#{yr_year}||lpad(#{yr_mmdd} ,4 ,'0') ) = '0' THEN (            
+		                CASE WHEN TO_NUMBER (#{yr_year}) - TO_NUMBER (SUBSTR (EMP.ENTERDT, 1, 4)) >= 1 THEN 15    
+		                        ELSE 0            
+		                END            
+		        )            
+		        ELSE 15 + ROUND ((DECODE(B.YR_YEAR_FLAG ,1 ,TO_NUMBER(EMP.YR_WORK_YEARS)  ,TO_NUMBER(EMP.YR_WORK_YEARS) )) / 2, 0) - 1            
+		END AS USEABLE_DAYS     
+		 ,(      
+                SELECT USECNT   
+                FROM ORAGMP.PSYEARLEAVEM LEA
+                WHERE EMP.EMPCODE = LEA.EMPCODE 
+                AND TO_DATE(STDDATE , 'YYYY-MM-DD') BETWEEN TO_DATE(#{yr_year} || '0101' ,'YYYY-MM-DD') AND TO_DATE(#{yr_year} || '1231' , 'YYYY-MM-DD')
+        ) AS USED_DAYS            
+        ,'N' AS CHECKS
+        ,NVL ((     
+               SELECT FORWARDCNT   
+                FROM ORAGMP.PSYEARLEAVEM LEA
+                WHERE EMP.EMPCODE = LEA.EMPCODE 
+                AND TO_DATE(STDDATE , 'YYYY-MM-DD') BETWEEN TO_DATE(#{yr_year}  || '0101' ,'YYYY-MM-DD') AND TO_DATE(#{yr_year} || '1231' , 'YYYY-MM-DD')                
+                ) ,0        
+		) AS YR_YEAR_USED_DAY  --지난해 사용한 연차            
+		,DECODE(EMP.RETIREDT ,NULL ,'70010' ,'70030' ) AS ENGAG_DIV
+		,EMP.PARTDIV AS MEDIA_CD
+		,#{yr_year} AS YR_YEAR,
+		(  
+				SELECT COUNT(*) + (
+                        SELECT SUM(CASE WHEN DLIAPP.ATTENDDIV  = '11' THEN 0.5
+                        ELSE TO_NUMBER(TO_DATE(DLIAPP.WORKDATE2) - TO_DATE(DLIAPP.WORKDATE1)) + 1   
+                        END) AS CNT
+                        FROM ORAGMP.PSWORKEXPAPPM  DLIAPP
+                        WHERE DLIAPP.EMPCODE = #{emp_no}
+                        AND TO_DATE(DLIAPP.WORKDATE1 ,'YYYY-MM-DD') BETWEEN TO_DATE(#{yr_year} || '0101' ,'YYYY-MM-DD') AND TO_DATE(#{yr_year} || '0630' ,'YYYY-MM-DD')        
+                )              
+                FROM ORAGMP.PSCALM HALE
+                WHERE HALE.CALDIV = '20'
+                AND HALE.WORKDIV = EMP.WORKDIV
+                AND HALE.CALYMD BETWEEN #{yr_year}|| '-01-01' AND #{yr_year}|| '-06-30'
+                GROUP BY HALE.WORKDIV  
+		) AS USED_DAYS_HALF
+		FROM (            
+		        SELECT SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,ENTERDT ,TO_CHAR(SYSDATE , 'YYYY-MM-DD')) ,1 ,2) AS YR_WORK_YEARS             
+		        ,SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,ENTERDT ,TO_CHAR(SYSDATE , 'YYYY-MM-DD')) ,3 ,2) AS YR_WORK_MONTHS            
+		        ,SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,ENTERDT ,TO_CHAR(SYSDATE , 'YYYY-MM-DD')) ,5 ,2) AS YR_WORK_DAYS            
+		        ,DAT.*              
+		        FROM ORAGMP.CMEMPM DAT             
+		) EMP            
+		,ORAGMP.CMDEPTM DEPT            
+		,(                        
+		        SELECT *                         
+		        FROM ORAGMP.CMCOMMONM                         
+		        WHERE CMMCODE = 'PS01'                                
+		) CO            
+		,(            
+		        SELECT EMPCODE ,SUBSTR(YEARMONTH ,1 ,4) AS YEARMONTH            
+		        ,SUM(NVL(TOTDAY ,0)) AS TOTDAY            
+		        ,SUM(NVL(PAYDAY ,0)) AS PAYDAY            
+		        ,CASE WHEN SUM(NVL(TOTDAY ,0)) = SUM(NVL(PAYDAY ,0)) THEN '1'            
+		                ELSE '0'            
+		        END YR_YEAR_FLAG            
+		        FROM ORAGMP.PSWORKMONTHM            
+		        GROUP BY EMPCODE ,SUBSTR(YEARMONTH ,1 ,4)                    
+		) B            
+		,(            
+		        SELECT EMPCODE             
+		        ,NVL(MIDPAYYN ,1) AS YR_MONTH_FLAG            
+		        FROM ORAGMP.PSEMPPAYBASEM                    
+		) MON            
+		WHERE EMP.EMPCODE LIKE TRIM (#{emp_no})            
+		AND EMP.EMPCODE = B.EMPCODE(+)            
+		AND EMP.DEPTCODE = DEPT.DEPTCODE            
+		AND EMP.GRADEDIV = CO.DIVCODE                   
+		AND B.YEARMONTH(+) = #{yr_year}            
+		AND EMP.RETIREDT IS NULL            
+		AND EMP.EMPCODE = MON.EMPCODE            
+		ORDER BY 1
+	</select>
+	
+	<select id="getAnnualCommonDT" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualVO">
+        SELECT TO_CHAR(TO_DATE(DLIAPP.WORKDATE1) ,'YYYYMMDD') RQ_FR_DT
+        ,CASE WHEN DLIAPP.WORKDATE2 = '--'  THEN TO_CHAR(TO_DATE(DLIAPP.WORKDATE1) ,'YYYYMMDD')
+                ELSE TO_CHAR(TO_DATE(DLIAPP.WORKDATE2) ,'YYYYMMDD') 
+        END AS RQ_TO_DT
+        ,'42020' AS RQ_VACAT_CD
+        ,DLIAPP.EXPREMARK AS RQ_REMARK
+        ,CASE WHEN DLIAPP.ATTENDDIV  = '11' THEN 0.5
+               ELSE TO_NUMBER(TO_DATE(DLIAPP.WORKDATE2) - TO_DATE(DLIAPP.WORKDATE1)) +1   
+        END AS RQ_WK_DAY
+        ,'1' AS GUBUN
+        FROM ORAGMP.PSWORKEXPAPPM DLIAPP --ORAGMP.PSWORKMONTHM DLIAPP
+        <if test="rq_year != null and rq_year !=''">  
+        WHERE APPDATE BETWEEN TO_CHAR(TO_DATE(#{rq_year} || '0101') ,'YYYY-MM-DD') AND TO_CHAR(TO_DATE(#{rq_year} || '1231') ,'YYYY-MM-DD')
+        </if>
+        AND DLIAPP.EMPCODE = #{emp_no}
+        UNION
+        SELECT TO_CHAR(TO_DATE(DLIH.CALYMD) ,'YYYYMMDD') RQ_FR_DT
+        ,TO_CHAR(TO_DATE(DLIH.CALYMD) ,'YYYYMMDD') RQ_TO_DT
+        ,'42020' AS RQ_VACAT_CD 
+        ,'공동연차' AS RQ_REMARK 
+        ,1 AS RQ_WK_DAY
+        ,'1' AS GUBUN         
+        FROM ORAGMP.PSCALM DLIH
+        ,ORAGMP.CMEMPM EMP
+        WHERE DLIH.CALDIV = '20'
+        AND DLIH.WORKDIV = EMP.WORKDIV
+        AND EMP.EMPCODE = #{emp_no} 
+        <if test="rq_year != null and rq_year !=''">      
+        AND DLIH.CALYMD BETWEEN TO_CHAR(TO_DATE(#{rq_year} || '0101') ,'YYYY-MM-DD') AND TO_CHAR(TO_DATE(#{rq_year} || '1231') ,'YYYY-MM-DD')
+        </if>			
+	</select>
+	
+	<select id="getAnnualCommonDTCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+      	FROM ORAGMP.PSCALM HAL
+		,ORAGMP.CMEMPM EMP 
+		WHERE HAL.CALDIV = '20'
+		AND HAL.WORKDIV = EMP.WORKDIV
+		AND EMP.EMPCODE = #{emp_no}
+		<if test="rq_year != null and rq_year !=''">
+		AND HAL.CALYMD BETWEEN #{yr_year} || '-01-01' AND #{yr_year} || '-12-30'
+		</if> 
+		GROUP BY HAL.WORKDIV			
+	</select>
+	
+	<select id="getAnnualCommonDTCountHalf" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+		FROM ORAGMP.PSCALM HAL
+		,ORAGMP.CMEMPM EMP 
+		WHERE HAL.CALDIV = '20'
+		AND HAL.WORKDIV = EMP.WORKDIV
+		AND EMP.EMPCODE = #{emp_no}
+		<if test="rq_year != null and rq_year !=''">
+		AND HAL.CALYMD BETWEEN #{yr_year} || '-01-01' AND #{yr_year} || '-06-30'
+		</if> 
+		GROUP BY HAL.WORKDIV 
+	</select>
+	
+	<select id="getAnnualClosedYN" parameterType="hashmap" resultType="String">
+		SELECT CLOSED_YN FROM HANAHR.HR_WK_DLIAPP_4_CLOSED
+		 WHERE EMP_NO = #{emp_no}
+		  AND APPRV_YEAR = #{yr_year}
+	</select>
+	
+	<insert id="insertAnnualPlan" parameterType="com.hanaph.gw.pe.member.vo.AnnualHRVO">
+		INSERT INTO HANAHR.HR_WK_DLIAPP_4
+			   (EMP_NO, APPRV_DATE, HALF_TREM, VACAT_CD, REMARK, FIRST_EMP_NO, FIRST_REGDATE, LAST_IP, LAST_EMP_NO, LAST_REGDATE
+			   )
+		VALUES (#{emp_no} , #{apprv_date} , #{half_trem} ,#{vacat_cd}, #{remark} , #{first_emp_no} , SYSDATE, #{last_ip}, #{last_emp_no} , SYSDATE 
+	            )	
+	</insert>
+	
+	<delete id="deleteAnnualPlan" parameterType="com.hanaph.gw.pe.member.vo.AnnualHRVO">
+		DELETE FROM HANAHR.HR_WK_DLIAPP_4
+		 WHERE EMP_NO = #{emp_no}
+		   AND APPRV_DATE = #{apprv_date} 
+	</delete>
+	<!-- 연차사용계획 END -->
+	
+	<!-- 연차지정통보서 START -->
+	<select id="getAnnualPlanNotify" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.AnnualMgrVO">
+		SELECT EMP.EMPCODE AS YR_EMP_NO ,EMP.EMPNAME AS EMP_KO_NM ,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM ,EMP.ENTERDT AS ENCMPY_DT
+		,B.YR_YEAR_FLAG AS YR_YEAR_FLAG 
+		,MON.YR_MONTH_FLAG AS YR_MONTH_FLAG
+		,EMP.YR_WORK_YEARS AS YR_WORK_YEARS 
+		,EMP.YR_WORK_MONTHS AS YR_WORK_MONTHS
+		,EMP.YR_WORK_DAYS AS YR_WORK_DAYS 
+		,DECODE(B.YR_YEAR_FLAG ,1 ,TO_NUMBER(EMP.YR_WORK_YEARS)  ,TO_NUMBER(EMP.YR_WORK_YEARS) - 1) AS YR_COMPANY_YEAR
+		,ROUND ((
+		        CASE WHEN B.YR_YEAR_FLAG = 1 THEN TO_NUMBER(EMP.YR_WORK_YEARS)  
+		                ELSE TO_NUMBER(EMP.YR_WORK_YEARS) - 1
+		        END 
+		        ) / 2, 0
+		) - 1
+		AS ADD_USEABLE_DAYS
+		,CASE WHEN TO_NUMBER(EMP.YR_WORK_YEARS) >= 2 THEN TO_CHAR (TRUNC (ADD_MONTHS (SYSDATE, -12), 'y'), 'yyyy-mm-dd')|| ' ~ '
+		                || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (ADD_MONTHS (SYSDATE, -12), 'y'), 11)), 'yyyy-mm-dd')
+		        WHEN TO_NUMBER(EMP.YR_WORK_YEARS) = 1 THEN TO_CHAR (TO_DATE (EMP.ENTERDT), 'yyyy-mm-dd') || ' ~ '
+		                || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (ADD_MONTHS (SYSDATE, -12), 'y'), 11)), 'YYYY-MM-DD')
+		        ELSE TO_CHAR (TRUNC (SYSDATE, 'y'), 'yyyy-mm-dd')|| ' ~ '
+		                || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (SYSDATE, 'y'), 11)), 'yyyy-mm-dd')
+		END AS CREATE_BETWEEN_DAY
+		,CASE WHEN TO_NUMBER(EMP.YR_WORK_YEARS) >= 1 THEN TO_CHAR (TRUNC (SYSDATE, 'y'), 'yyyy-mm-dd')|| ' ~ '
+		                || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (SYSDATE, 'y'), 11)), 'yyyy-mm-dd')
+		        ELSE TO_CHAR (TO_DATE (EMP.ENTERDT), 'yyyy-mm-dd')|| ' ~ '
+		                || TO_CHAR (LAST_DAY (ADD_MONTHS (TRUNC (SYSDATE, 'y'), 23)), 'yyyy-mm-dd')
+		END AS USE_BETWEEN_DAY
+		,CASE WHEN (15 + TRUNC ((DECODE(B.YR_YEAR_FLAG ,1 ,TO_NUMBER(EMP.YR_WORK_YEARS)  ,TO_NUMBER(EMP.YR_WORK_YEARS) - 1)) / 2)) > 26 THEN 25 
+		        WHEN B.YR_YEAR_FLAG = '0' AND EMP.YR_WORK_YEARS = 1
+		        THEN (
+		                    CASE WHEN TO_NUMBER (#{rq_fr_dt}) - TO_NUMBER (SUBSTR (EMP.ENTERDT, 1, 4)) >= 2 THEN 15
+		                            WHEN ROUND (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (MON.YR_MONTH_FLAG, 1, 0, 1)), 0 ) = ( 15/ 12 * ( 13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (MON.YR_MONTH_FLAG, 1, 0, 1)) + 0.5 ) 
+		                                    THEN 15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (MON.YR_MONTH_FLAG, 1, 0, 1)) 
+		                            WHEN TRUNC (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (MON.YR_MONTH_FLAG, 1, 0, 1)), 0 ) = (  15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (MON.YR_MONTH_FLAG, 1, 0, 1)))
+		                                    THEN   15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (MON.YR_MONTH_FLAG, 1, 0, 1) ) 
+		                            ELSE ROUND (    15 / 12 * (  13 - TO_NUMBER (SUBSTR (EMP.ENTERDT, 5, 2)) - DECODE (MON.YR_MONTH_FLAG, 1, 0, 1)) + 0.24, 1 ) 
+		                    END
+		                )
+		        WHEN B.YR_YEAR_FLAG = '0' AND EMP.YR_WORK_YEARS = 0 THEN 0
+		        WHEN B.YR_YEAR_FLAG = '1' AND EMP.YR_WORK_YEARS = 0 THEN 0
+		        ELSE 15 + ROUND ((DECODE(B.YR_YEAR_FLAG ,1 ,TO_NUMBER(EMP.YR_WORK_YEARS)  ,TO_NUMBER(EMP.YR_WORK_YEARS) )) / 2, 0) - 1 
+		END AS USEABLE_DAYS
+		,(
+				SELECT A.USECNT
+                FROM ORAGMP.PSYEARLEAVEM A
+                WHERE EMPCODE = EMP.EMPCODE
+                AND SUBSTR(A.STDDATE ,1 ,4) = #{rq_fr_dt}
+		) AS USED_DAYS
+		,'N' AS CHECKS
+		,NVL ((
+				SELECT FORWARDCNT   
+                FROM ORAGMP.PSYEARLEAVEM LEA
+                WHERE EMP.EMPCODE = LEA.EMPCODE 
+                AND TO_DATE(STDDATE ,'YYYY-MM-DD') BETWEEN TO_DATE(#{rq_fr_dt}||'0101' ,'YYYY-MM-DD') AND TO_DATE(#{rq_fr_dt}||'1231' ,'YYYY-MM-DD')						        
+		        ) ,0
+		) AS YR_YEAR_USED_DAY  --지난해 사용한 연차
+		,'' AS NOVEMBER
+		,'' AS DECEMBER
+		,SUBSTR(B.YEARMONTH ,1 ,4) AS YR_YEAR
+		,(
+		        SELECT COUNT(*) AS CFIRSTHALF
+		        FROM ORAGMP.PSCALM
+		        WHERE CALDIV = '20'
+		        AND EMP.WORKDIV = PSCALM.WORKDIV
+		        AND CALYMD BETWEEN #{rq_fr_dt} AND #{rq_fr_dt}
+		        GROUP BY WORKDIV    
+		) AS JOINT_DAYS_REMAIN
+		FROM (
+		        SELECT SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,ENTERDT ,TO_CHAR(SYSDATE , 'YYYY-MM-DD')) ,1 ,2) AS YR_WORK_YEARS 
+		        ,SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,ENTERDT ,TO_CHAR(SYSDATE , 'YYYY-MM-DD')) ,3 ,2) AS YR_WORK_MONTHS
+		        ,SUBSTR(ORAGMP.FNDATEHAN('WORKDT' ,ENTERDT ,TO_CHAR(SYSDATE , 'YYYY-MM-DD')) ,5 ,2) AS YR_WORK_DAYS
+		        ,DAT.*  
+		        FROM ORAGMP.CMEMPM DAT 
+		) EMP
+		,ORAGMP.CMDEPTM DEPT
+		,(            
+		        SELECT *             
+		        FROM ORAGMP.CMCOMMONM             
+		        WHERE CMMCODE = 'PS01'                    
+		) CO
+		,(
+		        SELECT EMPCODE ,SUBSTR(YEARMONTH ,1 ,4) AS YEARMONTH
+		        ,SUM(NVL(TOTDAY ,0)) AS TOTDAY
+		        ,SUM(NVL(PAYDAY ,0)) AS PAYDAY
+		        ,CASE WHEN SUM(NVL(TOTDAY ,0)) = SUM(NVL(PAYDAY ,0)) THEN '1'
+		                ELSE '0'
+		        END YR_YEAR_FLAG
+		        FROM ORAGMP.PSWORKMONTHM
+		        GROUP BY EMPCODE ,SUBSTR(YEARMONTH ,1 ,4)        
+		) B
+		,(
+		        SELECT EMPCODE 
+		        ,NVL(MIDPAYYN ,1) AS YR_MONTH_FLAG
+		        FROM ORAGMP.PSEMPPAYBASEM        
+		) MON
+		WHERE EMP.EMPCODE LIKE TRIM (#{emp_no})
+		AND EMP.EMPCODE = B.EMPCODE(+)
+		AND EMP.DEPTCODE = DEPT.DEPTCODE
+		AND EMP.GRADEDIV = CO.DIVCODE       
+		AND B.YEARMONTH(+) = #{rq_fr_dt}
+		AND EMP.RETIREDT IS NULL
+		AND EMP.EMPCODE = MON.EMPCODE
+		ORDER BY 1
+	</select>
+	<!-- 연차지정통보서 END -->
+	
+	<!-- 연봉계약서 START-->
+	<select id="getContractList" parameterType="hashmap" resultType="com.hanaph.gw.pe.member.vo.ContractVO">
+		<if test="page != null and page !=''" >
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+		SELECT EMP.EMPCODE AS EMP_NO
+		,EMPNAME AS EMP_KO_NM 
+		,DEPT.DEPTNAME AS DEPT_KO_NM
+		,CO.DIVNAME AS GRAD_KO_NM
+		/*출력관련 날자*/
+		,SUBSTR(CONT.PUBLISHDATE ,1 ,4)||SUBSTR(CONT.PUBLISHDATE ,6 ,2)||SUBSTR(CONT.PUBLISHDATE ,9 ,2) AS YMD_OUTPUT
+		,SUBSTR(CONT.CONTSDATE ,1 ,4)||SUBSTR(CONT.CONTSDATE ,6 ,2)||SUBSTR(CONT.CONTSDATE ,9 ,2) AS YMD_START
+		,SUBSTR(CONT.CONTEDATE ,1 ,4)||SUBSTR(CONT.CONTEDATE ,6 ,2)||SUBSTR(CONT.CONTEDATE ,9 ,2) AS YMD_END
+		,SAL.YEARSALARY AS ANNUAL_SALARY
+		,TRUNC(SAL.YEARSALARY / 12, -1) AS SEVERANCE_PAY
+		,DECODE(ORAGMP.FNDATEHAN('WORKDT', NVL(TRIM(CONT.CONTSDATE), ''), NVL(TRIM(CONT.CONTEDATE), '')) , '010000' ,'12' ,
+		        SUBSTR(ORAGMP.FNDATEHAN('WORKDT', NVL(TRIM(CONT.CONTSDATE), ''), NVL(TRIM(CONT.CONTEDATE), '')) ,3 ,2) 
+		)AS WORK_MONTHS
+		/*회사정보*/
+		,CMP.PLANTFULLNAME AS BIZPLC_NM
+		,CMP.ADDRESS AS BIZPLC_ADDR
+		,CMP.OWNER AS BIZPLC_PRSD
+		,CONT.CONTSDATE AS YMD_START_KO
+		,CONT.CONTEDATE AS YMD_END_KO
+		,CONT.PUBLISHDATE AS YMD_OUTPUT_KO    
+		FROM ORAGMP.CMEMPM EMP 
+		,ORAGMP.CMDEPTM DEPT
+		,ORAGMP.PSCONTRACTM CONT  
+		,ORAGMP.PSYEARSALARYM SAL
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'
+		) CO
+		,ORAGMP.CMPLANTM CMP
+		WHERE EMP.EMPCODE = #{emp_no} 
+		AND EMP.DEPTCODE = DEPT.DEPTCODE 
+		AND EMP.PLANTCODE = CONT.PLANTCODE 
+		AND EMP.EMPCODE = CONT.EMPCODE
+		AND CONT.CONTRACTDIV = '03' 
+		AND EMP.PLANTCODE = SAL.PLANTCODE 
+		AND EMP.EMPCODE = SAL.EMPCODE
+		AND SUBSTR(CONT.CONTSDATE ,1 ,7) = SAL.YYYYMM 
+		AND EMP.GRADEDIV = CO.DIVCODE 
+		AND EMP.PLANTCODE = CMP.PLANTCODE 
+		AND CMP.PLANTCODE = '1000'
+		<if test="(ymd_start != null and ymd_start !='') and (ymd_end != null and ymd_end !='')">
+		AND SUBSTR(CONT.CONTSDATE ,1 ,4)||SUBSTR(CONT.CONTSDATE ,6 ,2)||SUBSTR(CONT.CONTSDATE ,9 ,2) = #{ymd_start}
+		AND SUBSTR(CONT.CONTEDATE ,1 ,4)||SUBSTR(CONT.CONTEDATE ,6 ,2)||SUBSTR(CONT.CONTEDATE ,9 ,2) = #{ymd_end}
+		</if>
+		 <if test="page != null and page !=''" >
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+	
+	<select id="getContractCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) 
+		  FROM ORAGMP.CMEMPM EMP 
+		,ORAGMP.CMDEPTM DEPT
+		,ORAGMP.PSCONTRACTM CONT  
+		,ORAGMP.PSYEARSALARYM SAL
+		,(
+		        SELECT * 
+		        FROM ORAGMP.CMCOMMONM 
+		        WHERE CMMCODE = 'PS01'
+		) CO
+		,ORAGMP.CMPLANTM CMP
+		WHERE EMP.EMPCODE = #{emp_no} 
+		AND EMP.DEPTCODE = DEPT.DEPTCODE 
+		AND EMP.PLANTCODE = CONT.PLANTCODE 
+		AND EMP.EMPCODE = CONT.EMPCODE
+		AND CONT.CONTRACTDIV = '03' 
+		AND EMP.PLANTCODE = SAL.PLANTCODE 
+		AND EMP.EMPCODE = SAL.EMPCODE
+		AND SUBSTR(CONT.CONTSDATE ,1 ,7) = SAL.YYYYMM 
+		AND EMP.GRADEDIV = CO.DIVCODE 
+		AND EMP.PLANTCODE = CMP.PLANTCODE 
+		AND CMP.PLANTCODE = '1000'
+		<if test="(ymd_start != null and ymd_start !='') and (ymd_end != null and ymd_end !='')">
+		AND SUBSTR(CONT.CONTSDATE ,1 ,4)||SUBSTR(CONT.CONTSDATE ,6 ,2)||SUBSTR(CONT.CONTSDATE ,9 ,2) = #{ymd_start}
+		AND SUBSTR(CONT.CONTEDATE ,1 ,4)||SUBSTR(CONT.CONTEDATE ,6 ,2)||SUBSTR(CONT.CONTEDATE ,9 ,2) = #{ymd_end}
+		</if>	 
+	</select>
+	
+	<!-- 연봉계약서 END-->
+	
+	<!-- 휴가 신청서 연차 상신 -->
+	<insert id="insertAnnual" parameterType="com.hanaph.gw.pe.member.vo.AnnualVO">
+		INSERT INTO HANAHR.HR_WK_DLIAPP_0 
+	        (
+	         RQ_EMP_NO, APPRV_SEQ, RQ_VACAT_CD, RQ_FR_DT, RQ_TO_DT, RQ_EMP_NM, RQ_WK_DAY, 
+	         RQ_REMARK, FIRST_EMP_NO, FIRST_REGDATE, LAST_EMP_NO, LAST_REGDATE, LAST_IP
+	         )
+		VALUES(
+	        #{rq_emp_no}, #{apprv_seq}, #{rq_vacat_cd}, #{rq_fr_dt}, #{rq_to_dt}, #{rq_emp_nm}, #{rq_wk_day},
+	        #{rq_remark},#{first_emp_no} ,SYSDATE ,#{last_emp_no} ,SYSDATE ,#{last_ip}
+	         )
+	</insert>
+	
+	<!-- 연차 상신 취소 -->
+	<delete id="deleteAnnual" parameterType="com.hanaph.gw.pe.member.vo.AnnualVO">
+		DELETE HANAHR.HR_WK_DLIAPP_0 
+		 WHERE RQ_EMP_NO = #{rq_emp_no}
+		   AND APPRV_SEQ = #{apprv_seq}
+	</delete>
+	
+	<!-- 비밀번호 유효성 검사 프로시저 -->
+	<parameterMap type="hashmap" id="passwordValidate">
+		<parameter property="in_EMP_NO" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="in_PASSWORD" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="out_CODE" jdbcType="INTEGER" javaType="string" mode="OUT" />
+		<parameter property="out_MSG" jdbcType="VARCHAR" javaType="string" mode="OUT" />
+		<parameter property="out_COUNT" jdbcType="INTEGER" javaType="string" mode="OUT" />
+	</parameterMap>
+	<select id="callPasswordValidate" statementType="CALLABLE" parameterMap="passwordValidate">
+		{call HANACOMM.SP_Z_PASSWORD_VALIDATE(?, ?, ?, ?, ?)}
+	</select>
+	
+	<!-- 비밀번호 변경 프로시저 -->
+	<parameterMap type="hashmap" id="passwordAccord">
+		<parameter property="in_EMP_NO" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="in_PASSWORD" jdbcType="VARCHAR" javaType="string" mode="IN" />
+		<parameter property="out_CODE" jdbcType="INTEGER" javaType="string" mode="OUT" />		
+		<parameter property="out_MSG" jdbcType="VARCHAR" javaType="string" mode="OUT" />
+		<parameter property="out_COUNT" jdbcType="INTEGER" javaType="string" mode="OUT" />
+	</parameterMap>
+	<select id="callPasswordAccord" statementType="CALLABLE" parameterMap="passwordAccord">
+		{call HANACOMM.SP_Z_PASSWORD_ACCORD(?, ?, ?, ?, ?)}
+	</select>
+	
+</mapper>

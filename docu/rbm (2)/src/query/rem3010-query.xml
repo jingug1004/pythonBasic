@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem3010(체류인원  관리)">
+    <query id="rem3010_s01" desc="체류인원  조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem3010_s01 */
+                '0' AS CHK
+                
+				,MEET_CD                --경륜장코드
+				,RACE_DT                --경주일자
+				,RACE_NO                --경주번호
+				,BRNC_CD                --지점코드
+				,ENT_PRSN_NUM           --입장인원
+				
+				,LEAV_PRSN_NUM          --퇴장인원
+				,OUT_ENT_PRSN_NUM       --실외입장인원
+				,OUT_LEAV_PRSN_NUM      --실외퇴장인원
+				,END_REQ_DT             --마감요청일자
+				,RMK                    --비고
+				
+				,0 STAY_PRSN_NUM        --체류인원
+				,UPDT_ID                --수정자
+				,UPDT_DT                --수정일시
+				
+				,NVL((SELECT TMS FROM VW_SDL_INFO B
+                            WHERE  B.RACE_DAY = A.RACE_DT
+                                    AND  B.MEET_CD = A.MEET_CD),'') TMS  --회차 
+
+            FROM  TBRC_STAY_MANA  A --체류인원관리
+
+            WHERE   1 =1 
+                 AND RACE_DT    = ?
+                 AND MEET_CD    = ? 
+                 AND BRNC_CD    = ?
+                 AND RACE_NO LIKE  '%' || NVL(? , RACE_NO) || '%'
+             ORDER BY RACE_DT, BRNC_CD, TO_NUMBER(RACE_NO)
+            
+        ]]>
+    </query> 
+    
+    <query id="rem3010_s02" desc="체류인원통계  조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem3010_s02 */
+                 B.BRNC_CD                                      --지점코드
+                ,LPAD(ORD_NO,2,'00') || B.BRNC_NM   BRNC_NM     --지점명
+                ,DECODE(B.PRSN_GBN,'1','입장정원'
+                           ,'2','총입장인원'
+                           ,'3','총퇴장인원'
+                           ,'4','최고체류인원'
+                           ,'') STAY_GBN                        --인원구분 
+                ,NVL(A.PRSN_NUM,0) PRSN_NUM                     --인원
+                
+                
+            FROM 
+                (
+                    
+                       SELECT
+                              A.BRNC_CD 
+                             ,1 PRSN_GBN
+					         ,NVL(
+					             CASE WHEN (SELECT COUNT(*) FROM TBRK_SPEC_CD C
+					                         WHERE C.GRP_CD ='032'
+					                           AND C.CD = A.BRNC_CD
+					                        ) > 0  THEN (SELECT TO_NUMBER(CD_TERM1) FROM TBRK_SPEC_CD C
+					                                       WHERE C.GRP_CD ='032'
+					                                        AND C.CD = A.BRNC_CD)
+					                  ELSE 
+					                       (SELECT ENT_FIX_NUM FROM TBRA_COMM_DESC C
+					                         WHERE C.BRNC_CD = A.BRNC_CD
+					                           AND STND_YEAR = SUBSTR(A.RACE_DT,0,4) )
+					               END 
+					          ,0)  PRSN_NUM
+                      FROM  TBRC_STAY_MANA A
+                      WHERE 1 = 1
+                           AND A.RACE_DT = ?
+                           AND A.MEET_CD = ?         
+                      GROUP BY A.RACE_DT, A.MEET_CD,A.BRNC_CD
+                      
+                      UNION ALL
+                      
+                      SELECT
+                              A.BRNC_CD
+                             ,2 PRSN_GBN
+                             ,NVL(SUM(ENT_PRSN_NUM),0) PRSN_NUM
+                      FROM  TBRC_STAY_MANA A
+                      WHERE 1 = 1
+                           AND A.RACE_DT = ?
+                           AND A.MEET_CD = ?
+                            
+                      GROUP BY A.RACE_DT, A.MEET_CD,A.BRNC_CD
+
+                      UNION ALL
+                      
+                      SELECT
+                             A.BRNC_CD
+                             ,3 PRSN_GBN
+                             ,NVL(SUM(LEAV_PRSN_NUM),0) LEAV_PRSN_NUM
+                      FROM  TBRC_STAY_MANA A
+                      WHERE 1 = 1
+                           AND A.RACE_DT = ?
+                           AND A.MEET_CD = ?
+                            
+                      GROUP BY A.RACE_DT, A.MEET_CD,A.BRNC_CD
+                      
+                      UNION ALL
+                      
+                      
+                     SELECT
+                         A.BRNC_CD
+                        ,4 PRSN_GBN
+                        ,MAX(NVL(STAY_PRSN_NUM,0 )) STAY_PRSN_NUM
+                     FROM(
+                        SELECT         
+                             A.RACE_DT
+                            ,A.MEET_CD
+                            ,A.BRNC_CD
+                            ,A.RACE_NO
+                            ,SUM(ENT_PRSN_NUM) ENT_PRSN_NUM
+                            ,SUM(LEAV_PRSN_NUM) LEAV_PRSN_NUM
+                            ,(SELECT 
+                                    SUM(ENT_PRSN_NUM) - SUM(LEAV_PRSN_NUM) 
+                                    FROM TBRC_STAY_MANA B
+                                    WHERE B.RACE_DT = A.RACE_DT
+                                        AND B.MEET_CD = A.MEET_CD
+                                        AND B.BRNC_CD = A.BRNC_CD
+                                        AND B.RACE_NO <= A.RACE_NO) STAY_PRSN_NUM
+                      FROM  TBRC_STAY_MANA A
+                      WHERE 1 = 1
+                           AND A.RACE_DT = ?
+                           AND A.MEET_CD = ?
+                            
+                      GROUP BY A.RACE_DT, A.MEET_CD,A.BRNC_CD,A.RACE_NO
+                    ) A
+                    GROUP BY A.RACE_DT, A.MEET_CD,A.BRNC_CD
+            
+                ) A,
+                (
+                    SELECT
+                      C.BRNC_CD
+                     ,C.BRNC_NM
+                     ,A.PRSN_GBN
+                     ,C.ORD_NO
+                   FROM
+                   (SELECT 
+                            LEVEL PRSN_GBN
+                        FROM DUAL
+                        CONNECT BY LEVEL < 5
+                    )A,
+                    (
+                                SELECT
+                                     CD BRNC_CD
+                                    ,CD_NM BRNC_NM
+                                    ,ORD_NO
+                                FROM TBRK_SPEC_CD 
+                                WHERE GRP_CD = '018'
+                                     AND DEL_YN='N' 
+                                UNION ALL
+                                SELECT
+                                     CD BRNC_CD
+                                    ,CD_NM BRNC_NM
+                                    ,ORD_NO
+                                FROM TBRK_SPEC_CD 
+                                WHERE GRP_CD = '032'
+                                     AND DEL_YN='N' 
+                               
+                    ) C
+                    ORDER BY BRNC_CD,PRSN_GBN
+                 ) B
+    
+            WHERE  A.PRSN_GBN(+) = B.PRSN_GBN
+                AND A.BRNC_CD(+) = B.BRNC_CD
+            ORDER BY B.ORD_NO, B.PRSN_GBN
+            
+        ]]>
+    </query>         
+
+
+    <query id="rem3010_u01" desc=" 체류인원 수정" fetchSize="10">
+
+        <![CDATA[
+            UPDATE TBRC_STAY_MANA SET  /* rsy4030_u01 */
+            
+                 ENT_PRSN_NUM       = ?          --입장인원
+                ,LEAV_PRSN_NUM      = ?          --퇴장인원
+                ,RMK                = ?          --비고
+                ,UPDT_ID            = ?          --수정자
+                ,UPDT_DT            = SYSDATE    --수정일시
+                
+           WHERE  RACE_DT = ?     --경주일자
+                AND MEET_CD = ?   --구분
+                AND BRNC_CD = ?   --지점코드
+                AND RACE_NO = ?   --경주번호 
+        ]]>
+
+    </query>    
+    
+    
+    <query id="rem3010_s03" desc="체류인원 정원 항 조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* rem3010_s03 */ --일반사항
+                 BRNC_CD            --지점코드
+                ,STND_YEAR          --년도
+                ,ENT_FIX_NUM        --입장정원
+
+              FROM  TBRA_COMM_DESC  --일반사항
+             WHERE  1=1
+               AND BRNC_CD   = ?    
+  			   AND STND_YEAR = (SELECT MAX(STND_YEAR) 
+                                 FROM TBRA_COMM_DESC 
+                                WHERE BRNC_CD   = ?)
+        ]]>
+    </query>
+
+
+    <query id="rem3010_s04" desc="당일 마감시간(최종경주시작시간) 조회" fetchSize="10">
+      <![CDATA[
+		     SELECT /* rem3010_s04 */
+		            MAX(STR_TM) AS LAST_STR_TM
+		     FROM   US_CRA.TBJB_TM_LEN S2, VW_SDL_INFO S3
+		     WHERE  1=1
+          	 AND    S2.MEET_CD   = S3.MEET_CD
+          	 AND    S2.STND_YEAR = S3.STND_YEAR
+          	 AND    S2.TMS       = S3.TMS
+          	 AND    S2.DAY_ORD   = S3.DAY_ORD
+          	 AND    S2.MEET_CD   = ?
+          	 AND    S3.RACE_DAY  = ?
+          	 AND    S3.RACE_DAY  = TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ]]> 
+    </query> 
+</queryMap>

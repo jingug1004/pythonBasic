@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbed_race_result_report(경주결과보고서)">
+      <query id="tbed_race_result_report_fd001" desc="경주결과보고서조회(기준정보)" fetchSize="10">
+        <![CDATA[
+	        SELECT      /* tbed_race_result_report_fd001 IWORK_SFR-008 회차 최고 경기수 추가. */
+	        			A.STND_YEAR 			STND_YEAR       --기준년도
+                       ,A.MBR_CD    			MBR_CD          --경정장코드
+                       ,A.TMS       			TMS             --회차
+                       ,DECODE(?,NULL,'전체',?)	DAY_ORD         --일차
+                       ,0           			TOT_CNT         --총운영인력
+                       ,A.RACER_CNT 			RACER_CNT       --선수
+                       ,null        			REFEREE_CNT     --심판수
+                       ,null        			REFEREE_SUB     --경주운영보조원
+                       ,null        			REFEREE_CONT    --중앙심판
+                       ,B.RACE_CNT  			RACE_CNT        --경주수                           
+                    FROM       (     SELECT  STND_YEAR
+                                       ,MBR_CD
+                                       ,TMS
+                                       ,COUNT(DISTINCT RACER_NO) RACER_CNT
+                                  FROM  TBEB_ORGAN
+                                  WHERE STND_YEAR = ?
+                                    AND MBR_CD    = ?
+                                    AND TMS       = ?
+                                    AND DAY_ORD   LIKE ? ||'%'
+                               GROUP BY STND_YEAR
+                                       ,MBR_CD
+                                       ,TMS ) A,
+                           (      SELECT  SUM(RACE_CNT) RACE_CNT
+                                   FROM TBEB_RACE_DAY_ORD
+                                  WHERE STND_YEAR = ?
+                                    AND MBR_CD    = ?
+                                    AND TMS       = ?
+                                    AND DAY_ORD   LIKE ? ||'%' 
+                            ) B  
+			         
+        ]]>
+    </query> 
+     <query id="tbed_race_result_report_fd002" desc="경주결과보고서조회(일차)" fetchSize="10">
+        <![CDATA[
+	        
+	        SELECT     /* tbed_race_result_report_fd002 IWORK_SFR-008 회차 최고 경기수 추가. */
+	        			'  ○ ' || DAY_ORD || '일차' ||'('||SUM(RACE_NO)||'경주)' || ' : ' || SUBSTR(MAX(SYS_CONNECT_BY_PATH(RACE_CONT,',')),2) RACE_CONT
+	        		   , SUM(RACE_NO) SUM_RACE_NO
+                         FROM (
+                                 SELECT  DAY_ORD         DAY_ORD
+                                        ,COUNT(RACE_NO)  RACE_NO
+                                        ,(SELECT RMK FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00005' AND CD = RACE_DGRE_CD) || ' ' || COUNT(RACE_NO) || '경주' RACE_CONT
+                                        ,ROW_NUMBER() OVER (PARTITION BY DAY_ORD ORDER BY DAY_ORD) ROW_ID                                       
+                                 FROM  TBEB_RACE
+                                 WHERE STND_YEAR = ?
+                                   AND MBR_CD    = ?
+                                   AND TMS       = ?
+                                   AND DAY_ORD   LIKE ? ||'%'
+                                GROUP BY DAY_ORD,RACE_DGRE_CD
+                                )
+                                    START WITH ROW_ID = 1
+                                    CONNECT BY PRIOR  ROW_ID = ROW_ID -1 AND PRIOR DAY_ORD 	= DAY_ORD
+                                    GROUP BY DAY_ORD 
+        ]]>
+    </query>  
+   
+</queryMap>

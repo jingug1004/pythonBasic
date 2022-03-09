@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="584" Id="E02070050P" Left="8" OnKeyDown="fcHotKey" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="선수훈련기준" Top="8" Ver="1.0" Width="664" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsInComCd">
+				<Contents>
+					<colinfo id="DSNAME" size="20" summ="default" type="STRING"/>
+					<colinfo id="CD_GRP_ID" size="6" summ="default" type="STRING"/>
+					<colinfo id="QUERY_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="DESCRIPTION" size="256" summ="default" type="STRING"/>
+					<colinfo id="ALL_YN" size="1" summ="default" type="STRING"/>
+					<record>
+						<ALL_YN></ALL_YN>
+						<CD_GRP_ID>E00116</CD_GRP_ID>
+						<DESCRIPTION>제재처분단위</DESCRIPTION>
+						<DSNAME>dsSancTermUnit</DSNAME>
+						<QUERY_ID></QUERY_ID>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsSancBasisList">
+				<Contents>
+					<colinfo id="CHK" size="1" summ="default" type="STRING"/>
+					<colinfo id="SANC_BASIS_CD" size="256" summ="default" type="STRING"/>
+					<colinfo id="SMRY" size="256" summ="default" type="STRING"/>
+					<colinfo id="TERM" size="256" summ="default" type="STRING"/>
+					<colinfo id="TERM_UNIT_NM" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Static Align="Right" Height="22" Id="stFormLocation" Left="495" Style="styFormLocation" TabOrder="1" Top="2" VAlign="Middle" Width="288"></Static>
+		<Static Height="22" Id="st_FormTitle" Left="36" Style="styFormTitle" TabOrder="1" Top="2" VAlign="Middle" Width="451"></Static>
+		<Div Height="22" Id="divBtnLst" Left="496" TabOrder="3" Text="Div0" Top="16" Url="common::comButtonCode.xml" Width="160">
+			<Contents></Contents>
+		</Div>
+		<Grid BindDataset="dsSancBasisList" BkColor2="default" BoldHead="true" Border="Flat" BorderColor="user3" Bottom="573" Editable="TRUE" Enable="true" EndLineColor="default" Height="533" Id="grdSancBasisList" InputPanel="FALSE" Left="8" LineColor="default" Right="654" Style="snis_grid" TabOrder="4" TabStop="true" Top="40" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="646">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="60"/>
+						<col width="80"/>
+						<col width="346"/>
+						<col width="80"/>
+						<col width="80"/>
+					</columns>
+					<head>
+						<cell bkcolor="user20" col="0" color="user21" display="text" font="굴림,9" text="선택"/>
+						<cell bkcolor="user20" col="1" color="user21" display="text" font="굴림,9" text="양정코드"/>
+						<cell bkcolor="user20" col="2" color="user21" display="text" font="굴림,9" text="처분내용"/>
+						<cell bkcolor="user20" col="3" color="user21" colspan="2" display="text" font="굴림,9" text="처분기간"/>
+					</head>
+					<body>
+						<cell col="0" colid="CHK" display="checkbox" edit="checkbox"/>
+						<cell col="1" colid="SANC_BASIS_CD" display="text"/>
+						<cell col="2" colid="SMRY" display="text"/>
+						<cell col="3" colid="TERM" display="text"/>
+						<cell col="4" colid="TERM_UNIT_NM" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Shape BKColor="#ff8500" Bottom="30" Height="6" Id="Shape2" Left="12" LineKind="Vertical" LineWidth="0" Right="18" RoundHeight="10" RoundWidth="10" TabOrder="5" Top="24" Type="Ellipse" Width="6"></Shape>
+		<Static Height="20" Id="Static20" Left="24" Style="snis_m_stitle" TabOrder="6" Text="양정기준" Top="16" VAlign="Middle" Width="140"></Static>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::boa_common_script.js";
+#include "lib::boa_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = 'E02070050P';
+var sBUTTONLIST   = 'TTT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+var LATEST_ROW_POS = 0;		//사고조사 보고서  최종 rowposition
+var CURR_DT = fce_GetSysdate("YYYYMMDD");
+var CURR_STNT_YEAR = SubStr(CURR_DT,0,4);
+var CURR_USER_MBR_CD = gdsRace.GetColumn(gdsRace.rowposition, "MBR_CD");	//현재 User의 경정장 코드 
+var CURR_TMS = gdsRace.GetColumn(gdsRace.rowposition, "TMS");				//현재 회차  
+var CURR_DAY_ORD = gdsRace.GetColumn(gdsRace.rowposition, "DAY_ORD");		//현재 일차 
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {
+	//사용자 권한 설정
+	sBUTTONLIST   = 'TTT';
+	
+	//화면환경 설정
+	sFORMCAPTION  = obj.Title;
+	sFORMLOCATION = "";
+	
+	//화면 정보 Display 및 Button 권한 설정
+	fnc_FormLoadSetting(obj, sFORMCAPTION, sFORMLOCATION, sBUTTONLIST, sUSERAUTH);
+	
+	//초기 화면 BK Color설정 
+	fnc_SetBKColor(this);
+
+	//공통코드 조회
+	fce_GetComboDs(dsInComCd);
+	
+	// 화면 초기화
+	fcInit();
+	fcSearch();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	//자료 변경 여부를 체크하고자 하는  DataSet Object를 넘긴다.
+	var sDataset = "dsSancTermUnit";
+	if ( !fnc_FormUnloadCheck(sDataset , sFormId) ) return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  취소 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInit(obj) {	
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearchCheck() {
+
+}
+
+//조회 
+function fcSearch(obj) {
+	
+    var sServiceName = "e02070050-service:searchSancBasisList";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsSancBasisList=dsSancBasisList";
+    
+	fce_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack");
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSaveCheck(obj) {
+
+}
+
+function fcSave(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcToExcel(obj) {
+	fnc_OpenExcelExport("grdSancBasisList");
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  인쇄 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcPrint(obj) {
+	
+}
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcClose(obj) {
+	//화면 종료
+	Close();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행추가 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcAddRow(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcDelRow(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  선택  버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcChoice(obj)
+{
+	var nChkedIdx = dsSancBasisList.FindRow("CHK", 1);
+	if(nChkedIdx==-1) {
+        fcd_SetReturnDs1(dsSancBasisList, dsSancBasisList.GetCurrow());
+	} else {
+        var sRowIdx;
+        for(var i=0; i<dsSancBasisList.GetRowCount(); i++) {
+            if(dsSancBasisList.GetColumn(i, "CHK")==1) {
+                sRowIdx += i + "^";
+            }
+        }
+        sRowIdx = mid(sRowIdx, 0, length(sRowIdx)-1);
+        fnc_SetReturnDs1(dsSancBasisList, sRowIdx);
+	}
+	close(true);
+}
+
+/***************************************************************************************************
+*                                      공통 Function 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Text Box가 Focus를 받을 때
++-------------------------------------------------------------------------------------------------*/
+function fcEditFocus(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Help Popup Open
++-------------------------------------------------------------------------------------------------*/
+function fcHelpDialoge(obj,nX,nY) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드에서 팝업 처리 
++-------------------------------------------------------------------------------------------------*/
+function fcGrdOnExpandEdit(objGrd, nRow, nCell, strVal, nPivotIndex){
+	
+}
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	if ( !fnc_result(ErrorCode, ErrorMSG) ) return;
+	
+	// 조회 후
+	if ( sServiceName == "e02070050-service:searchSancBasisList" ) {
+	    if(dsSancBasisList.GetRowCount() > 0){
+			fnc_SetStatus(SNIS_BOA_0003, dsSancBasisList.GetRowCount());
+	    }
+	}
+	
+	//오류가 없이 정상 처리되었다면...
+	fcPostProcess(sServiceName);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 Post Process!
++-------------------------------------------------------------------------------------------------*/
+function fcPostProcess(sServiceName) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  코드나 명 입력 후 Lost Focus 시 해당 정보 Display
++-------------------------------------------------------------------------------------------------*/
+function fcCodeNameDisplay(obj) {
+
+}
+
+
+/*
+ * 원본 Dataset의 선택행 값을 return Dataset에 카피한다.
+ *
+ * param dsSrc - 원본 Dataset 객체
+ * param rowIdxs - 선택행 index, 여러개일 경우 '^'문자로 구분한다. (0^1^2^3^4 ...) : Nullable
+ * param dsSrc - return Dataset : Nullable
+ *
+ * return void
+ */
+function fnc_SetReturnDs1(dsSrc, rowIdx, dsReturn) {
+
+    var nRnum;
+    var arrRowIdx;
+
+    if(rowIdx==null) {
+        rowIdx = dsSrc.GetCurrow();
+    }
+
+    if(dsReturn==null) {
+        dsReturn = gdsReturn;
+    }
+    arrRowIdx = split(rowIdx, "^");
+
+    dsReturn.Copy(dsSrc);
+    dsReturn.DeleteAll();
+
+    for(var i=0; i<length(arrRowIdx); i++) {
+        nRnum = dsReturn.AppendRow();
+        dsReturn.CopyRow(nRnum, dsSrc, arrRowIdx[i]);
+    }
+}]]></Script>
+</Window>

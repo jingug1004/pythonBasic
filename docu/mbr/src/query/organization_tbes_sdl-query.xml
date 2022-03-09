@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_RACER_master(선수기준정보)">
+    <query id="tbes_sdl_fb001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TOR.STND_YEAR   -- 기준년도
+			       , TOR.MBR_CD      -- 경정장코드
+			       , TOR.TMS         -- 회차
+			       , TOR.DAY_ORD     -- 일차
+			       , TOR.RACE_NO     -- 경주번호
+			       , TOR.ANTC_RANK
+			       , TOR.ANTC_DESC
+--			       , GET_RSLT_RANK(TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO) RSLT_RANK
+			       , GET_RSLT_RANK(TOR.STND_YEAR, '003', TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO) RSLT_RANK
+			       , TOR.RSLT_DESC
+			       , MIN(DECODE(TSP.POOL_CD, '001', TSP.RUNNER_1ST                                                  )) WIN_W
+			       , MIN(DECODE(TSP.POOL_CD, '001', TSP.ODDS                                                        )) MONEY_W
+			       , MIN(DECODE(TSP.POOL_CD, '002', TSP.RUNNER_1ST                                                  )) WIN_P
+			       , MIN(DECODE(TSP.POOL_CD, '002', TSP.ODDS                                                        )) MONEY_P
+			       , MIN(DECODE(TSP.POOL_CD, '004', TSP.RUNNER_1ST || '-' || TSP.RUNNER_2ND                         )) WIN_E
+			       , MIN(DECODE(TSP.POOL_CD, '004', TSP.ODDS                                                        )) MONEY_E
+			       , MIN(DECODE(TSP.POOL_CD, '005', TSP.RUNNER_1ST || '-' || TSP.RUNNER_2ND                         )) WIN_Q
+			       , MIN(DECODE(TSP.POOL_CD, '005', TSP.ODDS                                                        )) MONEY_Q
+			       , MIN(DECODE(TSP.POOL_CD, '006', TSP.RUNNER_1ST || '-' || TSP.RUNNER_2ND || '-' || TSP.RUNNER_3RD)) WIN_T
+			       , MIN(DECODE(TSP.POOL_CD, '006', TSP.ODDS                                                        )) MONEY_T
+--			       , GET_RSLT_PAYOFF(TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO, '001', NULL) FIXMONEY_W
+			       , GET_RSLT_PAYOFF(TOR.STND_YEAR, '003', TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO, '001', NULL) FIXMONEY_W
+			       , GET_RSLT_PAYOFF(TOR.STND_YEAR, '003', TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO, '002', '1' ) FIXMONEY_P
+			       , GET_RSLT_PAYOFF(TOR.STND_YEAR, '003', TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO, '002', '2' ) FIXMONEY_P2
+			       , GET_RSLT_PAYOFF(TOR.STND_YEAR, '003', TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO, '004', NULL) FIXMONEY_E
+			       , GET_RSLT_PAYOFF(TOR.STND_YEAR, '003', TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO, '005', NULL) FIXMONEY_Q
+			       , GET_RSLT_PAYOFF(TOR.STND_YEAR, '003', TOR.TMS, TOR.DAY_ORD, TOR.RACE_NO, '006', NULL) FIXMONEY_T
+			       , TST.POOL_TOTAL PRICE_AMT
+			FROM     TBEB_RACE TOR
+			       , (
+			            SELECT
+			                     STND_YEAR   -- 기준년도
+			                   , MEET_CD     -- Meet Code
+			                   , TMS         -- 회차
+			                   , DAY_ORD     -- 일차
+			                   , RACE_NO     -- 경주번호
+			                   , POOL_CD     -- 승식
+			                   , RUNNER_1ST  -- 선택1
+			                   , RUNNER_2ND  -- 선택2
+			                   , RUNNER_3RD  -- 선택3
+			                   , ODDS
+			            FROM   (
+			
+			                        SELECT
+			                                 STND_YEAR   -- 기준년도
+			                               , MEET_CD     -- Meet Code
+			                               , TMS         -- 회차
+			                               , DAY_ORD     -- 일차
+			                               , RACE_NO     -- 경주번호
+			                               , POOL_CD     -- 승식
+			                               , RUNNER_1ST  -- 선택1
+			                               , RUNNER_2ND  -- 선택2
+			                               , RUNNER_3RD  -- 선택3
+			                               , ODDS        -- 배당율
+			                               , RANK() OVER (PARTITION BY 
+			                                                             STND_YEAR   -- 기준년도
+			                                                           , MEET_CD     -- Meet Code
+			                                                           , TMS         -- 회차
+			                                                           , DAY_ORD     -- 일차
+			                                                           , RACE_NO     -- 경주번호
+			                                                           , POOL_CD     -- 승식
+			                                                  ORDER BY ODDS    ) SEQ
+			                        FROM   USRBM.TBES_SDL_PB
+			                        WHERE  STND_YEAR  = ?
+			                        AND    MEET_CD    = ?
+			                        AND    TMS        = ?
+			                        AND    DAY_ORD    = ?
+			                        AND    RACE_NO    = NVL(?, RACE_NO)
+			                        AND    ODDS       > 0
+			                   )
+			            WHERE  SEQ = 1
+			         ) TSP
+			       , (
+			            SELECT
+			                     STND_YEAR   -- 기준년도
+			                   , MEET_CD     -- Meet Code
+			                   , TMS         -- 회차
+			                   , DAY_ORD     -- 일차
+			                   , RACE_NO     -- 경주번호
+			                   , POOL_CD     -- 승식
+			                   , RUNNER_1ST  -- 선택1
+			                   , RUNNER_2ND  -- 선택2
+			                   , RUNNER_3RD  -- 선택3
+			                   , PAYOFF      -- 배당율
+			            FROM   USRBM.TBES_SDL_RS
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ?
+			            AND    DAY_ORD    = ?
+			            AND    RACE_NO    = NVL(?, RACE_NO)
+			         ) TSR
+			       , (
+			            SELECT
+			                     STND_YEAR   -- 기준년도
+			                   , MEET_CD     -- Meet Code
+			                   , TMS         -- 회차
+			                   , DAY_ORD     -- 일차
+			                   , RACE_NO     -- 경주번호
+			                   , SUM(POOL_TOTAL) POOL_TOTAL
+			            FROM   USRBM.TBES_SDL_PT
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ?
+			            AND    DAY_ORD    = ?
+			            AND    RACE_NO    = NVL(?, RACE_NO)
+			            GROUP BY 
+			                     STND_YEAR   -- 기준년도
+			                   , MEET_CD     -- Meet Code
+			                   , TMS         -- 회차
+			                   , DAY_ORD     -- 일차
+			                   , RACE_NO     -- 경주번호         
+			         ) TST
+			WHERE  TOR.STND_YEAR  = TSP.STND_YEAR(+)
+			--AND  TOR.MBR_CD     = TSP.MEET_CD  (+)
+			AND    TOR.TMS        = TSP.TMS      (+)
+			AND    TOR.DAY_ORD    = TSP.DAY_ORD  (+)
+			AND    TOR.RACE_NO    = TSP.RACE_NO  (+)
+			AND    TOR.STND_YEAR  = TSR.STND_YEAR(+)
+			--AND  TOR.MBR_CD     = TSR.MEET_CD  (+)
+			AND    TOR.TMS        = TSR.TMS      (+)
+			AND    TOR.DAY_ORD    = TSR.DAY_ORD  (+)
+			AND    TOR.RACE_NO    = TSR.RACE_NO  (+)
+			AND    TOR.STND_YEAR  = TST.STND_YEAR(+)
+			--AND  TOR.MBR_CD     = TST.MEET_CD  (+)
+			AND    TOR.TMS        = TST.TMS      (+)
+			AND    TOR.DAY_ORD    = TST.DAY_ORD  (+)
+			AND    TOR.RACE_NO    = TST.RACE_NO  (+)
+			AND    TOR.STND_YEAR  = ?
+			AND    TOR.MBR_CD     = ?
+			AND    TOR.TMS        = ?
+			AND    TOR.DAY_ORD    = ?
+			AND    TOR.RACE_NO    = NVL(?, TOR.RACE_NO)
+			AND    TOR.ST_MTHD_CD = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+			GROUP BY
+			         TOR.STND_YEAR   -- 기준년도
+			       , TOR.MBR_CD      -- 경정장코드
+			       , TOR.TMS         -- 회차
+			       , TOR.DAY_ORD     -- 일차
+			       , TOR.RACE_NO     -- 경주번호
+			       , TOR.ANTC_RANK
+			       , TOR.ANTC_DESC
+			       , TOR.RSLT_DESC
+			       , TST.POOL_TOTAL
+			ORDER BY TOR.RACE_NO
+        ]]>
+    </query> 
+    <query id="tbes_sdl_fb002" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/*  tbes_sdl_fb002   IWORK_SFR-008 경정 선수편성 메뉴 개선 2013-12-11 8착까지 추가 수정.  */
+			         RUNNER_1ST FLG
+			       , MIN(DECODE(RUNNER_2ND, 1, ODDS)) B1
+			       , MIN(DECODE(RUNNER_2ND, 2, ODDS)) B2
+			       , MIN(DECODE(RUNNER_2ND, 3, ODDS)) B3
+			       , MIN(DECODE(RUNNER_2ND, 4, ODDS)) B4
+			       , MIN(DECODE(RUNNER_2ND, 5, ODDS)) B5
+			       , MIN(DECODE(RUNNER_2ND, 6, ODDS)) B6
+			       , MIN(DECODE(RUNNER_2ND, 7, ODDS)) B7
+                   , MIN(DECODE(RUNNER_2ND, 8, ODDS)) B8
+			FROM   (
+			            SELECT
+			                     STND_YEAR   -- 기준년도
+			                   , MEET_CD     -- Meet Code
+			                   , TMS         -- 회차
+			                   , DAY_ORD     -- 일차
+			                   , RACE_NO     -- 경주번호
+			                   , POOL_CD     -- 승식
+			                   , RUNNER_1ST  -- 선택1
+			                   , RUNNER_2ND  -- 선택2
+			                   , RUNNER_3RD  -- 선택3
+			                   , ODDS        -- 배당율
+			            FROM   USRBM.TBES_SDL_PB
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ?
+			            AND    DAY_ORD    = ?
+			            AND    RACE_NO    = ?
+			            AND    POOL_CD    = NVL('004', POOL_CD)
+			       )
+			GROUP BY RUNNER_1ST
+			ORDER BY RUNNER_1ST
+        ]]>
+    </query> 
+    <query id="tbes_sdl_fb003" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         '1-2-3' K_1
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '2' AND TSP.RUNNER_3RD = '3') V_1
+			       , '1-3-5' K_2
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '3' AND TSP.RUNNER_3RD = '5') V_2
+			       , '2-3-4' K_3
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '2' AND TSP.RUNNER_2ND = '3' AND TSP.RUNNER_3RD = '4') V_3
+			       , '2-5-6' K_4
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '2' AND TSP.RUNNER_2ND = '5' AND TSP.RUNNER_3RD = '6') V_4
+			FROM   (
+			            SELECT
+			                     ? STND_YEAR   -- 기준년도
+			                   , ? MEET_CD     -- Meet Code
+			                   , ? TMS         -- 회차
+			                   , ? DAY_ORD     -- 일차
+			                   , ? RACE_NO     -- 경주번호
+			            FROM   DUAL
+			       ) DUAL
+			
+			UNION ALL
+			
+			SELECT
+			         '1-2-4' K_1
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '2' AND TSP.RUNNER_3RD = '4') V_1
+			       , '1-3-6' K_2
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '3' AND TSP.RUNNER_3RD = '6') V_2
+			       , '2-3-5' K_3
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '2' AND TSP.RUNNER_2ND = '3' AND TSP.RUNNER_3RD = '5') V_3
+			       , '3-4-5' K_4
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '3' AND TSP.RUNNER_2ND = '4' AND TSP.RUNNER_3RD = '5') V_4
+			FROM   (
+			            SELECT
+			                     ? STND_YEAR   -- 기준년도
+			                   , ? MEET_CD     -- Meet Code
+			                   , ? TMS         -- 회차
+			                   , ? DAY_ORD     -- 일차
+			                   , ? RACE_NO     -- 경주번호
+			            FROM   DUAL
+			       ) DUAL
+			
+			UNION ALL
+			
+			SELECT
+			         '1-2-5' K_1
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '2' AND TSP.RUNNER_3RD = '5') V_1
+			       , '1-4-5' K_2
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '4' AND TSP.RUNNER_3RD = '5') V_2
+			       , '2-3-6' K_3
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '2' AND TSP.RUNNER_2ND = '3' AND TSP.RUNNER_3RD = '6') V_3
+			       , '3-4-6' K_4
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '3' AND TSP.RUNNER_2ND = '4' AND TSP.RUNNER_3RD = '6') V_4
+			FROM   (
+			            SELECT
+			                     ? STND_YEAR   -- 기준년도
+			                   , ? MEET_CD     -- Meet Code
+			                   , ? TMS         -- 회차
+			                   , ? DAY_ORD     -- 일차
+			                   , ? RACE_NO     -- 경주번호
+			            FROM   DUAL
+			       ) DUAL
+			
+			UNION ALL
+			
+			SELECT
+			         '1-2-6' K_1
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '2' AND TSP.RUNNER_3RD = '6') V_1
+			       , '1-4-6' K_2
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '4' AND TSP.RUNNER_3RD = '6') V_2
+			       , '2-4-5' K_3
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '2' AND TSP.RUNNER_2ND = '4' AND TSP.RUNNER_3RD = '5') V_3
+			       , '3-5-6' K_4
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '3' AND TSP.RUNNER_2ND = '5' AND TSP.RUNNER_3RD = '6') V_4
+			FROM   (
+			            SELECT
+			                     ? STND_YEAR   -- 기준년도
+			                   , ? MEET_CD     -- Meet Code
+			                   , ? TMS         -- 회차
+			                   , ? DAY_ORD     -- 일차
+			                   , ? RACE_NO     -- 경주번호
+			            FROM   DUAL
+			       ) DUAL
+			
+			UNION ALL
+			
+			SELECT
+			         '1-3-4' K_1
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '3' AND TSP.RUNNER_3RD = '4') V_1
+			       , '1-5-6' K_2
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '1' AND TSP.RUNNER_2ND = '5' AND TSP.RUNNER_3RD = '6') V_2
+			       , '2-4-6' K_3
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '2' AND TSP.RUNNER_2ND = '4' AND TSP.RUNNER_3RD = '6') V_3
+			       , '4-5-6' K_4
+			       , (SELECT TSP.ODDS FROM USRBM.TBES_SDL_PB TSP WHERE TSP.STND_YEAR = DUAL.STND_YEAR AND TSP.MEET_CD = DUAL.MEET_CD AND TSP.TMS = DUAL.TMS AND TSP.DAY_ORD = DUAL.DAY_ORD AND TSP.RACE_NO = DUAL.RACE_NO AND TSP.RUNNER_1ST = '4' AND TSP.RUNNER_2ND = '5' AND TSP.RUNNER_3RD = '6') V_4
+			FROM   (
+			            SELECT
+			                     ? STND_YEAR   -- 기준년도
+			                   , ? MEET_CD     -- Meet Code
+			                   , ? TMS         -- 회차
+			                   , ? DAY_ORD     -- 일차
+			                   , ? RACE_NO     -- 경주번호
+			            FROM   DUAL
+			       ) DUAL
+        ]]>
+    </query> 
+    <query id="tbes_sdl_fb004" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         '매출액' STR
+			       , MIN(DECODE(POOL_CD, '001', POOL_TOTAL)) WM
+			       , MIN(DECODE(POOL_CD, '002', POOL_TOTAL)) PM
+			       , MIN(DECODE(POOL_CD, '004', POOL_TOTAL)) EM
+			       , MIN(DECODE(POOL_CD, '005', POOL_TOTAL)) QM
+			       , MIN(DECODE(POOL_CD, '006', POOL_TOTAL)) TM
+			       , SUM(                       POOL_TOTAL ) TOTM
+			FROM   (
+			            SELECT
+			                     POOL_CD                     -- 승식
+			                   , SUM(POOL_TOTAL) POOL_TOTAL  -- 발매총액
+			                   , ROUND((RATIO_TO_REPORT(SUM(POOL_TOTAL)) OVER()) * 100, 1)  PERCENTAGE
+			            FROM   USRBM.TBES_SDL_PT
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ?
+			            AND    DAY_ORD    = ?
+			            AND    RACE_NO    = ?
+			            GROUP BY POOL_CD     -- 승식
+			       )
+			UNION ALL
+			SELECT
+			         '백분률' STR
+			       , MIN(DECODE(POOL_CD, '001', PERCENTAGE)) WM
+			       , MIN(DECODE(POOL_CD, '002', PERCENTAGE)) PM
+			       , MIN(DECODE(POOL_CD, '004', PERCENTAGE)) EM
+			       , MIN(DECODE(POOL_CD, '005', PERCENTAGE)) QM
+			       , MIN(DECODE(POOL_CD, '006', PERCENTAGE)) TM
+			       , SUM(                       PERCENTAGE ) TOTM
+			FROM   (
+			            SELECT
+			                     POOL_CD                     -- 승식
+			                   , SUM(POOL_TOTAL) POOL_TOTAL  -- 발매총액
+			                   , ROUND((RATIO_TO_REPORT(SUM(POOL_TOTAL)) OVER()) * 100, 1)  PERCENTAGE
+			            FROM   USRBM.TBES_SDL_PT
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ?
+			            AND    DAY_ORD    = ?
+			            AND    RACE_NO    = ?
+			            GROUP BY POOL_CD     -- 승식
+			       )
+        ]]>
+    </query> 
+    <query id="tbes_sdl_fb005" desc="조회" fetchSize="10">
+        <![CDATA[
+            -- 일합계
+            SELECT 
+                     '일합계' STR
+                   ,  SUM(COUNT1 )                                      COUNT1
+                   ,  SUM(AMOUNT1) * 100                                AMOUNT1
+                   ,  SUM(COUNT2 ) + SUM(COUNT3 ) + SUM(COUNT4  )       COUNT2
+                   , (SUM(AMOUNT2) + SUM(AMOUNT3) + SUM(AMOUNT4)) * 100 AMOUNT2
+                   ,  SUM(COUNT5 ) + SUM(COUNT6 ) + SUM(COUNT7  )       COUNT3
+                   , (SUM(AMOUNT5) + SUM(AMOUNT6) + SUM(AMOUNT7)) * 100 AMOUNT3
+                   ,  SUM(COUNT8 )                                      COUNT4
+                   ,  SUM(AMOUNT8) * 100                                AMOUNT4
+            FROM   USRBM.TBJI_PC_SELLST
+            WHERE STND_YEAR = ?
+            AND   TMS       = ?
+            AND   DAY_ORD   = ? 
+            AND   MEET_CD   = '003'
+            UNION ALL
+            -- 경주합계
+            SELECT 
+                     RACE_NO || '경주'
+                   ,  SUM(COUNT1 )                                      COUNT1
+                   ,  SUM(AMOUNT1) * 100                                AMOUNT1
+                   ,  SUM(COUNT2 ) + SUM(COUNT3 ) + SUM(COUNT4  )       COUNT2
+                   , (SUM(AMOUNT2) + SUM(AMOUNT3) + SUM(AMOUNT4)) * 100 AMOUNT2
+                   ,  SUM(COUNT5 ) + SUM(COUNT6 ) + SUM(COUNT7  )       COUNT3
+                   , (SUM(AMOUNT5) + SUM(AMOUNT6) + SUM(AMOUNT7)) * 100 AMOUNT3
+                   ,  SUM(COUNT8 )                                      COUNT4
+                   ,  SUM(AMOUNT8) * 100                                AMOUNT4
+            FROM   USRBM.TBJI_PC_SELLST
+            WHERE STND_YEAR = ?
+            AND   TMS       = ?
+            AND   DAY_ORD   = ? 
+            AND   RACE_NO   = ?
+            AND   MEET_CD   = '003'
+            GROUP BY RACE_NO
+            UNION ALL
+            -- 평균점유율
+            SELECT
+                     '평균점유율' 
+                   , ROUND(COUNT1  / COUNT4  * 100, 1)
+                   , ROUND(AMOUNT1 / AMOUNT4 * 100, 1)
+                   , ROUND(COUNT2  / COUNT4  * 100, 1)
+                   , ROUND(AMOUNT2 / AMOUNT4 * 100, 1)
+                   , ROUND(COUNT3  / COUNT4  * 100, 1)
+                   , ROUND(AMOUNT3 / AMOUNT4 * 100, 1)
+                   , ROUND(COUNT4  / COUNT4  * 100, 1)
+                   , ROUND(AMOUNT4 / AMOUNT4 * 100, 1)
+            FROM   (
+                        SELECT 
+                                 RACE_NO
+                               ,  SUM(COUNT1 )                                      COUNT1
+                               ,  SUM(AMOUNT1) * 100                                AMOUNT1
+                               ,  SUM(COUNT2 ) + SUM(COUNT3 ) + SUM(COUNT4  )       COUNT2
+                               , (SUM(AMOUNT2) + SUM(AMOUNT3) + SUM(AMOUNT4)) * 100 AMOUNT2
+                               ,  SUM(COUNT5 ) + SUM(COUNT6 ) + SUM(COUNT7  )       COUNT3
+                               , (SUM(AMOUNT5) + SUM(AMOUNT6) + SUM(AMOUNT7)) * 100 AMOUNT3
+                               ,  SUM(COUNT8 )                                      COUNT4
+                               ,  SUM(AMOUNT8) * 100                                AMOUNT4
+                        FROM   USRBM.TBJI_PC_SELLST
+                        WHERE STND_YEAR = ?
+                        AND   TMS       = ?
+                        AND   DAY_ORD   = ? 
+                        AND   RACE_NO   = ?
+                        AND   MEET_CD   = '003'
+                        GROUP BY RACE_NO
+                   )
+        ]]>
+    </query> 
+    <query id="tbes_sdl_fb006" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         AVG.POOL_CD
+			       , NVL(MIN(DECODE(PAY_OFF, 1, CNT       )), 0) CNT_1
+			       , NVL(MIN(DECODE(PAY_OFF, 2, CNT       )), 0) CNT_2
+			       , NVL(MIN(DECODE(PAY_OFF, 3, CNT       )), 0) CNT_3
+			       , NVL(MIN(DECODE(PAY_OFF, 4, CNT       )), 0) CNT_4
+			       , NVL(MIN(DECODE(PAY_OFF, 5, CNT       )), 0) CNT_5
+			       , NVL(MIN(DECODE(PAY_OFF, 1, PERCENTAGE)), 0) PERCENTAGE_1
+			       , NVL(MIN(DECODE(PAY_OFF, 2, PERCENTAGE)), 0) PERCENTAGE_2
+			       , NVL(MIN(DECODE(PAY_OFF, 3, PERCENTAGE)), 0) PERCENTAGE_3
+			       , NVL(MIN(DECODE(PAY_OFF, 4, PERCENTAGE)), 0) PERCENTAGE_4
+			       , NVL(MIN(DECODE(PAY_OFF, 5, PERCENTAGE)), 0) PERCENTAGE_5
+			       , AVG.AVG_PAYOFF
+			FROM   (
+                        SELECT
+                                 POOL_CD
+                               , PAY_OFF
+                               , COUNT(*) CNT
+                               , ROUND((RATIO_TO_REPORT(COUNT(*)) OVER(PARTITION BY POOL_CD)) * 100, 1)  PERCENTAGE
+                        FROM   (
+                                    SELECT
+                                             POOL_CD
+                                           , CASE WHEN PAYOFF <  10 THEN 1
+                                                  WHEN PAYOFF <  20 THEN 2
+                                                  WHEN PAYOFF <  50 THEN 3
+                                                  WHEN PAYOFF < 100 THEN 4
+                                                  ELSE                   5
+                                             END PAY_OFF
+                                    FROM   USRBM.TBES_SDL_RS TSR, TBEB_RACE TR
+                                    WHERE  TSR.STATUS   IN ('N', 'L', 'R') -- N:정상 L:적중이 없는 경우 R:환불된 경우
+                                    AND    TSR.MEET_CD = '003'
+                                    AND    (TSR.STND_YEAR, TSR.TMS, TSR.DAY_ORD) IN (
+                                                                         SELECT
+                                                                                  STND_YEAR
+                                                                                , TMS
+                                                                                , DAY_ORD
+                                                                           FROM   TBEB_RACE_DAY_ORD TRDO
+                                                                           WHERE  RACE_DAY BETWEEN ?
+                                                                                               AND ?
+                                                                         )
+                                    AND TSR.STND_YEAR = TR.STND_YEAR
+                                    AND TR.MBR_CD = ?
+                                    AND TSR.TMS = TR.TMS
+                                    AND TSR.DAY_ORD = TR.DAY_ORD
+                                    AND TSR.RACE_NO = TR.RACE_NO
+                                    AND TR .ST_MTHD_CD   = DECODE(?, '000', TR.ST_MTHD_CD, ?)
+                               ) 
+                        GROUP BY 
+                                 POOL_CD
+                               , PAY_OFF
+			       ) TSR
+                 , (
+                        SELECT
+                                 POOL_CD
+                               , ROUND(AVG(PAYOFF),2) AVG_PAYOFF
+                        FROM   USRBM.TBES_SDL_RS TSR, TBEB_RACE TR
+                        WHERE  TSR.STATUS   IN ('N', 'L', 'R') -- N:정상 L:적중이 없는 경우 R:환불된 경우
+                        AND    TSR.MEET_CD = '003'
+                        AND    (TSR.STND_YEAR, TSR.TMS, TSR.DAY_ORD) IN (
+                                                               SELECT
+                                                                                  STND_YEAR
+                                                                                , TMS
+                                                                                , DAY_ORD
+                                                               FROM   TBEB_RACE_DAY_ORD TRDO
+                                                               WHERE  RACE_DAY BETWEEN ?
+                                                                                   AND ?
+                                                             )
+                        AND TSR.STND_YEAR = TR.STND_YEAR
+                        AND TR.MBR_CD = ?
+                        AND TSR.TMS = TR.TMS
+                        AND TSR.DAY_ORD = TR.DAY_ORD
+                        AND TSR.RACE_NO = TR.RACE_NO
+                        AND TR .ST_MTHD_CD   = DECODE(?, '000', TR.ST_MTHD_CD, ?)                                     
+                        GROUP BY POOL_CD
+                   ) AVG
+			WHERE  TSR.POOL_CD = AVG.POOL_CD
+            GROUP BY 
+                     AVG.POOL_CD
+                   , AVG.AVG_PAYOFF
+        ]]>
+    </query> 
+</queryMap>

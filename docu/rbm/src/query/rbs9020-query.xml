@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs9020(장외발매소 매출비율 관리 )">
+  <query id="rbs9020_s01" desc="장외발매소 매출비율 조회" fetchSize="10">
+      <![CDATA[
+			SELECT /* rbs9020_s01 */
+			       CASE LV WHEN 1 THEN '총매출액'
+                           WHEN 2 THEN '장외매출액'
+                           WHEN 3 THEN '본장매출액'
+                           WHEN 4 THEN '장외매출비율(%)'
+                           END AS RSLT_TITLE
+			       ,CASE WHEN LV !=4 THEN ROUND(SUM(TOTAL_AMT_PREV +BRNC_AMT_PREV+MAIN_AMT_PREV+BRNC_RATE_PREV)/1000000)
+			             ELSE SUM(TOTAL_AMT_PREV +BRNC_AMT_PREV+MAIN_AMT_PREV+BRNC_RATE_PREV)
+			             END AS AMT_PREV
+			       ,CASE WHEN LV !=4 THEN ROUND(SUM(TOTAL_AMT_THIS+BRNC_AMT_THIS+MAIN_AMT_THIS+BRNC_RACE_THIS)/1000000)
+			             ELSE SUM(TOTAL_AMT_THIS+BRNC_AMT_THIS+MAIN_AMT_THIS+BRNC_RACE_THIS)
+			             END AS AMT_THIS
+			FROM (
+			        SELECT  LV
+	                        ,CASE WHEN LV=1 AND STND_YEAR = ?-1 THEN TOTAL_AMT ELSE 0 END AS TOTAL_AMT_PREV 
+	                        ,CASE WHEN LV=1 AND STND_YEAR = ?   THEN TOTAL_AMT ELSE 0 END   AS TOTAL_AMT_THIS
+	                        ,CASE WHEN LV=2 AND STND_YEAR = ?-1 THEN BRNC_AMT ELSE 0 END AS BRNC_AMT_PREV
+	                        ,CASE WHEN LV=2 AND STND_YEAR = ?   THEN BRNC_AMT ELSE 0 END    AS BRNC_AMT_THIS
+	                        ,CASE WHEN LV=3 AND STND_YEAR = ?-1 THEN MAIN_AMT ELSE 0 END AS MAIN_AMT_PREV
+	                        ,CASE WHEN LV=3 AND STND_YEAR = ?   THEN MAIN_AMT ELSE 0 END    AS MAIN_AMT_THIS
+	                        ,CASE WHEN LV=4 AND STND_YEAR = ?-1 THEN ROUND(BRNC_AMT/MAIN_AMT*100) ELSE 0 END AS BRNC_RATE_PREV
+	                        ,CASE WHEN LV=4 AND STND_YEAR = ?   THEN ROUND(BRNC_AMT/MAIN_AMT*100) ELSE 0 END    AS BRNC_RACE_THIS
+		              FROM ( 
+		                    SELECT STND_YEAR
+		                                ,SUM(DIV_TOTAL) TOTAL_AMT
+                                       ,SUM(CASE WHEN SUBSTR(MEET_CD,2,2) = SELL_CD AND COMM_NO <= '10' THEN DIV_TOTAL ELSE 0 END) AS MAIN_AMT
+                                       ,SUM(CASE WHEN SUBSTR(MEET_CD,2,2) = SELL_CD AND COMM_NO <= '10' THEN 0 ELSE DIV_TOTAL END) AS BRNC_AMT
+		                    FROM VW_SDL_DT_SUM_GSUM
+		                    WHERE MEET_CD = ?
+		                    AND STND_YEAR BETWEEN ?-1 AND ? 
+		                    GROUP BY STND_YEAR        
+		                    ) A, 
+		                    (SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL<=4) B
+			       )
+			GROUP BY LV                   
+        ]]>
+    </query>       
+    
+    
+    <query id="rbs9020_s02" desc="그린카드 기준년도 조회 " fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs9020_s02 */
+                   STND_YEAR AS CD
+                  ,STND_YEAR||'년' AS CD_NM
+            FROM   VW_SDL_DT_SUM_GSUM
+	        GROUP BY STND_YEAR
+	        ORDER BY STND_YEAR DESC
+        ]]>
+    </query>   
+     
+</queryMap>

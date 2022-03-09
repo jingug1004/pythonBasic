@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_equip 전일확정타임 등록 ">
+    <query id="tbef_equip_former_ff001" desc="전일확정타임  조회 " fetchSize="50">
+        <![CDATA[
+			SELECT 
+					  TRD.STND_YEAR		-- 기준년도 
+					, TRD.MBR_CD		-- 경정장 코드
+					, TRD.TMS			-- 회차 
+					, NVL(TEF.RACE_DAY, TO_CHAR(TO_DATE(TRD.RACE_DAY, 'YYYYMMDD') -1, 'YYYYMMDD')) RACE_DAY	-- 전일경주일
+					, NVL(TEF.MOT_NO, TEL.EQUIP_NO) MOT_NO		-- 모터번호 
+					, TO_CHAR(NVL(TEF.INTRO_RUN_TM, ''),'0.00') INTRO_RUN_TM	-- 소개항주타임 
+			  FROM    TBEF_EQUIP_FORMER TEF
+					, TBEB_RACE_DAY_ORD TRD
+					, TBEF_EQUIP_LOT TEL
+			 WHERE	TRD.STND_YEAR = TEL.STND_YEAR
+			   AND	TRD.MBR_CD = TEL.MBR_CD
+			   AND	TRD.TMS = TEL.TMS
+			   AND	TEL.STND_YEAR = TEF.STND_YEAR(+)
+			   AND	TEL.MBR_CD = TEF.MBR_CD(+)
+			   AND	TEL.TMS = TEF.TMS(+)
+			   AND	TEL.EQUIP_NO = TEF.MOT_NO(+)
+			   AND	TRD.DAY_ORD = 1
+			   AND	TEL.EQUIP_TPE_CD = 'M'
+			   AND	TEL.PREPAR_YN = 'N'
+			   AND	TRD.STND_YEAR = ?
+			   AND	TRD.MBR_CD = ?
+			   AND	TRD.TMS = ?
+			 ORDER BY MOT_NO   
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_former_ff002" desc="회차별 소개항주타임  조회 " fetchSize="50">
+        <![CDATA[
+SELECT   STND_YEAR
+       , MBR_CD
+       , TO_NUMBER(RANK() OVER(ORDER BY RANK)||'.'||TMS) TMS
+       , TMS TMS2
+       , DAY_ORD
+       , RACE_DAY
+       , WEATHER
+       , MOT_NO
+       , SEQ
+       , INTRO_RUN_TM
+  FROM   (
+			SELECT   STND_YEAR
+			       , MBR_CD
+			       , TMS
+			       , DAY_ORD
+			       , DAY_ORD||'일차('||SUBSTR(RACE_DAY,5,2)||'.'||SUBSTR(RACE_DAY,7,2)||')' RACE_DAY
+			       , WEATHER
+			       , MOT_NO
+			       , SEQ
+			       , NVL(INTRO_RUN_TM,'') INTRO_RUN_TM
+			       , RANK() OVER(ORDER BY STND_YEAR, MBR_CD, TMS DESC) RANK
+			  FROM   (
+			            SELECT   TRD.STND_YEAR
+			                   , TRD.MBR_CD
+			                   , TRD.TMS
+			                   , TRD.DAY_ORD
+			                   , TRD.RACE_DAY
+			                   , TSC.CD_NM||'('||WEATH.TEMPT||'/'||WEATH.HUMIDITY||')' WEATHER
+			                   , TOR.MOT_NO
+			                   , RANK() OVER(PARTITION BY TRD.STND_YEAR, TRD.MBR_CD, TRD.TMS, TRD.DAY_ORD, TOR.MOT_NO ORDER BY TOR.RACE_NO) SEQ
+			                   , TOR.INTRO_RUN_TM
+			              FROM	 TBEB_RACE_DAY_ORD TRD
+			                   , TBEB_ORGAN TOR
+			                   , TBEA_SPEC_CD TSC
+			                   , ( SELECT   a.STND_YEAR
+			                              , a.MBR_CD
+			                              , a.TMS
+			                              , a.DAY_ORD
+			                              , b.WEATH_CD
+			                              , a.TEMPT
+			                              , a.HUMIDITY
+				                     FROM   ( SELECT   STND_YEAR
+			                                         , MBR_CD
+			                                         , TMS
+			                                         , DAY_ORD
+			                                         , ROUND(AVG(TEMPT),0) TEMPT
+			                                         , ROUND(AVG(HUMIDITY),0) HUMIDITY
+				                                FROM   TBEB_RACE
+			                                   WHERE   STND_YEAR = ?
+											     AND   MBR_CD = ?
+												 AND   TMS BETWEEN ? AND ?
+			                                  GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD
+			                                ) a
+			                              , ( SELECT   STND_YEAR
+			                                         , MBR_CD
+			                                         , TMS
+			                                         , DAY_ORD
+			                                         , WEATH_CD
+				                                FROM   ( SELECT   STND_YEAR
+			                                                    , MBR_CD
+			                                                    , TMS
+			                                                    , DAY_ORD
+			                                                    , WEATH_CD
+			                                                    , RANK() OVER(PARTITION BY STND_YEAR, MBR_CD, TMS, DAY_ORD ORDER BY CNT DESC) RANK
+				                                           FROM   ( SELECT   STND_YEAR
+			                                                               , MBR_CD
+			                                                               , TMS
+			                                                               , DAY_ORD
+			                                                               , WEATH_CD
+			                                                               , COUNT(*) CNT
+			                                                          FROM   TBEB_RACE 
+					                                                 WHERE   STND_YEAR = ?
+																	   AND   MBR_CD = ?
+																	   AND   TMS BETWEEN ? AND ?
+					                                                GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, WEATH_CD
+					                                               )
+					                                   )
+			                                   WHERE RANK = 1
+			                                ) b
+			                            WHERE a.STND_YEAR = b.STND_YEAR
+			                              AND a.MBR_CD    = b.MBR_CD
+			                              AND a.TMS       = b.TMS
+			                              AND a.DAY_ORD   = b.DAY_ORD
+			                    ) WEATH
+			             WHERE   TRD.STND_YEAR = WEATH.STND_YEAR
+			               AND   TRD.MBR_CD    = WEATH.MBR_CD
+			               AND   TRD.TMS       = WEATH.TMS
+			               AND   TRD.DAY_ORD   = WEATH.DAY_ORD
+			               AND   WEATH.STND_YEAR = TOR.STND_YEAR(+)
+			               AND   WEATH.MBR_CD    = TOR.MBR_CD(+)
+			               AND   WEATH.TMS       = TOR.TMS(+)
+			               AND   WEATH.DAY_ORD   = TOR.DAY_ORD(+)
+			               AND   TSC.GRP_CD    = 'E00030'
+			               AND   TSC.CD        = WEATH.WEATH_CD
+			               AND   TRD.STND_YEAR = ?
+			               AND   TRD.MBR_CD = ?
+						   AND   TRD.TMS BETWEEN ? AND ?
+			             UNION   ALL
+			            SELECT   TAEO.STND_YEAR		-- 기준년도 
+			                   , TAEO.MBR_CD		-- 경정장
+			                   , TAEO.TMS			-- 회차 
+			                   , TAEO.DAY_ORD
+			                   , TO_CHAR(TO_DATE(TRD.RACE_DAY, 'YYYYMMDD') -1, 'YYYYMMDD') RACE_DAY	-- 전일경주일
+			                   , '' WEATHER
+			                   , TAEO.MOT_NO		-- 모터번호 
+			                   , 1 SEQ
+			                   , TAEO.RUN_TM INTRO_RUN_TM	-- 소개항주타임(확정타임):2번중에 2번째 확정타임으로 하기로 함
+			              FROM	 TBEC_APPO_EXERC_ORGAN TAEO
+				               , TBEB_RACE_DAY_ORD TRD
+			             WHERE	 TAEO.STND_YEAR = TRD.STND_YEAR
+			               AND	 TAEO.MBR_CD = TRD.MBR_CD
+			               AND	 TAEO.TMS = TRD.TMS
+			               AND	 TAEO.STND_YEAR = ?
+			               AND	 TAEO.MBR_CD = ?
+						   AND   TAEO.TMS BETWEEN ? AND ?
+						   AND	 TAEO.DAY_ORD = 0
+			               AND	 TRD.DAY_ORD = 1
+			      	 )
+		 ) INTRO
+ WHERE MOT_NO is not null
+ ORDER BY MOT_NO, RANK, DAY_ORD, SEQ
+         ]]>
+    </query> 
+    
+    <query id="tbef_equip_former_ff003" desc="회차별 승률현황 " fetchSize="50">
+        <![CDATA[
+		   SELECT                                                                                                                                                                     
+					  STND_YEAR                                                                             
+					, MBR_CD                                                                             
+					, TO_NUMBER(RANK() OVER(ORDER BY RANK)||'.'||TMS) TMS
+					, TMS TMS2                                                                             
+			        , MOT_NO
+			        , SUM(RACE_CNT)                                                                         RACE_CNT                                                                           
+			        , SUM(RANK_1)                                                                           RANK_1_CNT                                                                         
+			        , SUM(RANK_2)                                                                           RANK_2_CNT                                                                         
+			        , SUM(RANK_3)                                                                           RANK_3_CNT                                                                         
+			        , TRIM(TO_CHAR(SUM(RANK_1) / SUM(RACE_CNT) * 100, 990.9))                               WIN_RATIO                                                                          
+			        , TRIM(TO_CHAR((SUM(RANK_1) + SUM(RANK_2)) / SUM(RACE_CNT) * 100, 990.9))               HIGH_RANK_RATIO                                                                    
+			        , TRIM(TO_CHAR((SUM(RANK_1) + SUM(RANK_2) + SUM(RANK_3)) / SUM(RACE_CNT) * 100, 990.9)) HIGH_3_RANK_RATIO                                                                  
+			        , MIN(MIN_ITRDT_RUN_TM)                                                                 MIN_ITRDT_RUN_TM                                                                   
+			 FROM     (                                                                                                                                                                 
+			             SELECT                                                                                                                                                         
+			             		  TOR.STND_YEAR                                                                             
+					            , TOR.MBR_CD                                                                             
+								, TOR.TMS                                                                                                                                                
+			                    , TOR.MOT_NO
+								, RANK() OVER(ORDER BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS DESC) RANK
+			                    , COUNT(*)                                              RACE_CNT                                                                                        
+			                    , SUM(DECODE(TOR.RANK, 1, 1, 0))                        RANK_1                                                                                          
+			                    , SUM(DECODE(TOR.RANK, 2, 1, 0))                        RANK_2                                                                                          
+			                    , SUM(DECODE(TOR.RANK, 3, 1, 0))                        RANK_3                                                                                          
+			                    , MIN(TOR.RACE_TM)                MIN_ITRDT_RUN_TM                                                                                
+			             FROM     TBEB_ORGAN      TOR                                                                                                                                
+			            WHERE     TOR.ABSE_CD     <> '003'                                                                                                                             
+			              AND     TOR.IMMT_CLS_CD <> '003'
+						  AND     TOR.STND_YEAR   = ?                                                                                
+			              AND     TOR.MBR_CD      = ?                                                                                                                                 
+			              AND     TOR.TMS BETWEEN ? AND ?                                                                                                      
+			             GROUP BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, MOT_NO
+			          )                                                                                                                                                         
+			 GROUP BY STND_YEAR, MBR_CD, TMS, RANK, MOT_NO                                                                           
+			 ORDER BY MOT_NO, RANK
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_former_ff004" desc="회차별 승률현황(그래프용) " fetchSize="50">
+        <![CDATA[
+		   SELECT                                                                                                                                                                     
+					  MOT_NO
+					, GBN                                                                             
+					, TMS                                                                             
+					, WIN_RATIO                                                                             
+			 FROM     (                                                                                                                                                                 
+			             SELECT   TOR.MOT_NO
+			                    , '(1) 승률' GBN                                                                                        
+			                    , TOR.TMS                                                                                                                                                
+			                    , TRIM(TO_CHAR(SUM(DECODE(TOR.RANK, 1, 1, 0)) / COUNT(*) * 100, 990.9)) WIN_RATIO                                                                                         
+			             FROM     TBEB_ORGAN      TOR                                                                                                                                
+			            WHERE     TOR.ABSE_CD     <> '003'                                                                                                                             
+			              AND     TOR.IMMT_CLS_CD <> '003'
+						  AND     TOR.STND_YEAR   = ?                                                                                
+			              AND     TOR.MBR_CD      = ?                                                                                                                                 
+			              AND     TOR.TMS BETWEEN ? AND ?                                                                                                      
+			             GROUP BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, MOT_NO
+						 UNION ALL
+			             SELECT   TOR.MOT_NO
+			                    , '(2) 연대율' GBN                                                                                        
+			                    , TOR.TMS                                                                                                                                                
+			                    , TRIM(TO_CHAR((SUM(DECODE(TOR.RANK, 1, 1, 0)) + SUM(DECODE(TOR.RANK, 2, 1, 0))) / COUNT(*) * 100, 990.9))  WIN_RATIO                                                                                         
+			             FROM     TBEB_ORGAN      TOR                                                                                                                                
+			            WHERE     TOR.ABSE_CD     <> '003'                                                                                                                             
+			              AND     TOR.IMMT_CLS_CD <> '003'
+						  AND     TOR.STND_YEAR   = ?                                                                                
+			              AND     TOR.MBR_CD      = ?                                                                                                                                 
+			              AND     TOR.TMS BETWEEN ? AND ?                                                                                                      
+			             GROUP BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, MOT_NO
+						 UNION ALL
+			             SELECT   TOR.MOT_NO
+			                    , '(3) 3연대율' GBN                                                                                        
+			                    , TOR.TMS                                                                                                                                                
+			                    , TRIM(TO_CHAR((SUM(DECODE(TOR.RANK, 1, 1, 0)) + SUM(DECODE(TOR.RANK, 2, 1, 0)) + SUM(DECODE(TOR.RANK, 3, 1, 0))) / COUNT(*) * 100, 990.9))  WIN_RATIO                                                                                          
+			             FROM     TBEB_ORGAN      TOR                                                                                                                                
+			            WHERE     TOR.ABSE_CD     <> '003'                                                                                                                             
+			              AND     TOR.IMMT_CLS_CD <> '003'
+						  AND     TOR.STND_YEAR   = ?                                                                                
+			              AND     TOR.MBR_CD      = ?                                                                                                                                 
+			              AND     TOR.TMS BETWEEN ? AND ?                                                                                                      
+			             GROUP BY TOR.STND_YEAR, TOR.MBR_CD, TOR.TMS, MOT_NO
+			          )                                                                                                                                                         
+			 ORDER BY MOT_NO, TMS DESC, GBN
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_former_mf001" desc="전일확정타임 저장/수정 " fetchSize="10">
+        <![CDATA[
+            /* 전일확정타임 등록/수정  */
+            MERGE INTO TBEF_EQUIP_FORMER TEL
+            USING (
+            	SELECT 
+					? AS STND_YEAR, 	-- 기준년도 
+					? AS MBR_CD, 		-- 경정장 코드 
+					? AS TMS, 			-- 회차 
+					? AS RACE_DAY, 		-- 일자 
+					? AS MOT_NO, 		-- 모터번호 
+					? AS INTRO_RUN_TM, 	-- 소개항주타임 
+					? AS USER_ID 		-- 작성자 아이디 
+				FROM DUAL
+			) TL
+            ON (TEL.STND_YEAR = TL.STND_YEAR	-- 경정장 코드 
+            	AND TEL.MBR_CD = TL.MBR_CD		-- 경정장 코드 
+				AND TEL.TMS	= TL.TMS			-- 회차 
+				AND TEL.MOT_NO = TL.MOT_NO		-- 모터번호 
+			    )
+			WHEN MATCHED THEN
+				UPDATE
+			 	SET	TEL.INTRO_RUN_TM = CASE WHEN INSTR(NVL(TL.INTRO_RUN_TM,0),'.') > 0  THEN TL.INTRO_RUN_TM ELSE DECODE(LENGTH(TL.INTRO_RUN_TM),NULL,NULL,1,TL.INTRO_RUN_TM,2,TL.INTRO_RUN_TM /10,3,TL.INTRO_RUN_TM /100)  END, --소개항주타임 
+				    TEL.UPDT_ID   = TL.USER_ID,			-- 수정자 ID
+				    TEL.UPDT_DTM  = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+				   TEL.STND_YEAR, 	-- 기준년도 
+				   TEL.MBR_CD, 		-- 경정장 코드 
+				   TEL.TMS, 		-- 회차 
+				   TEL.RACE_DAY, 	-- 일자 
+				   TEL.MOT_NO, 		-- 모터번호 
+				   TEL.INTRO_RUN_TM,-- 소개항주타임  
+				   TEL.INST_ID, 	-- 작성자 아이디 
+				   TEL.INST_DTM 	-- 작성일시 
+				   ) 
+				VALUES ( 
+					TL.STND_YEAR, 	-- 기준년도 
+				   	TL.MBR_CD, 		-- 경정장 코드 
+				   	TL.TMS, 		-- 회차 
+				   	TL.RACE_DAY, 	-- 일자 
+				   	TL.MOT_NO, 		-- 모터번호 
+				   	CASE WHEN INSTR(NVL(TL.INTRO_RUN_TM,0),'.') > 0  THEN TL.INTRO_RUN_TM ELSE DECODE(LENGTH(TL.INTRO_RUN_TM),NULL,NULL,1,TL.INTRO_RUN_TM,2,TL.INTRO_RUN_TM /10,3,TL.INTRO_RUN_TM /100)  END,-- 소개항주타임  
+				   	TL.USER_ID, 	-- 작성자 아이디 
+				    SYSDATE)
+        ]]>
+    </query> 
+   
+</queryMap>

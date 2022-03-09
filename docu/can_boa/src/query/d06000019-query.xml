@@ -1,0 +1,757 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="(조종실기평가)"> 
+    <query id="tbdn_pilot_item_cd_fn001" desc="조종실기평가항목 조회" fetchSize="10">
+		<![CDATA[
+			SELECT  '0' AS CHK
+					,SEQ
+					,RACER_PERIO_NO   
+					,ESTM_ITEM_CD     
+					,ESTM_ITEM_DETL
+					,ASSIGN_SCR_LIMIT 
+					,ROUND        
+			FROM	TBDN_PILOT_ITEM_CD
+			WHERE	RACER_PERIO_NO =  ?
+			  AND   ROUND          =  ?
+			ORDER BY RACER_PERIO_NO,ESTM_ITEM_CD,SEQ
+	    ]]>
+    </query>
+             
+    <query id="tbdn_pilot_item_cd_fn002" desc="스타트타임, 주회타임 배점기준" fetchSize="10">
+		<![CDATA[
+			 SELECT	 RACER_PERIO_NO
+					,ROUND         
+					,NVL(ST_TIME_SCR, 0) ST_TIME_SCR
+					,NVL(CCIT_SCR, 0) CCIT_SCR   
+			FROM	TBDN_PILOT_ROUND_BAS
+			WHERE	RACER_PERIO_NO = ?
+              AND   ROUND          = ?
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_item_cd_fn003" desc="주회타임 조회" fetchSize="10">
+		<![CDATA[
+			SELECT	'0' AS CHK
+					,SEQ
+					,RACER_PERIO_NO
+					,ROUND
+					,UPPER_FROM
+					,UPPER_TO
+					,ASSIGN_SCR_FROM
+					,ASSIGN_SCR_TO
+					,RMK
+			FROM	TBDN_PILOT_CCIT_TIME_BAS
+			WHERE	RACER_PERIO_NO = ?
+			AND   	ROUND          = ?
+			ORDER BY RACER_PERIO_NO,ROUND,RMK 	
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_item_cd_fn004" desc="스타트타임 조회" fetchSize="10">
+		<![CDATA[
+			SELECT	'0' AS CHK
+					,SEQ					
+					,RACER_PERIO_NO
+					,ROUND
+					,ASSIGN_SCR
+					,ASSIGN_SCR_FROM
+					,ASSIGN_SCR_TO
+			FROM	TBDN_PILOT_ST_TIME_BAS
+			WHERE	RACER_PERIO_NO = ?
+			  AND   ROUND          = ?
+			ORDER BY  RACER_PERIO_NO
+					 ,ROUND
+                     ,ASSIGN_SCR DESC	
+	    ]]>
+    </query>   
+    
+    <query id="tbdn_pilot_item_cd_fn005" desc="조종실기평가표 조회" fetchSize="10">
+		<![CDATA[
+			SELECT   B.RACER_PERIO_NO 
+			        ,B.CAND_NO        
+			        ,B.NM_KOR
+			        ,A.ROUND            
+			        ,A.DT                        
+			        ,CASE WHEN A.ASSIGN_SCR IS NULL THEN NULL
+			        	  WHEN A.ASSIGN_SCR >= 60 THEN '001' 
+			        	  ELSE '003' END DCSN 
+			        ,A.ASSIGN_SCR
+			        ,A.RMK
+			        ,TO_CHAR(SYSDATE, 'YYYYDDMM') AS DT
+			FROM    TBDN_PILOT_ESTM_ITEM A, TBDN_CAND_IDENT B   
+			WHERE  1=1
+			       AND A.RACER_PERIO_NO(+) = B.RACER_PERIO_NO
+			       AND A.CAND_NO(+)        = B.CAND_NO
+			       AND NVL(B.DEL_YN,'N')   = 'N' 
+			       AND B.TH_STAT NOT IN ('004','005')  
+			       AND B.RACER_PERIO_NO    =  ?
+			       AND A.ROUND(+)          =  ?
+			       AND A.ESTM_ID(+)        =  ?
+			       AND B.CAND_NO NOT IN (SELECT CAND_NO
+				                         FROM TBDN_TEMP_ABS
+				                         WHERE 1=1
+				                               AND RACER_PERIO_NO =  B.RACER_PERIO_NO
+				                               AND GEN_DT <  NVL(A.DT, TO_CHAR(SYSDATE, 'YYYYDDMM'))
+				                               AND GBN IN ('001', '003'))  
+			ORDER BY B.CAND_NO
+	    ]]>
+    </query>
+    <query id="tbdn_pilot_item_fn001" desc="조종실기평가표 평가일 조회" fetchSize="10">
+		<![CDATA[
+			SELECT RACER_PERIO_NO, ROUND, MAX(DT) DT FROM TBDN_PILOT_ESTM_ITEM
+			WHERE RACER_PERIO_NO = ?
+			AND ROUND = ?
+			GROUP BY RACER_PERIO_NO, ROUND
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_item_cd_fn006" desc="조종실기평가표 세부조회" fetchSize="10">
+		<![CDATA[
+			SELECT
+				 A.RACER_PERIO_NO
+				,A.ROUND
+				,A.SEQ
+				,A.ESTM_ITEM_CD
+				,FC_CODE_NM_003('D10080',A.ESTM_ITEM_CD) AS ESTM_ITEM_NM
+				,A.ESTM_ITEM_DETL
+				,A.ASSIGN_SCR_LIMIT
+				,? AS CAND_NO
+				,(SELECT NM_KOR FROM TBDN_CAND_IDENT WHERE CAND_NO = ?) NM_KOR
+				,B.ESTM_SCR
+				,(SELECT SUM(ESTM_SCR) FROM TBDN_PILOT_ESTM_DETL
+				  WHERE 1=1
+				  AND RACER_PERIO_NO = B.RACER_PERIO_NO
+				  AND CAND_NO = B.CAND_NO
+				  AND ROUND = B.ROUND
+				  AND ESTM_ID = B.ESTM_ID
+				  ) AS TOT_SCR
+			FROM TBDN_PILOT_ITEM_CD A, TBDN_PILOT_ESTM_DETL B
+			WHERE 1=1
+			AND A.RACER_PERIO_NO = ?
+			AND A.ROUND          = ?
+			AND A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+			AND A.ROUND          = B.ROUND(+)
+			AND A.SEQ            = B.SEQ(+)
+			AND ?			     = B.INST_ID(+)
+			AND ?                = B.CAND_NO(+)
+			ORDER BY A.ESTM_ITEM_CD,A.SEQ            
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_item_cd_fn007" desc="주회타임 세부평가표  조회" fetchSize="10">
+		<![CDATA[
+            SELECT 
+                    RACER_PERIO_NO
+                    ,ROUND
+                    ,(SELECT CD_NM FROM TBDM_SPEC_CD WHERE GRP_CD  ='D10029' AND CD = T1.RMK)   RMK
+                    ,UPPER_FROM || '~' || UPPER_TO AS UPPER
+                    ,ASSIGN_SCR_FROM || '~' || ASSIGN_SCR_TO AS ASSIGN_SCR
+                    ,ASSIGN_SCR_TO 
+            FROM    TBDN_PILOT_CCIT_TIME_BAS T1 
+            WHERE   RACER_PERIO_NO = ?
+            AND     ROUND = ?
+            ORDeR BY RMK
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_item_cd_fn008" desc="스타트타임 세부평가표  조회" fetchSize="10">
+		<![CDATA[
+            SELECT 
+                    RACER_PERIO_NO
+                    ,ROUND
+                    ,ASSIGN_SCR 
+                    ,ASSIGN_SCR_FROM || ' ~ ' || ASSIGN_SCR_TO   ASSIGN_SCR_STAND
+            FROM    TBDN_PILOT_ST_TIME_BAS
+            WHERE    RACER_PERIO_NO     = ?
+            AND      ROUND              = ?
+            ORDER   BY ASSIGN_SCR DESC     
+	    ]]>
+    </query>
+
+    <query id="tbdn_pilot_item_cd_fn009" desc="기수 조회" fetchSize="10">
+        <![CDATA[
+				SELECT  CD  RACER_PERIO_NO
+				 FROM  TBDM_SPEC_CD
+				 WHERE GRP_CD  = 'D10000'
+				 ORDER BY CD DESC	
+		]]>
+    </query>
+    
+    <query id="tbdn_pilot_item_detl_scr_fn009" desc="주회타임 점수 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   RACER_PERIO_NO
+                    ,CAND_NO
+                    ,ROUND
+                    ,TIME_GBN
+                    ,ESTM_ID
+                    ,ESTM_SCR
+            FROM    TBDN_PILOT_ESTM_TIME_DETL 
+            WHERE   RACER_PERIO_NO 	= ?
+            AND     CAND_NO 		= ?
+            AND     ROUND 			= ?
+            AND     TIME_GBN 		= 'C'
+            AND     ESTM_ID 		= ?
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_item_detl_scr_fn010" desc="스타트타임 점수 조회" fetchSize="10">
+		<![CDATA[
+            SELECT 
+                    RACER_PERIO_NO
+                    ,CAND_NO
+                    ,ROUND
+                    ,TIME_GBN
+                    ,ESTM_ID
+                    ,ESTM_SCR
+            FROM    TBDN_PILOT_ESTM_TIME_DETL 
+            WHERE   RACER_PERIO_NO 	= ?
+            AND     CAND_NO 		= ?
+            AND     ROUND 			= ?
+            AND     TIME_GBN 		= 'S'
+            AND     ESTM_ID 		= ?
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_estm_time_rec_fn001" desc="주회타임 기록" fetchSize="10">
+		<![CDATA[
+            SELECT  '0' CHK
+                    ,RACER_PERIO_NO
+                    ,CAND_NO
+                    ,ROUND
+                    ,TIME_GBN
+                    ,ESTM_ID
+                    ,ESTM_CNT
+                    ,ESTM_REC
+            FROM    TBDN_PILOT_ESTM_TIME_REC 
+            WHERE   RACER_PERIO_NO 	= ?
+            AND     CAND_NO 		= ?
+            AND     ROUND 			= ?
+            AND     TIME_GBN 		= 'C'
+            AND     ESTM_ID 		= ?
+            ORDER BY ESTM_CNT
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_estm_time_rec_fn002" desc="스타트타임 기록" fetchSize="10">
+		<![CDATA[
+            SELECT 
+                    '0' CHK
+                    ,RACER_PERIO_NO
+                    ,CAND_NO
+                    ,ROUND
+                    ,TIME_GBN
+                    ,ESTM_ID
+                    ,ESTM_CNT
+                    ,ESTM_REC
+            FROM    TBDN_PILOT_ESTM_TIME_REC 
+            WHERE   RACER_PERIO_NO = ?
+            AND     CAND_NO 	= ?
+            AND     ROUND 		= ?
+            AND     TIME_GBN 	= 'S'
+            AND     ESTM_ID 	= ?
+            ORDER BY ESTM_CNT
+	    ]]>
+    </query>
+
+    <query id="tbdn_pilot_estm_item_sum_fn001" desc="차수별 평가결과 조회" fetchSize="10">
+		<![CDATA[
+            
+                 SELECT  A.RACER_PERIO_NO  RACER_PERIO_NO 
+                        ,A.CAND_NO         CAND_NO
+                        ,B.NM_KOR          NM_KOR
+                        ,A.ROUND           ROUND
+                        ,A.DT              DT
+                        ,A.ESTM_ID         ESTM_ID 
+                        ,(SELECT USER_NM FROM USRBM.TBRK_USER WHERE USER_ID = A.ESTM_ID) USER_NM 
+                        ,A.ASSIGN_SCR      ASSIGN_SCR
+                        --,(SELECT CD_NM FROM TBDM_SPEC_CD WHERE GRP_CD ='D10006' AND CD = A.DCSN) DCSN_NM
+                        ,CASE WHEN NVL(A.ASSIGN_SCR, 0) >= 60 THEN '합격' ELSE '불합격' END DCSN_NM 
+                 FROM    TBDN_CAND_IDENT  B, TBDN_PILOT_ESTM_ITEM A    
+                WHERE   B.RACER_PERIO_NO    = A.RACER_PERIO_NO
+                AND     B.CAND_NO           = A.CAND_NO
+                AND     NVL(B.DEL_YN,'N')   = 'N'  
+                AND     B.RACER_PERIO_NO    = ?
+                AND     A.ROUND             = ?
+               ORDER BY A.RACER_PERIO_NO,A.CAND_NO,B.NM_KOR,A.ROUND
+	    ]]>
+    </query>  
+    <query id="tbdn_pilot_estm_item_sum_fn002" desc="차수별 평가결과 조회(print)" fetchSize="10">
+		<![CDATA[  
+    		 SELECT  A.CAND_NO
+			   		  ,B.NM_KOR          NM_KOR
+			   		  ,MAX(CASE WHEN ESTM_ID = '02005' THEN A.ASSIGN_SCR END) AS A
+					  ,MAX(CASE WHEN ESTM_ID = '00127' THEN A.ASSIGN_SCR END) AS B
+					  ,MAX(CASE WHEN ESTM_ID = '02085' THEN A.ASSIGN_SCR END) AS C
+					  ,SUM(A.ASSIGN_SCR) AS TOT
+					  ,ROUND(AVG(A.ASSIGN_SCR),1) AS AVG
+					  ,MAX((SELECT CD_NM FROM TBDM_SPEC_CD WHERE GRP_CD ='D10006' AND CD = A.DCSN)) AS DCSN
+			  		  ,RANK() OVER(ORDER BY SUM(A.ASSIGN_SCR) DESC ) AS RANK
+			   FROM  TBDN_CAND_IDENT  B, TBDN_PILOT_ESTM_ITEM A  
+			   WHERE   B.RACER_PERIO_NO    = A.RACER_PERIO_NO 
+			    AND     B.CAND_NO           = A.CAND_NO
+                AND     NVL(B.DEL_YN,'N')   = 'N'  
+                AND     B.RACER_PERIO_NO    = ?
+				AND     A.ROUND = ?
+			   GROUP BY A.CAND_NO,B.NM_KOR,A.DCSN
+			ORDER BY	A.CAND_NO
+	    ]]>
+    </query>  
+    <query id="tbdn_pilot_estm_item_sum_fn003" desc="평가결과표(print)" fetchSize="10">
+		<![CDATA[    
+    			SELECT A.CAND_NO
+				  ,C.NM_KOR
+				  ,SUM(CASE WHEN ESTM_ITEM_CD = '001'  THEN A.ESTM_SCR END) AS A
+				  ,SUM(CASE WHEN ESTM_ITEM_CD = '002'  THEN A.ESTM_SCR END) AS B
+				  ,SUM(CASE WHEN ESTM_ITEM_CD = '003'  THEN A.ESTM_SCR END) AS C
+				  ,SUM(CASE WHEN ESTM_ITEM_CD = '004'  THEN A.ESTM_SCR END) AS D
+				  ,SUM(ESTM_SCR) AS E
+		          ,TOT
+				  ,ROUND(TOT/3,1) AS AVG
+				  ,D.RANK
+			FROM TBDN_PILOT_ESTM_DETL A
+				 ,TBDN_PILOT_ITEM_CD B
+				 ,TBDN_CAND_IDENT C
+				 ,(SELECT  A.CAND_NO
+				  		  ,SUM(ESTM_SCR) AS TOT
+				  		  ,RANK()  OVER(ORDER BY SUM(ESTM_SCR) DESC ) AS RANK
+					 FROM TBDN_PILOT_ESTM_DETL A
+						 ,TBDN_PILOT_ITEM_CD B
+					WHERE A.RACER_PERIO_NO = B.RACER_PERIO_NO 
+					AND A.SEQ = B.SEQ
+					AND A.RACER_PERIO_NO    = ?
+					AND A.ROUND = ?
+					GROUP BY A.CAND_NO
+					ORDER BY CAND_NO) D
+			WHERE A.RACER_PERIO_NO = B.RACER_PERIO_NO 
+			AND A.CAND_NO  = C.CAND_NO
+			AND A.CAND_NO  = D.CAND_NO
+			AND A.SEQ = B.SEQ
+			AND A.RACER_PERIO_NO    = ?
+			AND A.ROUND = ?
+			GROUP BY A.CAND_NO,C.NM_KOR,A.ESTM_ID,TOT,D.RANK
+			ORDER BY CAND_NO
+			
+	    ]]>
+    </query>  				
+    <query id="tbdn_pilot_item_cd_in001" desc="조종실기평가항목 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_PILOT_ITEM_CD (
+				 SEQ
+				,RACER_PERIO_NO   
+				,ESTM_ITEM_CD     
+				,ESTM_ITEM_DETL
+				,ASSIGN_SCR_LIMIT 
+				,ROUND    
+			    ,INST_ID      
+			    ,INST_DTM    
+			)
+			SELECT
+					NVL(MAX(SEQ), 0) + 1
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,SYSDATE
+			FROM 	TBDN_PILOT_ITEM_CD
+		]]>
+    </query>    
+         
+    <query id="tbdn_pilot_item_cd_un001" desc="조종실기평가항목 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_ITEM_CD 
+			SET
+					 RACER_PERIO_NO		= ?
+					,ESTM_ITEM_CD     	= ?
+					,ESTM_ITEM_DETL		= ?
+					,ASSIGN_SCR_LIMIT 	= ?
+					,ROUND  			= ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	SEQ					= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_pilot_item_cd_dn001" desc="조종실기평가항목 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_PILOT_ITEM_CD 
+			WHERE	SEQ	= ? 
+		]]>
+    </query>  
+         
+    
+    <query id="tbdn_pilot_round_bas_in001" desc="차수별기준 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_PILOT_ROUND_BAS (
+				 RACER_PERIO_NO
+				,ROUND
+				,ST_TIME_SCR
+				,CCIT_SCR  
+			    ,INST_ID      
+			    ,INST_DTM    
+			)VALUES
+			(
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,SYSDATE
+			)
+		]]>
+    </query>
+    
+         
+    <query id="tbdn_pilot_round_bas_un001" desc="차부별기준 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_ROUND_BAS 
+			SET      ST_TIME_SCR		= ?
+					,CCIT_SCR  			= ?	
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	RACER_PERIO_NO		= ?
+			AND		ROUND				= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_pilot_round_bas_dn001" desc="차부별기준 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  FROM TBDN_PILOT_ROUND_BAS 
+			WHERE	RACER_PERIO_NO	= ? 
+			AND		ROUND			= ?
+		]]>
+    </query>   
+    
+    <query id="tbdn_pilot_ccit_time_bas_in001" desc="주회타임 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_PILOT_CCIT_TIME_BAS (
+				SEQ
+				,RACER_PERIO_NO
+				,ROUND
+				,UPPER_FROM
+				,UPPER_TO
+				,ASSIGN_SCR_FROM
+				,ASSIGN_SCR_TO
+				,RMK
+			    ,INST_ID      
+			    ,INST_DTM    
+			)
+			SELECT
+					NVL(MAX(SEQ), 0) + 1
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,SYSDATE
+			FROM 	TBDN_PILOT_CCIT_TIME_BAS
+		]]>
+    </query>
+    
+         
+    <query id="tbdn_pilot_ccit_time_bas_un001" desc="주회타임 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_CCIT_TIME_BAS 
+			SET
+					RACER_PERIO_NO		= ?
+					,ROUND				= ?
+					,UPPER_FROM			= ?
+					,UPPER_TO			= ?
+					,ASSIGN_SCR_FROM	= ?
+					,ASSIGN_SCR_TO		= ?
+					,RMK				= ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	SEQ					= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_pilot_ccit_time_bas_dn001" desc="주회타임 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_PILOT_CCIT_TIME_BAS 
+			WHERE	SEQ	= ? 
+		]]>
+    </query>        
+    
+    
+    <query id="tbdn_pilot_st_time_bas_in001" desc="스타트타임 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_PILOT_ST_TIME_BAS (
+				SEQ
+				,RACER_PERIO_NO
+				,ROUND
+				,ASSIGN_SCR
+				,ASSIGN_SCR_FROM
+				,ASSIGN_SCR_TO
+			    ,INST_ID      
+			    ,INST_DTM    
+			)
+			SELECT
+					NVL(MAX(SEQ), 0) + 1
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,SYSDATE
+			FROM 	TBDN_PILOT_ST_TIME_BAS
+		]]>
+    </query>
+    
+         
+    <query id="tbdn_pilot_st_time_bas_un001" desc="스타트타임 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_ST_TIME_BAS 
+			SET
+					RACER_PERIO_NO		= ?					
+					,ROUND				= ?
+					,ASSIGN_SCR			= ?
+					,ASSIGN_SCR_FROM	= ?
+					,ASSIGN_SCR_TO		= ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	SEQ					= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_pilot_st_time_bas_dn001" desc="스타트타임 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_PILOT_ST_TIME_BAS 
+			WHERE	SEQ	= ? 
+		]]>
+    </query>           
+    
+    <query id="tbdn_pilot_estm_item_in001" desc="평가표 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_PILOT_ESTM_ITEM (
+				 RACER_PERIO_NO
+				,CAND_NO
+				,ROUND
+				,ESTM_ID			
+				,DT			
+				,ASSIGN_SCR	
+				,DCSN			
+				,RMK
+			    ,INST_ID      
+			    ,INST_DTM    
+			)VALUES
+			(
+				 ?
+				,?
+				,?
+				,?
+				,?
+				,?
+				,?	
+				,?
+				,?								
+				,SYSDATE
+			)
+		]]>
+    </query>
+    
+    <query id="tbdn_pilot_estm_item_un001" desc="평가표 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_ESTM_ITEM 
+			SET
+					 DT					= ?
+					,ASSIGN_SCR			= ?	
+					,DCSN				= ?
+					,RMK				= ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	RACER_PERIO_NO		= ?
+			AND		CAND_NO				= ?
+			AND		ROUND				= ?
+			AND     ESTM_ID             = ?
+		]]>
+    </query>
+    
+    <query id="tbdn_pilot_estm_item_un002" desc="평가표 평가일 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_ESTM_ITEM 
+			SET
+      				DT					= ?
+			WHERE	RACER_PERIO_NO		= ?
+			AND		ROUND				= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_pilot_estm_item_dn001" desc="평가표 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_PILOT_ESTM_ITEM 
+			WHERE	RACER_PERIO_NO		= ?
+			AND		CAND_NO				= ?
+			AND		ROUND				= ?
+			AND     ESTM_ID             = ?
+		]]>
+    </query>          
+    
+    <query id="tbdn_pilot_estm_detl_in001" desc="조종실기평가표 세부 입력" fetchSize="10">
+        <![CDATA[
+			
+			INSERT INTO TBDN_PILOT_ESTM_DETL (
+				 SEQ
+				,RACER_PERIO_NO
+				,CAND_NO
+				,ROUND
+				,ESTM_SCR
+			    ,INST_ID      
+			    ,INST_DTM
+			    ,ESTM_ID    
+			) VALUES (
+					 ?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,SYSDATE
+					,?
+			 )
+		]]>
+    </query>
+    
+         
+    <query id="tbdn_pilot_estm_detl_un001" desc="조종실기평가표 세부 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_ESTM_DETL 
+			SET      ESTM_SCR			= ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	RACER_PERIO_NO		= ?	
+			AND     CAND_NO				= ?
+			AND     ROUND				= ?
+			AND     SEQ					= ?	
+			AND		ESTM_ID				= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_pilot_estm_detl_dn001" desc="조종실기평가표 세부 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_PILOT_ESTM_DETL 
+			WHERE	RACER_PERIO_NO		= ?	
+			AND     CAND_NO				= ?
+			AND     ROUND				= ?
+			AND     SEQ					= ?	
+			AND		ESTM_ID				= ?
+					
+		]]>
+    </query>    
+    
+    <query id="tbdn_pilot_estm_ccit_time_in001" desc="주회타임/스타트타임 세부평가표 입력" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_PILOT_ESTM_TIME_DETL (
+				RACER_PERIO_NO
+				,CAND_NO
+				,ROUND
+				,TIME_GBN
+				,ESTM_ID
+				,ESTM_SCR
+			    ,INST_ID 
+			    ,INST_DTM    
+			) VALUES (
+					?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,SYSDATE
+			)
+		]]>
+    </query>
+    
+         
+    <query id="tbdn_pilot_estm_ccit_time_un001" desc="주회타임/스타트타임 세부평가표 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_PILOT_ESTM_TIME_DETL 
+			SET
+					 ESTM_SCR			= ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+			WHERE	ESTM_ID				= ?	
+			AND		RACER_PERIO_NO		= ?	
+			AND		CAND_NO			= ?
+			AND		ROUND				= ?
+			AND		TIME_GBN			= ?
+		]]>
+    </query>
+          
+    <query id="tbdn_pilot_estm_ccit_time_dn001" desc="주회타임/스타트타임 세부평가표 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE 
+			FROM   	TBDN_PILOT_ESTM_TIME_DETL 
+			WHERE	ESTM_ID				= ?	
+			AND		RACER_PERIO_NO		= ?	
+			AND		CAND_NO			= ?
+			AND		ROUND				= ?
+			AND		TIME_GBN			= ?
+		]]>
+    </query>                
+    
+    <query id="tbdn_pilot_estm_time_rec_in001" desc="주회타임 기록" fetchSize="10">
+		<![CDATA[
+			INSERT INTO TBDN_PILOT_ESTM_TIME_REC (
+				RACER_PERIO_NO
+				,CAND_NO
+				,ROUND
+				,TIME_GBN
+				,ESTM_ID
+				,ESTM_CNT
+				,ESTM_REC
+			    ,INST_ID 
+			    ,INST_DTM    
+			) VALUES (
+					?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,?
+					,SYSDATE
+			)
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_estm_time_rec_un001" desc="주회타임 기록" fetchSize="10">
+		<![CDATA[
+            UPDATE	TBDN_PILOT_ESTM_TIME_REC
+            SET		ESTM_REC = ?
+					,UPDT_ID        	= ?
+					,UPDT_DTM       	= SYSDATE
+            WHERE   RACER_PERIO_NO = ?
+            AND     CAND_NO = ?
+            AND     ROUND = ?
+            AND     TIME_GBN = ?
+            AND     ESTM_ID = ?
+            AND    	ESTM_CNT = ?
+	    ]]>
+    </query>
+    
+    <query id="tbdn_pilot_estm_time_rec_dn001" desc="주회타임 기록" fetchSize="10">
+		<![CDATA[
+            DELETE
+            FROM    TBDN_PILOT_ESTM_TIME_REC 
+            WHERE   RACER_PERIO_NO = ?
+            AND     CAND_NO = ?
+            AND     ROUND = ?
+            AND     TIME_GBN = ?
+            AND     ESTM_ID = ?
+            AND		ESTM_CNT = ?
+	    ]]>
+    </query>
+    
+</queryMap>

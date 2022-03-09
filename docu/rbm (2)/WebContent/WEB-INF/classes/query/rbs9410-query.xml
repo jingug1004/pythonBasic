@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS9410(건전레저 모니터링)">
+        
+    <query id="rbs9410_s_list" desc="건전레저 모니터링 조회" fetchSize="10">
+        <![CDATA[
+                
+			SELECT   B.COMM_NO, -- 지점코드
+               		 DECODE(B.COMM_NO, '00', '광명', '98', '미사리') AS COMM_NM,
+               		 B.BUSI_CNTNT_CD,  -- 사업내역코드			
+			         B.HEAL_LEISU_CD,  -- 건전레저코드
+               		 B.HEAL_LEISU_YEAR, --건전레저년도
+			         B.BUSI_NM,        -- 사업명
+			         B.DPRT_CD,	       -- 부서코드         		         
+			         B.MNG_ID,         -- 담당자ID
+			         (
+			          SELECT   GROUP_NAME
+			          FROM     V_GROUP DEPT
+			          WHERE    GROUP_ID = B.DPRT_CD
+			         )  AS DPRT_NAME,  -- 부서명
+               		 (SUBSTR(B.BUSI_YM_STR,0,4) || '.' || SUBSTR(B.BUSI_YM_STR,5,2) || '~' || SUBSTR(B.BUSI_YM_END,0,4) || DECODE(B.BUSI_YM_END, '', '', '.') || SUBSTR(B.BUSI_YM_END,5,2)) AS BUSI_YM_DATE, -- 운영기간
+               		 B.TMS, -- 회차
+               		 NVL(A.PRSN_QUOTA, 0) AS PRSN_QUOTA, -- 정원
+			         NVL(A.TOTAL, 0) AS TOTAL,  --합계
+			         NVL(A.M1,    0) AS M1,     -- 1월
+			         NVL(A.M2,    0) AS M2,     -- 2월
+			         NVL(A.M3,    0) AS M3,     -- 3월
+			         NVL(A.M4,    0) AS M4,     -- 4월
+			         NVL(A.M5,    0) AS M5,     -- 5월
+			         NVL(A.M6,    0) AS M6,     -- 6월
+			         NVL(A.M7,    0) AS M7,     -- 7월
+			         NVL(A.M8,    0) AS M8,     -- 8월
+			         NVL(A.M9,    0) AS M9,     -- 9월
+			         NVL(A.M10,   0) AS M10,    -- 10월
+			         NVL(A.M11,   0) AS M11,    -- 11월
+			         NVL(A.M12,   0) AS M12     -- 12월
+			FROM     (  
+			          SELECT   A.BUSI_CNTNT_CD,
+			                   A.EXEC_YEAR,
+                         	   A.PRSN_QUOTA,
+			                   SUM(A.Prsn_Num) AS total,
+			                   SUM(DECODE(A.EXEC_MM,'01', A.PRSN_NUM, 0)) AS M1, 
+			                   SUM(DECODE(A.EXEC_MM,'02', A.PRSN_NUM, 0)) AS M2, 
+			                   SUM(DECODE(A.EXEC_MM,'03', A.PRSN_NUM, 0)) AS M3, 
+			                   SUM(DECODE(A.EXEC_MM,'04', A.PRSN_NUM, 0)) AS M4, 
+			                   SUM(DECODE(A.EXEC_MM,'05', A.PRSN_NUM, 0)) AS M5, 
+			                   SUM(DECODE(A.EXEC_MM,'06', A.PRSN_NUM, 0)) AS M6, 
+			                   SUM(DECODE(A.EXEC_MM,'07', A.PRSN_NUM, 0)) AS M7, 
+			                   SUM(DECODE(A.EXEC_MM,'08', A.PRSN_NUM, 0)) AS M8, 
+			                   SUM(DECODE(A.EXEC_MM,'09', A.PRSN_NUM, 0)) AS M9, 
+			                   SUM(DECODE(A.EXEC_MM,'10', A.PRSN_NUM, 0)) AS M10, 
+			                   SUM(DECODE(A.EXEC_MM,'11', A.PRSN_NUM, 0)) AS M11, 
+			                   SUM(DECODE(A.EXEC_MM,'12', A.PRSN_NUM, 0)) AS M12                                
+			                        
+			          FROM     TBRE_HEAL_EXEC A
+			          WHERE    A.EXEC_YEAR = ? -- 1. 실행년도
+			
+			          GROUP BY A.BUSI_CNTNT_CD, A.EXEC_YEAR, A.PRSN_QUOTA
+			         ) A,
+			         TBRE_HEAL_CNTNT B
+			       
+			WHERE    B.BUSI_CNTNT_CD = A.BUSI_CNTNT_CD(+)      
+		    AND      B.COMM_NO LIKE '%' || NVL(?, B.COMM_NO) || '%'  -- 2. 지점코드 
+			AND      B.HEAL_LEISU_YEAR <= NVL(A.EXEC_YEAR, ?)        -- 3. 실행년도			
+ 
+			ORDER BY B.ORD,A.BUSI_CNTNT_CD
+			
+        ]]>
+    </query>   
+        
+     <query id="rbs9410_s02" desc="건전레저 팀정보 조회" fetchSize="10">
+        <![CDATA[    
+        
+		    SELECT
+			    DPRT_CD TEAM_CD                                  -- 팀코드
+			    ,(SELECT   GROUP_NAME
+			            FROM     V_GROUP DEPT
+			            WHERE    GROUP_ID = A.DPRT_CD) TEAM_NM   -- 팀명
+			FROM TBRE_HEAL_CNTNT A
+			WHERE HEAL_LEISU_YEAR = ?
+			GROUP BY DPRT_CD
+        
+         ]]>
+    </query>     
+</queryMap>

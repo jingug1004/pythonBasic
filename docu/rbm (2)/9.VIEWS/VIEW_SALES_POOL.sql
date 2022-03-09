@@ -1,0 +1,78 @@
+DROP VIEW USRBM.VIEW_SALES_POOL;
+
+/* Formatted on 2017-03-18 오전 10:56:37 (QP5 v5.136.908.31019) */
+CREATE OR REPLACE FORCE VIEW USRBM.VIEW_SALES_POOL
+(
+   RACEYY,
+   RACETIMES,
+   RACEDAYS,
+   RACEDATE,
+   RJANGCD,
+   RACENO,
+   TRACKCD,
+   WIN,
+   PLA,
+   EXA,
+   QUI,
+   TRI,
+   TOT_SALES
+)
+AS
+     SELECT RACEYY,
+            RACETIMES,
+            RACEDAYS,
+            RACEDATE,
+            RJANGCD,
+            RACENO,
+            TRACKCD,
+            SUM (WIN),
+            SUM (PLA),
+            SUM (EXA),
+            SUM (QUI),
+            SUM (TRI),
+            (SUM (WIN) + SUM (PLA) + SUM (EXA) + SUM (QUI) + SUM (TRI))
+       FROM (SELECT D.STND_YEAR AS RACEYY,
+                    D.TMS RACETIMES,
+                    D.DAY_ORD RACEDAYS,
+                    I.RACE_DAY RACEDATE,
+                    D.MEET_CD RJANGCD,
+                    D.RACE_NO RACENO,
+                    DECODE (I.MEET_CD, '003', '004', I.MEET_CD) AS TRACKCD,
+                    CASE WHEN POOL_CD = '001' THEN POOL_TOTAL ELSE 0 END AS WIN,
+                    CASE WHEN POOL_CD = '002' THEN POOL_TOTAL ELSE 0 END AS PLA,
+                    CASE WHEN POOL_CD = '004' THEN POOL_TOTAL ELSE 0 END AS EXA,
+                    CASE WHEN POOL_CD = '005' THEN POOL_TOTAL ELSE 0 END AS QUI,
+                    CASE WHEN POOL_CD = '006' THEN POOL_TOTAL ELSE 0 END AS TRI
+               FROM TBES_SDL_PT D, VW_SDL_INFO I
+              WHERE     I.MEET_CD IN ('001', '003')
+                    AND D.MEET_CD = I.MEET_CD
+                    AND D.STND_YEAR = I.STND_YEAR
+                    AND D.TMS = I.TMS
+                    AND D.DAY_ORD = I.DAY_ORD)
+   GROUP BY RACEYY,
+            RACETIMES,
+            RACEDAYS,
+            RACEDATE,
+            RJANGCD,
+            RACENO,
+            TRACKCD;
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.RACEYY IS '경주년도';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.RACETIMES IS '회차';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.RACEDAYS IS '일차';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.RACEDATE IS '경주일';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.RJANGCD IS '시행처(광명:001,미사리:003)';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.RACENO IS '경주';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.TRACKCD IS '판매처(광명:001,미사리:003)';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_POOL.TOT_SALES IS '매출액';
+
+
+GRANT SELECT ON USRBM.VIEW_SALES_POOL TO BCRC;
+
+GRANT SELECT ON USRBM.VIEW_SALES_POOL TO CCRC;

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3090(경정교차 회차별)">
+    <query id="rsm3090_s01" desc="경정교차 회차별" fetchSize="10">
+        <![CDATA[
+        	SELECT /* rsm3090_s01 */
+	        	MEET_CD,		-- 경륜 구분 코드
+				STND_YEAR,	-- 기준년도
+				TMS,	-- 회차
+				(JANG01+JANG02+JANG03+JANG04+JANG05) AS DIV_TOTAL,                                        -- 매출 총계
+				JANG01,  -- 광복
+				JANG02,  -- 서면
+				JANG03,  -- 김해
+				JANG04,  -- 부산본장
+				JANG05   -- 창원본장
+			FROM
+			(
+				     SELECT                                                                                                   
+					     A.MEET_CD,		-- 경륜 구분 코드 
+					     A.STND_YEAR,	-- 기준년도
+					     TO_NUMBER(A.TMS) AS TMS,	-- 회차
+					     --SUM(A.DIV_TOTAL) DIV_TOTAL,                                        -- 매출 총계
+					     NVL(SUM(CASE WHEN SELL_CD = '04' AND COMM_NO = '07' AND DIV_NO = '01' THEN A.DIV_TOTAL END),0) JANG01,  -- 광복
+					     NVL(SUM(CASE WHEN SELL_CD = '04' AND COMM_NO = '07' AND DIV_NO = '02' THEN A.DIV_TOTAL END),0) JANG02,  -- 서면
+					     NVL(SUM(CASE WHEN SELL_CD = '04' AND COMM_NO = '07' AND DIV_NO IN ('03','05') THEN A.DIV_TOTAL END),0) JANG04,  -- 부산본장
+					     NVL(SUM(CASE WHEN SELL_CD = '02' AND COMM_NO = '07' AND DIV_NO = '02' THEN A.DIV_TOTAL END),0) JANG03,     -- 김해
+					     NVL(SUM(CASE WHEN SELL_CD = '02' AND COMM_NO = '07' AND DIV_NO = '01' THEN A.DIV_TOTAL END),0) JANG05      -- 창원본장
+					 FROM VW_SDL_DT A,VW_SDL_INFO B       -- 경정교차                                                                                     
+					 WHERE 1 = 1            
+						 AND A.MEET_CD = B.MEET_CD			                                                                                             
+					 	 AND A.STND_YEAR = B.STND_YEAR
+					 	 AND A.TMS = B.TMS
+					 	 AND A.DAY_ORD = B.DAY_ORD
+					 	 AND A.SELL_CD IN ('02','04')
+					     AND A.MEET_CD = '003'                                                                             
+					     AND B.RACE_DAY >= ?	-- 경주 검색 시작 일                                                                       
+					     AND B.RACE_DAY <= ?    -- 경주 검색 마지막 일                                                               
+					     AND A.STND_YEAR = SUBSTR(?,1,4)      -- 경주 검색 시작 일                                           
+					 GROUP BY A.MEET_CD, A.STND_YEAR
+					 , A.TMS
+					 -- , ROLLUP(A.TMS) -- 최종 레코드의  TOTAL, SUM 생성용
+				)A                                                           
+					 ORDER BY A.TMS                                                                   
+
+        ]]>
+    </query>
+                          
+    
+</queryMap>

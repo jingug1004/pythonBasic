@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_propeller_mgr 프로펠러관리">
+	<query id="tbef_propeller_mgr_new_ff001" desc="프로펠러목록 조회" fetchSize="10">
+        <![CDATA[
+            SELECT   /* tbef_propeller_mgr_new_ff001 IWORK_SFR-012 */
+            		ROWNUM NUM,
+					TPM.PROPELLER_SEQ,
+			        TPM.MBR_CD,
+			        TPM.PROPELLER_NO,
+			        TPM.MAKER,
+			        TPM.DIAMETER,
+			        TPM.WEIGHT,
+			        TPM.WING_WIDTH,
+			        TPM.END_LENGTH,
+			        TPM.WING_THICKNESS,
+			        TPM.RMK,
+			        TPM.REG_PRO_PHO_NM1,
+			        TPM.REG_PRO_PHO_PATH1,
+			        TPM.REG_PRO_PHO_NM2,
+			        TPM.REG_PRO_PHO_PATH2,
+			        TPM.REG_TYPE_CD,
+			        TO_CHAR(TPM.REG_DT, 'YYYYMMDD' ) REG_DT,
+			        TPM.MOT_NO,			        SUBSTR(TPM.MOT_NO,6,3) EQUIP_REG_NO,
+			        TPM.DISUSE_PROPELLER_NO,
+			        TPM.DISUSE_TYPE_CD,
+			        TO_CHAR(TPM.DISUSE_DT, 'YYYYMMDD' ) DISUSE_DT,
+			        TPM.DISUSE_RS,
+			        TPM.DISUSE_PRO_PHO_NM1,
+			        TPM.DISUSE_PRO_PHO_PATH1,
+			        TPM.DISUSE_PRO_PHO_NM2,
+			        TPM.DISUSE_PRO_PHO_PATH2,
+			        TPM.INST_ID,
+			        TPM.INST_DT,
+			        TPM.UPDT_ID,
+			        TPM.UPDT_DT,
+			        TPM.DAMAGE_PART,
+			        'N' REG_PTO_UPDATE1,
+			        'N' REG_PTO_UPDATE2,
+			        'N' DISUSE_PTO_UPDATE1,
+			        'N' DISUSE_PTO_UPDATE2,  
+			        PROVIDE_PROPELLER_NO  /* 지급 프로펠러번호로 처리 하기 위한 빈 값. */
+			FROM    TBEF_PROPELLER_MGR_NEW TPM
+			WHERE   1=1
+			AND     TPM.MBR_CD = ?
+			AND     'T' =
+			            CASE
+			                WHEN ? = '001'
+			            AND     TPM.REG_DT BETWEEN TO_DATE( NVL( ?, '19000101' ), 'YYYYMMDD' )
+			                                   AND TO_DATE( NVL( ?, '29991231' ), 'YYYYMMDD' ) + .99999 THEN 'T'
+			                WHEN ? = '002'
+			            AND     TPM.DISUSE_DT BETWEEN TO_DATE( NVL( ?, '19000101' ), 'YYYYMMDD' )
+			                                      AND TO_DATE( NVL( ?, '29991231' ), 'YYYYMMDD' ) + .99999 THEN 'T'
+			                WHEN ? = '999' THEN 'T'
+			                ELSE 'F'
+			            END
+			AND     'T' = CASE
+			                 WHEN ? IS NULL THEN 'T'
+			                 WHEN ? IS NOT NULL
+			             AND     TPM.MOT_NO LIKE ? || '%' THEN 'T'
+			             END
+			AND     'T' = CASE
+			                 WHEN ? IS NULL THEN 'T'
+			                 WHEN ? IS NOT NULL
+			             AND     TPM.REG_TYPE_CD = ? THEN 'T'
+			             END
+			AND     'T' = CASE
+			                 WHEN ? IS NULL THEN 'T'
+			                 WHEN ? IS NOT NULL
+			             AND     TPM.DISUSE_TYPE_CD = ? THEN 'T'
+			             END
+			AND     'T' =
+			            CASE
+			                WHEN ? = '1'
+			            AND     TPM.MOT_NO IS NOT NULL
+			            AND     TPM.DISUSE_TYPE_CD IS NULL THEN 'T'
+			                WHEN ? = '0' THEN 'T'
+			                ELSE 'F'
+			            END
+			ORDER BY CASE
+			             WHEN ? = '1' THEN TPM.MOT_NO
+			         END NULLS FIRST,
+			          CASE
+			             WHEN ? = '0' THEN TPM.MOT_NO
+			         END NULLS LAST,
+			         TPM.MOT_NO DESC,
+			         TPM.REG_DT DESC
+        ]]>
+    </query> 
+    
+    <query id="tbef_propeller_mgr_new_ff002" desc="프로펠러 번호 중복 여부" fetchSize="10">
+        <![CDATA[
+
+            SELECT   /* tbef_propeller_mgr_new_ff002 IWORK_SFR-012 */
+            		COUNT(1) DUPLICATION
+            FROM 	TBEF_PROPELLER_MGR_NEW
+            WHERE	PROPELLER_NO = ?
+            AND		PROPELLER_SEQ <> ?
+        ]]>
+    </query> 
+  
+  	<query id="tbef_propeller_mgr_new_ff003" desc="반납 가능 프로펠러목록 조회" fetchSize="10">
+        <![CDATA[
+  	  		SELECT   /* TBEF_PROPELLER_MGR_NEW_FF003 IWORK_SFR-012 */
+			        PROPELLER_NO,
+			        PROPELLER_NO || NVL2( DISUSE_TYPE_CD, '(폐기:' || TO_CHAR( DISUSE_DT, 'YYYY-MM-DD' )||')', '(보유)' ) PROPELLER_NO_NM
+			FROM    TBEF_PROPELLER_MGR_NEW
+			WHERE   MOT_NO = ?
+			ORDER BY DISUSE_TYPE_CD NULLS FIRST,
+			         DISUSE_DT DESC
+		]]>
+    </query> 
+    
+    <query id="tbef_propeller_mgr_new_ff004" desc="지급 프로펠러 존재 확인" fetchSize="10">
+        <![CDATA[
+  	  		SELECT   /* tbef_propeller_mgr_new_ff004 IWORK_SFR-012 */
+			        COUNT(1) EXSIT
+			FROM    TBEF_PROPELLER_MGR_NEW
+			WHERE   PROPELLER_NO = ?
+			AND		MOT_NO    != ?
+			AND		REG_TYPE_CD IS NOT NULL
+		]]>
+    </query>
+    
+    <query id="tbef_propeller_mgr_new_ff005" desc="선수 보유 프로펠러목록 조회" fetchSize="10">
+        <![CDATA[
+  	  		SELECT   /* tbef_propeller_mgr_new_ff005 IWORK_SFR-012 */
+  	  				PROPELLER_SEQ,
+			        PROPELLER_NO,
+			        MOT_NO,
+			        PROPELLER_NO PROPELLER_NO_NM
+			FROM    TBEF_PROPELLER_MGR_NEW
+			WHERE   DISUSE_TYPE_CD IS NULL
+		]]>
+    </query>
+    
+    <query id="tbef_propeller_mgr_new_uf001" desc="지급 프로펠러 업데이트." fetchSize="10">
+        <![CDATA[  
+        	/* tbef_propeller_mgr_new_uf001 IWORK_SFR-012 */
+			UPDATE  TBEF_PROPELLER_MGR_NEW
+			SET REG_TYPE_CD = '300'   /* 파손교체지급 */
+			    ,MOT_NO = ?
+			    ,REG_DT = SYSDATE
+			WHERE   PROPELLER_NO = ?
+		]]>
+    </query> 
+    
+    <query id="tbef_propeller_mgr_new_mf001" desc="프로펠러 관리 저장" fetchSize="10">
+        <![CDATA[
+
+ 			/* tbef_propeller_mgr_new_mf001  IWORK_SFR-012 */
+            MERGE INTO TBEF_PROPELLER_MGR_NEW TP
+
+            USING (
+
+                    SELECT
+                              ? PROPELLER_SEQ                
+							, ? MBR_CD
+							, ? PROPELLER_NO
+							, ? MAKER
+							, ? DIAMETER
+							, ? WEIGHT
+							, ? WING_WIDTH
+							, ? END_LENGTH
+							, ? WING_THICKNESS
+							, ? RMK
+							, ? REG_PRO_PHO_NM1
+							, ? REG_PRO_PHO_PATH1
+							, ? REG_PRO_PHO_NM2
+							, ? REG_PRO_PHO_PATH2
+							, ? REG_TYPE_CD
+							, ? REG_DT
+							, ? MOT_NO
+							, ? DISUSE_PROPELLER_NO
+							, ? DISUSE_TYPE_CD
+							, ? DISUSE_DT
+							, ? DISUSE_RS
+							, ? DISUSE_PRO_PHO_NM1
+							, ? DISUSE_PRO_PHO_PATH1
+							, ? DISUSE_PRO_PHO_NM2
+							, ? DISUSE_PRO_PHO_PATH2
+							, ? PROVIDE_PROPELLER_NO
+							, ? INST_ID
+							, SYSDATE INST_DT
+							, ? UPDT_ID
+							, SYSDATE UPDT_DT
+							, ? DAMAGE_PART
+                    FROM    DUAL
+
+                  ) TMP
+
+            ON (    TP.PROPELLER_SEQ  = TMP.PROPELLER_SEQ
+
+                )
+
+            WHEN MATCHED THEN                              --데이터 중복건이 있는경우 Update
+
+			           UPDATE SET 
+                                  TP.MBR_CD = TMP.MBR_CD
+								, TP.PROPELLER_NO = TMP.PROPELLER_NO
+								, TP.MAKER = TMP.MAKER
+								, TP.DIAMETER = TMP.DIAMETER
+								, TP.WEIGHT = TMP.WEIGHT
+								, TP.WING_WIDTH = TMP.WING_WIDTH
+								, TP.END_LENGTH = TMP.END_LENGTH
+								, TP.WING_THICKNESS = TMP.WING_THICKNESS
+								, TP.RMK = TMP.RMK
+								, TP.REG_PRO_PHO_NM1 = TMP.REG_PRO_PHO_NM1
+								, TP.REG_PRO_PHO_PATH1 = TMP.REG_PRO_PHO_PATH1
+								, TP.REG_PRO_PHO_NM2 = TMP.REG_PRO_PHO_NM2
+								, TP.REG_PRO_PHO_PATH2 = TMP.REG_PRO_PHO_PATH2
+								, TP.REG_TYPE_CD = TMP.REG_TYPE_CD
+								, TP.REG_DT = TMP.REG_DT
+								, TP.MOT_NO = TMP.MOT_NO
+								, TP.DISUSE_PROPELLER_NO = TMP.DISUSE_PROPELLER_NO
+								, TP.DISUSE_TYPE_CD = TMP.DISUSE_TYPE_CD
+								, TP.DISUSE_DT = TMP.DISUSE_DT
+								, TP.DISUSE_RS = TMP.DISUSE_RS
+								, TP.DISUSE_PRO_PHO_NM1 = TMP.DISUSE_PRO_PHO_NM1
+								, TP.DISUSE_PRO_PHO_PATH1 = TMP.DISUSE_PRO_PHO_PATH1
+								, TP.DISUSE_PRO_PHO_NM2 = TMP.DISUSE_PRO_PHO_NM2
+								, TP.DISUSE_PRO_PHO_PATH2 = TMP.DISUSE_PRO_PHO_PATH2
+								, TP.UPDT_ID = TMP.UPDT_ID
+								, TP.UPDT_DT = TMP.UPDT_DT                            
+								, TP.DAMAGE_PART = TMP.DAMAGE_PART  
+								, TP.PROVIDE_PROPELLER_NO = TMP.PROVIDE_PROPELLER_NO                          
+
+            WHEN NOT MATCHED THEN                      -- 중복건이 없는 경우 처리 Insert
+
+			           INSERT (
+
+			                        TP.PROPELLER_SEQ                      
+									, TP.MBR_CD
+									, TP.PROPELLER_NO
+									, TP.MAKER
+									, TP.DIAMETER
+									, TP.WEIGHT
+									, TP.WING_WIDTH
+									, TP.END_LENGTH
+									, TP.WING_THICKNESS
+									, TP.RMK
+									, TP.REG_PRO_PHO_NM1
+									, TP.REG_PRO_PHO_PATH1
+									, TP.REG_PRO_PHO_NM2
+									, TP.REG_PRO_PHO_PATH2
+									, TP.REG_TYPE_CD
+									, TP.REG_DT
+									, TP.MOT_NO
+									, TP.DISUSE_PROPELLER_NO
+									, TP.DISUSE_TYPE_CD
+									, TP.DISUSE_DT
+									, TP.DISUSE_RS
+									, TP.DISUSE_PRO_PHO_NM1
+									, TP.DISUSE_PRO_PHO_PATH1
+									, TP.DISUSE_PRO_PHO_NM2
+									, TP.DISUSE_PRO_PHO_PATH2
+									, TP.INST_ID
+									, TP.INST_DT
+									, TP.DAMAGE_PART
+									, TP.PROVIDE_PROPELLER_NO
+			                  ) VALUES (
+									SQ_TBEF_PROPELLER_MGR_NEW.NEXTVAL 
+			                        , TMP.MBR_CD
+									, TMP.PROPELLER_NO
+									, TMP.MAKER
+									, TMP.DIAMETER
+									, TMP.WEIGHT
+									, TMP.WING_WIDTH
+									, TMP.END_LENGTH
+									, TMP.WING_THICKNESS
+									, TMP.RMK
+									, TMP.REG_PRO_PHO_NM1
+									, TMP.REG_PRO_PHO_PATH1
+									, TMP.REG_PRO_PHO_NM2
+									, TMP.REG_PRO_PHO_PATH2
+									, TMP.REG_TYPE_CD
+									, TMP.REG_DT
+									, TMP.MOT_NO
+									, TMP.DISUSE_PROPELLER_NO
+									, TMP.DISUSE_TYPE_CD
+									, TMP.DISUSE_DT
+									, TMP.DISUSE_RS
+									, TMP.DISUSE_PRO_PHO_NM1
+									, TMP.DISUSE_PRO_PHO_PATH1
+									, TMP.DISUSE_PRO_PHO_NM2
+									, TMP.DISUSE_PRO_PHO_PATH2
+									, TMP.INST_ID
+									, TMP.INST_DT
+									, TMP.DAMAGE_PART
+									, TMP.PROVIDE_PROPELLER_NO
+			                  )                         
+
+        ]]>
+    </query> 
+    
+    <query id="tbef_propeller_mgr_new_df001" desc="프로펠러 관리 삭제  " fetchSize="50">
+        <![CDATA[
+			/* tbef_propeller_mgr_new_df001  IWORK_SFR-012 */
+			DELETE FROM TBEF_PROPELLER_MGR_NEW
+				WHERE PROPELLER_SEQ = ?
+        ]]>
+    </query> 
+</queryMap>

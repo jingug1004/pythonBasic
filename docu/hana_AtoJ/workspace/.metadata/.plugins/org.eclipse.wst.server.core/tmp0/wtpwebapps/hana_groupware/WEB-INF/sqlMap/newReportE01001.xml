@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : newReportE01001.xml
+  * @메뉴명 : 휴가신청서
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="newReportE01001">
+
+ 	<select id="vacationDetail" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.VacationVO">
+		SELECT A.APPROVAL_SEQ, F_GW_GET_CD_NM(A.VACATION_KIND) VACATION_KIND, A.VACATION_KIND CD, TO_CHAR(TO_DATE(A.START_YMD,'yyyymmdd'),'yyyy-mm-dd') START_YMD,
+        TO_CHAR(TO_DATE(A.END_YMD,'yyyymmdd'),'yyyy-mm-dd') END_YMD, A.REASON,
+        A.CONTACT_NUMBER
+        ,(        
+                SELECT WORKDIV
+                FROM ORAGMP.PSCALM D
+                WHERE TO_DATE(REPLACE(D.CALYMD ,'-' ,''),'YYYYMMDD') <![CDATA[>=]]> TO_DATE(A.START_YMD ,'YYYYMMDD')
+                AND TO_DATE(REPLACE(D.CALYMD ,'-' ,''),'YYYYMMDD') <![CDATA[<=]]> TO_DATE(A.END_YMD ,'YYYYMMDD')  
+                AND D.WORKDIV = C.WORKDIV            
+                GROUP BY WORKDIV                
+        ) AS HOLIDAY_CNT        
+        FROM HANAGROUPWARE.GW_EA_VACATION A
+        ,HANAGROUPWARE.GW_EA_APPROVAL_MASTER B
+        ,ORAGMP.CMEMPM C           
+        WHERE A.APPROVAL_SEQ = #{approval_seq}
+        AND A.APPROVAL_SEQ = B.APPROVAL_SEQ 
+        AND B.CREATE_NO = C.EMPCODE
+	</select>
+	
+	<update id="updateVacation" parameterType="com.hanaph.gw.ea.newReport.vo.VacationVO">
+		UPDATE GW_EA_VACATION 
+		   SET VACATION_KIND = #{vacation_kind}, START_YMD = TO_CHAR(TO_DATE(#{start_ymd},'yyyy-mm-dd'),'yyyymmdd'), 
+			   END_YMD = TO_CHAR(TO_DATE(#{end_ymd},'yyyy-mm-dd'),'yyyymmdd'), REASON = #{reason}, CONTACT_NUMBER = #{contact_number}
+		 WHERE APPROVAL_SEQ = #{approval_seq}	
+	</update>
+		
+	<insert id="insertVacation" parameterType="com.hanaph.gw.ea.newReport.vo.VacationVO" >
+		INSERT INTO GW_EA_VACATION
+        (
+			APPROVAL_SEQ, VACATION_KIND, START_YMD, END_YMD, REASON, CONTACT_NUMBER
+        )
+    	VALUES
+    	(
+        	#{approval_seq}, #{vacation_kind}, TO_CHAR(TO_DATE(#{start_ymd},'yyyy-mm-dd'),'yyyymmdd'), TO_CHAR(TO_DATE(#{end_ymd},'yyyy-mm-dd'),'yyyymmdd'),
+        	#{reason}, #{contact_number}
+    	)
+	</insert>
+	
+</mapper>

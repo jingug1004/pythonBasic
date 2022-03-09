@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbec_RACER_master(선수기준정보)">
+    <query id="system_tbes_sdl_fa000" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         BRNCH_CD
+			       , SELL_CD
+			       , COMM_NO
+			       , DIV_NO
+			       , BRNCH_NM
+			       , MRA_ORD
+			FROM   USRBM.TBES_SDL_BRNCH
+			WHERE  MRA_ORD IS NOT NULL
+			AND    SELL_CD      = '03'
+			AND    COMM_NO      = '07'
+			ORDER BY MRA_ORD
+        ]]>
+    </query> 
+    <query id="system_tbes_sdl_fa001" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     MSt .GBN
+                   , YEAR.POOL_TOTAL                   YEAR_POOL_TOTAL
+                   , YEAR.REFUND                       YEAR_REFUND
+                   , TMS.D_1
+                   , TMS.D_2
+                   , TMS.D_3
+                   , TMS.D_4
+                   , TMS.D_5
+                   , TMS.D_6
+                   , TMS.D_7
+                   , TMS.TOTAL
+                   , PRE .POOL_TOTAL                   PRE_POOL_TOTAL
+                   , PRE .REFUND                       PRE_REFUND
+                   , PRE .TOTAL                        PRE_TOTAL
+                   , NVL(TMS.TOTAL, 0) - NVL(PRE .TOTAL, 0) ADD_POOL
+			       , CASE WHEN (NVL(PRE .TOTAL, 0) = 0) AND (NVL(TMS.TOTAL, 0) = 0) THEN 0
+			              WHEN NVL(PRE .TOTAL, 0) = 0                               THEN 100
+			              WHEN NVL(TMS.TOTAL, 0) = 0                                THEN -100
+			              ELSE ROUND((NVL(TMS.TOTAL, 0) - NVL(PRE.TOTAL, 0)) / NVL(PRE.TOTAL, 0) * 100, 2)
+			         END ADD_RATE
+            FROM     
+                     (
+                        SELECT 
+                                 ? STND_YEAR
+                               , '매출총액' GBN
+                        FROM   DUAL
+                     ) MST
+                   , (
+                        SELECT
+                                 TMS.STND_YEAR
+                               , MIN(DECODE(TMS.D, 1, TMS.AMOUNT)) D_1
+                               , MIN(DECODE(TMS.D, 2, TMS.AMOUNT)) D_2
+                               , MIN(DECODE(TMS.D, 3, TMS.AMOUNT)) D_3
+                               , MIN(DECODE(TMS.D, 4, TMS.AMOUNT)) D_4
+                               , MIN(DECODE(TMS.D, 5, TMS.AMOUNT)) D_5
+                               , MIN(DECODE(TMS.D, 6, TMS.AMOUNT)) D_6
+                               , MIN(DECODE(TMS.D, 7, TMS.AMOUNT)) D_7
+                               , SUM(TMS.AMOUNT)                   TOTAL
+                        FROM   (
+                                    SELECT 
+            			                     TSP.STND_YEAR
+            			                   , TO_CHAR(TO_DATE(TRDO.RACE_DAY, 'YYYYMMDD'), 'D') D
+            			                   , SUM(TSP.POOL_TOTAL) POOL_TOTAL
+                                           , SUM(TSP.REFUND    ) REFUND
+                                           , NVL(SUM(TSP.POOL_TOTAL), 0) - NVL(SUM(TSP.REFUND    ), 0) AMOUNT
+            			            FROM     TBEB_RACE_DAY_ORD TRDO
+            			                   , USRBM.TBES_SDL_PT       TSP
+            			            WHERE  TRDO.STND_YEAR = TSP.STND_YEAR
+            			            AND    TRDO.MBR_CD    = TSP.MEET_CD
+            			            AND    TRDO.TMS       = TSP.TMS
+            			            AND    TRDO.DAY_ORD   = TSP.DAY_ORD
+                                    AND    TSP.STND_YEAR  = ?
+                                    AND    TSP.MEET_CD    = ?
+                                    AND    TSP.TMS        = ?
+                                    GROUP BY 
+                                             TSP.STND_YEAR
+                                           , TO_CHAR(TO_DATE(TRDO.RACE_DAY, 'YYYYMMDD'), 'D')
+                               ) TMS
+                        GROUP BY TMS.STND_YEAR
+                     ) TMS
+                   , (
+                        SELECT 
+			                     STND_YEAR
+			                   , SUM(TSP.POOL_TOTAL) POOL_TOTAL
+                               , SUM(TSP.REFUND    ) REFUND
+                               , NVL(SUM(TSP.POOL_TOTAL), 0) - NVL(SUM(TSP.REFUND    ), 0) TOTAL
+			            FROM   USRBM.TBES_SDL_PT       TSP
+			            WHERE  TSP.STND_YEAR  = ?
+                        AND    TSP.MEET_CD    = ?
+                        AND    TSP.TMS       <= ?
+                        GROUP BY 
+                                 STND_YEAR
+                     ) YEAR
+                   , (
+                        SELECT 
+			                     STND_YEAR
+			                   , TMS
+			                   , SUM(TSP.POOL_TOTAL) POOL_TOTAL
+                               , SUM(TSP.REFUND    ) REFUND
+                               , NVL(SUM(TSP.POOL_TOTAL), 0) - NVL(SUM(TSP.REFUND    ), 0) TOTAL
+			            FROM   USRBM.TBES_SDL_PT       TSP
+			            WHERE  TSP.STND_YEAR  = ?
+                        AND    TSP.MEET_CD    = ?
+                        AND    TSP.TMS        = ? - 1
+                        GROUP BY 
+                                 STND_YEAR
+                               , TMS
+                     ) PRE
+            WHERE  MST.STND_YEAR = TMS .STND_YEAR(+)
+            AND    MST.STND_YEAR = YEAR.STND_YEAR(+)
+            AND    MST.STND_YEAR = PRE .STND_YEAR(+)
+
+            UNION ALL
+
+            SELECT
+                     MSt .GBN
+                   , YEAR.POOL_TOTAL                   YEAR_POOL_TOTAL
+                   , YEAR.REFUND                       YEAR_REFUND
+                   , TMS.D_1
+                   , TMS.D_2
+                   , TMS.D_3
+                   , TMS.D_4
+                   , TMS.D_5
+                   , TMS.D_6
+                   , TMS.D_7
+                   , TMS.TOTAL
+                   , PRE .POOL_TOTAL                   PRE_POOL_TOTAL
+                   , PRE .REFUND                       PRE_REFUND
+                   , PRE .TOTAL                        PRE_TOTAL
+                   , NVL(TMS.TOTAL, 0) - NVL(PRE .TOTAL, 0) ADD_POOL
+			       , CASE WHEN (NVL(PRE .TOTAL, 0) = 0) AND (NVL(TMS.TOTAL, 0) = 0) THEN 0
+			              WHEN NVL(PRE .TOTAL, 0) = 0                               THEN 100
+			              WHEN NVL(TMS.TOTAL, 0) = 0                                THEN -100
+			              ELSE ROUND((NVL(TMS.TOTAL, 0) - NVL(PRE.TOTAL, 0)) / NVL(PRE.TOTAL, 0) * 100, 2)
+			         END ADD_RATE
+            FROM     
+                     (
+                        SELECT 
+                                 ? - 1 STND_YEAR
+                               , '전년대비' GBN
+                        FROM   DUAL
+                     ) MST
+                   , (
+                        SELECT
+                                 TMS.STND_YEAR
+                               , MIN(DECODE(TMS.D, 1, TMS.AMOUNT)) D_1
+                               , MIN(DECODE(TMS.D, 2, TMS.AMOUNT)) D_2
+                               , MIN(DECODE(TMS.D, 3, TMS.AMOUNT)) D_3
+                               , MIN(DECODE(TMS.D, 4, TMS.AMOUNT)) D_4
+                               , MIN(DECODE(TMS.D, 5, TMS.AMOUNT)) D_5
+                               , MIN(DECODE(TMS.D, 6, TMS.AMOUNT)) D_6
+                               , MIN(DECODE(TMS.D, 7, TMS.AMOUNT)) D_7
+                               , SUM(TMS.AMOUNT)                   TOTAL
+                        FROM   (
+                                    SELECT 
+            			                     TSP.STND_YEAR
+            			                   , TO_CHAR(TO_DATE(TRDO.RACE_DAY, 'YYYYMMDD'), 'D') D
+            			                   , SUM(TSP.POOL_TOTAL) POOL_TOTAL
+                                           , SUM(TSP.REFUND    ) REFUND
+                                           , NVL(SUM(TSP.POOL_TOTAL), 0) - NVL(SUM(TSP.REFUND    ), 0) AMOUNT
+            			            FROM     TBEB_RACE_DAY_ORD TRDO
+            			                   , USRBM.TBES_SDL_PT       TSP
+            			            WHERE  TRDO.STND_YEAR = TSP.STND_YEAR
+            			            AND    TRDO.MBR_CD    = TSP.MEET_CD
+            			            AND    TRDO.TMS       = TSP.TMS
+            			            AND    TRDO.DAY_ORD   = TSP.DAY_ORD
+                                    AND    TSP.STND_YEAR  = ? - 1
+                                    AND    TSP.MEET_CD    = ?
+                                    AND    TSP.TMS        = ?
+                                    GROUP BY 
+                                             TSP.STND_YEAR
+                                           , TO_CHAR(TO_DATE(TRDO.RACE_DAY, 'YYYYMMDD'), 'D')
+                               ) TMS
+                        GROUP BY TMS.STND_YEAR
+                     ) TMS
+                   , (
+                        SELECT 
+			                     STND_YEAR
+			                   , SUM(TSP.POOL_TOTAL) POOL_TOTAL
+                               , SUM(TSP.REFUND    ) REFUND
+                               , NVL(SUM(TSP.POOL_TOTAL), 0) - NVL(SUM(TSP.REFUND    ), 0) TOTAL
+			            FROM   USRBM.TBES_SDL_PT       TSP
+			            WHERE  TSP.STND_YEAR  = ? - 1
+                        AND    TSP.MEET_CD    = ?
+                        AND    TSP.TMS       <= ?
+                        GROUP BY 
+                                 STND_YEAR
+                     ) YEAR
+                   , (
+                        SELECT 
+			                     STND_YEAR
+			                   , TMS
+			                   , SUM(TSP.POOL_TOTAL) POOL_TOTAL
+                               , SUM(TSP.REFUND    ) REFUND
+                               , NVL(SUM(TSP.POOL_TOTAL), 0) - NVL(SUM(TSP.REFUND    ), 0) TOTAL
+			            FROM   USRBM.TBES_SDL_PT       TSP
+			            WHERE  TSP.STND_YEAR  = ? - 1
+                        AND    TSP.MEET_CD    = ?
+                        AND    TSP.TMS        = ? - 1
+                        GROUP BY 
+                                 STND_YEAR
+                               , TMS
+                     ) PRE
+            WHERE  MST.STND_YEAR = TMS .STND_YEAR(+)
+            AND    MST.STND_YEAR = YEAR.STND_YEAR(+)
+            AND    MST.STND_YEAR = PRE .STND_YEAR(+)
+        ]]>
+    </query> 
+    <query id="system_tbes_sdl_fa002" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         STND_YEAR
+			       , MBR_CD
+			       , TMS
+			       , DAY_ORD
+			       , RACE_NO
+			       , RSLT_RANK
+			       , RANK_1
+			       , RANK_2
+			       , RANK_3
+			       , FIXMONEY_W
+			       , DECODE(FIXMONEY_W, NULL, 0, 1) FIXMONEY_W_CNT
+			       , FIXMONEY_P
+			       , DECODE(FIXMONEY_P, NULL, 0, 1) FIXMONEY_P_CNT
+			       , FIXMONEY_P2
+			       , DECODE(FIXMONEY_P2, NULL, 0, 1) FIXMONEY_P2_CNT
+			       , FIXMONEY_E
+			       , DECODE(FIXMONEY_E, NULL, 0, 1) FIXMONEY_E_CNT
+			       , FIXMONEY_Q
+			       , DECODE(FIXMONEY_Q, NULL, 0, 1) FIXMONEY_Q_CNT
+			       , FIXMONEY_T
+			       , DECODE(FIXMONEY_T, NULL, 0, 1) FIXMONEY_T_CNT
+			       , MAIN_POOL_TOTAL
+			       , DIV_TOTAL
+			       , TMS_POOL_TOTAL
+			       , PRE_POOL_TOTAL
+			       , TMS_REFUND
+			       , PRE_REFUND
+			       , TMS_TOTAL
+			       , PRE_TOTAL
+			       , ADD_POOL
+			       , ADD_RATE
+			FROM   (
+						SELECT
+						         TR .STND_YEAR
+						       , TR .MBR_CD
+						       , TR .TMS
+						       , TR .DAY_ORD
+						       , TR .RACE_NO
+						       , GET_RSLT_RANK(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO) RSLT_RANK
+						       , TRM.RANK_1
+						       , TRM.RANK_2
+						       , TRM.RANK_3
+						       , GET_RSLT_PAYOFF(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, '001', NULL) FIXMONEY_W
+						       , GET_RSLT_PAYOFF(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, '002', '1' ) FIXMONEY_P
+						       , GET_RSLT_PAYOFF(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, '002', '2' ) FIXMONEY_P2
+						       , GET_RSLT_PAYOFF(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, '004', NULL) FIXMONEY_E
+						       , GET_RSLT_PAYOFF(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, '005', NULL) FIXMONEY_Q
+						       , GET_RSLT_PAYOFF(TR.STND_YEAR, TR.MBR_CD, TR.TMS, TR.DAY_ORD, TR.RACE_NO, '006', NULL) FIXMONEY_T
+						       , NVL(TMS.POOL_TOTAL, 0) - NVL(DIV.DIV_TOTAL, 0) MAIN_POOL_TOTAL
+						       , DIV.DIV_TOTAL  DIV_TOTAL
+						       , TMS.POOL_TOTAL TMS_POOL_TOTAL
+						       , PRE.POOL_TOTAL PRE_POOL_TOTAL
+						       , TMS.REFUND     TMS_REFUND
+						       , PRE.REFUND     PRE_REFUND
+						       , TMS.TOTAL      TMS_TOTAL
+						       , PRE.TOTAL      PRE_TOTAL
+						       , NVL(TMS.TOTAL, 0) - NVL(PRE.TOTAL, 0) ADD_POOL
+						       , CASE WHEN (NVL(PRE.TOTAL, 0) = 0) AND (NVL(TMS.TOTAL, 0) = 0) THEN 0
+						              WHEN NVL(PRE.TOTAL, 0) = 0                               THEN 100
+						              WHEN NVL(TMS.TOTAL, 0) = 0                               THEN -100
+						              ELSE ROUND((NVL(TMS.TOTAL, 0) - NVL(PRE.TOTAL, 0)) / NVL(PRE.TOTAL, 0) * 100, 2)
+						         END ADD_RATE
+						FROM     TBEB_RACE TR
+						       , (
+						            SELECT
+						                     RACE_NO
+						                   , MIN(DECODE(RANK, '1', NM_KOR)) RANK_1
+						                   , MIN(DECODE(RANK, '2', NM_KOR)) RANK_2
+						                   , MIN(DECODE(RANK, '3', NM_KOR)) RANK_3
+						            FROM   (
+						                        SELECT
+						                                 RACE_NO
+						                               , RANK
+						                               , SUBSTR(MAX(SYS_CONNECT_BY_PATH (NM_KOR, '/')), 2) NM_KOR
+						                        FROM   (
+						                                    SELECT
+						                                             TOR.RACE_NO
+						                                           , TOR.RACE_REG_NO
+						                                           , TOR.RACER_NO
+						                                           , TOR.RANK
+						                                           , TRM.NM_KOR
+						                                           , RANK() OVER (PARTITION BY TOR.RACE_NO
+						                                                                     , TOR.RANK
+						                                                              ORDER BY TOR.RACE_REG_NO) SEQ
+						                                    FROM     TBEB_ORGAN        TOR
+						                                           , TBEC_RACER_MASTER TRM
+						                                    WHERE  TOR.RACER_NO   = TRM.RACER_NO
+						                                    AND    TOR.STND_YEAR  = ?
+						                                    AND    TOR.MBR_CD     = ?
+						                                    AND    TOR.TMS        = ?
+						                                    AND    TOR.DAY_ORD    = ?
+						                                    AND    TOR.RANK BETWEEN 1
+						                                                        AND 3
+						                               )
+						                        START WITH SEQ = 1
+						                        CONNECT BY PRIOR SEQ = SEQ - 1 
+						                        AND PRIOR RACE_NO = RACE_NO AND RANK = RANK
+						                        GROUP BY 
+						                                 RACE_NO
+						                               , RANK
+						                    )
+						            GROUP BY RACE_NO
+						         ) TRM
+			                   , (
+			                        SELECT 
+			                                 RACE_NO     -- 경주번호
+			                               , SUM(POOL_TOTAL) POOL_TOTAL
+			                               , SUM(REFUND    ) REFUND
+			                               , NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND    ), 0) TOTAL
+			                        FROM   USRBM.TBES_SDL_PT
+			                        WHERE  STND_YEAR  = ?
+			                        AND    MEET_CD    = ?
+			                        AND    TMS        = ?
+			                        AND    DAY_ORD    = ?
+			                        GROUP BY 
+			                                 RACE_NO     -- 경주번호
+			                     ) TMS
+			                   , (
+                                    SELECT 
+                                             RACE_NO
+                                           , SUM(DIV_TOTAL) DIV_TOTAL
+                                           , SUM(REFUND   ) REFUND
+                                    FROM   USRBM.TBES_SDL_DT
+                                    WHERE  STND_YEAR  = ?
+                                    AND    MEET_CD    = ?
+                                    AND    TMS        = ?
+			                        AND    DAY_ORD    = ?
+                                    AND    COMM_NO    = '07'
+                                    GROUP BY 
+                                             RACE_NO
+			                     ) DIV
+			                   , (
+			                        SELECT 
+			                                 RACE_NO     -- 경주번호
+			                               , SUM(POOL_TOTAL) POOL_TOTAL
+			                               , SUM(REFUND    ) REFUND
+			                               , NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND    ), 0) TOTAL
+			                        FROM   USRBM.TBES_SDL_PT
+			                        WHERE  STND_YEAR  = ?
+			                        AND    MEET_CD    = ?
+			                        AND    TMS        = ? - 1
+			                        AND    DAY_ORD    = ?
+			                        GROUP BY 
+			                                 RACE_NO     -- 경주번호
+			                     ) PRE
+						WHERE  TR.RACE_NO    = TRM.RACE_NO(+)
+						AND    TR.RACE_NO    = TMS.RACE_NO(+)
+						AND    TR.RACE_NO    = DIV.RACE_NO(+)
+						AND    TR.RACE_NO    = PRE.RACE_NO(+)
+						AND    TR.STND_YEAR  = ?
+						AND    TR.MBR_CD     = ?
+						AND    TR.TMS        = ?
+						AND    TR.DAY_ORD    = ?
+						ORDER BY TR.RACE_NO
+			       )
+        ]]>
+    </query> 
+    <query id="system_tbes_sdl_fa005" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         TMS.RACE_NO
+			       , TMS.DIV_NO_02
+			       , TMS.DIV_NO_06
+			       , TMS.DIV_NO_12
+			       , TMS.DIV_NO_10
+			       , TMS.DIV_NO_13
+			       , TMS.DIV_NO_14
+			       , TMS.DIV_NO_03
+			       , TMS.DIV_NO_15
+			       , TMS.DIV_NO_09
+			       , TMS.DIV_NO_05
+			       , TMS.DIV_NO_16
+			       , TMS.DIV_NO_17
+			       , TMS.DIV_NO_18
+			       , TMS.DIV_TOTAL
+			       , TMS_T.TOTAL TMS_TOTAL
+			       , PRE.DIV_NO_02 PRE_DIV_NO_02
+			       , PRE.DIV_NO_06 PRE_DIV_NO_06
+			       , PRE.DIV_NO_12 PRE_DIV_NO_12
+			       , PRE.DIV_NO_10 PRE_DIV_NO_10
+			       , PRE.DIV_NO_13 PRE_DIV_NO_13
+			       , PRE.DIV_NO_14 PRE_DIV_NO_14
+			       , PRE.DIV_NO_03 PRE_DIV_NO_03
+			       , PRE.DIV_NO_15 PRE_DIV_NO_15
+			       , PRE.DIV_NO_09 PRE_DIV_NO_09
+			       , PRE.DIV_NO_05 PRE_DIV_NO_05
+			       , PRE.DIV_NO_16 PRE_DIV_NO_16
+			       , PRE.DIV_NO_17 PRE_DIV_NO_17
+			       , PRE.DIV_NO_18 PRE_DIV_NO_18
+			       , PRE.DIV_TOTAL PRE_DIV_TOTAL
+			       , PRE_T.TOTAL PRE_TOTAL
+			FROM     (
+			            SELECT
+			                     RACE_NO
+			                   , SUM(NVL(DIV_TOTAL, 0) - NVL(REFUND, 0)) DIV_TOTAL
+			                   , MIN(DECODE(DIV_NO, '02', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_02
+			                   , MIN(DECODE(DIV_NO, '06', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_06
+			                   , MIN(DECODE(DIV_NO, '12', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_12
+			                   , MIN(DECODE(DIV_NO, '10', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_10
+			                   , MIN(DECODE(DIV_NO, '13', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_13
+			                   , MIN(DECODE(DIV_NO, '14', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_14
+			                   , MIN(DECODE(DIV_NO, '03', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_03
+			                   , MIN(DECODE(DIV_NO, '15', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_15
+			                   , MIN(DECODE(DIV_NO, '09', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_09
+			                   , MIN(DECODE(DIV_NO, '05', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_05
+			                   , MIN(DECODE(DIV_NO, '16', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_16
+			                   , MIN(DECODE(DIV_NO, '17', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_17
+			                   , MIN(DECODE(DIV_NO, '18', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_18
+			            FROM   (
+			                        SELECT 
+			                                 RACE_NO
+			                               , DIV_NO
+			                               , SUM(DIV_TOTAL) DIV_TOTAL
+			                               , SUM(REFUND   ) REFUND
+			                        FROM   USRBM.TBES_SDL_DT
+			                        WHERE  STND_YEAR  = ?
+			                        AND    MEET_CD    = ?
+			                        AND    TMS        = ?
+			                        AND    DAY_ORD    = ?
+			                        AND    COMM_NO    = '07'
+			                        GROUP BY 
+			                                 RACE_NO
+			                               , DIV_NO
+			                   )
+			            GROUP BY RACE_NO
+			            ORDER BY RACE_NO
+			         ) TMS
+			       , (
+			            SELECT 
+			                     RACE_NO
+			                   , SUM(POOL_TOTAL) POOL_TOTAL
+			                   , SUM(REFUND    ) REFUND
+			                   , NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) TOTAL
+			            FROM   USRBM.TBES_SDL_PT
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ?
+			            AND    DAY_ORD    = ?
+			            GROUP BY RACE_NO
+			         ) TMS_T
+			       , (
+			            SELECT
+			                     RACE_NO
+			                   , SUM(NVL(DIV_TOTAL, 0) - NVL(REFUND, 0)) DIV_TOTAL
+			                   , MIN(DECODE(DIV_NO, '02', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_02
+			                   , MIN(DECODE(DIV_NO, '06', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_06
+			                   , MIN(DECODE(DIV_NO, '12', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_12
+			                   , MIN(DECODE(DIV_NO, '10', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_10
+			                   , MIN(DECODE(DIV_NO, '13', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_13
+			                   , MIN(DECODE(DIV_NO, '14', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_14
+			                   , MIN(DECODE(DIV_NO, '03', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_03
+			                   , MIN(DECODE(DIV_NO, '15', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_15
+			                   , MIN(DECODE(DIV_NO, '09', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_09
+			                   , MIN(DECODE(DIV_NO, '05', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_05
+			                   , MIN(DECODE(DIV_NO, '16', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_16
+			                   , MIN(DECODE(DIV_NO, '17', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_17
+			                   , MIN(DECODE(DIV_NO, '18', NVL(DIV_TOTAL, 0) - NVL(REFUND, 0))) DIV_NO_18
+			            FROM   (
+			                        SELECT 
+			                                 RACE_NO
+			                               , DIV_NO
+			                               , SUM(DIV_TOTAL) DIV_TOTAL
+			                               , SUM(REFUND   ) REFUND
+			                        FROM   USRBM.TBES_SDL_DT
+			                        WHERE  STND_YEAR  = ?
+			                        AND    MEET_CD    = ?
+			                        AND    TMS        = ? - 1
+			                        AND    DAY_ORD    = ?
+			                        AND    COMM_NO    = '07'
+			                        GROUP BY 
+			                                 RACE_NO
+			                               , DIV_NO
+			                   )
+			            GROUP BY RACE_NO
+			            ORDER BY RACE_NO
+			         ) PRE
+			       , (
+			            SELECT 
+			                     RACE_NO
+			                   , SUM(POOL_TOTAL) POOL_TOTAL
+			                   , SUM(REFUND    ) REFUND
+			                   , NVL(SUM(POOL_TOTAL), 0) - NVL(SUM(REFUND), 0) TOTAL
+			            FROM   USRBM.TBES_SDL_PT
+			            WHERE  STND_YEAR  = ?
+			            AND    MEET_CD    = ?
+			            AND    TMS        = ? - 1
+			            AND    DAY_ORD    = ?
+			            GROUP BY RACE_NO
+			         ) PRE_T
+			WHERE  TMS.RACE_NO = PRE.RACE_NO(+)
+			AND    TMS.RACE_NO = TMS_T.RACE_NO(+)
+			AND    TMS.RACE_NO = PRE_T.RACE_NO(+)
+			ORDER BY TMS.RACE_NO
+        ]]>
+    </query> 
+</queryMap>

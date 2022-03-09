@@ -1,0 +1,1273 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV1010(평가생성)">
+    
+    <query id="rev1010_yearCombo" desc="평가생성년도콤보 " fetchSize="10">
+        <![CDATA[
+			SELECT   /* rev1010_yearCombo */
+			         DISTINCT ESTM_YEAR -- 평가년도
+			FROM     TBRF_EV_MASTER 
+			ORDER BY ESTM_YEAR DESC
+        ]]>
+    </query>     
+    
+    <query id="rev1010_s01" desc="평가생성조회 " fetchSize="10">
+        <![CDATA[
+			SELECT   /* rev1010_s01 */
+			         '0' AS CHK,
+			         A.ESTM_YEAR,          -- 평가년도
+				     A.ESTM_NUM,           -- 평가회차
+				     A.ESTM_STR_DT,          -- 평가시작날자
+				     A.ESTM_END_DT,          -- 평가종료날자
+				     A.LAST_ESTM_END_DT,   -- 평가확인날자
+				     A.OPEN_YN, 
+				     A.ATT_FILE_KEY,
+				     A.PRM_STR_DT,
+				     A.PRM_END_DT,
+				     A.ESC_STR_DT,
+				     A.ESC_END_DT,
+				     A.RMK,                -- 비고 
+				     A.MNG_NO,
+				     NVL((SELECT USER_NM FROM TBRK_USER WHERE USER_ID = A.MNG_NO),
+    					 (SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND EMP_NO = A.MNG_NO)) AS MNG_NM,
+				     A.RELEA_RATE,
+				 	 A.CRA_RATE,
+					 A.MRA_RATE,
+					 A.MNG_DEPT,
+					 A.RELEA_ESC_CNT,
+					 (SELECT  DECODE(COUNT(*), 0, 'Y', 'N')
+			 		    FROM  TBRF_EV_APRV
+			 		   WHERE  1=1
+					     AND  ESTM_YEAR = A.ESTM_YEAR
+					     AND  ESTM_NUM  = A.ESTM_NUM
+					     AND  APRV_SEQ  = '4'
+					     AND  APRV_STAS = '003') AS UPDATE_YN,
+					 (SELECT  DECODE(COUNT(*), 0, 'Y', 'N')
+					    FROM  TBRF_EV_APRV
+					   WHERE  1=1
+					     AND  ESTM_YEAR = A.ESTM_YEAR
+					     AND  ESTM_NUM  = A.ESTM_NUM
+					     AND  APRV_SEQ  = '1'
+					     AND  APRV_STAS IN ('002','003')) AS RELEA_UPDATE_YN,
+					  A.ESTM_OPN_YN
+		    FROM     TBRF_EV_MASTER A
+		    WHERE    A.ESTM_YEAR = ?       -- 평가년도
+		    ORDER BY A.ESTM_NUM DESC
+        ]]>
+    </query>  
+    
+    <query id="rev1010_i01" desc="평가 입력" fetchSize="10">
+        <![CDATA[
+        
+            INSERT   /* rev1010_i01  */ 
+            INTO     TBRF_EV_MASTER A
+            (            
+             A.ESTM_YEAR,      -- 1.평가년도
+             A.ESTM_NUM,       -- 2.평가회차
+             A.ESTM_STR_DT,      -- 3.평가시작날자
+             A.ESTM_END_DT,      -- 4.평가종료날자
+             A.PRM_STR_DT,
+             A.PRM_END_DT,
+             A.ESC_STR_DT,
+             A.ESC_END_DT,
+             A.ATT_FILE_KEY,
+             A.RMK,            -- 5.비고
+             A.MNG_NO,
+		     A.RELEA_RATE,
+			 A.CRA_RATE,
+			 A.MRA_RATE,
+			 A.ESTM_OPN_YN,
+			 A.ESTM_END_YN,
+			 A.MNG_DEPT,
+			 A.RELEA_ESC_CNT,
+             A.INST_ID,        -- 6.작성자 ID   
+             A.INST_DT         -- 작성일시
+            ) VALUES (
+                  ?,   -- A.ESTM_YEAR
+                  ?,   -- A.ESTM_NUM
+                  ?,   -- A.ESTM_STR_DT
+                  ?,   -- A.ESTM_END_DT
+                  ?, 
+                  ?,
+                  ?,
+                  ?,
+                  ?,    
+                  ?,         -- 5.비고
+                  ?,
+                  ?,
+                  ?,
+                  ?,
+                  'N',
+                  'N',
+                  ?,                  
+                  ?,
+                  ?,         -- 6.작성자ID
+                  SYSDATE
+            )
+        ]]>
+    </query>
+    
+    <query id="rev1010_u01" desc="평가 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev1010_u01 */
+			         TBRF_EV_MASTER A
+			SET      A.ESTM_STR_DT = ?,	    -- 1. 평가시작날자 		  
+				     A.ESTM_END_DT = ?,       -- 2. 평가종료날자
+				     A.RMK = ? ,            -- 3. 비고
+				     A.PRM_STR_DT = ? ,
+				     A.PRM_END_DT = ? ,
+				     A.ESC_STR_DT = ? ,
+				     A.ESC_END_DT = ? ,
+				     A.MNG_NO     = ? ,
+				     A.RELEA_RATE = ? ,
+				     A.CRA_RATE   = ? ,
+				     A.MRA_RATE   = ? ,
+				     A.MNG_DEPT   = ? ,
+				     A.RELEA_ESC_CNT = ?,
+				     A.UPDT_ID    = ? ,		-- 4. 사용자 ID		
+					 A.UPDT_DT    = SYSDATE
+			WHERE    A.ESTM_YEAR    = ?     -- 5.평가년도
+			AND      A.ESTM_NUM     = ?     -- 6.평가회차
+        ]]>
+
+    </query>
+    
+    <query id="rev1010_d01" desc="평가 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE   /* rev1010_d01 */ 
+			         TBRF_EV_MASTER
+			WHERE    ESTM_YEAR    = ?   -- 1.평가년도
+			AND      ESTM_NUM     = ?   -- 2.평가회차
+        ]]>
+    </query>    
+    
+    <query id="rev1010_u02" desc="평가 첨부파일  정보 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE  TBRF_EV_MASTER   /* rev1010_u02 */
+			   SET  ATT_FILE_KEY = ?				
+				   ,UPDT_ID      = ?				
+				   ,UPDT_DT      = SYSDATE
+			 WHERE  ESTM_YEAR  = ?
+			   AND  ESTM_NUM = ?
+        ]]>
+    </query> 
+        
+    <query id="rev1010_s02" desc="첨부파일 조회" fetchSize="10">
+     <![CDATA[
+			SELECT /* rev1010_s02 */
+
+			'0' AS CHK,
+			ATT_FILE_KEY,
+			SEQ,
+			TBL_NM,
+			FILE_NM,
+			FILE_PATH,
+			REAL_FILE_NM,
+			INST_ID,
+			INST_DT
+		  FROM  TBRK_FILE_MANA
+		 WHERE 	ATT_FILE_KEY = ?
+	  ORDER BY	SEQ			
+       ]]>
+   </query>
+    
+   <query id="rev1010_s03" desc="인적자원 보직 조회" fetchSize="10">
+     <![CDATA[
+           SELECT  /* rev1010_s03 */
+	               A.WK_JJOB 
+	              ,B.CD_NM 
+	         FROM  USHUM.VW_EMP_D12 A 
+	              ,(                  
+	                SELECT  MJR_CD AS CD 
+	                       ,CNTNT_FST AS CD_NM 
+	                 FROM USCOM.VW_COM_DETL_D12  
+	                 WHERE COM_CD = 'APE041' 
+	               ) B 
+	        WHERE  1=1
+	          AND  A.WK_JJOB = B.CD 
+	          AND  A.HOLOFF_CLS = '0' 
+	     GROUP BY  A.WK_JJOB, B.CD_NM         
+       ]]>
+   </query>
+   
+   <query id="rev1010_s04" desc="인적자원 근태실적 조회" fetchSize="10">
+     <![CDATA[
+           SELECT    
+	           ATT_CD  
+	          ,EMP_NO 
+	          ,EMP_NM 
+	          ,DEPT_CD        
+	          ,COUNT(*) AS CNT
+	      FROM  USHUM.VW_DAILY_ATT_D12              
+	     WHERE  ATT_CD IN ('A12', 'A11', 'A02', 'A03', 'A04') 
+	       AND  ATT_DT BETWEEN ? AND ? 
+	  GROUP BY  ATT_CD 
+	           ,EMP_NO 
+	           ,EMP_NM 
+	           ,DEPT_CD          
+	  ORDER BY  EMP_NO, ATT_CD         
+       ]]>
+   </query>
+   
+   <query id="rev1010_s05" desc="인적자원 발령일자 조회" fetchSize="10">
+     <![CDATA[
+           SELECT /* rev1010_s05 */ 
+                  A.EMP_NO
+                 ,'' AS EMP_NM
+                 ,A.APT_DT 
+                 ,A.DEPT_CD
+                 ,'' AS DEPT_NM
+                 ,ROWNUM AS SEQ
+                 ,A.APT_DESC AS APT_RSN
+                 ,A.WK_JJOB  AS WK_JOB_CD
+             FROM  USHUM.VW_APT_DETL_D12 A 
+                  ,USHUM.VW_EMP_D12 B 
+             WHERE 1 = 1 
+               AND A.EMP_NO = B.EMP_NO 
+               AND B.HOLOFF_CLS = '0'  
+            GROUP BY A.EMP_NO 
+                    ,A.APT_DT 
+                    ,A.DEPT_CD
+                    ,ROWNUM
+                    ,A.APT_DESC
+                    ,A.WK_JJOB
+       ]]>
+   </query>
+   
+   <query id="rev1010_s06" desc="인적자원 부서장 조회" fetchSize="10">
+     <![CDATA[
+	    WITH A AS (
+	        SELECT DEPTCD AS DEPT_CD 
+	                ,UP_DEPTCD AS UPPER_DEPT_CD 
+	                ,DEPTNAME AS DEPT_NM 
+	                ,SABUNCD AS EMP_NO 
+	                ,KNAME AS EMP_NM 
+	                ,TELNO_HAND AS HP_NO 
+	                ,JIKWEENM  AS JOB_RANK_NM 
+	                ,DEPT_S_LEVEL AS LVL 
+	                ,row_number() OVER (PARTITION BY bonbucd, DEPTCD ORDER BY  jikweecd) rnum
+	       FROM MYROLE.VIWDEPTC 
+	      WHERE BONBUCD = '12'
+	    )
+	   SELECT  DEPT_CD, UPPER_DEPT_CD, DEPT_NM, EMP_NO,EMP_NM, HP_NO, JOB_RANK_NM, LVL
+	   FROM A
+	   WHERE rnum = 1          
+       ]]>
+   </query>
+   
+   <query id="rev1010_s07" desc="인적자원 사원계약직 조회" fetchSize="10">
+     <![CDATA[
+           SELECT /* rev1010_s07 */  
+              A.DEPT_CD  
+             ,'001' AS WRK_GBN  
+             ,A.EMP_NO   
+             ,A.EMP_NM   
+             ,SUBSTR(A.RES_NO, 7, 7) AS RES_NO   
+             ,A.DEPT_CD AS ESTM_DEPT   
+             ,'' AS PWD_NO   
+             ,CASE WHEN A.EMP_NO IN (SELECT A1.EMP_NO    
+                                      FROM  USHUM.VW_WORK_EXCEPT_D12 B1   
+                                           ,USHUM.VW_EMP_D12 A1    
+                                     WHERE 1 = 1   
+                                       AND A1.EMP_NO = B1.EMP_NO  
+                                       AND A1.DEPT_CD = B1.DEPT_CD 
+                                       AND A1.HOLOFF_CLS = '0'   
+                                       AND (
+                                       		( ? BETWEEN B1.STR_DT AND B1.END_DT) OR --평가 시작일 
+                                           	( ? BETWEEN B1.STR_DT AND B1.END_DT)    --평가 종료일
+                                           )	
+                                       AND B1.WK_JJOB = '1006'
+                                       AND ( B1.END_DT - B1.STR_DT ) >= TO_DATE(?,'YYYYMMDD') - TO_DATE(?,'YYYYMMDD')   
+                                    ) THEN '1006' ELSE A.WK_JJOB 
+              END AS WK_JOB_CD   -- 동일부서에서 투표소장으로 근무하는 경우 투표소장으로 처리(예:3일은 발매원, 2일은 투표소장)
+             ,'' AS APT_DT   
+             ,'' AS JOB_TIT_CD   
+             ,'' AS JOB_TIT_NM   
+             ,C.CELPON_NO AS HP_NO   
+             ,A.ENTR_DT AS ENTR_DT   
+             ,CASE WHEN A.ENTR_DT BETWEEN ?  AND ? THEN 'N' END AS ESTM_ESC_GBN   
+             ,'' AS FST_SND_GBN   
+             ,'' AS MNG_GBN   
+             ,'' AS MULT_ESTM_GRP   
+             ,'' AS CNL_GBN   
+             ,CASE WHEN A.EMP_NO IN (SELECT A2.EMP_NO    
+                                      FROM  USHUM.VW_WORK_EXCEPT_D12 B2   
+                                           ,USHUM.VW_EMP_D12 A2    
+                                     WHERE 1 = 1   
+                                       AND A2.EMP_NO = B2.EMP_NO  
+                                       AND A2.DEPT_CD = B2.DEPT_CD 
+                                       AND A2.HOLOFF_CLS = '0'   
+                                       AND (
+                                       		( ? BETWEEN B2.STR_DT AND B2.END_DT) OR --평가 시작일 
+                                           	( ? BETWEEN B2.STR_DT AND B2.END_DT)    --평가 종료일
+                                           )
+                                       AND B2.WK_JJOB = '1006'    	
+                                       AND ( B2.END_DT - B2.STR_DT ) >= TO_DATE(?,'YYYYMMDD') - TO_DATE(?,'YYYYMMDD')   
+                                    ) THEN '1006' ELSE A.WK_JJOB 
+              END AS ESTM_WK_JOB   
+             ,'' AS ESTM_EMP   
+             ,'' AS COMM_NO   
+             ,'' AS DIV_NO   
+             ,'' AS MNR_FST_SND   
+             ,'' AS SVR_FST_SND   
+             ,'002' AS PERM_TEMP_GBN  
+             ,CASE WHEN A.EMP_NO IN (SELECT A3.EMP_NO    
+                                      FROM  USHUM.VW_WORK_EXCEPT_D12 B3   
+                                           ,USHUM.VW_EMP_D12 A3    
+                                     WHERE 1 = 1   
+                                       AND A3.EMP_NO = B3.EMP_NO  
+                                       AND A3.DEPT_CD = B3.DEPT_CD 
+                                       AND A3.HOLOFF_CLS = '0'   
+                                       AND (
+                                       		( ? BETWEEN B3.STR_DT AND B3.END_DT) OR --평가 시작일 
+                                           	( ? BETWEEN B3.STR_DT AND B3.END_DT)    --평가 종료일
+                                           )	
+                                       AND B3.END_DT >= ? -- 현재 재직중인 공동근무자만 대상임(2012.11.29)    
+                                       AND ( B3.END_DT - B3.STR_DT ) >= TO_DATE(?,'YYYYMMDD') - TO_DATE(?,'YYYYMMDD')  
+                                    ) THEN '003'  
+                   WHEN A.EMP_NO IN (SELECT A4.EMP_NO    
+                                      FROM  USHUM.VW_WORK_EXCEPT_D12 B4   
+                                           ,USHUM.VW_EMP_D12 A4    
+                                     WHERE 1 = 1   
+                                       AND A4.EMP_NO = B4.EMP_NO  
+                                       AND A4.DEPT_CD <> B4.DEPT_CD 
+                                       AND A4.HOLOFF_CLS = '0'   
+                                       AND (
+                                       		( ? BETWEEN B4.STR_DT AND B4.END_DT) OR --평가 시작일 
+                                           	( ? BETWEEN B4.STR_DT AND B4.END_DT)    --평가 종료일
+                                           )	
+                                       AND B4.END_DT >= ? -- 현재 재직중인 공동근무자만 대상임(2012.11.29)    
+                                       AND ( B4.END_DT - B4.STR_DT ) >= TO_DATE(?,'YYYYMMDD') - TO_DATE(?,'YYYYMMDD')  
+                                   ) THEN '001'  
+             END AS CO_WRK_GBN 
+              
+        FROM USHUM.VW_EMP_D12 A   
+            ,USHUM.VW_EMP_JOB_12 B   
+            ,USHUM.VW_EMP_ETC_D12 C    
+       WHERE A.EMP_NO = B.EMP_NO   
+         AND A.EMP_NO = C.EMP_NO   
+         AND A.HOLOFF_CLS = '0'      
+         AND A.WK_JJOB NOT IN ('10003','10007')   --인턴제외
+         
+       UNION ALL  
+          
+        SELECT   
+              A.DEPT_CD    
+             ,'002' AS WRK_GBN  
+             ,A.EMP_NO    
+             ,A.EMP_NM    
+             ,SUBSTR(A.RES_NO, 7, 7) AS RES_NO    
+             ,B.DEPT_CD AS ESTM_DEPT    
+             ,'' AS PWD_NO    
+             ,B.WK_JJOB AS WK_JOB_CD    
+             ,'' AS APT_DT    
+             ,'' AS JOB_TIT_CD    
+             ,'' AS JOB_TIT_NM    
+             ,(SELECT CELPON_NO FROM USHUM.VW_EMP_ETC_D12 WHERE EMP_NO = A.EMP_NO ) AS HP_NO   
+             ,A.ENTR_DT AS ENTR_DT    
+             ,'' AS ESTM_ESC_GBN    
+             ,'' AS FST_SND_GBN    
+             ,'' AS MNG_GBN    
+             ,'' AS MULT_ESTM_GRP    
+             ,'' AS CNL_GBN    
+             ,B.WK_JJOB AS ESTM_WK_JOB    
+             ,'' AS ESTM_EMP    
+             ,'' AS COMM_NO    
+             ,'' AS DIV_NO    
+             ,'' AS MNR_FST_SND    
+             ,'' AS SVR_FST_SND    
+             ,'002' AS PERM_TEMP_GBN   
+             ,'002' AS CO_WRK_GBN   
+      FROM  USHUM.VW_WORK_EXCEPT_D12 B   
+           ,USHUM.VW_EMP_D12 A    
+     WHERE 1 = 1   
+       AND A.EMP_NO = B.EMP_NO  
+       AND A.DEPT_CD <> B.DEPT_CD 
+       AND A.HOLOFF_CLS = '0'   
+       AND B.END_DT >= ? -- 현재 재직중인 공동근무자만 대상임(2012.11.29)
+       AND ( B.END_DT - B.STR_DT ) >= TO_DATE(?,'YYYYMMDD') - TO_DATE(?,'YYYYMMDD')        
+       ]]>
+   </query>
+   
+   <query id="rev1010_s08" desc="인적자원 부서 조회:부서추가시 강제로 설정해야 함(2013년)" fetchSize="10">
+     <![CDATA[
+		SELECT /* rev1010_s08 */ 
+			dept_cd , dept_nm 
+		FROM ushum.TBAA_DEPT
+		WHERE sysdate BETWEEN DEPT_BATCH_DT ANd DEPT_END_DT
+		 AND bonbucd||dept_cd  IN 
+            (SELECT    
+                  12||A.DEPT_CD 
+            FROM USHUM.VW_EMP_D12 A  
+                ,USHUM.VW_EMP_JOB_12 B  
+             WHERE A.EMP_NO = B.EMP_NO  
+                AND A.HOLOFF_CLS = '0')  
+       ]]>
+   </query>
+   
+    <query id="rev1010_s09" desc="정규직 조회" fetchSize="10">
+     <![CDATA[
+           SELECT  /* rev1010_s09 */
+                SUBSTR(TEAM_DETL_CD, LENGTH(TEAM_DETL_CD)-3, LENGTH(TEAM_DETL_CD)) AS DEPT_CD 
+               ,'001' AS WRK_GBN
+               ,USER_ID AS EMP_NO 
+               ,USER_NM AS EMP_NM 
+               ,'' AS RES_NO 
+               ,SUBSTR(TEAM_DETL_CD, LENGTH(TEAM_DETL_CD)-3, LENGTH(TEAM_DETL_CD)) AS ESTM_DEPT 
+               ,'' AS PWD_NO 
+               ,'' AS WK_JOB_CD 
+               ,'' AS APT_DT 
+               ,'' AS JOB_TIT_CD 
+               ,FLOC AS JOB_TIT_NM 
+               ,HP_NO
+               ,'' AS ENTR_DT 
+               ,'' AS ESTM_ESC_GBN 
+              ,'' AS FST_SND_GBN 
+              ,'' AS MNG_GBN 
+              ,'' AS MULT_ESTM_GRP 
+              ,'' AS CNL_GBN 
+              ,'' AS ESTM_WK_JOB 
+              ,'' AS ESTM_EMP 
+              ,'' AS COMM_NO 
+              ,'' AS DIV_NO 
+              ,'' AS MNR_FST_SND 
+              ,'' AS SVR_FST_SND 
+              ,'001' AS PERM_TEMP_GBN 
+              ,'' AS CO_WKR_YN
+           FROM TBRK_USER 
+          WHERE GBN = '005'    
+       ]]>
+   </query>
+   
+   <query id="rev1010_s10" desc="투표소 조회" fetchSize="10">
+     <![CDATA[
+           SELECT /* rev1010_s10 */
+				 COMM_NO
+				,DIV_NO
+				,TELLER_ID
+				,MIN(DEPT_CD) AS DEPT_CD
+				,'SYSTEM' AS INST_ID
+				,SYSDATE  AS INST_DT
+				,'SYSTEM' AS UPDT_ID
+				,SYSDATE  AS UPDT_DT
+				,TO_CHAR(SYSDATE, 'YYYYMMDD') AS YEAR_DATE
+			FROM (
+				SELECT
+					 COMM_NO
+					,DIV_NO
+					,TELLER_ID
+					,DEPT_CD
+					,YEAR_DATE
+					,RANK() OVER (PARTITION BY TELLER_ID, DEPT_CD ORDER BY YEAR_DATE DESC) AS RANK
+				FROM (
+					SELECT
+						 TELLER_ID
+						, SUBSTR(FC_CODE_CDTERM2('018',
+							CASE WHEN SELL_CD = '01' AND COMM_NO < 11 THEN '00' --광명
+							WHEN SELL_CD = '03' AND COMM_NO < 11 THEN '98' --미사리
+							WHEN COMM_NO >= 11 THEN COMM_NO
+							END
+						 ),5, 4) AS DEPT_CD
+						,COMM_NO
+						,DIV_NO
+						,MAX(YEAR_DATE) AS YEAR_DATE
+					FROM (
+						SELECT
+							 A.MEET_CD
+							,A.SELL_CD
+							,A.COMM_NO
+							,A.DIV_NO
+							,A.TELLER_ID
+							,B.RACE_DAY  AS YEAR_DATE
+						FROM VW_PC_TELMP A, VW_SDL_INFO B
+						WHERE 1=1
+						AND A.STND_YEAR = B.STND_YEAR
+						AND A.MEET_CD = B.MEET_CD
+						AND A.TMS = B.TMS
+						AND A.DAY_ORD = B.DAY_ORD
+						AND A.STND_YEAR = ?	--조건
+						AND LENGTH(TELLER_ID) = 4
+						AND A.SOLD_NUM > 0
+						AND B.RACE_DAY BETWEEN ? AND ?	--조건
+					)
+					GROUP BY SELL_CD, COMM_NO, DIV_NO, TELLER_ID
+				)
+			)
+			WHERE RANK = 1
+			GROUP BY COMM_NO, DIV_NO, TELLER_ID
+			ORDER BY TELLER_ID
+       ]]>
+   </query>
+   
+   <query id="rev1010_s11" desc="발매실적 조회" fetchSize="10">
+     <![CDATA[
+			SELECT /* rev1010_s11 */
+			TELLER_ID, EMP_NO, EMP_NM, SOLD_AVG, INST_ID, INST_DT, UPDT_ID, UPDT_DT, DEPT_CD, TOTAL_CNT, WK_DAY_CNT
+			FROM (
+				SELECT 
+					T2.DEPT_CD,
+					T2.TELLER_ID,
+					T3.EMP_NO,
+					(SELECT MAX(EMP_NM) FROM TBRF_EV_EMP WHERE EMP_NO = T3.EMP_NO) EMP_NM,
+					T2.SOLD_AVG,
+					'SYSTEM' INST_ID,
+					SYSDATE INST_DT,
+					'SYSTEM' UPDT_ID,
+					SYSDATE  UPDT_DT,
+					SOLD_NUM TOTAL_CNT,
+					DAY_CNT WK_DAY_CNT
+				FROM (
+					SELECT	-- 부서정보는 VW_PC_TELMP의  COMM_NO기준으로
+						T1.COMM_NO,
+						T1.TELLER_ID,
+						SUBSTR(FC_CODE_CDTERM2('018', T1.COMM_NO),5, 4) AS DEPT_CD,
+						COUNT(T1.SOLD_NUM) DAY_CNT,
+						SUM(T1.SOLD_NUM)   SOLD_NUM,
+						ROUND(DECODE(SUM(T1.SOLD_NUM),0,0,SUM(T1.SOLD_NUM)/COUNT(T1.SOLD_NUM)),3) SOLD_AVG
+					FROM (
+						SELECT COMM_NO, TELLER_ID, RACE_DAY, SOLD_NUM
+						FROM (
+							SELECT COMM_NO, TELLER_ID, RACE_DAY, SUM(SOLD_NUM) SOLD_NUM FROM
+							(
+								SELECT
+								      CASE WHEN SELL_CD = '01' AND COMM_NO < 11 THEN '00' --광명
+									       WHEN SELL_CD = '03' AND COMM_NO < 11 THEN '98' --미사리
+									       WHEN COMM_NO >= 11 THEN COMM_NO
+									  END COMM_NO
+								     ,A.TELLER_ID
+								     ,A.SOLD_NUM
+								     ,B.RACE_DAY
+								FROM VW_PC_TELMP A, VW_SDL_INFO B
+								WHERE 1=1
+								AND A.STND_YEAR = B.STND_YEAR
+								AND A.MEET_CD = B.MEET_CD
+								AND A.MEET_CD IN ('001','003')
+								AND A.TMS = B.TMS
+								AND A.DAY_ORD = B.DAY_ORD
+								AND LENGTH(A.TELLER_ID) = 4
+								AND A.SOLD_NUM > 0
+								AND B.RACE_DAY BETWEEN ? AND ?	--조건
+							) GROUP BY COMM_NO, TELLER_ID, RACE_DAY
+							HAVING SUM(SOLD_NUM) > (SELECT RELEA_ESC_CNT
+							                          FROM TBRF_EV_MASTER
+							                         WHERE 1=1
+							                           AND ESTM_YEAR = ?
+							                           AND ESTM_NUM  = ?
+							                       )
+						) S1
+						WHERE 1=1
+						AND NOT EXISTS (
+							SELECT 1 FROM TBRF_EV_RELEA_ESC S2
+							WHERE 1=1
+							AND S2.ESTM_YEAR = ?
+							AND S2.ESTM_NUM  = ?
+							AND S1.COMM_NO = S2.BRNC_CD
+							AND S1.TELLER_ID = S2.TELLER_ID
+							AND S1.RACE_DAY BETWEEN S2.ESC_STR_DT AND S2.ESC_END_DT
+							AND S2.ESC_CD = '001'
+						)
+					) T1
+					GROUP BY COMM_NO, TELLER_ID
+				) T2,
+				(
+					SELECT EMP_NO, TELLER_ID, MAX(TELLER_NM) TELLER_NM
+					--FROM TBJI_PC_TELLER
+					FROM TBJI_TELLER_MANA
+					GROUP BY EMP_NO, TELLER_ID
+				) T3
+				WHERE 1=1
+				AND T2.TELLER_ID = T3.TELLER_ID(+)
+			)
+       ]]>
+   </query>
+   
+   <query id="rev1010_s12" desc="기초자료 생성 여부 조회" fetchSize="10">
+     <![CDATA[
+          SELECT  /* rev1010_s12 */
+                    DECODE(COUNT(*), 0 , 'N', 'Y') AS DEL_YN
+            FROM  TBRF_EV_EMP A
+           WHERE  1=1
+             AND  A.ESTM_YEAR = ?
+             AND  A.ESTM_NUM  = ?          
+       ]]>
+   </query>
+   
+   <query id="rev1010_s13" desc="사업지원팀 사원 조회" fetchSize="10">
+     <![CDATA[
+               SELECT  /* rev1010_s13 */
+                       '0' AS CHK
+                      ,SUBSTR(TEAM_DETL_CD, LENGTH(TEAM_DETL_CD)-3, LENGTH(TEAM_DETL_CD)) AS DEPT_CD 
+			          ,TEAM_NM AS DEPT_NM 
+			          ,FLOC AS JOB_TIT_NM 
+			          ,USER_ID AS EMP_NO 
+			          ,USER_NM AS EMP_NM 
+			     FROM TBRK_USER
+			    WHERE 1=1
+			      AND GBN = '005'
+			      AND USER_ID LIKE '%' || NVL(?, USER_ID) || '%'
+			      AND USER_NM LIKE '%' || NVL(?, USER_NM) || '%' 
+			      ORDER BY ORD_NO
+       ]]>
+   </query>
+   
+   <query id="rev1010_s14" desc="투표소 매핑 조회" fetchSize="10">
+     <![CDATA[
+			SELECT /* rev1010_s14 */
+		            '' AS ESTM_YEAR
+		           ,'' AS ESTM_NUM
+		           ,SUBSTR(FC_CODE_CDTERM2('018',
+							CASE WHEN SELL_CD = '01' AND COMM_NO < 11 THEN '00' --광명
+								 WHEN SELL_CD = '03' AND COMM_NO < 11 THEN '98' --미사리
+								 WHEN COMM_NO >= 11 THEN LPAD(COMM_NO,2,'0')
+							END
+							),5, 4) AS DEPT_CD
+		           ,SELL_CD
+		           ,LPAD(COMM_NO,2 ,'0') AS COMM_NO
+		           ,LPAD(DIV_NO ,2 ,'0') AS DIV_NO
+		           ,COMM_NAME
+		           ,DIV_NAME
+		      FROM BASETOTE.CONF_DIV_INFO@DW01LINK
+		     WHERE 1 = 1
+		       AND COMM_NO NOT IN ('6','8') -- 마이켓, 본장무인
+		       AND (CASE WHEN SELL_CD = 1 AND COMM_NO < 10 AND DIV_NO >= 30 THEN 999 ELSE 1 END) = 1 -- 광명본장 DIV_NO 30 이상인것 제외
+		       AND TO_CHAR(SYSDATE, 'YYYYMMDD') >= FROM_YEAR_DATE
+		       AND TO_CHAR(SYSDATE, 'YYYYMMDD') <= TO_YEAR_DATE
+       ]]>
+   </query>
+   
+   <query id="rev1010_s15" desc="기초자료 생성 여부 조회(기초데이터+발매실적)" fetchSize="10">
+     <![CDATA[
+		   SELECT /* rev1010_s15 */
+		          DECODE(SUM(CNT), 0 , 'N', 'Y') AS DEL_YN
+		     FROM (
+		          SELECT  COUNT(*) AS CNT
+		            FROM  TBRF_EV_EMP A
+		           WHERE  1=1
+		             AND  A.ESTM_YEAR = ?
+		             AND  A.ESTM_NUM  = ?
+		          UNION ALL
+		          SELECT  COUNT(*) AS CNT
+		            FROM  TBRF_EV_RELEA_RSLT A
+		           WHERE  1=1
+		             AND  A.ESTM_YEAR = ?
+		             AND  A.ESTM_NUM  = ?
+		           )  
+       ]]>
+   </query>
+   
+   <query id="rev1010_i02" desc="보직 입력" fetchSize="10">
+     <![CDATA[
+           INSERT  /* rev1010_i02 */     
+             INTO  TBRF_EV_WORK_JOB ( --종사원평가보직테이블
+                
+                 ESTM_YEAR  --평가년도
+				,ESTM_NUM   --평가회차
+				,WK_JOB_CD  --보직코드
+				,WK_JOB_NM  --보직명
+				,INST_ID    --작성자ID
+				
+				,INST_DT    --작성일시
+           
+           ) VALUES (
+                
+                 ?  --ESTM_YEAR
+                ,?  --ESTM_NUM
+                ,?  --WK_JOB_CD
+                ,?  --WK_JOB_NM
+                ,?  --INST_ID
+                
+                ,SYSDATE
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d02" desc="보직 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d02 */     
+             FROM  TBRF_EV_WORK_JOB  --종사원평가보직테이블
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i03" desc="근무실태 입력" fetchSize="10">
+     <![CDATA[
+           INSERT  /* rev1010_i03 */     
+             INTO  TBRF_EV_CONDUCT ( --종사원평가근태테이블
+                 ESTM_YEAR  --평가년도
+				,ESTM_NUM   --평가회차
+				,ATT_CD     --근태코드
+				,EMP_NO     --사번
+				,EMP_NM     --성명
+				,DEPT_CD    --부서코드
+				,CNT        --건수
+                ,INST_ID    --작성자ID
+                ,INST_DT    --작성일시
+           ) VALUES (
+                 ?  --ESTM_YEAR
+                ,?  --ESTM_NUM
+                ,?  --ATT_CD
+                ,?  --EMP_NO
+                ,?  --EMP_NM
+                ,(SELECT SUBSTR(GROUP_ID, LENGTH(GROUP_ID)-3, LENGTH(GROUP_ID))
+                    FROM UBIPLUS.PT_GROUP_MAPPING@JUPITERLINK
+                   WHERE 1=1
+                     AND IS_CLOSED = 'N'
+   		             AND SUBSTR(GROUP_ID, 1,4) = 'GA12'
+   		             AND SUBSTR(HUM_GROUP_ID, LENGTH(HUM_GROUP_ID)-3, LENGTH(HUM_GROUP_ID)) = ?)  --DEPT_CD
+                ,?  --CNT
+                ,?  --INST_ID
+                ,SYSDATE
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d03" desc="근태 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d03 */     
+             FROM  TBRF_EV_CONDUCT  --종사원평가근태테이블
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i04" desc="발령일자 입력" fetchSize="10">
+     <![CDATA[
+           INSERT  /* rev1010_i04 */     
+             INTO  TBRF_EV_APPOINT ( --발령일자테이블
+                 ESTM_YEAR  --평가년도
+                ,ESTM_NUM   --평가회차
+                ,EMP_NO     --사번
+				,APT_DT     --발령일자
+				,DEPT_CD    --부서코드
+				,SEQ
+				,DEPT_NM    --부서명
+				,APT_RSN    --발령사유
+				,WK_JOB_CD  --보직
+				,INST_ID    --작성자ID
+				,INST_DT    --작성일시
+				,EMP_NM     --성명
+           ) VALUES (
+                 ?  --ESTM_YEAR
+                ,?  --ESTM_NUM
+                ,?  --EMP_NO
+                ,?  --APT_DT
+                ,(SELECT SUBSTR(GROUP_ID, LENGTH(GROUP_ID)-3, LENGTH(GROUP_ID))
+                    FROM UBIPLUS.PT_GROUP_MAPPING@JUPITERLINK
+                   WHERE 1=1
+                     AND IS_CLOSED = 'N'
+   		             AND SUBSTR(GROUP_ID, 1,4) = 'GA12'
+   		             AND SUBSTR(HUM_GROUP_ID, LENGTH(HUM_GROUP_ID)-3, LENGTH(HUM_GROUP_ID)) = ?)  --DEPT_CD
+                ,?  --SEQ
+                ,?  --DEPT_NM
+                ,?  --APT_RSN
+                ,?  --WK_JOB_CD
+                ,?  --INST_ID
+                ,SYSDATE
+                ,?  --EMP_NM
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d04" desc="발령일자 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d04 */     
+             FROM  TBRF_EV_APPOINT  --발령일자테이블
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i05" desc="부서장 입력" fetchSize="10">
+     <![CDATA[
+           INSERT  /* rev1010_i05 */     
+             INTO  TBRF_EV_DEPT_HEAD ( --평가항목대분류
+                 ESTM_YEAR      --평가년도
+				,ESTM_NUM       --평가회차
+				,DEPT_CD        --부서코드
+				,UPPER_DEPT_CD  --상위부서코드
+				,DEPT_NM        --부서명
+				,EMP_NO         --사번
+				,EMP_NM         --성명
+				,HP_NO          --이동전화번호
+				,JOB_RANK_NM    --직급명
+				,LVL            --레벨
+				,INST_ID        --작성자ID
+				,INST_DT        --작성일시
+           ) VALUES (
+                 ?  --ESTM_YEAR
+                ,?  --ESTM_NUM
+                ,NVL((SELECT SUBSTR(GROUP_ID, LENGTH(GROUP_ID)-3, LENGTH(GROUP_ID))
+                    FROM UBIPLUS.PT_GROUP_MAPPING@JUPITERLINK
+                   WHERE 1=1
+                     AND IS_CLOSED = 'N'
+   		             AND SUBSTR(GROUP_ID, 1,4) = 'GA12'
+   		             AND SUBSTR(HUM_GROUP_ID, LENGTH(HUM_GROUP_ID)-3, LENGTH(HUM_GROUP_ID)) = ?),?)  --DEPT_CD
+                ,(SELECT SUBSTR(GROUP_ID, LENGTH(GROUP_ID)-3, LENGTH(GROUP_ID))
+                    FROM UBIPLUS.PT_GROUP_MAPPING@JUPITERLINK
+                   WHERE 1=1
+                     AND IS_CLOSED = 'N'
+   		             AND SUBSTR(GROUP_ID, 1,4) = 'GA12'
+   		             AND SUBSTR(HUM_GROUP_ID, LENGTH(HUM_GROUP_ID)-3, LENGTH(HUM_GROUP_ID)) = ?)  --UPPER_DEPT_CD
+                ,?  --DEPT_NM
+                ,?  --EMP_NO
+                ,?  --EMP_NM
+                ,?  --HP_NO
+                ,?  --JOB_RANK_NM
+                ,?  --LVL
+                ,?  --INST_ID
+                ,SYSDATE    
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d05" desc="부서장 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d05 */     
+             FROM  TBRF_EV_DEPT_HEAD  --평가항목대분류
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i06" desc="부서 입력" fetchSize="10">
+     <![CDATA[
+           INSERT  /* rev1010_i06 */     
+             INTO  TBRF_EV_DEPT ( --종사원평가부서테이블
+                 ESTM_YEAR      --평가년도
+                ,ESTM_NUM       --평가회차
+                ,DEPT_CD        --부서코드
+                ,DEPT_NM        --부서명                
+                ,INST_ID        --작성자ID
+                ,INST_DT        --작성일시
+           ) VALUES (
+                 ?  --ESTM_YEAR
+                ,?  --ESTM_NUM
+                ,NVL((SELECT SUBSTR(GROUP_ID, LENGTH(GROUP_ID)-3, LENGTH(GROUP_ID))
+                    FROM UBIPLUS.PT_GROUP_MAPPING@JUPITERLINK
+                   WHERE 1=1
+                     AND IS_CLOSED = 'N'
+   		             AND SUBSTR(GROUP_ID, 1,4) = 'GA12'
+   		             AND SUBSTR(HUM_GROUP_ID, LENGTH(HUM_GROUP_ID)-3, LENGTH(HUM_GROUP_ID)) = ?),?)  --DEPT_CD
+                ,?  --DEPT_NM                
+                ,?  --INST_ID
+                ,SYSDATE    
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d06" desc="부서장 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d06 */     
+             FROM  TBRF_EV_DEPT  --종사원평가부서테이블
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i07" desc="사원 입력" fetchSize="10">
+     <![CDATA[
+           INSERT  /* rev1010_i07 */     
+             INTO  TBRF_EV_EMP ( --평가대상사원테이블
+                
+                 ESTM_YEAR      --평가년도
+                ,ESTM_NUM       --평가회차
+                ,DEPT_CD        --부서코드
+                ,WRK_GBN        --근무자구분
+                ,EMP_NO         --사번
+				
+				,EMP_NM         --성명
+				,RES_NO         --주민번호
+				,ESTM_DEPT        --평가부서
+				,PWD_NO         --비밀번호
+				,WK_JOB_CD      --보직코드
+				
+				,APT_DT         --발령일자
+				,JOB_TIT_CD     --직급코드
+				,JOB_TIT_NM     --직급명
+				,HP_NO          --이동전화번호
+				,ENTR_DT        --입사일자
+				
+				,ESTM_ESC_GBN     --평가대상제외자구분
+				,FST_SND_GBN    --1차2차평가자구분
+				,MNG_GBN        --담당자구분
+				,MULT_ESTM_GRP    --다면평가자그룹
+				,CNL_GBN        --평가취소구분
+				
+				,ESTM_WK_JOB      --평가보직코드
+				,ESTM_EMP         --평가자사번
+				,COMM_NO        --지점세부코드
+				,DIV_NO         --투표소코드
+				,MNR_FST_SND    --근무태도1차2차평가자
+				
+				,SVR_FST_SND    --서비스1차2차평가자
+				,PERM_TEMP_GBN  --정규/비정규구분
+				,CO_WRK_GBN     --공동근무자 여부
+				,AVG_IN			--평균값 적용여부
+				,ESTM_ALT_YN    -- 평가대상조정여부
+			    ,INST_ID        --작성자ID
+                
+                ,INST_DT        --작성일시
+           
+           ) VALUES (
+                 ?--ESTM_YEAR
+				,?--ESTM_NUM
+				,NVL(DECODE(?, '001', ?, (SELECT SUBSTR(GROUP_ID, LENGTH(GROUP_ID)-3, LENGTH(GROUP_ID))
+					                    FROM UBIPLUS.PT_GROUP_MAPPING@JUPITERLINK
+					                   WHERE 1=1
+					                     AND IS_CLOSED = 'N'
+					        	         AND SUBSTR(GROUP_ID, 1,4) = 'GA12'
+					   		             AND SUBSTR(HUM_GROUP_ID, LENGTH(HUM_GROUP_ID)-3, LENGTH(HUM_GROUP_ID)) = ?)),?) --DEPT_CD
+				,?--WRK_GBN
+				,?--EMP_NO
+				
+				,?--EMP_NM
+				,FC_ENC(?)--RES_NO
+				,NVL(DECODE(?, '001', ?,  (SELECT SUBSTR(GROUP_ID, LENGTH(GROUP_ID)-3, LENGTH(GROUP_ID))
+				                         FROM UBIPLUS.PT_GROUP_MAPPING@JUPITERLINK
+				                        WHERE 1=1
+				                          AND IS_CLOSED = 'N'
+				   		                  AND SUBSTR(GROUP_ID, 1,4) = 'GA12'
+				   		                  AND SUBSTR(HUM_GROUP_ID, LENGTH(HUM_GROUP_ID)-3, LENGTH(HUM_GROUP_ID)) = ?)),?)  --ESTM_DEPT
+				,?--PWD_NO
+				,?--WK_JOB_CD
+				
+				,?--APT_DT			
+				,?--JOB_TIT_CD
+				,?--JOB_TIT_NM
+				,?--HP_NO
+				,?--ENTR_DT
+				
+				,?--ESTM_ESC_GBN
+				,?--FST_SND_GBN
+				,?--MNG_GBN
+				,?--MULT_ESTM_GRP
+				,?--CNL_GBN
+				
+				,?--ESTM_WK_JOB
+				,?--ESTM_EMP
+				,?--COMM_NO
+				,?--DIV_NO
+				,?--MNR_FST_SND
+				
+				,?--SVR_FST_SND
+				,?--PERM_TEMP_GBN
+				,?--CO_WRK_GBN
+				,'N' --AVG_IN
+				,'N' --ESTM_ALT_YN
+				,?--INST_ID
+                
+                ,SYSDATE
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d07" desc="사원 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d07 */     
+             FROM  TBRF_EV_EMP  --평가대상사원테이블
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i08" desc="투표소 입력" fetchSize="10">
+     <![CDATA[
+            INSERT  /* rev1010_i08 */     
+             INTO  TBRF_EV_RELEA_SPOT ( --종사원평가투표소테이블
+                
+                 ESTM_YEAR      --평가년도
+                ,ESTM_NUM       --평가회차
+				,BRNC_CD        --지점코드
+				,TICK_CD        --투표소코드
+				,TELLER_ID      --발매원번호
+				
+				,DEPT_CD        --부서코드
+				,YR_DT          --최근일자
+                ,INST_ID        --작성자ID
+                ,INST_DT        --작성일시
+           
+           ) VALUES (
+                
+                 ?  --ESTM_YEAR
+                ,?  --ESTM_NUM
+                ,?  --BRNC_CD
+                ,?  --TICK_CD                
+                ,?  --TELLER_ID
+                
+                ,?  --DEPT_CD
+                ,?  --YR_DT
+                ,?  --INST_ID
+                ,SYSDATE    
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d08" desc="투표소 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d08 */     
+             FROM  TBRF_EV_RELEA_SPOT  --종사원평가투표소테이블
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i09" desc="발매실적 입력" fetchSize="10">
+     <![CDATA[
+           INSERT  /* rev1010_i09 */     
+             INTO  TBRF_EV_RELEA_RSLT ( --종사원평가발매실적테이블
+
+                 ESTM_YEAR      --평가년도
+                ,ESTM_NUM       --평가회차
+                ,DEPT_CD        --부서
+                ,TELLER_ID      --발매원번호
+				,EMP_NO         --사번
+				
+				,EMP_NM         --성명
+				,RELEA_RSLT     --발매실적건수
+				,TOTAL_CNT
+				,WK_DAY_CNT
+                ,INST_ID        --작성자ID
+                
+                ,INST_DT        --작성일시
+           
+           ) VALUES (
+                
+                 ?  --ESTM_YEAR
+                ,?  --ESTM_NUM
+                ,?  --DEPT_CD
+                ,?  --TELLER_ID
+                ,?  --EMP_NO 
+                               
+                ,?  --EMP_NM
+                ,?  --RELEA_RSLT
+                ,?  --TOTAL_CNT
+                ,?  --WK_DAY_CNT
+                ,?  --INST_ID
+                
+                ,SYSDATE    
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d09" desc="발매실적 삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d09 */     
+             FROM  TBRF_EV_RELEA_RSLT  --종사원평가발매실적테이블
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_i10" desc="승인 사업지원팀  입력" fetchSize="10">
+     <![CDATA[
+            INSERT /* rev1010_i10 */ 
+             INTO TBRF_EV_APRV ( 
+                 
+                ESTM_YEAR 
+               ,ESTM_NUM 
+               ,APRV_DEPT 
+               ,APRV_SEQ 
+               ,APRV_OFIR_NO 
+               ,APRV_REQ_NO 
+               ,APRV_DT 
+               ,APRV_STAS 
+               ,INST_ID 
+               ,INST_DT 
+             )                      
+                SELECT   A.ESTM_YEAR 
+                        ,A.ESTM_NUM 
+                        ,B.MNG_DEPT AS APRV_DEPT 
+                        ,'11' AS APRV_SEQ 
+                        ,A.EMP_NO AS APRV_OFIR_NO 
+                        ,B.MNG_NO AS APRV_REQ_NO 
+                        ,'' AS APRV_DT 
+                        ,'001' AS APRV_STATS 
+                        ,'SYSTEM' 
+                        ,SYSDATE 
+                  FROM  TBRF_EV_DEPT_HEAD A 
+                       ,TBRF_EV_MASTER B 
+                 WHERE 1 = 1  
+                   AND  A.ESTM_YEAR = B.ESTM_YEAR 
+                   AND  A.ESTM_NUM = B.ESTM_NUM 
+                   AND  A.ESTM_YEAR = ? 
+                   AND  A.ESTM_NUM = ? 
+                   AND  A.DEPT_CD = B.MNG_DEPT  
+                        
+            UNION ALL 
+           SELECT   A.ESTM_YEAR 
+                        ,A.ESTM_NUM 
+                        ,B.MNG_DEPT AS APRV_DEPT 
+                        ,'12' AS APRV_SEQ 
+                        ,A.EMP_NO AS APRV_OFIR_NO 
+                        ,B.MNG_NO AS APRV_REQ_NO 
+                        ,'' AS APRV_DT 
+                        ,'001' AS APRV_STATS 
+                        ,'SYSTEM'
+                        ,SYSDATE 
+                  FROM  TBRF_EV_DEPT_HEAD A 
+                       ,TBRF_EV_MASTER B 
+                 WHERE 1 = 1  
+                   AND  A.ESTM_YEAR = B.ESTM_YEAR 
+                   AND  A.ESTM_NUM = B.ESTM_NUM 
+                   AND  A.ESTM_YEAR = ? 
+                   AND  A.ESTM_NUM = ? 
+                   AND  A.DEPT_CD = B.MNG_DEPT  
+ 
+         UNION ALL 
+           SELECT   A.ESTM_YEAR 
+                        ,A.ESTM_NUM 
+                        ,B.MNG_DEPT AS APRV_DEPT 
+                        ,'13' AS APRV_SEQ 
+                        ,A.EMP_NO AS APRV_OFIR_NO 
+                        ,B.MNG_NO AS APRV_REQ_NO 
+                        ,'' AS APRV_DT 
+                        ,'001' AS APRV_STATS 
+                        ,'SYSTEM' 
+                        ,SYSDATE 
+                  FROM  TBRF_EV_DEPT_HEAD A 
+                       ,TBRF_EV_MASTER B 
+                 WHERE 1 = 1  
+                   AND  A.ESTM_YEAR = B.ESTM_YEAR 
+                   AND  A.ESTM_NUM = B.ESTM_NUM 
+                   AND  A.ESTM_YEAR = ? 
+                   AND  A.ESTM_NUM = ? 
+                   AND  A.DEPT_CD = B.MNG_DEPT 
+       ]]>
+   </query>
+   
+   <query id="rev1010_d10" desc="승인 사업지원팀  삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d10 */     
+             FROM  TBRF_EV_APRV  
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+              AND  APRV_DEPT = (SELECT MNG_DEPT FROM TBRF_EV_MASTER WHERE ESTM_YEAR = ? AND ESTM_NUM  = ?)
+       ]]>
+   </query>
+   
+   <query id="rev1010_i11" desc="다스 투표소 매핑 추가" fetchSize="10">
+     <![CDATA[
+           INSERT /* rev1010_i11 */
+             INTO TBRF_PC_DIV (
+            		 ESTM_YEAR
+					,ESTM_NUM 
+            		,DEPT_CD
+					,SELL_CD
+					,COMM_NO
+					
+					,DIV_NO
+					,COMM_NM
+					,DIV_NM
+					,INST_ID
+					,INST_DT
+           )
+           VALUES (
+           			?  --ESTM_YEAR
+           		   ,?  --ESTM_NUM
+           		   ,?  --DEPT_CD
+           		   ,?  --SELL_CD
+           		   ,?  --COMM_NO
+           		   
+           		   ,?  --DIV_NO
+           		   ,?  --COMM_NM
+           		   ,?  --DIV_NM
+           		   ,?  --INST_ID
+           		   ,SYSDATE
+           )
+       ]]>
+   </query>
+   
+   <query id="rev1010_d11" desc="다스 투표소 매핑  삭제" fetchSize="10">
+     <![CDATA[
+           DELETE  /* rev1010_d11 */     
+             FROM  TBRF_PC_DIV  
+            WHERE  1=1
+              AND  ESTM_YEAR = ?
+              AND  ESTM_NUM  = ?
+       ]]>
+   </query>
+   
+   <query id="rev1010_u03" desc="년간 발매실적 제외자는  TOTAL_CNT = 99999, WK_DAY_CNT = 99999로 설정" fetchSize="10">
+        <![CDATA[        
+			UPDATE /* rev1010_u03 */
+			       TBRF_EV_RELEA_RSLT
+			SET    TOTAL_CNT = 99999, WK_DAY_CNT = 99999
+			WHERE (ESTM_YEAR, ESTM_NUM, TELLER_ID, DEPT_CD) IN 
+			       (    
+					SELECT ESTM_YEAR, ESTM_NUM, TELLER_ID,
+					       (SELECT SUBSTR(CD_TERM2,5,4) DEPT_CD 
+					        FROM   TBRK_SPEC_CD
+						    WHERE  GRP_CD = '018'
+						    AND    CD = A2.BRNC_CD
+						    ) AS DEPT_CD
+					FROM TBRF_EV_RELEA_ESC A2
+				    WHERE A2.ESTM_YEAR = ?
+				    AND   A2.ESTM_NUM  = ?
+				    AND   A2.ESC_CD = '002'
+				   )
+        ]]>
+    </query> 
+    
+    <query id="rev1010_u04" desc="년간 발매실적 제외자의 평균 발매건수는 팀평균 적용" fetchSize="10">
+        <![CDATA[            
+			MERGE  /* rev1010_u04 */
+			       INTO TBRF_EV_RELEA_RSLT DST
+            USING (
+					SELECT A1.ESTM_YEAR, A1.ESTM_NUM, A1.TELLER_ID, A1.DEPT_CD, A1.EMP_NO, A1.RELEA_RSLT, A2.DEPT_AVG
+					FROM TBRF_EV_RELEA_RSLT A1,
+						(
+							SELECT A.DEPT_CD, ROUND(AVG(A.RELEA_RSLT),3) DEPT_AVG
+								FROM TBRF_EV_RELEA_RSLT A, (
+									SELECT ESTM_YEAR, ESTM_NUM, DEPT_CD FROM TBRF_EV_RELEA_RSLT
+									WHERE 1=1
+									AND TOTAL_CNT = 99999
+									AND WK_DAY_CNT = 99999
+									AND ESTM_YEAR = ?
+									AND ESTM_NUM  = ?
+								) B
+								WHERE 1=1
+								AND A.DEPT_CD = B.DEPT_CD
+								AND A.EMP_NO IN (
+									SELECT EMP_NO FROM TBRF_EV_EMP
+									WHERE 1=1
+									AND ESTM_YEAR = B.ESTM_YEAR
+									AND ESTM_NUM  = B.ESTM_NUM
+									AND ESTM_DEPT = B.DEPT_CD
+									AND PERM_TEMP_GBN = '002'
+									AND ESTM_ESC_GBN = 'Y'
+									AND ESTM_WK_JOB = '1003'
+								)
+								AND A.TOTAL_CNT  != 99999
+								AND A.WK_DAY_CNT != 99999
+								AND A.ESTM_YEAR = B.ESTM_YEAR
+								AND A.ESTM_NUM  = B.ESTM_NUM
+								GROUP BY A.DEPT_CD
+						) A2
+					WHERE 1=1
+					AND A1.DEPT_CD = A2.DEPT_CD
+					AND A1.TOTAL_CNT = 99999
+					AND A1.WK_DAY_CNT = 99999
+				 ) SRC
+            ON   (
+                        DST.ESTM_YEAR = SRC.ESTM_YEAR
+                 AND DST.ESTM_NUM = SRC.ESTM_NUM
+                 AND DST.TELLER_ID  = SRC.TELLER_ID
+                 AND DST.DEPT_CD    = SRC.DEPT_CD
+            
+                 )
+            WHEN MATCHED THEN
+            UPDATE SET DST.RELEA_RSLT = SRC.DEPT_AVG            
+			
+        ]]>
+    </query>
+</queryMap>

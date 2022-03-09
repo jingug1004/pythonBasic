@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_trng_rule(훈련기준)">
+    <query id="tbeb_trng_rule_s01" desc="훈련기준 조회" fetchSize="10">
+        <![CDATA[
+				SELECT /* tbeb_trng_rule_s01 */
+				       '' AS CHK,
+				       TRNG_RULE_CD, 
+				       TRNG_TYPE, 
+				       TRNG_DESC, 
+				       TRNG_TERM, 
+				       TRNG_TERM_UNIT, 
+				       SANC_RSN_CD,
+				       SANC_TERM,
+				       SANC_TERM_UNIT,
+				       HEALTH_TEST_YN, 
+				       STARTTM_TEST_YN, 
+				       ADJST_TEST_YN, 
+				       RMK, 
+				       INJURY_TERM_CD,
+				       RULE_FRDT, 
+				       RULE_TODT, 
+				       INST_ID
+				FROM TBEB_TRNG_RULE
+				WHERE TRNG_RULE_CD LIKE NVL(?,TRNG_RULE_CD)||'%'
+				ORDER BY TRNG_RULE_CD
+        ]]>
+    </query> 
+
+    <query id="tbeb_trng_rule_s02" desc="훈련기준별 양정코드 조회" fetchSize="10">
+        <![CDATA[
+				SELECT /* tbeb_trng_rule_s02 */
+				       '' AS CHK,
+				       A.TRNG_RULE_CD,
+				       A.RULE_FRDT, 
+				       A.SANC_BASIS_CD, 
+				       A.RULE_FRDT,
+				       B.SMRY,
+				       B.TERM,
+				       C.CD_NM AS TERM_UNIT_NM
+				FROM TBEB_TRNG_RULE_SANC A,
+				     TBEE_SANC_BASIS B,
+				     TBEA_SPEC_CD C
+				WHERE A.TRNG_RULE_CD LIKE NVL(?,TRNG_RULE_CD)||'%'
+				   AND A.SANC_BASIS_CD = B.SANC_BASIS_CD
+	               AND B.UNIT = C.CD
+	               AND C.GRP_CD = 'E00116'
+				ORDER BY TRNG_RULE_CD
+        ]]>
+    </query> 
+
+    <query id="tbeb_trng_rule_s03" desc="양정코드 조회" fetchSize="10">
+        <![CDATA[
+				SELECT /* tbeb_trng_rule_s03 */
+				        '' AS CHK
+	                   ,A.SANC_BASIS_CD             --양정코드    
+	                   ,A.SMRY                      --양정 요약내용
+	                   ,A.TERM                      --출전정지기간
+	                   ,B.CD_NM AS TERM_UNIT_NM     --출전정지 단위
+	            FROM  TBEE_SANC_BASIS A
+	            LEFT JOIN TBEA_SPEC_CD B
+	            ON    A.UNIT = B.CD
+	              AND B.GRP_CD = 'E00116'
+	            ORDER BY SANC_BASIS_CD
+        ]]>
+    </query> 
+
+    <query id="tbeb_trng_rule_u01" desc="훈련기준코드 수정" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBEB_TRNG_RULE T
+			USING (
+					SELECT 
+							  ? AS TRNG_RULE_CD    
+							 ,? AS TRNG_TYPE       
+							 ,? AS TRNG_DESC       
+							 ,? AS TRNG_TERM       
+							 ,? AS TRNG_TERM_UNIT  
+							 ,? AS SANC_RSN_CD     
+							 ,? AS SANC_TERM       
+							 ,? AS SANC_TERM_UNIT  
+							 ,? AS HEALTH_TEST_YN  
+							 ,? AS STARTTM_TEST_YN 
+							 ,? AS ADJST_TEST_YN   
+							 ,? AS RMK       
+							 ,? AS INJURY_TERM_CD      
+							 ,? AS RULE_FRDT       
+							 ,? AS RULE_TODT       
+							 ,? AS USER_ID         
+			  		FROM DUAL
+		    	) S
+			ON (    T.TRNG_RULE_CD = S.TRNG_RULE_CD		-- 훈련기준코드 
+			    AND T.RULE_FRDT    = S.RULE_FRDT		-- 적용시작일자		
+			   )
+			WHEN MATCHED THEN
+				UPDATE	SET
+				        T.TRNG_TYPE 		= S.TRNG_TYPE
+				       ,T.TRNG_DESC 		= S.TRNG_DESC
+				       ,T.TRNG_TERM 		= S.TRNG_TERM
+				       ,T.TRNG_TERM_UNIT 	= S.TRNG_TERM_UNIT
+				       ,T.SANC_RSN_CD 		= S.SANC_RSN_CD
+				       ,T.SANC_TERM 		= S.SANC_TERM
+				       ,T.SANC_TERM_UNIT 	= S.SANC_TERM_UNIT
+				       ,T.HEALTH_TEST_YN 	= S.HEALTH_TEST_YN
+				       ,T.ADJST_TEST_YN		= S.ADJST_TEST_YN
+				       ,T.RMK				= S.RMK
+				       ,T.INJURY_TERM_CD    = S.INJURY_TERM_CD
+				       ,T.RULE_TODT			= S.RULE_TODT
+				       ,T.UPDT_ID 			= S.USER_ID
+				       ,T.UPDT_DTM			= SYSDATE
+			WHEN NOT MATCHED THEN
+				INSERT (
+						  TRNG_RULE_CD    
+						 ,TRNG_TYPE       
+						 ,TRNG_DESC       
+						 ,TRNG_TERM       
+						 ,TRNG_TERM_UNIT  
+						 ,SANC_RSN_CD     
+						 ,SANC_TERM       
+						 ,SANC_TERM_UNIT  
+						 ,HEALTH_TEST_YN  
+						 ,STARTTM_TEST_YN 
+						 ,ADJST_TEST_YN   
+						 ,RMK             
+						 ,INJURY_TERM_CD
+						 ,RULE_FRDT       
+						 ,RULE_TODT       
+						 ,INST_ID
+						 ,INST_DTM 				
+					    ) 
+				VALUES ( 
+						  S.TRNG_RULE_CD    
+						 ,S.TRNG_TYPE       
+						 ,S.TRNG_DESC       
+						 ,S.TRNG_TERM       
+						 ,S.TRNG_TERM_UNIT  
+						 ,S.SANC_RSN_CD     
+						 ,S.SANC_TERM       
+						 ,S.SANC_TERM_UNIT  
+						 ,S.HEALTH_TEST_YN  
+						 ,S.STARTTM_TEST_YN 
+						 ,S.ADJST_TEST_YN   
+						 ,S.RMK         
+						 ,S.INJURY_TERM_CD    
+						 ,S.RULE_FRDT       
+						 ,S.RULE_TODT       
+						 ,S.USER_ID			
+					     , SYSDATE
+					    )
+        ]]>
+    </query> 
+
+
+    <query id="tbeb_trng_rule_u02" desc="훈련기준코별 양정코드 입력" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBEB_TRNG_RULE_SANC T
+			USING (
+					SELECT 
+							  ? AS TRNG_RULE_CD    
+							 ,? AS RULE_FRDT       
+							 ,? AS SANC_BASIS_CD       
+							 ,? AS USER_ID
+			  		FROM DUAL
+		    	) S
+			ON (    T.TRNG_RULE_CD  = S.TRNG_RULE_CD		-- 훈련기준코드 
+			    AND T.RULE_FRDT     = S.RULE_FRDT				-- 적용시작일자		
+			    AND T.SANC_BASIS_CD = S.SANC_BASIS_CD		-- 양정코드		
+			   )
+			WHEN NOT MATCHED THEN
+				INSERT (
+						  TRNG_RULE_CD    
+						 ,RULE_FRDT       
+						 ,SANC_BASIS_CD       
+						 ,INST_ID
+						 ,INST_DTM 				
+					    ) 
+				VALUES ( 
+						  S.TRNG_RULE_CD    
+						 ,S.RULE_FRDT       
+						 ,S.SANC_BASIS_CD       
+						 ,S.USER_ID			
+					     ,SYSDATE
+					    )
+					    
+        ]]>
+    </query> 
+
+    <query id="tbeb_trng_rule_d01" desc="훈련기준코드 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM   TBEB_TRNG_RULE
+			WHERE  TRNG_RULE_CD    = ?  -- 훈련기준코드
+			AND    RULE_FRDT       = ? 	-- 적용적용일자
+        ]]>
+    </query> 
+    
+    <query id="tbeb_trng_rule_d02" desc="훈련기준코드 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM   TBEB_TRNG_RULE_SANC
+			WHERE  TRNG_RULE_CD    = ?  -- 훈련기준코드
+			AND    RULE_FRDT       = ? 	-- 적용적용일자
+			AND    SANC_BASIS_CD   = ? 	-- 양정기준코드
+        ]]>
+    </query> 
+</queryMap>

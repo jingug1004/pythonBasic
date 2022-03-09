@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM4031(지점별 실적)">
+	<query id="rsm4031_s01" desc="경주일 정보" fetchSize="10">
+        <![CDATA[        
+			 SELECT /* rsm4031_s01 */
+			 		MEET_CD,
+				   TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') RACE_DAY,
+				   RACE_YOIL,
+				   DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') AS RACE_YOIL_KOR,
+		           TMS||'회차 '||DAY_ORD||'일차' AS RACE_DAY_INFO
+		      FROM VW_SDL_INFO A
+		      WHERE 1=1
+		        AND MEET_CD		= ?
+		        AND RACE_DAY	= ?                                                                                                     
+        ]]>
+    </query>
+	<query id="rsm4031_s02" desc="지점별 매출액" fetchSize="10">
+        <![CDATA[        
+			 	SELECT /* rsm4031_s02 */
+			 			MEET_CD, -- 경륜, 경정 구분코드
+				       BRNC_CD,	-- 지점 코드	    
+				       CASE 
+				            WHEN BRNC_CD='00' THEN '지점계'
+				            WHEN BRNC_CD='01' THEN '본장'
+				            WHEN BRNC_CD='600' THEN '그린카드(본장)'
+				            WHEN BRNC_CD='601' THEN '그린카드(수원)'
+				            WHEN BRNC_CD='602' THEN '그린카드(중랑)'
+				            WHEN BRNC_CD='603' THEN '그린카드(일산)'
+				            WHEN BRNC_CD='604' THEN '그린카드(동대문)'
+				            WHEN BRNC_CD='605' THEN '그린카드(분당)'
+				        	WHEN BRNC_CD='606' THEN '그린카드(장안)'				            
+				            WHEN BRNC_CD='607' THEN '그린카드(산본)'
+				            WHEN BRNC_CD='608' THEN '그린카드(부천)'
+				            WHEN BRNC_CD='609' THEN '그린카드(관악)'
+				            WHEN BRNC_CD='610' THEN '그린카드(성북)'
+				            WHEN BRNC_CD='611' THEN '그린카드(영등포)'
+				            WHEN BRNC_CD='612' THEN '그린카드(대전)'
+				            WHEN BRNC_CD='613' THEN '그린카드(인천)'
+				            WHEN BRNC_CD='614' THEN '그린카드(시흥)'
+				            WHEN BRNC_CD='615' THEN '그린카드(강남)'
+				            WHEN BRNC_CD='616' THEN '그린카드(천안)'
+				            WHEN BRNC_CD='617' THEN '그린카드(올팍)'
+				            WHEN BRNC_CD='618' THEN '그린카드(의정부)'
+                            WHEN BRNC_CD='698' THEN '그린카드(미사리)'
+                            WHEN BRNC_CD='699' THEN '그린카드(광명)'
+				       ELSE
+				            CD_NM
+				       END AS CD_NM, -- 지점 이름
+				       POOL_001*100 AS POOL_001,  -- 단승
+				       POOL_002*100 AS POOL_002,  -- 연승
+				       POOL_004*100 AS POOL_004,  -- 쌍승
+				       POOL_005*100 AS POOL_005,  -- 복승
+				       POOL_006*100 AS POOL_006,  -- 삼복승
+				       POOL_0012*100 AS POOL_0012,    -- 단승/연승
+				       POOL_00456*100 AS POOL_00456,  -- 쌍,복,삼복
+				       BRNC_ORDER
+				FROM        	   
+				(        	   
+				        SELECT DECODE(BRNC_CD,null,'1',LEV) AS LEV,
+				               MEET_CD, -- 경륜, 경정 구분코드
+				        	   DECODE(BRNC_CD,null,'00',BRNC_CD) AS BRNC_CD,	-- 지점 코드	    
+				        	   DECODE(LEV,1,SUM(POOL_001),SUM(POOL_001))  AS POOL_001,  -- 단승
+				        	   DECODE(LEV,1,SUM(POOL_002),SUM(POOL_002))  AS POOL_002,  -- 연승
+				        	   DECODE(LEV,1,SUM(POOL_004),SUM(POOL_004))  AS POOL_004,  -- 쌍승
+				        	   DECODE(LEV,1,SUM(POOL_005),SUM(POOL_005))  AS POOL_005,  -- 복승
+				        	   DECODE(LEV,1,SUM(POOL_006),SUM(POOL_006))  AS POOL_006,  -- 삼복승
+				        	   DECODE(LEV,1,SUM(POOL_0012),SUM(POOL_0012))  AS POOL_0012,    -- 단승/연승
+				        	   DECODE(LEV,1,SUM(POOL_00456),SUM(POOL_00456))  AS POOL_00456,   -- 쌍,복,삼복
+				        	   DECODE(BRNC_CD,'14','15','15','14',BRNC_CD) AS BRNC_ORDER
+				        FROM
+				        (
+				            SELECT 
+				                    LEV,
+				                    MEET_CD, -- 경륜, 경정 구분코드
+				            	   CASE WHEN LEV='2' AND (BRNC_CD > '01' AND BRNC_CD < '600') THEN '' ELSE  BRNC_CD END AS BRNC_CD,	-- 지점 코드
+				            	   POOL_001,  -- 단승
+				            	   POOL_002,  -- 연승
+				            	   POOL_004,  -- 쌍승
+				            	   POOL_005,  -- 복승
+				            	   POOL_006,  -- 삼복승
+				            	   POOL_0012,    -- 단승/연승
+				            	   POOL_00456   -- 쌍,복,삼복
+				            FROM	   
+				            (	   
+				                SELECT 
+				                       MEET_CD, -- 경륜, 경정 구분코드
+				                	   BRNC_CD,	-- 지점 코드
+				                	   SUM(POOL_001) AS POOL_001,  -- 단승
+				                	   SUM(POOL_002) AS POOL_002,  -- 연승
+				                	   SUM(POOL_004) AS POOL_004,  -- 쌍승
+				                	   SUM(POOL_005) AS POOL_005,  -- 복승
+				                	   SUM(POOL_006) AS POOL_006,  -- 삼복승
+				                	   SUM(POOL_0012) AS POOL_0012,    -- 단승/연승
+				                	   SUM(POOL_00456) AS POOL_00456   -- 쌍,복,삼복
+				                FROM
+				                (	   
+				                    SELECT                                                                                               
+				                	     B.MEET_CD,
+				                	     A.SELL_CD,
+				                	     A.COMM_NO,
+				                	     A.DIV_NO,    
+				                	     CASE 
+				                	           WHEN A.SELL_CD = DECODE(?,'003','03','01') AND A.COMM_NO IN ('01','02','03','04','08') THEN '01'	-- 0:MEET_CD 경륜 구분 코드 
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '11' THEN '11'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '12' THEN '12'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '13' THEN '13'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '14' THEN '14'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '15' THEN '15'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '16' THEN '16'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '17' THEN '17'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '18' THEN '18'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '19' THEN '19'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '20' THEN '20'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '21' THEN '21'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '22' THEN '22'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '23' THEN '23'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '24' THEN '24'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '25' THEN '25'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '26' THEN '26'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '27' THEN '27'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '28' THEN '28'
+				                	           WHEN B.MEET_CD||A.SELL_CD IN ('00103','00203','00403') AND A.COMM_NO IN ('01','02','03','04','08') THEN '98'
+				                	           WHEN B.MEET_CD||A.SELL_CD IN ('00301') AND A.COMM_NO IN ('01','02','03','04','08') THEN '99'
+                                               WHEN A.SELL_CD IN('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' AND SUBSTR(B.MEET_CD,2,2)  = A.SELL_CD THEN '600'
+                                               WHEN A.SELL_CD IN('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' AND B.MEET_CD||A.SELL_CD IN ('00103','00203','00403') THEN '698'
+                                               WHEN A.SELL_CD IN('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' AND B.MEET_CD||A.SELL_CD IN ('00301') THEN '699'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '01' THEN '601'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '02' THEN '602'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '03' THEN '603'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '04' THEN '604'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '05' THEN '605'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '06' THEN '606'				                	           
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '07' THEN '607'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '08' THEN '608'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '09' THEN '609'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '10' THEN '610'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '11' THEN '611'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '12' THEN '612'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '13' THEN '613'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '14' THEN '614'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '15' THEN '615'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '16' THEN '616'
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '17' THEN '617'				                	           
+				                	           WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '18' THEN '618'
+				                    	 ELSE '600' 
+				                    	 END AS BRNC_CD,                              
+				                	     SUM(CASE WHEN POOL_CD='001' THEN A.NET_AMT ELSE 0 END) AS  POOL_001,   -- 단승                                             
+				                	     SUM(CASE WHEN POOL_CD='002' THEN A.NET_AMT ELSE 0 END) AS  POOL_002,   -- 연승                                            
+				                	     SUM(CASE WHEN POOL_CD='004' THEN A.NET_AMT ELSE 0 END) AS  POOL_004,   -- 쌍승
+				                	     SUM(CASE WHEN POOL_CD='005' THEN A.NET_AMT ELSE 0 END) AS  POOL_005,   -- 복승
+				                	     SUM(CASE WHEN POOL_CD='006' THEN A.NET_AMT ELSE 0 END) AS  POOL_006,   -- 삼복승
+				                	     SUM(CASE WHEN POOL_CD='001' THEN A.NET_AMT ELSE 0 END)+SUM(CASE WHEN POOL_CD='002' THEN A.NET_AMT ELSE 0 END) AS  POOL_0012,  -- 단승연승
+				                	     SUM(CASE WHEN POOL_CD='004' THEN A.NET_AMT ELSE 0 END)+SUM(CASE WHEN POOL_CD='005' THEN A.NET_AMT ELSE 0 END)+SUM(CASE WHEN POOL_CD='006' THEN A.NET_AMT ELSE 0 END) AS  POOL_00456  -- 단승연승
+				                	 FROM VW_SDL_INFO B,         -- 경주일                                                                                    
+				                	      VW_PC_SATLIT A       -- 총매출액                                                                                      
+				                	 WHERE 1 = 1                                                                                                       
+				                	     AND B.MEET_CD 	= ? -- 1:MEET_CD  	-- 경륜, 경정 구분 코드                                                                                    
+				                	     AND B.RACE_DAY = ? -- 2:RACE_DAY	-- 경주일                                                                                    
+				                	     AND A.STND_YEAR = B.STND_YEAR                                                                                 
+				                	     AND A.MEET_CD = B.MEET_CD                                                                                     
+				                	     AND A.STND_YEAR = B.STND_YEAR                                                                                 
+				                	     AND A.TMS = B.TMS                                                                                             
+				                	     AND A.DAY_ORD = B.DAY_ORD                                                                                     
+				                	GROUP BY B.MEET_CD,A.SELL_CD,A.COMM_NO,A.DIV_NO,B.MEET_CD||A.SELL_CD
+				                )AA	
+				                WHERE 1=1
+				                AND BRNC_CD <> 'X'		     
+				                GROUP BY AA.MEET_CD, AA.BRNC_CD
+				            )AAA,(SELECT LEVEL AS LEV FROM DUAL CONNECT BY LEVEL <=2) DU
+				            --S
+				            UNION ALL 
+                            SELECT  
+                                   1 LEV,
+                                   ? MEET_CD, -- 경륜, 경정 구분코드
+                                   CD BRNC_CD,  -- 지점 코드
+                                   0 POOL_001,  -- 단승
+                                   0 POOL_002,  -- 연승
+                                   0 POOL_004,  -- 쌍승
+                                   0 POOL_005,  -- 복승
+                                   0 POOL_006,  -- 삼복승
+                                   0 POOL_0012,    -- 단승/연승
+                                   0 POOL_00456   -- 쌍,복,삼복
+                              FROM  TBRK_SPEC_CD A  
+                             WHERE  1=1
+                               AND  A.GRP_CD = '018'         --그룹코드
+                               AND A.CD NOT IN('00','01','02','03','04','05','06','08','98')
+                             --E  
+                               
+				            )AAAA
+				            GROUP BY LEV,
+				                   MEET_CD, -- 경륜, 경정 구분코드
+				            	   BRNC_CD	-- 지점 코드
+				)BB,(SELECT  A.CD         --상세코드
+						    , A.CD_NM      --상세코드명
+				  FROM 	TBRK_SPEC_CD A  
+				 WHERE 	1=1
+				   AND  A.GRP_CD = '060'         --그룹코드
+				   AND A.CD NOT IN('00','01','02','03','04','05','06','08','98')
+				   ) CC -- 지점 이름
+				WHERE 1=1 
+				AND LEV <> '2'
+				AND BB.BRNC_CD=CC.CD(+)
+				ORDER BY BRNC_ORDER
+
+			                                                                                                                                                                                        
+        ]]>
+    </query>
+
+	<query id="rsm4031_s03" desc="지점별 매출액(합계)" fetchSize="10">
+        <![CDATA[        
+			 	SELECT /* rsm4031_s03 */
+			 			MEET_CD, -- 경륜, 경정 구분코드
+				       BRNC_CD,	-- 지점 코드	    
+				       CASE 
+				            WHEN BRNC_CD='00' THEN '지점계'
+				            WHEN BRNC_CD='01' THEN '본장'
+                            WHEN BRNC_CD='698' THEN '그린카드(미사리)'
+                            WHEN BRNC_CD='699' THEN '그린카드(광명)'
+				       ELSE
+				            CD_NM
+				       END AS CD_NM, -- 지점 이름
+				       POOL_001*100 AS POOL_001,  -- 단승
+				       POOL_002*100 AS POOL_002,  -- 연승
+				       POOL_004*100 AS POOL_004,  -- 쌍승
+				       POOL_005*100 AS POOL_005,  -- 복승
+				       POOL_006*100 AS POOL_006,  -- 삼복승
+				       POOL_0012*100 AS POOL_0012,    -- 단승/연승
+				       POOL_00456*100 AS POOL_00456,  -- 쌍,복,삼복
+				       BRNC_ORDER
+				FROM        	   
+				(        	   
+				        SELECT DECODE(BRNC_CD,null,'1',LEV) AS LEV,
+				               MEET_CD, -- 경륜, 경정 구분코드
+				        	   DECODE(BRNC_CD,null,'00',BRNC_CD) AS BRNC_CD,	-- 지점 코드	    
+				        	   DECODE(LEV,1,SUM(POOL_001),SUM(POOL_001))  AS POOL_001,  -- 단승
+				        	   DECODE(LEV,1,SUM(POOL_002),SUM(POOL_002))  AS POOL_002,  -- 연승
+				        	   DECODE(LEV,1,SUM(POOL_004),SUM(POOL_004))  AS POOL_004,  -- 쌍승
+				        	   DECODE(LEV,1,SUM(POOL_005),SUM(POOL_005))  AS POOL_005,  -- 복승
+				        	   DECODE(LEV,1,SUM(POOL_006),SUM(POOL_006))  AS POOL_006,  -- 삼복승
+				        	   DECODE(LEV,1,SUM(POOL_0012),SUM(POOL_0012))  AS POOL_0012,    -- 단승/연승
+				        	   DECODE(LEV,1,SUM(POOL_00456),SUM(POOL_00456))  AS POOL_00456,   -- 쌍,복,삼복
+				        	   DECODE(BRNC_CD,'14','15','15','14',BRNC_CD) AS BRNC_ORDER
+				        FROM
+				        (
+				            SELECT 
+				                    LEV,
+				                    MEET_CD, -- 경륜, 경정 구분코드
+				            	   CASE WHEN LEV='2' AND (BRNC_CD > '01' AND BRNC_CD < '600') THEN '' ELSE  BRNC_CD END AS BRNC_CD,	-- 지점 코드
+				            	   POOL_001,  -- 단승
+				            	   POOL_002,  -- 연승
+				            	   POOL_004,  -- 쌍승
+				            	   POOL_005,  -- 복승
+				            	   POOL_006,  -- 삼복승
+				            	   POOL_0012,    -- 단승/연승
+				            	   POOL_00456   -- 쌍,복,삼복
+				            FROM	   
+				            (	   
+				                SELECT 
+				                       MEET_CD, -- 경륜, 경정 구분코드
+				                	   BRNC_CD,	-- 지점 코드
+				                	   SUM(POOL_001) AS POOL_001,  -- 단승
+				                	   SUM(POOL_002) AS POOL_002,  -- 연승
+				                	   SUM(POOL_004) AS POOL_004,  -- 쌍승
+				                	   SUM(POOL_005) AS POOL_005,  -- 복승
+				                	   SUM(POOL_006) AS POOL_006,  -- 삼복승
+				                	   SUM(POOL_0012) AS POOL_0012,    -- 단승/연승
+				                	   SUM(POOL_00456) AS POOL_00456   -- 쌍,복,삼복
+				                FROM
+				                (	   
+				                    SELECT                                                                                               
+				                	     B.MEET_CD,
+				                	     A.SELL_CD,
+				                	     A.COMM_NO,
+				                	     A.DIV_NO,    
+				                	     CASE 
+				                	           WHEN A.SELL_CD = DECODE(?,'003','03','01') AND A.COMM_NO IN ('01','02','03','04','08') THEN '01'	-- 0:MEET_CD 경륜 구분 코드 
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '11' THEN '11'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '12' THEN '12'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '13' THEN '13'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '14' THEN '14'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '15' THEN '15'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '16' THEN '16'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '17' THEN '17'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '18' THEN '18'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '19' THEN '19'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '20' THEN '20'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '21' THEN '21'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '22' THEN '22'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '23' THEN '23'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '24' THEN '24'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '25' THEN '25'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '26' THEN '26'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '27' THEN '27'
+				                	           WHEN A.SELL_CD = '01' AND A.COMM_NO = '28' THEN '28'
+				                	           WHEN B.MEET_CD||A.SELL_CD IN ('00103','00203','00403') AND A.COMM_NO IN ('01','02','03','04','08') THEN '98'
+				                	           WHEN B.MEET_CD||A.SELL_CD IN ('00301') AND A.COMM_NO IN ('01','02','03','04','08') THEN '99'
+                                               --그린카드 부분 일반이랑 통합
+                                               WHEN A.SELL_CD IN('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' AND SUBSTR(B.MEET_CD,2,2)  = A.SELL_CD THEN '01'
+                                               WHEN A.SELL_CD IN('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' AND B.MEET_CD||A.SELL_CD IN ('00103','00203','00403') THEN '698'
+                                               WHEN A.SELL_CD IN('01','03') AND A.COMM_NO = '06' AND A.DIV_NO = '00' AND B.MEET_CD||A.SELL_CD IN ('00301') THEN '699'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '01' THEN '11'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '02' THEN '12'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '03' THEN '13'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '04' THEN '15'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '05' THEN '14'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '06' THEN '16'                                               
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '07' THEN '17'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '08' THEN '18'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '09' THEN '19'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '10' THEN '20'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '11' THEN '21'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '12' THEN '22'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '13' THEN '23'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '14' THEN '24'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '15' THEN '25'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '16' THEN '26'
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '17' THEN '27'                                               
+                                               WHEN A.SELL_CD IN('01') AND A.COMM_NO = '06' AND A.DIV_NO = '18' THEN '28'
+                                         ELSE 
+                                            '01' 
+                                         END AS BRNC_CD,                                   
+				                	     SUM(CASE WHEN POOL_CD='001' THEN A.NET_AMT ELSE 0 END) AS  POOL_001,   -- 단승                                             
+				                	     SUM(CASE WHEN POOL_CD='002' THEN A.NET_AMT ELSE 0 END) AS  POOL_002,   -- 연승                                            
+				                	     SUM(CASE WHEN POOL_CD='004' THEN A.NET_AMT ELSE 0 END) AS  POOL_004,   -- 쌍승
+				                	     SUM(CASE WHEN POOL_CD='005' THEN A.NET_AMT ELSE 0 END) AS  POOL_005,   -- 복승
+				                	     SUM(CASE WHEN POOL_CD='006' THEN A.NET_AMT ELSE 0 END) AS  POOL_006,   -- 삼복승
+				                	     SUM(CASE WHEN POOL_CD='001' THEN A.NET_AMT ELSE 0 END)+SUM(CASE WHEN POOL_CD='002' THEN A.NET_AMT ELSE 0 END) AS  POOL_0012,  -- 단승연승
+				                	     SUM(CASE WHEN POOL_CD='004' THEN A.NET_AMT ELSE 0 END)+SUM(CASE WHEN POOL_CD='005' THEN A.NET_AMT ELSE 0 END)+SUM(CASE WHEN POOL_CD='006' THEN A.NET_AMT ELSE 0 END) AS  POOL_00456  -- 단승연승
+				                	 FROM VW_SDL_INFO B,         -- 경주일                                                                                    
+				                	      VW_PC_SATLIT A       -- 총매출액                                                                                      
+				                	 WHERE 1 = 1                                                                                                       
+				                	     AND B.MEET_CD 	= ? -- 1:MEET_CD  	-- 경륜, 경정 구분 코드                                                                                    
+				                	     AND B.RACE_DAY = ? -- 2:RACE_DAY	-- 경주일                                                                                    
+				                	     AND A.STND_YEAR = B.STND_YEAR                                                                                 
+				                	     AND A.MEET_CD = B.MEET_CD                                                                                     
+				                	     AND A.STND_YEAR = B.STND_YEAR                                                                                 
+				                	     AND A.TMS = B.TMS                                                                                             
+				                	     AND A.DAY_ORD = B.DAY_ORD                                                                                     
+				                	GROUP BY B.MEET_CD,A.SELL_CD,A.COMM_NO,A.DIV_NO,B.MEET_CD||A.SELL_CD
+				                )AA	
+				                WHERE 1=1
+				                AND BRNC_CD <> 'X'		     
+				                GROUP BY AA.MEET_CD, AA.BRNC_CD
+				            )AAA,(SELECT LEVEL AS LEV FROM DUAL CONNECT BY LEVEL <=2) DU
+				            --S
+				            UNION ALL 
+                            SELECT  
+                                   1 LEV,
+                                   ? MEET_CD, -- 경륜, 경정 구분코드
+                                   CD BRNC_CD,  -- 지점 코드
+                                   0 POOL_001,  -- 단승
+                                   0 POOL_002,  -- 연승
+                                   0 POOL_004,  -- 쌍승
+                                   0 POOL_005,  -- 복승
+                                   0 POOL_006,  -- 삼복승
+                                   0 POOL_0012,    -- 단승/연승
+                                   0 POOL_00456   -- 쌍,복,삼복
+                              FROM  TBRK_SPEC_CD A  
+                             WHERE  1=1
+                               AND  A.GRP_CD = '018'         --그룹코드
+                               AND A.CD NOT IN('00','01','02','03','04','05','06','08','98')
+                             --E  
+                               
+				            )AAAA
+				            GROUP BY LEV,
+				                   MEET_CD, -- 경륜, 경정 구분코드
+				            	   BRNC_CD	-- 지점 코드
+				)BB,(SELECT  A.CD         --상세코드
+						    , A.CD_NM      --상세코드명
+				  FROM 	TBRK_SPEC_CD A  
+				 WHERE 	1=1
+				   AND  A.GRP_CD = '060'         --그룹코드
+				   AND A.CD NOT IN('00','01','02','03','04','05','06','08','98')
+				   ) CC -- 지점 이름
+				WHERE 1=1 
+				AND LEV <> '2'
+				AND BB.BRNC_CD=CC.CD(+)
+				ORDER BY BRNC_ORDER
+
+			                                                                                                                                                                                        
+        ]]>
+    </query>
+    
+    
+    <query id="rsm4031_s02(X)" desc="지점별 매출액" fetchSize="10">
+        <![CDATA[        
+			 SELECT   /* rsm4031_s02 */                                                                                            
+			     B.MEET_CD,                                                                                                     
+			     SUM(CASE WHEN POOL_CD='001' THEN A.NET_AMT END)*100 AS B1,                                             
+			     SUM(CASE WHEN POOL_CD='002' THEN A.NET_AMT END)*100 AS B2,                                             
+			     SUM(CASE WHEN POOL_CD='004' THEN A.NET_AMT END)*100 AS B4,                                             
+			     SUM(CASE WHEN POOL_CD='005' THEN A.NET_AMT END)*100 AS B5,                                             
+			     SUM(CASE WHEN POOL_CD='006' THEN A.NET_AMT END)*100 AS B6,                                             
+			     SUM(CASE WHEN COMM_NO = '07' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS C1,                                                          
+			     SUM(CASE WHEN COMM_NO = '07' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  C2,                                                          
+			     SUM(CASE WHEN COMM_NO = '07' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  C4,                                                          
+			     SUM(CASE WHEN COMM_NO = '07' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  C5,                                                          
+			     SUM(CASE WHEN COMM_NO = '07' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  C6,                                                          	    
+			     SUM( CASE WHEN SELL_CD IN('01','03') AND COMM_NO NOT IN('06','07') AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  D1,  
+			     SUM( CASE WHEN SELL_CD IN('01','03') AND COMM_NO NOT IN('06','07') AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  D2,  
+			     SUM( CASE WHEN SELL_CD IN('01','03') AND COMM_NO NOT IN('06','07') AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  D4,  
+			     SUM( CASE WHEN SELL_CD IN('01','03') AND COMM_NO NOT IN('06','07') AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  D5,  
+			     SUM( CASE WHEN SELL_CD IN('01','03') AND COMM_NO NOT IN('06','07') AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  D6,  
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '01' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  E1,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '01' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  E2,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '01' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  E4,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '01' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  E5,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '01' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  E6,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '02' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  F1,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '02' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  F2,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '02' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  F4,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '02' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  F5,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '02' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  F6,   
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '03' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  G1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '03' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  G2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '03' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  G4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '03' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  G5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '03' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  G6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '04' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  H1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '04' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  H2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '04' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  H4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '04' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  H5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '04' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  H6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '05' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  I1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '05' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  I2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '05' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  I4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '05' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  I5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '05' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  I6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '06' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  J1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '06' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  J2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '06' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  J4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '06' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  J5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '06' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  J6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '07' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  K1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '07' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  K2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '07' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  K4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '07' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  K5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '07' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  K6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '08' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  L1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '08' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  L2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '08' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  L4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '08' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  L5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '08' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  L6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '09' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  M1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '09' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  M2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '09' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  M4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '09' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  M5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '09' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  M6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '10' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  N1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '10' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  N2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '10' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  N4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '10' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  N5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '10' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  N6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '11' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  O1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '11' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  O2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '11' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  O4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '11' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  O5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '11' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  O6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '12' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  P1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '12' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  P2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '12' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  P4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '12' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  P5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '12' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  P6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '13' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  Q1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '13' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  Q2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '13' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  Q4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '13' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  Q5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '13' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  Q6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '14' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  R1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '14' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  R2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '14' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  R4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '14' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  R5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '14' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  R6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '15' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  S1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '15' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  S2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '15' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  S4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '15' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  S5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '15' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  S6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '16' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  T1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '16' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  T2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '16' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  T4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '16' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  T5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '16' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  T6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '17' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  U1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '17' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  U2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '17' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  U4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '17' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  U5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '17' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  U6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '18' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  V1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '18' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  V2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '18' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  V4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '18' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  V5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '07' AND DIV_NO = '18' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  V6,                     
+			     SUM(CASE WHEN SELL_CD IN('01','03') AND COMM_NO = '06' AND DIV_NO = '00' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  W1,                     
+			     SUM(CASE WHEN SELL_CD IN('01','03') AND COMM_NO = '06' AND DIV_NO = '00' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  W2,                     
+			     SUM(CASE WHEN SELL_CD IN('01','03') AND COMM_NO = '06' AND DIV_NO = '00' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  W4,                     
+			     SUM(CASE WHEN SELL_CD IN('01','03') AND COMM_NO = '06' AND DIV_NO = '00' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  W5,                     
+			     SUM(CASE WHEN SELL_CD IN('01','03') AND COMM_NO = '06' AND DIV_NO = '00' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  W6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  X1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  X2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  X4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  X5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '15' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  X6,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17' AND POOL_CD='001' THEN A.NET_AMT END)*100 AS  Y1,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17' AND POOL_CD='002' THEN A.NET_AMT END)*100 AS  Y2,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17' AND POOL_CD='004' THEN A.NET_AMT END)*100 AS  Y4,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17' AND POOL_CD='005' THEN A.NET_AMT END)*100 AS  Y5,                     
+			     SUM(CASE WHEN SELL_CD = '01' AND COMM_NO = '06' AND DIV_NO = '17' AND POOL_CD='006' THEN A.NET_AMT END)*100 AS  Y6                      
+			 FROM VW_SDL_INFO B,         -- 경주일                                                                                    
+			      VW_PC_SATLIT A       -- 총매출액                                                                                      
+			 WHERE 1 = 1                                                                                                       
+			     AND B.MEET_CD 	= ? -- 0:MEET_CD  	-- 경륜, 경정 구분 코드                                                                                    
+			     AND B.RACE_DAY = ? -- 1:RACE_DAY	-- 경주일                                                                                    
+			     AND A.STND_YEAR = B.STND_YEAR                                                                                 
+			     AND A.MEET_CD = B.MEET_CD                                                                                     
+			     AND A.STND_YEAR = B.STND_YEAR                                                                                 
+			     AND A.TMS = B.TMS                                                                                             
+			     AND A.DAY_ORD = B.DAY_ORD                                                                                     
+			 GROUP BY B.MEET_CD, B.STND_YEAR                                                                                                                                                                                        
+        ]]>
+    </query>
+</queryMap>

@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM2080(경정상황일지)">
+	<query id="rsm2080_s01" desc="경주 기본 정보" fetchSize="10">
+        <![CDATA[
+        	SELECT	/* rsm2080_s01 */ 
+        		AA.MEET_CD,      -- 경륜장코드    
+        		DECODE(AA.MEET_CD,'003','경정','경륜') AS MEET_CD_NM,          
+		        AA.STND_YEAR,    -- 기준년도    
+		        AA.TMS,          -- 회차
+		        AA.DAY_ORD,      -- 일차
+		        AA.RACE_DAY,     -- 경주일          
+		        AA.RACE_YOIL,    -- 요일       
+		        TO_CHAR(TO_DATE(AA.RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD')||
+		        ' ('||AA.RACE_YOIL_KOR||') '||AA.TMS||'회차 '||AA.DAY_ORD||'일차'  
+		        AS RACE_INFO,  -- 경주 정보                          
+			    C.PREV_STND_YEAR,
+                AA.STND_YEAR -1 AS PREV_YEAR,
+                C.PREV_TMS   
+			   FROM (        	  
+			           SELECT                              
+						        MEET_CD,      -- 경륜장코드              
+						        STND_YEAR,    -- 기준년도    
+						        TMS,          -- 회차
+						        DAY_ORD,      -- 일차
+						        RACE_DAY,     -- 경주일          
+						        RACE_YOIL,    -- 요일
+						        DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') AS RACE_YOIL_KOR, -- 요일 
+						        TO_CHAR(TO_DATE(RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD')||
+						        ' ('||RACE_YOIL||') '||TMS||'회차 '||DAY_ORD||'일차'  
+						        AS RACE_INFO  -- 경주 정보                                 
+						 FROM                                
+						        VW_SDL_INFO      -- 경주일 정보            
+						 WHERE  1=1                             
+					        AND RACE_DAY = ?
+					        AND MEET_CD IN ('001','003')
+			         )AA,
+	                ( 
+		                SELECT   STND_YEAR AS PREV_STND_YEAR
+		                              , TMS AS PREV_TMS
+		                FROM (
+				                SELECT STND_YEAR, TMS, 
+				                            ROW_NUMBER() OVER(ORDER BY ABS(RACE_DAY-TO_CHAR(SYSDATE,'YYYYMMDD'))) AS RN
+				                FROM VW_SDL_INFO
+				                WHERE MEET_CD = (SELECT MEET_CD FROM VW_SDL_INFO WHERE RACE_DAY = ? AND MEET_CD IN ('001','003'))         
+				                AND   RACE_DAY <= ?
+				                AND   DAY_ORD = '1'
+		                     )
+		                WHERE RN = 2
+	                ) C
+				         
+        ]]>
+    </query>
+    
+	<query id="rsm2080_s02" desc="기상 정보 조회" fetchSize="10">
+        <![CDATA[
+        	SELECT	/* rsm2080_s02 */
+        	        CASE WHEN NROW=1 THEN DAY_ORD||'일차기상'
+        	             ELSE DAY_ORD||'일차(예상)'  END AS DAY_DESC
+        	       ,WEATHER
+        	       ,TEMP
+        	       ,WIN_DIRT
+        	       ,WIN_SPEED
+        	       ,WATR_TEMP
+        	       ,INPT_TIME     
+        	       ,RACE_DAY
+        	FROM  (
+        	    SELECT
+	        	        ROWNUM AS NROW
+	        	       ,A.WEATHER
+	                   ,B.RACE_DAY                  --경주일자
+	                   ,B.DAY_ORD
+	                   ,A.TEMP                      --온도
+	                   ,A.WIN_DIRT                  --풍향
+	                   ,A.WIN_SPEED                 --풍속
+	                   ,A.WATR_TEMP                 --수온
+	                   ,A.INPT_TIME                 --기준시간
+	             FROM TBRD_WEATHER A, VW_SDL_INFO B
+	            WHERE B.MEET_CD       = ?
+	                AND B.STND_YEAR   = ?
+	                AND B.TMS         = ?
+	                AND B.RACE_DAY   >= ?
+	                AND A.RACE_DAY(+) = B.RACE_DAY
+                UNION ALL                    
+                SELECT
+                        2 AS NROW
+                       ,A.WEATHER
+                       ,A.RACE_DAY                  --경주일자
+                       ,2
+                       ,A.TEMP                      --온도
+                       ,A.WIN_DIRT                  --풍향
+                       ,A.WIN_SPEED                 --풍속
+                       ,A.WATR_TEMP                 --수온
+                       ,A.INPT_TIME                 --기준시간
+                 FROM TBRD_WEATHER A
+                WHERE A.RACE_DAY   =  ? +1
+                  AND 1 = ?	                
+                   )	
+             ORDER BY NROW      		         
+        ]]>
+    </query>
+    
+    <query id="rsm2080_s03" desc="경주상황 조회" fetchSize="10">
+        <![CDATA[
+	          SELECT /* rsm2080_s03 */
+	          		B.MEET_CD                   --경륜장코드
+			       ,B.STND_YEAR                 --기준년도
+			       ,B.TMS                       --회차
+			       ,B.DAY_ORD                   --일차
+			       ,A.SPEC_DESC                 --특이사항
+			       ,A.INST_ID                   --작성자
+			       ,A.INST_DT                   --작성일자
+			       ,A.UPDT_ID                   --수정자
+			       ,A.UPDT_DT                   --수정일자
+			       ,A.RACE_CNTNT                --경주상황
+			       ,TRIM(TO_CHAR(A.PARKING_CNT,'999,999')) AS PARKING_CNT   --본장 주차대수
+			       ,(SELECT TRIM(TO_CHAR(PARKING_CNT, '999,999,999')) 
+			         FROM   TBRD_RACE_SPEC_DESC C, VW_SDL_INFO V  
+			         WHERE  C.MEET_CD   = B.MEET_CD
+			           AND  C.STND_YEAR = ?
+			           AND  C.TMS       = ?
+                       AND  C.MEET_CD   = V.MEET_CD
+                       AND  C.STND_YEAR = V.STND_YEAR
+                       AND  C.TMS       = V.TMS
+                       AND  C.DAY_ORD   = V.DAY_ORD
+                       AND  RACE_YOIL = TO_CHAR (TO_DATE (?, 'YYYYMMDD'),
+                                           'DY',
+                                           'NLS_DATE_LANGUAGE = ENGLISH'
+                                         )) AS PREV_PARKING_CNT	--이전회차 본장 주차대수
+			 FROM TBRD_RACE_SPEC_DESC  A, VW_SDL_INFO B
+            WHERE B.MEET_CD     = ?
+              AND B.STND_YEAR   = ?
+              AND B.TMS         = ?
+              AND B.DAY_ORD     = ?
+              AND B.MEET_CD     = A.MEET_CD(+)
+              AND B.STND_YEAR   = A.STND_YEAR(+)
+              AND B.TMS 		= A.TMS(+)
+              AND B.DAY_ORD		= A.DAY_ORD(+)    	
+        ]]>
+    </query>
+
+    
+    <query id="rsm2080_s04" desc="매출정보 조회" fetchSize="10">
+        <![CDATA[
+		    SELECT  /* rsm2080_s04 */
+                    DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') YOIL_NM,
+		            A.CUR_YEAR_PRV_TMS,
+		            A.CUR_YEAR_CUR_TMS,
+		            A.CUR_YEAR_CUR_TMS - A.CUR_YEAR_PRV_TMS AS CUR_YEAR_DIFF,
+		            TO_CHAR(ROUND((A.CUR_YEAR_CUR_TMS - A.CUR_YEAR_PRV_TMS)/A.CUR_YEAR_PRV_TMS*100,1))||'%' AS CUR_YEAR_DIFF_RATE,
+		            A.PRV_YEAR_CUR_TMS,
+		            A.CUR_YEAR_CUR_TMS - A.PRV_YEAR_CUR_TMS AS PRV_YEAR_DIFF,                                  
+		            TO_CHAR(ROUND((A.CUR_YEAR_CUR_TMS - A.PRV_YEAR_CUR_TMS)/A.PRV_YEAR_CUR_TMS*100,1))||'%' AS PRV_YEAR_DIFF_RATE
+		   	FROM (
+		            SELECT D.MEET_CD,
+                           V.RACE_YOIL,
+                           TO_CHAR(TO_DATE(V.RACE_DAY, 'YYYYMMDD'),'D') AS ORDR,
+		                   ROUND(SUM(CASE WHEN D.STND_YEAR = ?   AND D.TMS =? THEN DIV_TOTAL END)/1000000) CUR_YEAR_PRV_TMS,            
+		                   ROUND(SUM(CASE WHEN D.STND_YEAR = ?   AND D.TMS =? THEN DIV_TOTAL END)/1000000) CUR_YEAR_CUR_TMS,            
+		                   ROUND(SUM(CASE WHEN D.STND_YEAR = ?-1 AND D.TMS =? THEN DIV_TOTAL END)/1000000) PRV_YEAR_CUR_TMS           
+		            FROM VW_SDL_DT_SUM D, VW_SDL_INFO V
+		            WHERE D.MEET_CD = ?
+		            AND   D.STND_YEAR BETWEEN (?-1) AND ?
+                    AND   D.MEET_CD   = V.MEET_CD
+                    AND   D.STND_YEAR = V.STND_YEAR
+                    AND   D.TMS       = V.TMS
+                    AND   D.DAY_ORD   = V.DAY_ORD
+                    AND   V.RACE_YOIL IN (SELECT A.RACE_YOIL 
+                                          FROM   VW_SDL_INFO A, VW_SDL_INFO B 
+                                          WHERE  A.MEET_CD   = B.MEET_CD
+                                          AND    A.STND_YEAR = B.STND_YEAR
+                                          AND    A.TMS       = B.TMS 
+                                          AND    B.RACE_DAY  = ?)
+                    AND   TO_CHAR(TO_DATE(V.RACE_DAY, 'YYYYMMDD'),'D') <= TO_CHAR(TO_DATE(?,'YYYYMMDD'),'D')	            
+		            GROUP BY D.MEET_CD, V.RACE_YOIL, TO_CHAR(TO_DATE(V.RACE_DAY, 'YYYYMMDD'),'D')
+		           ) A
+			ORDER BY ORDR        
+                                                          			
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2080_s04_Today" desc="매출정보 조회(당일)" fetchSize="10">
+        <![CDATA[
+		    SELECT  /* rsm2080_s04 */
+                    DECODE(RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') YOIL_NM,
+		            A.CUR_YEAR_PRV_TMS,
+		            A.CUR_YEAR_CUR_TMS,
+		            A.CUR_YEAR_CUR_TMS - A.CUR_YEAR_PRV_TMS AS CUR_YEAR_DIFF,
+		            TO_CHAR(ROUND((A.CUR_YEAR_CUR_TMS - A.CUR_YEAR_PRV_TMS)/A.CUR_YEAR_PRV_TMS*100,1))||'%' AS CUR_YEAR_DIFF_RATE,
+		            A.PRV_YEAR_CUR_TMS,
+		            A.CUR_YEAR_CUR_TMS - A.PRV_YEAR_CUR_TMS AS PRV_YEAR_DIFF,                                  
+		            TO_CHAR(ROUND((A.CUR_YEAR_CUR_TMS - A.PRV_YEAR_CUR_TMS)/A.PRV_YEAR_CUR_TMS*100,1))||'%' AS PRV_YEAR_DIFF_RATE
+		   	FROM (
+		            SELECT D.MEET_CD,
+                           V.RACE_YOIL,
+                           TO_CHAR(TO_DATE(V.RACE_DAY, 'YYYYMMDD'),'D') AS ORDR,
+		                   ROUND(SUM(CASE WHEN D.STND_YEAR = ?   AND D.TMS =? THEN DIV_TOTAL END)/1000000) CUR_YEAR_PRV_TMS,            
+		                   ROUND(SUM(CASE WHEN D.STND_YEAR = ?   AND D.TMS =? THEN DIV_TOTAL END)/1000000) CUR_YEAR_CUR_TMS,            
+		                   ROUND(SUM(CASE WHEN D.STND_YEAR = ?-1 AND D.TMS =? THEN DIV_TOTAL END)/1000000) PRV_YEAR_CUR_TMS           
+		            FROM  TBES_SDL_DT D, VW_SDL_INFO V
+		            WHERE D.MEET_CD = ?
+		            AND   D.STND_YEAR BETWEEN (?-1) AND ?
+                    AND   D.MEET_CD   = V.MEET_CD
+                    AND   D.STND_YEAR = V.STND_YEAR
+                    AND   D.TMS       = V.TMS
+                    AND   D.DAY_ORD   = V.DAY_ORD
+                    AND   V.RACE_YOIL IN (SELECT A.RACE_YOIL 
+                                          FROM   VW_SDL_INFO A, VW_SDL_INFO B 
+                                          WHERE  A.MEET_CD   = B.MEET_CD
+                                          AND    A.STND_YEAR = B.STND_YEAR
+                                          AND    A.TMS       = B.TMS 
+                                          AND    B.RACE_DAY  = ?)
+                    AND   TO_CHAR(TO_DATE(V.RACE_DAY, 'YYYYMMDD'),'D') <= TO_CHAR(TO_DATE(?,'YYYYMMDD'),'D')	            
+		            GROUP BY D.MEET_CD, V.RACE_YOIL,TO_CHAR(TO_DATE(V.RACE_DAY, 'YYYYMMDD'),'D')
+		           ) A
+			ORDER BY ORDR
+			                       			
+        ]]>
+    </query>
+       
+       
+    <query id="rsm2080_s05" desc="입장인원 조회" fetchSize="10">
+        <![CDATA[
+		    /* rsm2080_s05 */
+			WITH X AS
+			(
+			    SELECT 'THIS' AS GBN
+			          ,SUM(CASE WHEN BRNC_CD = '98' THEN ENT_PRSN_NUM END) AS BRNC_BONJANG
+			          ,SUM(ENT_PRSN_NUM) AS BRNC_ETC 
+			    FROM VWRC_STAY_MANA_TSUM A, VW_SDL_INFO V
+			    WHERE A.MEET_CD =  '003' 
+			    AND   A.RACE_DT = ?
+			    AND   A.RACE_DT = V.RACE_DAY
+			    UNION ALL
+			    SELECT 'PREV' GBN
+			          ,SUM(CASE WHEN BRNC_CD = '98' THEN ENT_PRSN_NUM END) AS BRNC_BONJANG
+			          ,SUM(ENT_PRSN_NUM) AS BRNC_ETC
+			    FROM VWRC_STAY_MANA_TSUM A
+			    WHERE A.MEET_CD =  '003' 
+			    AND   A.RACE_DT = (
+			                SELECT RACE_DAY
+			                FROM VW_SDL_INFO
+			                WHERE RACE_DAY BETWEEN TO_CHAR(TO_DATE(?,'YYYYMMDD') -7,'YYYYMMDD') AND TO_CHAR(TO_DATE(?,'YYYYMMDD') -1, 'YYYYMMDD')
+			                AND   MEET_CD = '003'
+			                AND   RACE_YOIL = TO_CHAR (TO_DATE (?, 'YYYYMMDD'),
+			                                           'DY',
+			                                           'NLS_DATE_LANGUAGE = ENGLISH'
+			                                         )
+			                       )    
+			)
+			SELECT  BRNC_TYPE
+			       ,ENT_PRSN_THIS
+			       ,ENT_PRSN_PREV
+			       ,(ENT_PRSN_THIS - ENT_PRSN_PREV) AS ENT_PRSN_DIFF
+			       ,TO_CHAR(ROUND((ENT_PRSN_THIS - ENT_PRSN_PREV)/ENT_PRSN_PREV*100,1),'99.9')||'%' AS ENT_PRSN_DIFF_RATE
+			FROM (
+			    SELECT '01' AS BRNC_TYPE
+			           ,SUM(CASE WHEN GBN = 'THIS' THEN  BRNC_BONJANG END) AS ENT_PRSN_THIS
+			           ,SUM(CASE WHEN GBN = 'PREV' THEN  BRNC_BONJANG END) AS ENT_PRSN_PREV
+			    FROM X
+			    UNION ALL
+			    SELECT '00' AS BRNC_TYPE
+			           ,SUM(CASE WHEN GBN = 'THIS' THEN  BRNC_ETC END) AS ENT_PRSN_THIS
+			           ,SUM(CASE WHEN GBN = 'PREV' THEN  BRNC_ETC END) AS ENT_PRSN_PREV
+			    FROM X
+			    )
+                ORDER BY BRNC_TYPE DESC                                                          			
+        ]]>
+    </query>
+       
+    <query id="rsm2080_s06" desc="최고 매출액 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2080_s06 */
+			        RACE_NO 
+			       ,DIV_TOTAL
+			FROM  (           
+			            SELECT RACE_NO, SUM(DIV_TOTAL) DIV_TOTAL
+			            FROM TBES_SDL_DT
+			            WHERE MEET_CD = ?
+			            AND STND_YEAR = ?
+			            AND TMS = ?
+			            AND DAY_ORD = ?
+			            GROUP BY RACE_NO
+			            ORDER BY 2 DESC
+			       )
+			WHERE ROWNUM = 1                              			
+        ]]>
+    </query>
+       
+    <query id="rsm2080_s07" desc="환불액 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2080_s07 */
+			       TO_CHAR(TO_NUMBER(RACE_NO))||'경주' AS RACE_NO
+			      ,ROUND(SUM(REFUND)/1000000) AS REFUND
+			FROM TBES_SDL_DT A
+			WHERE MEET_CD   = ?
+			AND   STND_YEAR = ?
+			AND   TMS       = ?
+			AND   DAY_ORD   = ?
+			AND   REFUND > 0
+			GROUP BY RACE_NO       
+			ORDER BY TO_NUMBER(A.RACE_NO)                             			
+        ]]>
+    </query>
+       
+       
+    <query id="rsm2080_u01" desc="기상정보 저장" fetchSize="10">
+        <![CDATA[
+			MERGE  /* rsm2080_u01 */
+			       INTO TBRD_WEATHER DST
+	 		   USING (
+		 		       SELECT  ? AS RACE_DAY
+		 		              ,? AS WEATHER
+		 		              ,? AS TEMP
+		 		              ,? AS WIN_DIRT
+		 		              ,? AS WIN_SPEED
+		 		              ,? AS WATR_TEMP
+		 		              ,? AS INPT_TIME
+		 		              ,? AS USER_ID
+		 		        FROM  DUAL      
+					 ) SRC
+					 ON (
+					 		DST.RACE_DAY = SRC.RACE_DAY
+					 ) 
+					 WHEN MATCHED THEN
+					 	UPDATE SET
+					 	        DST.WEATHER = SRC.WEATHER
+					 	       ,DST.TEMP    = SRC.TEMP
+					 	       ,DST.WIN_DIRT = SRC.WIN_DIRT
+					 	       ,DST.WIN_SPEED = SRC.WIN_SPEED
+					 	       ,DST.WATR_TEMP = SRC.WATR_TEMP
+					 	       ,DST.INPT_TIME = SRC.INPT_TIME
+					 	       ,DST.UPDT_ID   = SRC.USER_ID
+					 	       ,DST.UPDT_DT   = SYSDATE
+					 WHEN NOT MATCHED THEN
+					 	INSERT ( 	
+					 	        RACE_DAY
+					 	       ,WEATHER
+					 	       ,TEMP
+					 	       ,WIN_DIRT
+					 	       ,WIN_SPEED
+					 	       ,WATR_TEMP
+					 	       ,INPT_TIME
+					 	       ,INST_ID
+					 	       ,INST_DT
+					 	       ) VALUES (
+					 	        SRC.RACE_DAY
+					 	       ,SRC.WEATHER
+					 	       ,SRC.TEMP
+					 	       ,SRC.WIN_DIRT
+					 	       ,SRC.WIN_SPEED
+					 	       ,SRC.WATR_TEMP
+					 	       ,SRC.INPT_TIME
+					 	       ,SRC.USER_ID
+					 	       ,SYSDATE
+					 	       )
+     
+                ]]>
+    </query>
+      
+    <query id="rsm2080_u02" desc="경주상황, 특이사항 저장" fetchSize="10">
+        <![CDATA[
+			MERGE  /* rsm2080_u01 */
+			       INTO TBRD_RACE_SPEC_DESC DST
+	 		   USING (
+		 		       SELECT  ? AS MEET_CD
+		 		              ,? AS STND_YEAR
+		 		              ,? AS TMS
+		 		              ,? AS DAY_ORD
+		 		              ,? AS SPEC_DESC
+		 		              ,? AS RACE_CNTNT
+		 		              ,? AS PARKING_CNT
+		 		              ,? AS USER_ID
+		 		        FROM  DUAL      
+					 ) SRC
+					 ON (
+					 		DST.MEET_CD   = SRC.MEET_CD
+					 	AND DST.STND_YEAR = SRC.STND_YEAR
+					 	AND DST.TMS       = SRC.TMS
+					 	AND DST.DAY_ORD   = SRC.DAY_ORD
+					 ) 
+					 WHEN MATCHED THEN
+					 	UPDATE SET
+					 	        DST.SPEC_DESC   = SRC.SPEC_DESC
+					 	       ,DST.RACE_CNTNT  = SRC.RACE_CNTNT
+					 	       ,DST.PARKING_CNT = SRC.PARKING_CNT
+					 	       ,DST.UPDT_ID     = SRC.USER_ID
+					 	       ,DST.UPDT_DT     = SYSDATE
+					 WHEN NOT MATCHED THEN
+					 	INSERT ( 	
+					 	        MEET_CD
+					 	       ,STND_YEAR
+					 	       ,TMS
+					 	       ,DAY_ORD
+					 	       ,SPEC_DESC
+					 	       ,RACE_CNTNT
+					 	       ,PARKING_CNT
+					 	       ,INST_ID
+					 	       ,INST_DT
+					 	       ) VALUES (
+					 	        SRC.MEET_CD
+					 	       ,SRC.STND_YEAR
+					 	       ,SRC.TMS
+					 	       ,SRC.DAY_ORD
+					 	       ,SRC.SPEC_DESC
+					 	       ,SRC.RACE_CNTNT
+					 	       ,SRC.PARKING_CNT
+					 	       ,SRC.USER_ID
+					 	       ,SYSDATE
+					 	       )
+     
+                ]]>
+    </query>
+    
+    <query id="rsm2080_d01" desc="기상정보 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  /* rsm2080_d01 */
+			       FROM TBRD_WEATHER
+	 		WHERE  RACE_DAY = ?     
+                ]]>
+    </query>
+    
+</queryMap>

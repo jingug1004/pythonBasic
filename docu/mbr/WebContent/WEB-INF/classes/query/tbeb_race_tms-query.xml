@@ -1,0 +1,1240 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_race_tms(경주회차)">
+    <query id="tbeb_race_tms_fb001" desc="경주회차조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbeb_race_tms_fb001 IWORK_SFR-010 SFR-010 대상경주 매핑 정보 추가. */
+			         TRT.STND_YEAR
+			       , TRT.MBR_CD
+			       , TRT.TMS
+                   , (
+                        SELECT COUNT(*)
+                        FROM   TBEB_RACE_DAY_ORD TRDO
+                        WHERE  TRDO.STND_YEAR = TRT.STND_YEAR
+                        AND    TRDO.MBR_CD    = TRT.MBR_CD   
+                        AND    TRDO.TMS       = TRT.TMS      
+                     ) DAY_ORD_CNT
+			       , TR.RACE_CNT
+			       , TR.NORMAL_CNT
+			       , TR.FAIL_CNT
+			       , TR.CANCEL_CNT
+			       , TRT.TMS_NM
+			       , TRT.QURT_CD
+			       , TRT.MONTH
+			       , TRT.STR_DT
+			       , TRT.END_DT
+			       , TRT.CFRNT_CD
+			       , TRT.ARRANGE_TPE_CD
+			       , TRT.RMK
+			       , TRT.RACE_TMS_STAT_CD
+				   , TRT.ARRANGE_CMPL_YN
+				   , TRT.EQUIP_DRWLT_CMPL_YN
+			       , TCM.RACE_KINDS_CD
+			       , TRT.PRIZ_RACE_GRP_CD
+			       , TRT.PRIZ_DAY_ORD
+			       , TRT.PRIZ_RACE_NO
+			FROM     TBEB_RACE_TMS   TRT
+			       , TBEB_CFRNT_METH TCM
+				   , (SELECT   TR.STND_YEAR
+				             , TR.MBR_CD
+				             , TR.TMS
+				             , COUNT(*) RACE_CNT
+				             , SUM(DECODE(TR.RACE_STTS_CD, '001', 1, 0)) NORMAL_CNT
+				             , SUM(DECODE(TR.RACE_STTS_CD, '002', 1, 0)) FAIL_CNT
+				             , SUM(DECODE(TR.RACE_STTS_CD, '003', 1, 0)) CANCEL_CNT
+                        FROM   TBEB_RACE TR
+						GROUP BY TR.STND_YEAR
+				               , TR.MBR_CD
+				               , TR.TMS
+				      ) TR
+			WHERE  TRT.CFRNT_CD  = TCM.CFRNT_CD(+)
+			AND    TRT.STND_YEAR = TR.STND_YEAR
+			AND    TRT.MBR_CD    = TR.MBR_CD
+			AND    TRT.TMS       = TR.TMS
+			AND    TRT.STND_YEAR = ?
+			AND    TRT.MBR_CD    = ?
+			AND    TRT.TMS       = NVL(?, TRT.TMS)
+			ORDER BY TRT.STND_YEAR
+			       , TRT.TMS DESC
+        ]]>
+    </query> 
+    
+    <query id="tbeb_race_tms_fb003" desc="경주 상태 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb003 */
+			        NVL(RACE_TMS_STAT_CD, '000') AS RACE_TMS_STAT_CD
+			FROM    TBEB_RACE_TMS 
+			WHERE   STND_YEAR = ?
+			AND     MBR_CD    = ?        -- 경정장코드
+			AND     TMS       = ?
+        ]]>
+    </query> 
+    
+    <query id="tbeb_race_tms_fb004" desc="추첨장비 확정 상태 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb003 */
+			        NVL(EQUIP_DRWLT_CMPL_YN, 'N') AS EQUIP_DRWLT_CMPL_YN
+			FROM    TBEB_RACE_TMS 
+			WHERE   STND_YEAR = ?
+			AND     MBR_CD    = ?        -- 경정장코드
+			AND     TMS       = ?
+        ]]>
+    </query> 
+    
+    <query id="tbeb_race_tms_ib001" desc="경주회차저장" fetchSize="10">
+        <![CDATA[
+        	/* tbeb_race_tms_ib001 IWORK_SFR-010 SFR-010 경정 경주분석 메뉴 신설. */
+			INSERT INTO TBEB_RACE_TMS
+			(
+			        STND_YEAR             -- 기준년도  
+			      , MBR_CD                -- 경정장코드
+			      , TMS                   -- 회차      
+			      , TMS_NM                -- 회차명
+			      , QURT_CD               -- 분기
+			      , MONTH                 -- 월        
+			      , STR_DT                -- 시작일자  
+			      , END_DT                -- 종료일자  
+			      , CFRNT_CD              -- 대진코드  
+			      , ARRANGE_TPE_CD        -- 주선종류코드      
+			      , RMK                   -- 비고      
+			      , RACE_TMS_STAT_CD      -- 경주회차상태코드
+			      , INST_ID               -- 작성자ID  
+			      , INST_DTM              -- 작성일시  
+			      , UPDT_ID               -- 수정자ID  
+			      , UPDT_DTM              -- 수정일시  
+			      , PRIZ_RACE_GRP_CD	  -- 대상 경주그룹코드
+				  , PRIZ_DAY_ORD		  -- 대상경주 일차
+				  , PRIZ_RACE_NO		  -- 대상경주번호
+			) VALUES (
+			        ?                     -- 기준년도  
+			      , ?                     -- 경정장코드
+			      , ?                     -- 회차      
+			      , ?                     -- 회차명
+			      , ?                     -- 분기
+			      , ?                     -- 월        
+			      , ?                     -- 시작일자  
+			      , ?                     -- 종료일자  
+			      , ?                     -- 대진코드  
+			      , ?                     -- 주선종류코드      
+			      , ?                     -- 비고      
+			      , ?                     -- 경주회차상태코드
+			      , ?                     -- 작성자ID  
+			      , SYSDATE               -- 작성일시  
+			      , ?                     -- 수정자ID  
+			      , SYSDATE               -- 수정일시  
+			      , ?					  -- 대상 경주그룹코드
+			      , ?					  -- 대상경주 일차
+			      , ?					  -- 대상경주번호
+			)
+        ]]>
+    </query> 
+    <query id="tbeb_race_tms_ub001" desc="경주회차수정" fetchSize="10">
+        <![CDATA[
+        	/* tbeb_race_tms_ub001 IWORK_SFR-010 SFR-010 경정 경주분석 메뉴 신설. */
+			UPDATE TBEB_RACE_TMS SET
+			        TMS_NM               = ?        -- 회차명
+			      , QURT_CD              = ?        -- 분기  
+			      , MONTH                = ?        -- 월        
+			      , STR_DT               = ?        -- 시작일자  
+			      , END_DT               = ?        -- 종료일자  
+			      , CFRNT_CD             = ?        -- 대진코드  
+			      , ARRANGE_TPE_CD       = ?        -- 주선종류코드  
+			      , RMK                  = ?        -- 비고      
+			      , RACE_TMS_STAT_CD     = ?        -- 상태      
+			      , UPDT_ID              = ?        -- 수정자ID  
+			      , UPDT_DTM             = SYSDATE  -- 수정일시  
+			      , PRIZ_RACE_GRP_CD	 = ?		-- 대상 경주그룹코드
+				  , PRIZ_DAY_ORD		 = ?		-- 대상경주 일차
+				  , PRIZ_RACE_NO		 = ?		-- 대상경주번호
+			WHERE STND_YEAR              = ?
+			AND   MBR_CD                 = ?        -- 경정장코드
+			AND   TMS                    = ?
+        ]]>
+    </query> 
+    <query id="tbeb_race_tms_ub002" desc="경주회차수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_RACE_TMS SET
+			        ARRANGE_CMPL_YN      = NVL(?, ARRANGE_CMPL_YN )        -- 주선완료여부  
+			      , RACE_TMS_STAT_CD     = NVL(?, RACE_TMS_STAT_CD)        -- 경주회차상태      
+			      , UPDT_ID              = ?        -- 수정자ID  
+			      , UPDT_DTM             = SYSDATE  -- 수정일시  
+			WHERE STND_YEAR              = ?
+			AND   MBR_CD                 = ?        -- 경정장코드
+			AND   TMS                    = ?
+        ]]>
+    </query> 
+    <query id="tbeb_race_tms_ub003" desc="경주회차수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_RACE_TMS SET
+			        ARRANGE_CMPL_YN      = NVL(?, ARRANGE_CMPL_YN )        -- 주선완료여부  
+			      , RACE_TMS_STAT_CD     = NVL(?, RACE_TMS_STAT_CD)        -- 경주회차상태      
+			      , UPDT_ID              = ?        -- 수정자ID  
+			      , UPDT_DTM             = SYSDATE  -- 수정일시  
+			WHERE STND_YEAR              = ?
+			AND   MBR_CD                 = ?        -- 경정장코드
+			AND   TMS                    = ?
+			AND   RACE_TMS_STAT_CD      <= '040'
+        ]]>
+    </query> 
+    <query id="tbeb_race_tms_ub004" desc="경주회차수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_RACE_TMS SET
+			        CNF_INSP_HOME_REG_YN = ?        -- 확정검사홈페이지등록여부  
+			      , UPDT_ID              = ?        -- 수정자ID  
+			      , UPDT_DTM             = SYSDATE  -- 수정일시  
+			WHERE STND_YEAR              = ?
+			AND   MBR_CD                 = ?        -- 경정장코드
+			AND   TMS                    = ?
+        ]]>
+    </query> 
+    <query id="tbeb_race_tms_db001" desc="경주회차삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM  TBEB_RACE_TMS
+			WHERE STND_YEAR     = ?       -- 기준년도    
+			AND   MBR_CD        = ?       -- 경정장코드
+            AND   TMS           = ?       -- 위반코드
+        ]]>
+    </query> 
+    <query id="tbeb_race_tms_fb002" desc="경주회차조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			       COUNT(*) CNT  
+			FROM   TBEB_RACE_TMS TRT
+			WHERE  TRT.CFRNT_CD = ?
+        ]]>
+    </query> 
+    <query id="tbeb_race_tms_fb103" desc="대상경주 출전현황조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb103 IWORK_SFR-010   대상경주 출전 현황 (E02080210) */
+					TRT.STND_YEAR,
+			        TRT.MBR_CD,
+			        TRT.TMS,
+			        TRT.DAY_ORD,
+			        TRT.RACE_NO,
+			        TRDO.RACE_DAY,
+			        TRT.PRIZ_RACE_NM,
+			        TBL1.RACE_REG_NO1,
+			        TBL1.NM_KOR1,
+			        TBL1.STRATEGY_CD1,
+			        TBL1.ENTRY_COURSE1,
+			        TBL1.RACE_REG_NO2,
+			        TBL1.NM_KOR2,
+			        TBL1.STRATEGY_CD2,
+			        TBL1.ENTRY_COURSE2,
+			        TBL1.RACE_REG_NO3,
+			        TBL1.NM_KOR3,
+			        TBL1.STRATEGY_CD3,
+			        TBL1.ENTRY_COURSE3,
+			        TBL1.RACE_REG_NO4,
+			        TBL1.NM_KOR4,
+			        TBL1.STRATEGY_CD4,
+			        TBL1.ENTRY_COURSE4,
+			        TBL1.RACE_REG_NO5,
+			        TBL1.NM_KOR5,
+			        TBL1.STRATEGY_CD5,
+			        TBL1.ENTRY_COURSE5,
+			        TBL1.RACE_REG_NO6,
+			        TBL1.NM_KOR6,
+			        TBL1.STRATEGY_CD6,
+			        TBL1.ENTRY_COURSE6,
+			        TBL1.RACE_REG_NO7,
+			        TBL1.NM_KOR7,
+			        TBL1.STRATEGY_CD7,
+			        TBL1.ENTRY_COURSE7,
+			        TBL1.RACE_REG_NO8,
+			        TBL1.NM_KOR8,
+			        TBL1.STRATEGY_CD8,
+			        TBL1.ENTRY_COURSE8,
+			        TBL2.RACE_REG_NO1 RACE_REG_NO1_999,
+			        TBL2.NM_KOR1 NM_KOR1_999,
+			        TBL2.RACE_REG_NO2 RACE_REG_NO2_999,
+			        TBL2.NM_KOR2 NM_KOR2_999,
+			        TBL3.RACE_REG_NO1 RACE_REG_NO1_140,
+			        TBL3.NM_KOR1 NM_KOR1_140,
+			        TBL3.RACE_REG_NO2 RACE_REG_NO2_140,
+			        TBL3.NM_KOR2 NM_KOR2_140,
+			        TBL4.RACE_REG_NO1 RACE_REG_NO1_110,
+			        TBL4.NM_KOR1 NM_KOR1_110,
+			        TBL4.RACE_REG_NO2 RACE_REG_NO2_110,
+			        TBL4.NM_KOR2 NM_KOR2_110,
+			        TBL4.RACE_REG_NO3 RACE_REG_NO3_110,
+			        TBL4.NM_KOR3 NM_KOR3_110,
+			        TBL5.RACE_REG_NO1 RACE_REG_NO1_120,
+			        TBL5.NM_KOR1 NM_KOR1_120,
+			        TBL6.PAYOFF_1,
+			        TBL7.PAYOFF_2,
+			        TBL8.PAYOFF_3,
+			        TBL9.PAYOFF_4,
+			        TBL10.PAYOFF_5
+			FROM    TBEB_PRIZ_RACE_MAP TRT,
+			        TBEB_RACE_DAY_ORD TRDO,
+			        (
+			         /* 순위별 정번, 선수명, 전법, 코스 */
+			         SELECT  TBL.STND_YEAR,
+			                 TBL.MBR_CD,
+			                 TBL.TMS,
+			                 TBL.DAY_ORD,
+			                 TBL.RACE_NO,
+			                 MAX( DECODE( TBL.RANK, 1, TBL.RACE_REG_NO ) ) RACE_REG_NO1,
+			                 MAX( DECODE( TBL.RANK, 1, TBL.NM_KOR ) ) NM_KOR1,
+			                 MAX( DECODE( TBL.RANK, 1, TBL.STRATEGY_CD ) ) STRATEGY_CD1,
+			                 MAX( DECODE( TBL.RANK, 1, TBL.ENTRY_COURSE ) ) ENTRY_COURSE1,
+			                 MAX( DECODE( TBL.RANK, 2, TBL.RACE_REG_NO ) ) RACE_REG_NO2,
+			                 MAX( DECODE( TBL.RANK, 2, TBL.NM_KOR ) ) NM_KOR2,
+			                 MAX( DECODE( TBL.RANK, 2, TBL.STRATEGY_CD ) ) STRATEGY_CD2,
+			                 MAX( DECODE( TBL.RANK, 2, TBL.ENTRY_COURSE ) ) ENTRY_COURSE2,
+			                 MAX( DECODE( TBL.RANK, 3, TBL.RACE_REG_NO ) ) RACE_REG_NO3,
+			                 MAX( DECODE( TBL.RANK, 3, TBL.NM_KOR ) ) NM_KOR3,
+			                 MAX( DECODE( TBL.RANK, 3, TBL.STRATEGY_CD ) ) STRATEGY_CD3,
+			                 MAX( DECODE( TBL.RANK, 3, TBL.ENTRY_COURSE ) ) ENTRY_COURSE3,
+			                 MAX( DECODE( TBL.RANK, 4, TBL.RACE_REG_NO ) ) RACE_REG_NO4,
+			                 MAX( DECODE( TBL.RANK, 4, TBL.NM_KOR ) ) NM_KOR4,
+			                 MAX( DECODE( TBL.RANK, 4, TBL.STRATEGY_CD ) ) STRATEGY_CD4,
+			                 MAX( DECODE( TBL.RANK, 4, TBL.ENTRY_COURSE ) ) ENTRY_COURSE4,
+			                 MAX( DECODE( TBL.RANK, 5, TBL.RACE_REG_NO ) ) RACE_REG_NO5,
+			                 MAX( DECODE( TBL.RANK, 5, TBL.NM_KOR ) ) NM_KOR5,
+			                 MAX( DECODE( TBL.RANK, 5, TBL.STRATEGY_CD ) ) STRATEGY_CD5,
+			                 MAX( DECODE( TBL.RANK, 5, TBL.ENTRY_COURSE ) ) ENTRY_COURSE5,
+			                 MAX( DECODE( TBL.RANK, 6, TBL.RACE_REG_NO ) ) RACE_REG_NO6,
+			                 MAX( DECODE( TBL.RANK, 6, TBL.NM_KOR ) ) NM_KOR6,
+			                 MAX( DECODE( TBL.RANK, 6, TBL.STRATEGY_CD ) ) STRATEGY_CD6,
+			                 MAX( DECODE( TBL.RANK, 6, TBL.ENTRY_COURSE ) ) ENTRY_COURSE6,
+			                 MAX( DECODE( TBL.RANK, 7, TBL.RACE_REG_NO ) ) RACE_REG_NO7,
+			                 MAX( DECODE( TBL.RANK, 7, TBL.NM_KOR ) ) NM_KOR7,
+			                 MAX( DECODE( TBL.RANK, 7, TBL.STRATEGY_CD ) ) STRATEGY_CD7,
+			                 MAX( DECODE( TBL.RANK, 7, TBL.ENTRY_COURSE ) ) ENTRY_COURSE7,
+			                 MAX( DECODE( TBL.RANK, 8, TBL.RACE_REG_NO ) ) RACE_REG_NO8,
+			                 MAX( DECODE( TBL.RANK, 8, TBL.NM_KOR ) ) NM_KOR8,
+			                 MAX( DECODE( TBL.RANK, 8, TBL.STRATEGY_CD ) ) STRATEGY_CD8,
+			                 MAX( DECODE( TBL.RANK, 8, TBL.ENTRY_COURSE ) ) ENTRY_COURSE8
+			         FROM    ( SELECT 
+			                          TR.STND_YEAR,
+			                          TR.MBR_CD,
+			                          TR.TMS,
+			                          TR.DAY_ORD,
+			                          TR.RACE_NO,
+			                          TBO.RANK,
+			                          TBO.RACE_REG_NO,
+			                          TRM.NM_KOR,
+			                          TBO.STRATEGY_CD,
+			                          GET_CD_NM( 'E00063', TBO.STRATEGY_CD ) STRATEGY_CD_NM,
+			                          TBO.ENTRY_COURSE
+			                  FROM    TBEB_RACE TR,
+			                          TBEB_ORGAN TBO,
+			                          TBEC_RACER_MASTER TRM
+			                  WHERE   TR.STND_YEAR = TBO.STND_YEAR
+			                  AND     TR.MBR_CD = TBO.MBR_CD
+			                  AND     TR.TMS = TBO.TMS
+			                  AND     TR.DAY_ORD = TBO.DAY_ORD
+			                  AND     TR.RACE_NO = TBO.RACE_NO
+			                  AND     TBO.RACER_NO = TRM.RACER_NO ) TBL
+			         GROUP BY STND_YEAR,
+			                  MBR_CD,
+			                  TMS,
+			                  DAY_ORD,
+			                  RACE_NO ) TBL1,
+			        (   /* 면책 관련 ; 정번 | 이름 | 정번 | 이름  */
+			         SELECT  TBL_VOIL.STND_YEAR,
+			                 TBL_VOIL.MBR_CD,
+			                 TBL_VOIL.TMS,
+			                 TBL_VOIL.DAY_ORD,
+			                 TBL_VOIL.RACE_NO,
+			                 MAX( DECODE( TBL_VOIL.RN, 1, TBL_VOIL.RACE_REG_NO ) ) RACE_REG_NO1,
+			                 MAX( DECODE( TBL_VOIL.RN, 1, TBL_VOIL.NM_KOR ) ) NM_KOR1,
+			                 MAX( DECODE( TBL_VOIL.RN, 2, TBL_VOIL.RACE_REG_NO ) ) RACE_REG_NO2,
+			                 MAX( DECODE( TBL_VOIL.RN, 2, TBL_VOIL.NM_KOR ) ) NM_KOR2
+			         FROM    ( SELECT ROW_NUMBER( ) OVER( PARTITION BY A.STND_YEAR, A.MBR_CD, A.TMS, A.DAY_ORD, A.RACE_NO ORDER BY A.STND_YEAR,
+			                           A.MBR_CD,
+			                           A.TMS,
+			                           A.DAY_ORD,
+			                           A.RACE_NO ) RN,
+			                          A.STND_YEAR,
+			                          A.MBR_CD,
+			                          A.TMS,
+			                          A.DAY_ORD,
+			                          A.RACE_NO,
+			                          A.RACE_REG_NO,
+			                          B.NM_KOR
+			                  FROM    TBED_RACE_VOIL_ACT A,
+			                          TBEC_RACER_MASTER B
+			                  WHERE   A.VOIL_CD IN( '996', '998', '999' )   /* 면책 */
+			                  AND     A.RACER_NO = B.RACER_NO ) TBL_VOIL
+			         WHERE   TBL_VOIL.RN < 3
+			         GROUP BY STND_YEAR,
+			                  MBR_CD,
+			                  TMS,
+			                  DAY_ORD,
+			                  RACE_NO ) TBL2,
+			        (   /* 실격 관련 ; 정번 | 이름 | 정번 | 이름  */
+			         SELECT  TBL_VOIL.STND_YEAR,
+			                 TBL_VOIL.MBR_CD,
+			                 TBL_VOIL.TMS,
+			                 TBL_VOIL.DAY_ORD,
+			                 TBL_VOIL.RACE_NO,
+			                 MAX( DECODE( TBL_VOIL.RN, 1, TBL_VOIL.RACE_REG_NO ) ) RACE_REG_NO1,
+			                 MAX( DECODE( TBL_VOIL.RN, 1, TBL_VOIL.NM_KOR ) ) NM_KOR1,
+			                 MAX( DECODE( TBL_VOIL.RN, 2, TBL_VOIL.RACE_REG_NO ) ) RACE_REG_NO2,
+			                 MAX( DECODE( TBL_VOIL.RN, 2, TBL_VOIL.NM_KOR ) ) NM_KOR2
+			         FROM    ( SELECT ROW_NUMBER( ) OVER( PARTITION BY A.STND_YEAR, A.MBR_CD, A.TMS, A.DAY_ORD, A.RACE_NO ORDER BY A.STND_YEAR,
+			                           A.MBR_CD,
+			                           A.TMS,
+			                           A.DAY_ORD,
+			                           A.RACE_NO ) RN,
+			                          A.STND_YEAR,
+			                          A.MBR_CD,
+			                          A.TMS,
+			                          A.DAY_ORD,
+			                          A.RACE_NO,
+			                          A.RACE_REG_NO,
+			                          B.NM_KOR
+			                  FROM    TBED_RACE_VOIL_ACT A,
+			                          TBEC_RACER_MASTER B
+			                  WHERE   A.VOIL_CD = '140'   /* 실격 */
+			                  AND     A.RACER_NO = B.RACER_NO ) TBL_VOIL
+			         WHERE   TBL_VOIL.RN < 3
+			         GROUP BY STND_YEAR,
+			                  MBR_CD,
+			                  TMS,
+			                  DAY_ORD,
+			                  RACE_NO ) TBL3,
+			        (   /* 플라잉 관련 ; 정번 | 이름 | 정번 | 이름  */
+			         SELECT  TBL_VOIL.STND_YEAR,
+			                 TBL_VOIL.MBR_CD,
+			                 TBL_VOIL.TMS,
+			                 TBL_VOIL.DAY_ORD,
+			                 TBL_VOIL.RACE_NO,
+			                 MAX( DECODE( TBL_VOIL.RN, 1, TBL_VOIL.RACE_REG_NO ) ) RACE_REG_NO1,
+			                 MAX( DECODE( TBL_VOIL.RN, 1, TBL_VOIL.NM_KOR ) ) NM_KOR1,
+			                 MAX( DECODE( TBL_VOIL.RN, 2, TBL_VOIL.RACE_REG_NO ) ) RACE_REG_NO2,
+			                 MAX( DECODE( TBL_VOIL.RN, 2, TBL_VOIL.NM_KOR ) ) NM_KOR2,
+			                 MAX( DECODE( TBL_VOIL.RN, 3, TBL_VOIL.RACE_REG_NO ) ) RACE_REG_NO3,
+			                 MAX( DECODE( TBL_VOIL.RN, 3, TBL_VOIL.NM_KOR ) ) NM_KOR3
+			         FROM    ( SELECT ROW_NUMBER( ) OVER( PARTITION BY A.STND_YEAR, A.MBR_CD, A.TMS, A.DAY_ORD, A.RACE_NO ORDER BY A.STND_YEAR,
+			                           A.MBR_CD,
+			                           A.TMS,
+			                           A.DAY_ORD,
+			                           A.RACE_NO ) RN,
+			                          A.STND_YEAR,
+			                          A.MBR_CD,
+			                          A.TMS,
+			                          A.DAY_ORD,
+			                          A.RACE_NO,
+			                          A.RACE_REG_NO,
+			                          B.NM_KOR
+			                  FROM    TBED_RACE_VOIL_ACT A,
+			                          TBEC_RACER_MASTER B
+			                  WHERE   A.VOIL_CD = '110'   /* F */
+			                  AND     A.RACER_NO = B.RACER_NO ) TBL_VOIL
+			         WHERE   TBL_VOIL.RN < 4
+			         GROUP BY STND_YEAR,
+			                  MBR_CD,
+			                  TMS,
+			                  DAY_ORD,
+			                  RACE_NO ) TBL4,
+			        (   /* 레이트 관련 ; 정번 | 이름 | 정번 | 이름  */
+			         SELECT  TBL_VOIL.RN,
+			                 TBL_VOIL.STND_YEAR,
+			                 TBL_VOIL.MBR_CD,
+			                 TBL_VOIL.TMS,
+			                 TBL_VOIL.DAY_ORD,
+			                 TBL_VOIL.RACE_NO,
+			                 TBL_VOIL.RACE_REG_NO RACE_REG_NO1,
+			                 TBL_VOIL.NM_KOR NM_KOR1
+			         FROM    ( SELECT ROW_NUMBER( ) OVER( PARTITION BY A.STND_YEAR, A.MBR_CD, A.TMS, A.DAY_ORD, A.RACE_NO ORDER BY A.STND_YEAR,
+			                           A.MBR_CD,
+			                           A.TMS,
+			                           A.DAY_ORD,
+			                           A.RACE_NO ) RN,
+			                          A.STND_YEAR,
+			                          A.MBR_CD,
+			                          A.TMS,
+			                          A.DAY_ORD,
+			                          A.RACE_NO,
+			                          A.RACE_REG_NO,
+			                          B.NM_KOR
+			                  FROM    TBED_RACE_VOIL_ACT A,
+			                          TBEC_RACER_MASTER B
+			                  WHERE   A.VOIL_CD = '120'   /* L */
+			                  AND     A.RACER_NO = B.RACER_NO ) TBL_VOIL
+			         WHERE   TBL_VOIL.RN < 2 ) TBL5,
+			        (   /* 단승 */
+			         SELECT  STND_YEAR,
+			                 TMS,
+			                 DAY_ORD,
+			                 RACE_NO,
+			                 PAYOFF PAYOFF_1
+			         FROM    USRBM.TBES_SDL_RS
+			         WHERE   POOL_CD = '001'
+			         AND     MEET_CD = '003' ) TBL6,
+			        (   /* 복승 */
+			         SELECT  STND_YEAR,
+			                 TMS,
+			                 DAY_ORD,
+			                 RACE_NO,
+			                 PAYOFF PAYOFF_2
+			         FROM    USRBM.TBES_SDL_RS
+			         WHERE   POOL_CD = '005'
+			         AND     MEET_CD = '003' ) TBL7,
+			        (   /* 쌍승 */
+			         SELECT  STND_YEAR,
+			                 TMS,
+			                 DAY_ORD,
+			                 RACE_NO,
+			                 PAYOFF PAYOFF_3
+			         FROM    USRBM.TBES_SDL_RS
+			         WHERE   POOL_CD = '004'
+			         AND     MEET_CD = '003' ) TBL8,
+			        (
+			/* 삼복승 */
+			         SELECT  STND_YEAR,
+			                 TMS,
+			                 DAY_ORD,
+			                 RACE_NO,
+			                 PAYOFF PAYOFF_4
+			         FROM    USRBM.TBES_SDL_RS
+			         WHERE   POOL_CD = '006'
+			         AND     MEET_CD = '003' ) TBL9,
+			          (
+			         /* 연승 */
+			         SELECT  TBL.STND_YEAR,
+					        TBL.TMS,
+					        TBL.DAY_ORD,
+					        TBL.RACE_NO,
+					           MAX( DECODE( TBL.RN, 1, TBL.PAYOFF ) )
+					        || ' / '
+					        || NVL( MAX( DECODE( TBL.RN, 2, TBL.PAYOFF ) ), 0 )
+					        || NVL2( MAX( DECODE( TBL.RN, 3, TBL.PAYOFF ) ), ' / ' || MAX( DECODE( TBL.RN, 3, TBL.PAYOFF ) ), '' ) PAYOFF_5
+					FROM    ( SELECT ROW_NUMBER( ) OVER( PARTITION BY STND_YEAR, TMS, DAY_ORD, RACE_NO ORDER BY STND_YEAR ) RN,
+					                 STND_YEAR,
+					                 TMS,
+					                 DAY_ORD,
+					                 RACE_NO,
+					                 PAYOFF
+					         FROM    USRBM.TBES_SDL_RS
+					         WHERE   POOL_CD = '002'
+					         AND     MEET_CD = '003' ) TBL
+					GROUP BY STND_YEAR,
+					         TMS,
+					         DAY_ORD,
+					         RACE_NO ) TBL10
+			WHERE   TRT.STND_YEAR = TRDO.STND_YEAR
+			AND     TRT.MBR_CD = TRDO.MBR_CD
+			AND     TRT.TMS = TRDO.TMS
+			AND     TRT.DAY_ORD = TRDO.DAY_ORD
+			AND     TRT.DAY_ORD > 0
+			AND     TRT.STND_YEAR = TBL1.STND_YEAR(+)
+			AND     TRT.MBR_CD = TBL1.MBR_CD(+)
+			AND     TRT.TMS = TBL1.TMS(+)
+			AND     TRT.DAY_ORD = TBL1.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL1.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL2.STND_YEAR(+)
+			AND     TRT.MBR_CD = TBL2.MBR_CD(+)
+			AND     TRT.TMS = TBL2.TMS(+)
+			AND     TRT.DAY_ORD = TBL2.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL2.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL3.STND_YEAR(+)
+			AND     TRT.MBR_CD = TBL3.MBR_CD(+)
+			AND     TRT.TMS = TBL3.TMS(+)
+			AND     TRT.DAY_ORD = TBL3.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL3.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL4.STND_YEAR(+)
+			AND     TRT.MBR_CD = TBL4.MBR_CD(+)
+			AND     TRT.TMS = TBL4.TMS(+)
+			AND     TRT.DAY_ORD = TBL4.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL4.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL5.STND_YEAR(+)
+			AND     TRT.MBR_CD = TBL5.MBR_CD(+)
+			AND     TRT.TMS = TBL5.TMS(+)
+			AND     TRT.DAY_ORD = TBL5.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL5.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL6.STND_YEAR(+)
+			AND     TRT.TMS = TBL6.TMS(+)
+			AND     TRT.DAY_ORD = TBL6.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL6.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL7.STND_YEAR(+)
+			AND     TRT.TMS = TBL7.TMS(+)
+			AND     TRT.DAY_ORD = TBL7.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL7.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL8.STND_YEAR(+)
+			AND     TRT.TMS = TBL8.TMS(+)
+			AND     TRT.DAY_ORD = TBL8.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL8.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL9.STND_YEAR(+)
+			AND     TRT.TMS = TBL9.TMS(+)
+			AND     TRT.DAY_ORD = TBL9.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL9.RACE_NO(+)
+			AND     TRT.STND_YEAR = TBL10.STND_YEAR(+)
+			AND     TRT.TMS = TBL10.TMS(+)
+			AND     TRT.DAY_ORD = TBL10.DAY_ORD(+)
+			AND     TRT.RACE_NO = TBL10.RACE_NO(+)
+			AND     TRT.GRP_CD = ?
+			AND     TRT.CD = NVL( ?, TRT.CD )
+			AND     TRDO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			ORDER BY TRDO.RACE_DAY DESC
+        ]]>
+    </query> 
+    
+    <query id="tbeb_race_tms_fb104" desc="정번별 우승현황 조회" fetchSize="10">
+        <![CDATA[
+		 SELECT /* tbeb_race_tms_fb104 IWORK_SFR-010  (E02080220) */
+		         '우승횟수' COL0,
+		         NVL( MAX( DECODE( RACE_REG_NO, 1, ONE_CNT ) ), 0 ) COL1,
+		         NVL( MAX( DECODE( RACE_REG_NO, 2, ONE_CNT ) ), 0 ) COL2,
+		         NVL( MAX( DECODE( RACE_REG_NO, 3, ONE_CNT ) ), 0 ) COL3,
+		         NVL( MAX( DECODE( RACE_REG_NO, 4, ONE_CNT ) ), 0 ) COL4,
+		         NVL( MAX( DECODE( RACE_REG_NO, 5, ONE_CNT ) ), 0 ) COL5,
+		         NVL( MAX( DECODE( RACE_REG_NO, 6, ONE_CNT ) ), 0 ) COL6,
+		         NVL( MAX( DECODE( RACE_REG_NO, 7, ONE_CNT ) ), 0 ) COL7,
+		         NVL( MAX( DECODE( RACE_REG_NO, 8, ONE_CNT ) ), 0 ) COL8
+		 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+		                  RACE_REG_NO,
+		                  COUNT(1) ONE_CNT
+		          FROM    TBEB_ORGAN TBO,
+		                  TBEB_PRIZ_RACE_MAP TRT
+		          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+		          AND     TBO.MBR_CD = TRT.MBR_CD
+		          AND     TBO.TMS = TRT.TMS
+		          AND     TBO.DAY_ORD = TRT.DAY_ORD
+		          AND     TBO.RACE_NO = TRT.RACE_NO
+		          AND     TRT.GRP_CD = ?
+		          AND     TRT.CD = NVL( ?, TRT.CD)
+		          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+		          AND     RANK = 1
+		          GROUP BY RACE_REG_NO )
+		UNION ALL
+		SELECT 
+		         '비율(%)' COL0,
+		         NVL( MAX( DECODE( RACE_REG_NO, 1, PER ) ), 0 ) COL1,
+		         NVL( MAX( DECODE( RACE_REG_NO, 2, PER ) ), 0 ) COL2,
+		         NVL( MAX( DECODE( RACE_REG_NO, 3, PER ) ), 0 ) COL3,
+		         NVL( MAX( DECODE( RACE_REG_NO, 4, PER ) ), 0 ) COL4,
+		         NVL( MAX( DECODE( RACE_REG_NO, 5, PER ) ), 0 ) COL5,
+		         NVL( MAX( DECODE( RACE_REG_NO, 6, PER ) ), 0 ) COL6,
+		         NVL( MAX( DECODE( RACE_REG_NO, 7, PER ) ), 0 ) COL7,
+		         NVL( MAX( DECODE( RACE_REG_NO, 8, PER ) ), 0 ) COL8
+		 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+		                  RACE_REG_NO,
+		                  ROUND( RATIO_TO_REPORT( COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+		          FROM    TBEB_ORGAN TBO,
+		                  TBEB_PRIZ_RACE_MAP TRT
+		          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+		          AND     TBO.MBR_CD = TRT.MBR_CD
+		          AND     TBO.TMS = TRT.TMS
+		          AND     TBO.DAY_ORD = TRT.DAY_ORD
+		          AND     TBO.RACE_NO = TRT.RACE_NO
+		          AND     TRT.GRP_CD = ?
+		          AND     TRT.CD = NVL( ?, TRT.CD )
+		          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+		          AND     RANK = 1
+		          GROUP BY RACE_REG_NO )		
+        ]]>
+    </query> 
+    
+    <query id="tbeb_race_tms_fb105" desc="코스별 우승현황 조회" fetchSize="10">
+        <![CDATA[
+			 SELECT 	/* tbeb_race_tms_fb105 IWORK_SFR-010  (E02080220) */
+			         '우승횟수' COL0,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 1, ONE_CNT ) ), 0 ) COL1,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 2, ONE_CNT ) ), 0 ) COL2,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 3, ONE_CNT ) ), 0 ) COL3,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 4, ONE_CNT ) ), 0 ) COL4,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 5, ONE_CNT ) ), 0 ) COL5,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 6, ONE_CNT ) ), 0 ) COL6,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 7, ONE_CNT ) ), 0 ) COL7,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 8, ONE_CNT ) ), 0 ) COL8
+			 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+			                  ENTRY_COURSE,
+			                  COUNT(1) ONE_CNT
+			          FROM    TBEB_ORGAN TBO,
+			                  TBEB_PRIZ_RACE_MAP TRT
+			          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+			          AND     TBO.MBR_CD = TRT.MBR_CD
+			          AND     TBO.TMS = TRT.TMS
+			          AND     TBO.DAY_ORD = TRT.DAY_ORD
+			          AND     TBO.RACE_NO = TRT.RACE_NO
+			          AND     TRT.GRP_CD = ?
+			          AND     TRT.CD = NVL( ?, TRT.CD )
+		          	  AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			          AND     RANK = 1
+			          GROUP BY ENTRY_COURSE) 
+			UNION ALL
+			 SELECT 
+			         '비율(%)' COL0,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 1, PER ) ), 0 ) COL1,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 2, PER ) ), 0 ) COL2,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 3, PER ) ), 0 ) COL3,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 4, PER ) ), 0 ) COL4,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 5, PER ) ), 0 ) COL5,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 6, PER ) ), 0 ) COL6,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 7, PER ) ), 0 ) COL7,
+			         NVL( MAX( DECODE( ENTRY_COURSE, 8, PER ) ), 0 ) COL8
+			 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+			                  ENTRY_COURSE,
+			                  ROUND( RATIO_TO_REPORT(  COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+			          FROM    TBEB_ORGAN TBO,
+			                  TBEB_PRIZ_RACE_MAP TRT
+			          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+			          AND     TBO.MBR_CD = TRT.MBR_CD
+			          AND     TBO.TMS = TRT.TMS
+			          AND     TBO.DAY_ORD = TRT.DAY_ORD
+			          AND     TBO.RACE_NO = TRT.RACE_NO
+			          AND     TRT.GRP_CD = ?
+			          AND     TRT.CD = NVL( ?, TRT.CD )
+		          	  AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			          AND     RANK = 1
+			          GROUP BY ENTRY_COURSE )
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb106" desc="정번별 면책현황 조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb106 IWORK_SFR-010  (E02080220) */
+					'횟수' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, CNT ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, CNT ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, CNT ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, CNT ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, CNT ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, CNT ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, CNT ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, CNT ) ), 0 ) COL8
+			FROM    ( SELECT /*+ USE_HASH(TRT, TRVA) */
+			                 TRVA.RACE_REG_NO,
+			                 COUNT( 1 ) CNT
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+		          	 AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD IN( '996', '998', '999' )   /* 면책 */
+			         GROUP BY TRVA.RACE_REG_NO )
+            UNION ALL
+			SELECT 
+			         '비율(%)' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, PER ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, PER ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, PER ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, PER ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, PER ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, PER ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, PER ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, PER ) ), 0 ) COL8
+			 FROM   (SELECT /*+ USE_HASH(TRT, TRVA) */
+			                 TRVA.RACE_REG_NO,
+			                 ROUND( RATIO_TO_REPORT(  COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+		          	 AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD IN( '996', '998', '999' )   /* 면책 */
+			         GROUP BY TRVA.RACE_REG_NO )			         			
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb107" desc="전법별 우승현황 조회" fetchSize="10">
+        <![CDATA[
+			SELECT /* tbeb_race_tms_fb107 IWORK_SFR-010  (E02080220) */
+			         '우승횟수' COL0,
+			         NVL( MAX( DECODE( STRATEGY_CD, '001', ONE_CNT ) ), 0 ) COL1,
+			         NVL( MAX( DECODE( STRATEGY_CD, '002', ONE_CNT ) ), 0 ) COL2,
+			         NVL( MAX( DECODE( STRATEGY_CD, '003', ONE_CNT ) ), 0 ) COL3,
+			         NVL( MAX( DECODE( STRATEGY_CD, '004', ONE_CNT ) ), 0 ) COL4,
+			         NVL( MAX( DECODE( STRATEGY_CD, '005', ONE_CNT ) ), 0 ) COL5
+			 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+			                  STRATEGY_CD,
+			                  COUNT(1) ONE_CNT
+			          FROM    TBEB_ORGAN TBO,
+			                  TBEB_PRIZ_RACE_MAP TRT
+			          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+			          AND     TBO.MBR_CD = TRT.MBR_CD
+			          AND     TBO.TMS = TRT.TMS
+			          AND     TBO.DAY_ORD = TRT.DAY_ORD
+			          AND     TBO.RACE_NO = TRT.RACE_NO
+			          AND     TRT.GRP_CD = ?
+			          AND     TRT.CD = NVL( ?, TRT.CD )
+			          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			          AND     RANK = 1
+			          GROUP BY STRATEGY_CD ) 
+			UNION ALL
+			SELECT 
+			         '비율(%)' COL0,
+			         NVL( MAX( DECODE( STRATEGY_CD, 1, PER ) ), 0 ) COL1,
+			         NVL( MAX( DECODE( STRATEGY_CD, 2, PER ) ), 0 ) COL2,
+			         NVL( MAX( DECODE( STRATEGY_CD, 3, PER ) ), 0 ) COL3,
+			         NVL( MAX( DECODE( STRATEGY_CD, 4, PER ) ), 0 ) COL4,
+			         NVL( MAX( DECODE( STRATEGY_CD, 5, PER ) ), 0 ) COL5
+			 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+			                  STRATEGY_CD,
+			                  ROUND( RATIO_TO_REPORT(  COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+			          FROM    TBEB_ORGAN TBO,
+			                  TBEB_PRIZ_RACE_MAP TRT
+			          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+			          AND     TBO.MBR_CD = TRT.MBR_CD
+			          AND     TBO.TMS = TRT.TMS
+			          AND     TBO.DAY_ORD = TRT.DAY_ORD
+			          AND     TBO.RACE_NO = TRT.RACE_NO
+			          AND     TRT.GRP_CD = ?
+			          AND     TRT.CD = NVL( ?, TRT.CD )
+			          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			          AND     RANK = 1
+			          GROUP BY STRATEGY_CD )			
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb108" desc="정번별 플라잉현황  조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb108 IWORK_SFR-010  (E02080220) */
+					'횟수' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, CNT ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, CNT ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, CNT ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, CNT ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, CNT ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, CNT ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, CNT ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, CNT ) ), 0 ) COL8
+			FROM    ( SELECT /*+ USE_HASH(TRT, TRVA) */
+			                 TRVA.RACE_REG_NO,
+			                 COUNT( 1 ) CNT
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD = '110'  /* F */
+			         GROUP BY TRVA.RACE_REG_NO )
+			UNION ALL
+			SELECT 
+			         '비율(%)' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, PER ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, PER ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, PER ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, PER ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, PER ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, PER ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, PER ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, PER ) ), 0 ) COL8
+			 FROM   (SELECT /*+ USE_HASH(TRT, TRVA) */
+			                 TRVA.RACE_REG_NO,
+			                 ROUND( RATIO_TO_REPORT(  COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD = '110'  /* F */
+			         GROUP BY TRVA.RACE_REG_NO)						         
+			         			
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb109" desc="정번별 레이트현황  조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb109 IWORK_SFR-010  (E02080220) */
+					'횟수' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, CNT ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, CNT ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, CNT ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, CNT ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, CNT ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, CNT ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, CNT ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, CNT ) ), 0 ) COL8
+			FROM    ( SELECT /*+ USE_HASH(TRT, TRVA) */
+			                 TRVA.RACE_REG_NO,
+			                 COUNT( 1 ) CNT
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD = '120'  /* L */
+			         GROUP BY TRVA.RACE_REG_NO )	
+            UNION ALL
+			SELECT 
+			         '비율(%)' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, PER ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, PER ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, PER ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, PER ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, PER ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, PER ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, PER ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, PER ) ), 0 ) COL8
+			 FROM   (SELECT /*+ USE_HASH(TRT, TRVA) */
+			                TRVA.RACE_REG_NO,
+			                 ROUND( RATIO_TO_REPORT(  COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD = '120'  /* L */
+			         GROUP BY TRVA.RACE_REG_NO )			         		
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb110" desc="정번별 실격현황  조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb110 IWORK_SFR-010  (E02080220) */
+					'횟수' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, CNT ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, CNT ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, CNT ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, CNT ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, CNT ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, CNT ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, CNT ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, CNT ) ), 0 ) COL8
+			FROM    ( SELECT /*+ USE_HASH(TRT, TRVA) */
+			                 TRVA.RACE_REG_NO,
+			                 COUNT( 1 ) CNT
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD = '140'  /* 실격 */
+			         GROUP BY TRVA.RACE_REG_NO )
+            UNION ALL
+			SELECT 
+			         '비율(%)' COL0,
+					NVL( MAX( DECODE( RACE_REG_NO, 1, PER ) ), 0 ) COL1,
+			        NVL( MAX( DECODE( RACE_REG_NO, 2, PER ) ), 0 ) COL2,
+			        NVL( MAX( DECODE( RACE_REG_NO, 3, PER ) ), 0 ) COL3,
+			        NVL( MAX( DECODE( RACE_REG_NO, 4, PER ) ), 0 ) COL4,
+			        NVL( MAX( DECODE( RACE_REG_NO, 5, PER ) ), 0 ) COL5,
+			        NVL( MAX( DECODE( RACE_REG_NO, 6, PER ) ), 0 ) COL6,
+			        NVL( MAX( DECODE( RACE_REG_NO, 7, PER ) ), 0 ) COL7,
+			        NVL( MAX( DECODE( RACE_REG_NO, 8, PER ) ), 0 ) COL8
+			 FROM   (SELECT /*+ USE_HASH(TRT, TRVA) */
+			                 TRVA.RACE_REG_NO,
+			                 ROUND( RATIO_TO_REPORT(  COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+			         FROM    TBEB_PRIZ_RACE_MAP TRT,
+			                 TBED_RACE_VOIL_ACT TRVA
+			         WHERE   TRVA.STND_YEAR = TRT.STND_YEAR
+			         AND     TRVA.MBR_CD = TRT.MBR_CD
+			         AND     TRVA.TMS = TRT.TMS
+			         AND     TRVA.DAY_ORD = TRT.DAY_ORD
+			         AND     TRVA.RACE_NO = TRT.RACE_NO
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TRVA.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         AND     TRVA.VOIL_CD = '140'  /* 실격 */
+			         GROUP BY TRVA.RACE_REG_NO )			         			
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb111" desc="대상 경주 조건에 해당하는 최고정번수  조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb111 IWORK_SFR-010  (E02080220) */
+					/*+ USE_HASH(TBO, TRT) */
+					NVL( MAX( RACE_REG_NO ), 6 ) MAX_RACE_REG_NO
+			FROM    TBEB_ORGAN TBO,
+			        TBEB_PRIZ_RACE_MAP TRT
+			WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+			AND     TBO.MBR_CD = TRT.MBR_CD
+			AND     TBO.TMS = TRT.TMS
+			AND     TBO.DAY_ORD = TRT.DAY_ORD
+			AND     TBO.RACE_NO = TRT.RACE_NO
+			AND     TRT.GRP_CD = ?
+			AND     TRT.CD = NVL( ?, TRT.CD )
+			AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb112" desc="대상 경주 선수별 통합성적  조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_race_tms_fb112 IWORK_SFR-010  (E02080230) */
+					ROWNUM RN,
+			        TBL.*
+			FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */ MAX( TRM.RACER_PERIO_NO ) RACER_PERIO_NO,
+			                 MAX( TRM.NM_KOR ) NM_KOR,
+			                 TRM.RACER_NO,
+			                 COUNT( 1 ) RACE_CNT,
+			                 ROUND( SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) / COUNT( 1 ) * 100, 2 ) PER_1ST,
+			                 ROUND(  ( SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) + SUM( DECODE( TBO.RANK, 2, 1, 0 ) ) ) / COUNT( 1 ) * 100, 2 ) PER_2ND,
+			                 ROUND(    ( SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) + SUM( DECODE( TBO.RANK, 2, 1, 0 ) ) + SUM( DECODE( TBO.RANK, 3, 1, 0 ) ) )
+			                        / COUNT( 1 )
+			                        * 100,
+			                        2 ) PER_3RD,
+			                 SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) CNT1,
+			                 SUM( DECODE( TBO.RANK, 2, 1, 0 ) ) CNT2,
+			                 SUM( DECODE( TBO.RANK, 3, 1, 0 ) ) CNT3,
+			                 SUM( DECODE( TBO.RANK, 4, 1, 0 ) ) CNT4,
+			                 SUM( DECODE( TBO.RANK, 5, 1, 0 ) ) CNT5,
+			                 SUM( DECODE( TBO.RANK, 6, 1, 0 ) ) CNT6,
+			                 SUM( DECODE( TBO.RANK, 7, 1, 0 ) ) CNT7,
+			                 SUM( DECODE( TBO.RANK, 8, 1, 0 ) ) CNT8,
+			                 SUM( DECODE( TBO.RANK, 0, 1, 0 ) ) CNT0,
+                             NVL( SUM( TRVA.VOIL999 ), 0) VOIL999,
+                             NVL( SUM( TRVA.VOIL140 ), 0) VOIL140,
+                             NVL( SUM( TRVA.VOIL110 ), 0) VOIL110,
+                             NVL( SUM( TRVA.VOIL120 ), 0) VOIL120
+			         FROM    TBEB_ORGAN TBO,
+			                 TBEB_PRIZ_RACE_MAP TRT,
+			                 TBEC_RACER_MASTER TRM,
+			                 ( SELECT A.STND_YEAR,
+			                          A.MBR_CD,
+			                          A.TMS,
+			                          A.DAY_ORD,
+			                          A.RACE_NO,
+			                          A.RACER_NO,
+			                          SUM( DECODE( A.VOIL_CD, '996', 1, '998', 1, '999', 1, 0 ) ) VOIL999,
+			                          SUM( DECODE( A.VOIL_CD, '140', 1, 0 ) ) VOIL140,
+			                          SUM( DECODE( A.VOIL_CD, '110', 1, 0 ) ) VOIL110,
+			                          SUM( DECODE( A.VOIL_CD, '120', 1, 0 ) ) VOIL120
+			                  FROM    TBED_RACE_VOIL_ACT A
+			                  WHERE   A.VOIL_CD IN( '110', '120', '140', '996', '998', '999' )
+			                  GROUP BY A.STND_YEAR,
+			                           A.MBR_CD,
+			                           A.TMS,
+			                           A.DAY_ORD,
+			                           A.RACE_NO,
+			                           A.RACER_NO ) TRVA
+			         WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+			         AND     TBO.MBR_CD = TRT.MBR_CD
+			         AND     TBO.TMS = TRT.TMS
+			         AND     TBO.DAY_ORD = TRT.DAY_ORD
+			         AND     TBO.RACE_NO = TRT.RACE_NO
+			         AND     TBO.RACER_NO = TRM.RACER_NO
+			         AND     TBO.STND_YEAR = TRVA.STND_YEAR(+)
+			         AND     TBO.MBR_CD = TRVA.MBR_CD(+)
+			         AND     TBO.TMS = TRVA.TMS(+)
+			         AND     TBO.DAY_ORD = TRVA.DAY_ORD(+)
+			         AND     TBO.RACE_NO = TRVA.RACE_NO(+)
+			         AND     TBO.RACER_NO = TRVA.RACER_NO(+)
+			         AND     TRT.DAY_ORD > 0
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         GROUP BY TRM.RACER_NO
+			         ORDER BY MAX( TRM.NM_KOR ) ) TBL			
+        ]]>
+    </query>
+    
+    <query id="tbeb_race_tms_fb113" desc="대상 경주 기수별 통합성적  조회" fetchSize="10">
+        <![CDATA[
+			SELECT	/* tbeb_race_tms_fb113 IWORK_SFR-010  (E02080230) */
+					ROWNUM RN,
+			        TBL.*
+			FROM    ( SELECT TBO.RACER_PERIO_NO,
+			                 COUNT( 1 ) RACE_CNT,
+			                 ROUND( SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) / COUNT( 1 ) * 100, 2 ) PER_1ST,
+			                 ROUND(  ( SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) + SUM( DECODE( TBO.RANK, 2, 1, 0 ) ) ) / COUNT( 1 ) * 100, 2 ) PER_2ND,
+			                 ROUND(    ( SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) + SUM( DECODE( TBO.RANK, 2, 1, 0 ) ) + SUM( DECODE( TBO.RANK, 3, 1, 0 ) ) )
+			                        / COUNT( 1 )
+			                        * 100,
+			                        2 ) PER_3RD,
+			                 SUM( DECODE( TBO.RANK, 1, 1, 0 ) ) CNT1,
+			                 SUM( DECODE( TBO.RANK, 2, 1, 0 ) ) CNT2,
+			                 SUM( DECODE( TBO.RANK, 3, 1, 0 ) ) CNT3,
+			                 SUM( DECODE( TBO.RANK, 4, 1, 0 ) ) CNT4,
+			                 SUM( DECODE( TBO.RANK, 5, 1, 0 ) ) CNT5,
+			                 SUM( DECODE( TBO.RANK, 6, 1, 0 ) ) CNT6,
+			                 SUM( DECODE( TBO.RANK, 7, 1, 0 ) ) CNT7,
+			                 SUM( DECODE( TBO.RANK, 8, 1, 0 ) ) CNT8,
+			                 SUM( DECODE( TBO.RANK, 0, 1, 0 ) ) CNT0,
+                             NVL( SUM( TRVA.VOIL999 ), 0) VOIL999,
+                             NVL( SUM( TRVA.VOIL140 ), 0) VOIL140,
+                             NVL( SUM( TRVA.VOIL110 ), 0) VOIL110,
+                             NVL( SUM( TRVA.VOIL120 ), 0) VOIL120			                 
+			         FROM    ( SELECT TBO.*,
+			                          TRM.RACER_PERIO_NO
+			                  FROM    TBEB_ORGAN TBO,
+			                          TBEC_RACER_MASTER TRM
+			                  WHERE   TBO.RACER_NO = TRM.RACER_NO ) TBO,
+			                  TBEB_PRIZ_RACE_MAP TRT,
+			                 ( SELECT A.STND_YEAR,
+			                          A.MBR_CD,
+			                          A.TMS,
+			                          A.DAY_ORD,
+			                          A.RACE_NO,
+			                          A.RACER_NO,
+			                          B.RACER_PERIO_NO,
+			                          SUM( DECODE( A.VOIL_CD, '996', 1, '998', 1, '999', 1, 0 ) ) VOIL999,
+			                          SUM( DECODE( A.VOIL_CD, '140', 1, 0 ) ) VOIL140,
+			                          SUM( DECODE( A.VOIL_CD, '110', 1, 0 ) ) VOIL110,
+			                          SUM( DECODE( A.VOIL_CD, '120', 1, 0 ) ) VOIL120
+			                  FROM    TBED_RACE_VOIL_ACT A,
+			                          TBEC_RACER_MASTER B
+			                  WHERE   A.VOIL_CD IN( '110', '120', '140', '996', '998', '999' )
+			                  AND     A.RACER_NO = B.RACER_NO
+			                  GROUP BY A.STND_YEAR,
+			                           A.MBR_CD,
+			                           A.TMS,
+			                           A.DAY_ORD,
+			                           A.RACE_NO,
+			                           A.RACER_NO,
+			                           B.RACER_PERIO_NO ) TRVA
+			         WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+			         AND     TBO.MBR_CD = TRT.MBR_CD
+			         AND     TBO.TMS = TRT.TMS
+			         AND     TBO.DAY_ORD = TRT.DAY_ORD
+			         AND     TBO.RACE_NO = TRT.RACE_NO
+			         AND     TBO.STND_YEAR = TRVA.STND_YEAR(+)
+			         AND     TBO.MBR_CD = TRVA.MBR_CD(+)
+			         AND     TBO.TMS = TRVA.TMS(+)
+			         AND     TBO.DAY_ORD = TRVA.DAY_ORD(+)
+			         AND     TBO.RACE_NO = TRVA.RACE_NO(+)
+			         AND     TBO.RACER_NO = TRVA.RACER_NO(+)
+			         AND     TBO.RACER_PERIO_NO = TRVA.RACER_PERIO_NO(+)
+			         AND     TRT.DAY_ORD > 0
+			         AND     TRT.GRP_CD = ?
+			         AND     TRT.CD = NVL( ?, TRT.CD )
+			         AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+			         GROUP BY TBO.RACER_PERIO_NO
+			         ORDER BY TO_NUMBER( TBO.RACER_PERIO_NO ) ) TBL		
+        ]]>
+    </query>
+    
+    
+    <query id="tbeb_race_tms_fb114" desc="정번별 2위현황 조회" fetchSize="10">
+        <![CDATA[
+		SELECT /* tbeb_race_tms_fb104 IWORK_SFR-010  (E02080220) */
+		         '2위횟수' COL0,
+		         NVL( MAX( DECODE( RACE_REG_NO, 1, ONE_CNT ) ), 0 ) COL1,
+		         NVL( MAX( DECODE( RACE_REG_NO, 2, ONE_CNT ) ), 0 ) COL2,
+		         NVL( MAX( DECODE( RACE_REG_NO, 3, ONE_CNT ) ), 0 ) COL3,
+		         NVL( MAX( DECODE( RACE_REG_NO, 4, ONE_CNT ) ), 0 ) COL4,
+		         NVL( MAX( DECODE( RACE_REG_NO, 5, ONE_CNT ) ), 0 ) COL5,
+		         NVL( MAX( DECODE( RACE_REG_NO, 6, ONE_CNT ) ), 0 ) COL6,
+		         NVL( MAX( DECODE( RACE_REG_NO, 7, ONE_CNT ) ), 0 ) COL7,
+		         NVL( MAX( DECODE( RACE_REG_NO, 8, ONE_CNT ) ), 0 ) COL8
+		 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+		                  RACE_REG_NO,
+		                  COUNT(1) ONE_CNT
+		          FROM    TBEB_ORGAN TBO,
+		                  TBEB_PRIZ_RACE_MAP TRT
+		          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+		          AND     TBO.MBR_CD = TRT.MBR_CD
+		          AND     TBO.TMS = TRT.TMS
+			      AND     TBO.DAY_ORD = TRT.DAY_ORD
+				  AND     TBO.RACE_NO = TRT.RACE_NO
+				  AND     TRT.GRP_CD = ?
+				  AND     TRT.CD = NVL( ?, TRT.CD )
+		          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+		          AND     RANK = 2
+		          GROUP BY RACE_REG_NO )
+		UNION ALL
+		SELECT 
+		         '비율(%)' COL0,
+		         NVL( MAX( DECODE( RACE_REG_NO, 1, PER ) ), 0 ) COL1,
+		         NVL( MAX( DECODE( RACE_REG_NO, 2, PER ) ), 0 ) COL2,
+		         NVL( MAX( DECODE( RACE_REG_NO, 3, PER ) ), 0 ) COL3,
+		         NVL( MAX( DECODE( RACE_REG_NO, 4, PER ) ), 0 ) COL4,
+		         NVL( MAX( DECODE( RACE_REG_NO, 5, PER ) ), 0 ) COL5,
+		         NVL( MAX( DECODE( RACE_REG_NO, 6, PER ) ), 0 ) COL6,
+		         NVL( MAX( DECODE( RACE_REG_NO, 7, PER ) ), 0 ) COL7,
+		         NVL( MAX( DECODE( RACE_REG_NO, 8, PER ) ), 0 ) COL8
+		 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+		                  RACE_REG_NO,
+		                  ROUND( RATIO_TO_REPORT( COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+		          FROM    TBEB_ORGAN TBO,
+		                  TBEB_PRIZ_RACE_MAP TRT
+		          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+		          AND     TBO.MBR_CD = TRT.MBR_CD
+		          AND     TBO.TMS = TRT.TMS
+			      AND     TBO.DAY_ORD = TRT.DAY_ORD
+				  AND     TBO.RACE_NO = TRT.RACE_NO
+				  AND     TRT.GRP_CD = ?
+				  AND     TRT.CD = NVL( ?, TRT.CD )
+		          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+		          AND     RANK = 2
+		          GROUP BY RACE_REG_NO )		
+        ]]>
+    </query> 
+    
+    
+    <query id="tbeb_race_tms_fb115" desc="정번별 3위현황 조회" fetchSize="10">
+        <![CDATA[
+		SELECT /* tbeb_race_tms_fb104 IWORK_SFR-010  (E02080220) */
+		         '3위횟수' COL0,
+		         NVL( MAX( DECODE( RACE_REG_NO, 1, ONE_CNT ) ), 0 ) COL1,
+		         NVL( MAX( DECODE( RACE_REG_NO, 2, ONE_CNT ) ), 0 ) COL2,
+		         NVL( MAX( DECODE( RACE_REG_NO, 3, ONE_CNT ) ), 0 ) COL3,
+		         NVL( MAX( DECODE( RACE_REG_NO, 4, ONE_CNT ) ), 0 ) COL4,
+		         NVL( MAX( DECODE( RACE_REG_NO, 5, ONE_CNT ) ), 0 ) COL5,
+		         NVL( MAX( DECODE( RACE_REG_NO, 6, ONE_CNT ) ), 0 ) COL6,
+		         NVL( MAX( DECODE( RACE_REG_NO, 7, ONE_CNT ) ), 0 ) COL7,
+		         NVL( MAX( DECODE( RACE_REG_NO, 8, ONE_CNT ) ), 0 ) COL8
+		 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+		                  RACE_REG_NO,
+		                  COUNT(1) ONE_CNT
+		          FROM    TBEB_ORGAN TBO,
+		                  TBEB_PRIZ_RACE_MAP TRT
+		          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+		          AND     TBO.MBR_CD = TRT.MBR_CD
+		          AND     TBO.TMS = TRT.TMS
+			      AND     TBO.DAY_ORD = TRT.DAY_ORD
+				  AND     TBO.RACE_NO = TRT.RACE_NO
+				  AND     TRT.GRP_CD = ?
+				  AND     TRT.CD = NVL( ?, TRT.CD )
+		          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+		          AND     RANK = 3
+		          GROUP BY RACE_REG_NO )
+		UNION ALL
+		SELECT 
+		         '비율(%)' COL0,
+		         NVL( MAX( DECODE( RACE_REG_NO, 1, PER ) ), 0 ) COL1,
+		         NVL( MAX( DECODE( RACE_REG_NO, 2, PER ) ), 0 ) COL2,
+		         NVL( MAX( DECODE( RACE_REG_NO, 3, PER ) ), 0 ) COL3,
+		         NVL( MAX( DECODE( RACE_REG_NO, 4, PER ) ), 0 ) COL4,
+		         NVL( MAX( DECODE( RACE_REG_NO, 5, PER ) ), 0 ) COL5,
+		         NVL( MAX( DECODE( RACE_REG_NO, 6, PER ) ), 0 ) COL6,
+		         NVL( MAX( DECODE( RACE_REG_NO, 7, PER ) ), 0 ) COL7,
+		         NVL( MAX( DECODE( RACE_REG_NO, 8, PER ) ), 0 ) COL8
+		 FROM    ( SELECT /*+ USE_HASH(TBO, TRT) */
+		                  RACE_REG_NO,
+		                  ROUND( RATIO_TO_REPORT( COUNT(1) ) OVER( ) * 100, 2 ) AS PER
+		          FROM    TBEB_ORGAN TBO,
+		                  TBEB_PRIZ_RACE_MAP TRT
+		          WHERE   TBO.STND_YEAR = TRT.STND_YEAR
+		          AND     TBO.MBR_CD = TRT.MBR_CD
+		          AND     TBO.TMS = TRT.TMS
+			      AND     TBO.DAY_ORD = TRT.DAY_ORD
+				  AND     TBO.RACE_NO = TRT.RACE_NO
+				  AND     TRT.GRP_CD = ?
+				  AND     TRT.CD = NVL( ?, TRT.CD )
+		          AND     TBO.RACE_DAY BETWEEN NVL( ?, '19000101' ) AND NVL( ?, '29991231' )
+		          AND     RANK = 3
+		          GROUP BY RACE_REG_NO )		
+        ]]>
+    </query>     
+</queryMap>

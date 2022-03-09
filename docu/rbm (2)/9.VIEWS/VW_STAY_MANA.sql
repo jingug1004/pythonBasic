@@ -1,0 +1,31 @@
+DROP VIEW USRBM.VW_STAY_MANA;
+
+/* Formatted on 2017-03-18 ¿ÀÀü 11:09:09 (QP5 v5.136.908.31019) */
+CREATE OR REPLACE FORCE VIEW USRBM.VW_STAY_MANA
+(
+   MEET_CD,
+   RACE_DT,
+   RACE_NO,
+   BRNC_CD,
+   ENT_PRSN_NUM,
+   LEAV_PRSN_NUM,
+   OUT_ENT_PRSN_NUM,
+   OUT_LEAV_PRSN_NUM,
+   END_REQ_DT,
+   RMK
+)
+AS
+   (SELECT MEET_CD,
+           RACE_DT,
+           RACE_NO,
+           BRNC_CD,
+           ENT_PRSN_NUM,
+           LEAV_PRSN_NUM,
+           OUT_ENT_PRSN_NUM,
+           OUT_LEAV_PRSN_NUM,
+           END_REQ_DT,
+           RMK
+      FROM TBRC_STAY_MANA);
+
+
+GRANT SELECT ON USRBM.VW_STAY_MANA TO ACCT;

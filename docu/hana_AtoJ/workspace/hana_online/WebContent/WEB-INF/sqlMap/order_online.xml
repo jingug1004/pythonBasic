@@ -1,0 +1,1619 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org--DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : order_online.xml
+  * @메뉴명 : 온라인 주문 발주 > 온라인 주문 조회/등록/수정/삭제
+  * @최초작성일 : 2014/10/28            
+  * @author : 우정아                  
+  * @수정내역 :	
+ -->
+<mapper namespace="order">
+
+    <!-- 판매처 목록  -->
+    <select id="getStoreGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        -- 판매처별 제품 목록 / getStoreGridList / @order_online.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+        <![CDATA[
+		SELECT A.CUSTCODE CUST_ID
+             , A.CUSTNAME CUST_NM
+             , A.BUSINESSNO VOU_NO
+		     , A.CEONAME PRESIDENT
+		  FROM ORAGMP.CMCUSTM  A,
+		       ( SELECT A.ECUSTCODE
+                   FROM ORAGMP.SLPROMPRCM A, ORAGMP.CMITEMM B
+                  WHERE A.ITEMCODE = B.ITEMCODE
+                    AND A.CUSTCODE = #{as_cust_id}
+                    AND A.ITEMCODE NOT IN ('86001', '86002')
+                    AND A.EDATE >= TRUNC (SYSDATE)
+                    --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE 
+                  GROUP BY A.ECUSTCODE
+		        ) B
+		 WHERE A.CUSTCODE = B.ECUSTCODE
+		   AND A.UTDIV <> '40'
+		   AND A.CUSTCODE || A.CUSTNAME LIKE '%' || #{searchKeyword} || '%'
+ 		]]>
+        <if test="sidx != ''">
+            ORDER BY ${sidx} ${sord}
+        </if>
+        <!-- 		SELECT A.CUST_ID CUST_ID, A.CUST_NM CUST_NM, A.VOU_NO VOU_NO,
+                       A.PRESIDENT PRESIDENT
+                  FROM SALE.SALE0003 A,
+                       ( SELECT A.RCUST_ID
+                           FROM SALE.SALE0405 A,SALE.SALE0004 B
+                          WHERE A.ITEM_ID = B.ITEM_ID
+                            AND B.JUMUN_VIEW_YN = 'Y'
+                            AND A.CUST_ID = #{as_cust_id}
+                            AND A.ITEM_ID NOT IN ('86001', '86002')
+                            AND A.YMD >= TRUNC (SYSDATE)
+                          GROUP BY A.RCUST_ID
+                        ) B
+                 WHERE A.CUST_ID = B.RCUST_ID
+                   AND A.CUST_GB1 <> '40'
+                   AND A.CUST_ID || A.CUST_NM LIKE '%' || #{searchKeyword} || '%'
+        -->
+    </select>
+
+
+    <!-- 여신규정 -->
+    <select id="getCreditRate" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        SELECT 100 AS LD_DAMBO_RATE,
+             0 AS LD_CREDIT_AMT,
+             0 AS LD_CREDIT_DAMBO
+          FROM DUAL
+        <!--
+        SELECT SUM (CASE CODE1 WHEN '02' THEN TO_NUMBER (BIGO) ELSE 0 END) LD_DAMBO_RATE,
+               SUM (CASE CODE1 WHEN '03' THEN TO_NUMBER (BIGO) ELSE 0 END) LD_CREDIT_AMT,
+               SUM (CASE CODE1 WHEN '04' THEN TO_NUMBER (BIGO) ELSE 0 END) LD_CREDIT_DAMBO
+          FROM SALE.SALE0001
+         WHERE CODE_GB = '4001'
+          -->
+    </select>
+
+    <!-- 담당자,보증인 -->
+    <select id="getGuarantor" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        SELECT EMPCODE LS_SAWON_ID
+        , 'N' AS LS_YEONDAE
+        , 'N' AS IS_YEONDAE3
+        , CREDITLMT AS LD_CREDIT_LIMIT_AMT
+        , NVL(SUNIPGUMYN,'N') AS PRE_DEPOSIT
+        , NVL(SECURITYEXYN,'N') AS SECURITYEXYN
+        FROM ORAGMP.CMCUSTM
+        WHERE CUSTCODE = #{gs_empCode}
+        <!--
+        SELECT SAWON_ID ls_sawon_id
+             , NVL (YEONDAE_2, 'N') ls_yeondae,
+               NVL (YEONDAE_3, 'N') is_yeondae3, NVL(CREDIT_LIMIT_AMT,0) ld_credit_limit_amt,
+               pre_deposit pre_deposit
+          FROM SALE.SALE0003
+         WHERE CUST_ID = #{gs_empCode}
+        -->
+    </select>
+
+
+    <!-- 거래처의 여신 갯수 -->
+    <select id="getCreditCount" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        SELECT COUNT( DISTINCT BUSINESSNO) ll_count
+        FROM ORAGMP.CMCUSTM
+        WHERE CUSTCODE = #{gs_empCode}
+
+        <!--
+        SELECT COUNT (DISTINCT VOU_NO) ll_count
+          FROM SALE.SALE0003
+         WHERE CUST_ID = #{gs_empCode}
+         -->
+    </select>
+
+    <!-- 거래처등록의 여신한도 -->
+    <select id="getCreditLimit" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+
+        SELECT NVL(MAX(CREDITLMT),0 ) LD_CREDIT_LIMIT_AMT
+        FROM ORAGMP.CMCUSTM
+        WHERE BUSINESSNO = (SELECT BUSINESSNO
+        FROM ORAGMP.CMCUSTM
+        WHERE CUSTCODE = #{gs_empCode} )
+        <!--
+            SELECT NVL (MAX (CREDIT_LIMIT_AMT), 0) ld_credit_limit_amt
+              FROM SALE.SALE0003
+             WHERE VOU_NO = (SELECT VOU_NO
+                               FROM SALE.SALE0003
+                              WHERE CUST_ID = #{gs_empCode})
+         -->
+    </select>
+
+
+    <!-- 사원정보 -->
+    <select id="getSawonInfo" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        SELECT EMPNAME AS LS_SAWON_INFO
+        FROM ORAGMP.CMEMPM
+        WHERE EMPCODE = #{ls_sawon_id}
+    <!-- 
+        SELECT (EMPNAME || ' ' || PHONE || ' ' || EMAIL) AS LS_SAWON_INFO
+        FROM ORAGMP.CMEMPM
+        WHERE EMPCODE = #{ls_sawon_id}
+     -->
+        <!--
+            SELECT (SAWON_NM || ' ' || HP || ' ' || EMAIL) ls_sawon_info
+              FROM SALE.SALE0007
+             WHERE SAWON_ID = #{ls_sawon_id}
+         -->
+    </select>
+
+    <!-- 온라인주문상 여신/담보정보 -->
+    <!-- TO-DO : J 테이블 쿼리 수정해야함 -->
+    <select id="getCreditDamboInfo" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+	<![CDATA[
+
+		SELECT J.CUR_AMT + NVL(JASU_AMT, 0) LD_TOT_CREDIT
+		     , NVL (H.SALE_DAMBO_AMT, 0) LD_TOT_DAMBO
+		     , NVL (A.CREDITLMT, 0) LD_CREDIT_LIMIT_AMT
+		  FROM ORAGMP.CMCUSTM A
+		     , (SELECT CUSTCODE,SUM(CASE TASOOYN WHEN 'N' THEN COLAMT ELSE 0 END) AS JASU_AMT
+	              FROM ORAGMP.SLCOLM
+	             WHERE COLDIV IN('30','35')
+	               AND TO_DATE(EXPDATE,'YYYY-MM-DD') >= SYSDATE
+	               AND CUSTCODE = #{gs_empCode}
+	             GROUP BY CUSTCODE) G,
+	             
+		       (SELECT CUSTCODE,SUM(NVL(SCRTAMT,0)) AS SALE_DAMBO_AMT
+		          FROM ORAGMP.CMCUSTSCRTD B
+		          WHERE B.CUSTCODE = #{gs_empCode}
+		          -- AND TO_DATE(B.EXPDATE , 'YYYY-MM-DD') > SYSDATE
+                  GROUP BY CUSTCODE
+		          ) H, 
+                 (
+					SELECT NVL(SLRE.BEFORE_AMT,0) + NVL(SLTU.MISU_AMT,0) - NVL(SLTU.SU_AMT,0) AS CUR_AMT
+					     , SLRE.CUSTCODE
+					  FROM ( 
+					        SELECT MAX(A.CUSTCODE) AS CUSTCODE
+					        	 , NVL(SUM(A.BALANCE),0) AS BEFORE_AMT       
+					          FROM ORAGMP.SLRESULTM A
+					         WHERE A.YEARMONTH = TO_CHAR(TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM') ||'-01','YYYY-MM-DD') - 1,'YYYY-MM')
+					           AND A.CUSTCODE = #{gs_empCode}
+						   ) SLRE
+						  ,(
+					        SELECT MAX(A.CUSTCODE) AS CUSTCODE
+					             , SUM(A.TOTAMT) AS MISU_AMT --합계
+					             , SUM(A.COLAMT) AS SU_AMT --수금액
+					          FROM(         
+					                SELECT A.CUSTCODE AS CUSTCODE --거래처코드
+					                     , SUBSTR(A.ORDERDATE,1,7) AS APPDATE --거래일자
+					                     , CASE SUBSTR(A.SALDIV,1,1) WHEN 'A' THEN B.TOTAMT ELSE - B.TOTAMT END AS TOTAMT --합계
+					                     , 0 AS COLAMT --수금액
+					                  FROM ORAGMP.SLORDM A
+					                     , ORAGMP.SLORDD B
+					                 WHERE A.STATEDIV = '09'
+					                   AND A.ORDERNO = B.ORDERNO
+					                   AND A.ORDERDATE BETWEEN TO_CHAR(SYSDATE,'YYYY-MM')||'-01' AND TO_CHAR(SYSDATE,'YYYY-MM-DD')
+					                   AND A.CUSTCODE = #{gs_empCode}        
+					                 UNION ALL
+					                SELECT A.CUSTCODE AS CUSTCODE --거래처코드
+					                     , SUBSTR(A.COLDATE,1,7) AS APPDATE --거래일자
+					                     , CASE WHEN A.COLDIV IN ('52','59') THEN -A.COLAMT ELSE 0 END AS TOTAMT --합계
+					                     , CASE WHEN A.COLDIV NOT IN ('52','59') THEN A.COLAMT ELSE 0 END AS COLAMT --수금액
+					                  FROM ORAGMP.SLCOLM A
+					                 WHERE A.STATEDIV = '09'
+					                   AND A.COLDATE BETWEEN TO_CHAR(SYSDATE,'YYYY-MM')||'-01' AND TO_CHAR(SYSDATE,'YYYY-MM-DD')
+					                   AND A.CUSTCODE = #{gs_empCode}                        
+					                ) A
+					               , ORAGMP.SLTURNCUSTM B
+					         WHERE A.APPDATE = B.YEARMONTH(+)
+					           AND A.CUSTCODE = B.CUSTCODE (+)
+					         GROUP BY A.APPDATE ,B.TURNCNT
+					 ) SLTU
+					WHERE SLRE.CUSTCODE = SLTU.CUSTCODE(+)
+                  )J
+		 WHERE A.CUSTCODE = G.CUSTCODE(+)
+		   AND A.CUSTCODE = H.CUSTCODE(+)
+		   AND A.CUSTCODE = J.CUSTCODE(+)
+		   AND A.CUSTCODE = #{gs_empCode}
+
+        ]]>
+	</select>
+    <!-- 사용하지 않는 쿼리 제외 -->
+    <!-- J 테이블 쪽 쿼리 수정
+        SELECT CUR_AMT + NVL (JASU_AMT, 0) LD_TOT_CREDIT,
+               NVL (H.SALE_DAMBO_AMT, 0) LD_TOT_DAMBO,
+               NVL (A.CREDIT_LIMIT_AMT, 0) LD_CREDIT_LIMIT_AMT
+          FROM SALE.SALE0003 A,
+               (SELECT   CUST_ID, SUM (AMT_SUM) + SUM (VAT_SUM) REQ_AMT_SUM
+                    FROM SALE_ON.SALE0203
+                   WHERE CUST_ID = #{gs_empCode} AND YMDT IS NULL
+                GROUP BY CUST_ID) I,                                            /*주문*/
+               (SELECT   CUST_ID, SUM (BEFORE_AMT) BEFORE_AMT, SUM (MISU_AMT)
+                                                                             MISU_AMT,
+                         SUM (SU_AMT) SU_AMT
+                    FROM SALE.SALE0306_V
+                   WHERE CUST_ID = #{gs_empCode}
+                     AND YMD =
+                            TO_DATE (TO_CHAR (SYSDATE, 'YYYY/MM') || '/01',
+                                     'YYYY/MM/DD'
+                                    )
+                GROUP BY CUST_ID) F,                                            /*잔고*/
+               (SELECT   X.CUST_ID,
+                         SUM (CASE
+                                 WHEN Y.BILL_GB IN
+                                                  ('010', '020', '030', '100', '900')
+                                    THEN AMT
+                                 ELSE 0
+                              END
+                             ) JASU_AMT
+                    FROM SALE.SALE0401_V X, SALE.SALE0402_V Y
+                   WHERE X.CUST_ID = #{gs_empCode}
+                     AND X.YMD = Y.YMD
+                     AND X.JUNPYO_NO = Y.JUNPYO_NO
+                     AND Y.END_YMD >= SYSDATE
+                GROUP BY X.CUST_ID) G,                                          /*수금*/
+               (SELECT   X.CUST_ID, NVL (SUM (X.SALE_DAMBO_AMT), 0) SALE_DAMBO_AMT
+                    FROM SALE.SALE0404 X
+                   WHERE X.CUST_ID = #{gs_empCode}
+                     AND NVL (X.CHULGO_YMD(+), TO_DATE ('2999/01/01', 'YYYY/MM/DD')) =
+                                                  TO_DATE ('2999/01/01', 'YYYY/MM/DD')
+                GROUP BY X.CUST_ID) H,                              /*거래처별담보관리*/
+               (SELECT CUST_ID,
+                         NVL (BEFORE_AMT, 0)
+                       + NVL (MISU_AMT, 0)
+                       - NVL (SU_AMT, 0) CUR_AMT
+                  FROM (SELECT   CUST_ID, SUM (BEFORE_AMT) BEFORE_AMT,
+                                 SUM (MISU_AMT) MISU_AMT, SUM (SU_AMT) SU_AMT
+                            FROM SALE.SALE0306
+                           WHERE YMD = TO_DATE (TO_CHAR (SYSDATE, 'YYYY/MM') || '/01', 'YYYY/MM/DD')
+                             AND CUST_ID = #{gs_empCode}
+                        GROUP BY CUST_ID)) J
+         WHERE A.CUST_ID = #{gs_empCode}
+           AND A.CUST_ID = F.CUST_ID(+)
+           AND A.CUST_ID = G.CUST_ID(+)
+           AND A.CUST_ID = H.CUST_ID(+)
+           AND A.CUST_ID = I.CUST_ID(+)
+           AND A.CUST_ID = J.CUST_ID(+)
+     -->
+
+    <!-- ERP상 주문 총여신 -->
+    <select id="getSaleTotCredit" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+	
+	<![CDATA[
+
+		SELECT NVL (F.AMT, 0)
+		     + NVL (L.BILL_AMT, 0)
+		     + NVL (M.ON_SALE, 0) ld_sale_tot_credit
+		  FROM ORAGMP.CMCUSTM A,
+		       ( SELECT CUSTCODE
+                      , SUM(BALANCE) AS AMT
+                   FROM ORAGMP.SLRESULTM
+                  WHERE YEARMONTH = TO_CHAR (SYSDATE, 'YYYY-MM')
+                    AND CUSTCODE = #{gs_empCode}
+                GROUP BY CUSTCODE) F,
+		       (SELECT CUSTCODE,SUM(CASE TASOOYN WHEN 'Y' THEN COLAMT ELSE 0 END) AS BILL_AMT
+                  FROM ORAGMP.SLCOLM
+                 WHERE COLDIV IN('30','35')
+                   AND TO_DATE(EXPDATE,'YYYY-MM-DD') >= SYSDATE 
+                   AND CUSTCODE = #{gs_empCode}
+                 GROUP BY CUSTCODE     
+                ) L,
+		       (SELECT A.CUSTCODE 
+                     , SUM(SALAMT)+SUM(SALVAT) AS ON_SALE
+                  FROM ORAGMP.SLORDM A,ORAGMP.SLORDD B
+                 WHERE A.ORDERNO = B.ORDERNO
+                   AND A.STATEDIV = '01'
+                   AND A.CUSTCODE = #{gs_empCode}
+                 GROUP BY A.CUSTCODE) M
+		 WHERE A.CUSTCODE = F.CUSTCODE(+)
+		   AND A.CUSTCODE = L.CUSTCODE(+)
+		   AND A.CUSTCODE = M.CUSTCODE(+)
+		   AND A.CUSTCODE = #{gs_empCode}
+		   
+
+        ]]>
+	</select>
+    <!-- 		SELECT   NVL (F.BEFORE_AMT, 0)
+                   + NVL (F.MISU_AMT, 0)
+                   - NVL (F.SU_AMT, 0)
+                   + NVL (L.BILL_010_AMT, 0)
+                   + NVL (L.BILL_020_AMT, 0)
+                   + NVL (L.BILL_030_AMT, 0)
+                   + NVL (L.BILL_100_AMT, 0)
+                   + NVL (L.BILL_900_AMT, 0)
+                   + NVL (M.ON_SALE, 0) ld_sale_tot_credit
+
+            FROM   SALE.SALE0003 A,
+                   (SELECT   CUST_ID, SUM (BEFORE_AMT) BEFORE_AMT, SUM (MISU_AMT)
+                                                                                 MISU_AMT,
+                             SUM (SU_AMT) SU_AMT
+                        FROM SALE.SALE0306
+                       WHERE YMD =
+                                TO_DATE (TO_CHAR (SYSDATE, 'YYYY/MM') || '/01',
+                                         'YYYY/MM/DD'
+                                        )
+                         AND CUST_ID = #{gs_empCode}
+                    GROUP BY CUST_ID) F,                                      /*거래처잔고*/
+                   (SELECT   X.CUST_ID CUST_ID,
+                             NVL (SUM (DECODE (Y.BILL_GB, '010', Y.AMT)), 0) BILL_010_AMT,
+                             NVL (SUM (DECODE (Y.BILL_GB, '020', Y.AMT)), 0) BILL_020_AMT,
+                             NVL (SUM (DECODE (Y.BILL_GB, '025', Y.AMT)), 0) BILL_025_AMT,
+                             NVL (SUM (DECODE (Y.BILL_GB, '030', Y.AMT)), 0) BILL_030_AMT,
+                             NVL (SUM (DECODE (Y.BILL_GB, '035', Y.AMT)), 0) BILL_035_AMT,
+                             NVL (SUM (DECODE (Y.BILL_GB, '040', Y.AMT)), 0) BILL_040_AMT,
+                             NVL (SUM (DECODE (Y.BILL_GB, '100', Y.AMT)), 0) BILL_100_AMT,
+                             NVL (SUM (DECODE (Y.BILL_GB, '900', Y.AMT)), 0) BILL_900_AMT
+                        FROM SALE.SALE0401 X, SALE.SALE0402 Y
+                       WHERE X.YMD = Y.YMD
+                         AND X.JUNPYO_NO = Y.JUNPYO_NO
+                         AND Y.END_YMD >= SYSDATE
+                    GROUP BY X.CUST_ID) L,                                        /*수금*/
+                   (SELECT   CUST_ID, SUM (AMT_SUM + VAT_SUM) ON_SALE
+                        FROM SALE_ON.SALE0203
+                       WHERE CUST_ID = #{gs_empCode} AND RECEIPT_GB = '1'
+                    GROUP BY CUST_ID) M                                           /*주문*/
+             WHERE A.CUST_ID = #{gs_empCode}
+               AND A.CUST_ID = F.CUST_ID(+)
+               AND A.CUST_ID = L.CUST_ID(+)
+               AND A.CUST_ID = M.CUST_ID(+)
+     -->
+
+
+    <!-- 출하중지 체크 -->
+    <select id="getBudongYn" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+		SELECT ORDERCTRLYN AS ls_budong_yn
+		     , EMAIL AS ls_email
+		     , MEDICALCODE AS ls_room_cnt
+		  FROM ORAGMP.CMCUSTM
+		 WHERE CUSTCODE = #{gs_empCode}
+	</select>
+    <!--
+    SELECT BUDONG_YN ls_budong_yn
+         , EMAIL ls_email
+         , ROOM_CNT ls_room_cnt
+      FROM SALE.SALE0003
+     WHERE CUST_ID = #{gs_empCode}
+    -->
+
+
+    <!-- [설명] (평균수량=직전3개월평균 * ' + LS_JUMUN_LIMIT + '%)(주문한도=평균수량-해당월)' -->
+    <select id="getJumunLimit" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        <!--
+            SELECT TO_CHAR (JUMUN_LIMIT) ls_jumun_limit
+              FROM SALE.SALE0003
+             WHERE CUST_ID = #{gs_empCode}
+         -->
+        SELECT TO_CHAR (JUMUN_LIMIT) ls_jumun_limit
+        FROM ORAGMP.CMCUSTM
+        WHERE CUSTCODE = #{gs_empCode}
+    </select>
+
+
+    <select id="getRcustBudongYn" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        -- 판매처의 출하중지 여부 / getStoreYn / @orderOnline.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+        <!--
+        SELECT budong_yn
+          FROM sale.sale0003
+         WHERE cust_id = #{rcust_id}
+          -->
+        SELECT ORDERCTRLYN AS budong_yn
+        FROM ORAGMP.CMCUSTM
+        WHERE CUSTCODE = #{rcust_id}
+    </select>
+
+
+    <!-- 판매처 확인 -->
+    <select id="getStoreYn" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        -- 판매처 확인 / getStoreYn / @order_online.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+        <![CDATA[
+	    SELECT A.CUSTNAME AS ls_cust_nm
+	         , A.EMPCODE AS ls_sawon_id
+	      FROM ORAGMP.CMCUSTM A,
+	          (SELECT   ECUSTCODE
+	                FROM ORAGMP.SLPROMPRCM
+	               WHERE CUSTCODE = #{gs_empCode}
+	            GROUP BY ECUSTCODE) B
+	     WHERE A.CUSTCODE = B.ECUSTCODE 
+	       AND A.UTDIV <> '40' 
+	       AND A.CUSTCODE = #{rcust_id}
+		]]>
+
+        <!--
+        <![CDATA[
+        SELECT A.CUST_NM ls_cust_nm, A.SAWON_ID ls_sawon_id
+          FROM SALE.SALE0003 A,
+               (SELECT   RCUST_ID
+                    FROM SALE.SALE0405
+                   WHERE CUST_ID = #{gs_empCode}
+                GROUP BY RCUST_ID) B
+         WHERE A.CUST_ID = B.RCUST_ID AND A.CUST_GB1 <> '40' AND A.CUST_ID = #{rcust_id}
+         ]]>
+         -->
+    </select>
+
+
+    <!-- 판매처 사원정보	 -->
+    <select id="getStoreSawonInfo" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        SELECT EMPNAME ls_sawon_info
+        FROM ORAGMP.CMEMPM
+        WHERE EMPCODE = #{ls_sawon_id}
+        <!--
+        SELECT (EMPNAME || ' ' || PHONE || ' ' || EMAIL) ls_sawon_info
+        FROM ORAGMP.CMEMPM
+        WHERE EMPCODE = #{ls_sawon_id}
+            SELECT (SAWON_NM || ' ' || HP || ' ' || EMAIL) ls_sawon_info
+
+              FROM SALE.SALE0007
+             WHERE SAWON_ID = #{ls_sawon_id}
+         -->
+    </select>
+
+
+    <!-- 판매처별 제품 목록 -->
+    <!-- 쿼리 수정되면 getExcelUploadItemGridList(엑셀업로드후 제품목록 조회) 도같이 수정필요 -->
+    <select id="getItemGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        -- 판매처별 제품 목록 / getItemGridList / @order_onlie.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+        SELECT *
+        FROM (
+        <!--
+            <![CDATA[
+            SELECT A.CUST_ID CUST_ID, A.RCUST_ID RCUST_ID, A.ITEM_ID ITEM_ID,
+                   B.ITEM_NM ITEM_NM, B.SAUPJANG_CD SAUPJANG_CD, B.STANDARD STANDARD,
+                   TO_NUMBER ('') QTY, BAS_AMT BAS_AMT, ROUND (A.BAL_AMT / 1.1,
+                                                               0) BAL_AMT,
+                   ROUND (A.BAL_AMT / 1.1, 0) - ROUND (A.YAK_AMT / 1.1, 0) DC_DANGA,
+                   NVL (B.CHUL_YN, 'N') LS_CHUL_YN, 100 - ROUND (A.BAL_AMT / A.BAS_AMT * 100) PERCENT, 0 DC_AMT,
+                   0 SUPPLY_NET, 0 SUPPLY_VAT, A.YMD CLOSE_DATE, 0 MAVG_QTY, 0 M_QTY,
+                   0 PSB_QTY
+              FROM SALE.SALE0405 A, SALE.SALE0004 B
+             WHERE A.ITEM_ID = B.ITEM_ID
+               AND A.YMD >= TRUNC (SYSDATE)
+               AND A.CUST_ID = #{gs_empCode}
+               AND A.RCUST_ID = #{rcust_id}
+               AND B.ITEM_GB1 <> '010'
+               AND B.ITEM_ID NOT IN ('86001', '86002')
+               AND B.JUMUN_VIEW_YN = 'Y'
+            UNION
+            SELECT A.CUST_ID CUST_ID, A.RCUST_ID RCUST_ID, A.ITEM_ID ITEM_ID,
+                   B.ITEM_NM ITEM_NM, B.SAUPJANG_CD SAUPJANG_CD, B.STANDARD STANDARD,
+                   TO_NUMBER ('') QTY, BAS_AMT BAS_AMT, ROUND (A.BAL_AMT / 1.1,0) BAL_AMT,
+                   ROUND (A.BAL_AMT / 1.1, 0) - ROUND (A.YAK_AMT / 1.1, 0) DC_DANGA,
+                   B.CHUL_YN, 100 - ROUND (A.BAL_AMT / A.BAS_AMT * 100) PERCENT, 0 DC_AMT,
+                   0 SUPPLY_NET, 0 SUPPLY_VAT, A.YMD CLOSE_DATE, 0 MAVG_QTY, 0 M_QTY,
+                   0 PSB_QTY
+              FROM SALE.SALE0405 A, SALE.SALE0004 B
+             WHERE A.ITEM_ID = B.ITEM_ID
+               AND A.YMD >= TRUNC (SYSDATE)
+               AND A.CUST_ID = #{gs_empCode}
+               AND A.RCUST_ID = #{rcust_id}
+               AND B.ITEM_GB1 <> '010'
+               AND B.ITEM_ID NOT IN ('86001', '86002')
+               AND B.ITEM_ID = '17837'
+            ]]>
+        -->
+
+        <![CDATA[
+			SELECT A.CUSTCODE AS CUST_ID
+			     , A.ECUSTCODE AS RCUST_ID
+			     , A.ITEMCODE AS  ITEM_ID
+			     , B.ITEMNAME AS ITEM_NM
+			     , B.MPLANTCODE AS SAUPJANG_CD
+			     , B.ITEMUNIT AS STANDARD 
+			     , null as QTY
+			     , B.DRUGPRC AS BAS_AMT                                                                     --기준금액
+			     , A.BEFPRC BAL_AMT                                                          --발행금액
+			     , ROUND (A.BEFPRC / 1.1, 0) - ROUND (A.AFTPRC / 1.1, 0) DC_DANGA                           --발행금액 , 약정금액
+			     , CASE B.PRODUCTDIV WHEN '04' THEN 'Y' ELSE 'N' END AS LS_CHUL_YN                          --출하중지
+			     , 100 -    DECODE(A.DRUGPRC,0,0,null,0,     ROUND(A.BEFPRC / A.DRUGPRC * 100)  )  PERCENT  --발행금액 , 기준금액
+			     , 0 DC_AMT
+			     , 0 SUPPLY_NET
+			     , 0 SUPPLY_VAT
+			     , NULL CLOSE_DATE
+			     , 0 MAVG_QTY
+			     , 0 M_QTY
+			     , 0 PSB_QTY
+			     , A.BEFPRC as STAT_DANGA
+			  FROM ORAGMP.SLPROMPRCM A ,  ORAGMP.CMITEMM B
+			 WHERE A.ITEMCODE = B.ITEMCODE
+			   AND A.CUSTCODE = #{gs_empCode}
+			   AND A.ECUSTCODE = #{rcust_id}
+			   AND B.EFFECTDIV <> '010'
+			   --AND B.ITEMGBDIV NOT IN ('02')
+			   AND B.ITEMCODE NOT IN (SELECT ITEMCODE FROM ORAGMP.CMITEMM WHERE B.ITEMGBDIV IN ('02') OR B.MPLANTCODE IN '2001')
+			   AND B.PIECEYN NOT IN('Y')
+			   AND A.EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD')
+			   --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE 
+			   AND B.ITEMCODE NOT IN ('86001', '86002')
+				 )
+				]]>
+        <if test="sidx !=''">
+            ORDER BY ${sidx} ${sord}
+        </if>
+
+    </select>
+
+
+    <!-- 해당제품이 마약,향정일때 납품처의 향정마약여부 체크 -->
+    <select id="getItemYn" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        -- 해당제품이 마약,향정일때 납품처의 향정마약여부 체크 / getItemYn / @order_online.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+        SELECT EFFECTDIV AS LS_ITEM_GB1
+        FROM ORAGMP.CMITEMM
+        WHERE ITEMCODE = #{ls_item_id}
+        <!--
+        SELECT ITEM_GB1 LS_ITEM_GB1
+          FROM SALE.SALE0004
+         WHERE ITEM_ID = #{ls_item_id}
+         -->
+    </select>
+
+
+    <!-- 해당제품이 마약,향정일때 납품처의 향정마약여부 체크 -->
+    <select id="getItemGb" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT
+        <if test="ls_item_gb1 == '010'">
+            NVL(MAYAK, 'N') LS_YN
+        </if>
+        <if test="ls_item_gb1 == '020'">
+            NVL(HANGJUNG, 'N') LS_YN
+        </if>
+        FROM ORAGMP.CMCUSTM
+        WHERE CUSTCODE = #{gs_empCode}
+        <!--
+        SELECT
+            <if test="ls_item_gb1 == '010'">
+            NVL(MAYAK, 'N') LS_YN
+            </if>
+            <if test="ls_item_gb1 == '020'">
+            NVL(HANGJUNG, 'N') LS_YN
+            </if>
+        FROM SALE.SALE0003
+        WHERE CUST_ID = #{gs_empCode}
+        -->
+    </select>
+
+
+    <!-- 거래처,주문일자,제품별 월평균, 해당월, 주문가능수량을 보여준다.	 -->
+    <select id="getQtyCnt" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        -- 거래처,주문일자,제품별 월평균, 해당월, 주문가능수량을 보여준다 / getQtyCnt / @order_online.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+        <![CDATA[
+		SELECT ROUND (A.QTY * B.JLIMIT) ll_mavg_qty
+		     , C.MQTY ll_mqty,
+		       ROUND (A.QTY * B.JLIMIT) - C.MQTY ll_psb_qty
+
+		  FROM (SELECT ROUND((NVL(SUM(B.SALQTY),0) / 3))QTY
+                  FROM ORAGMP.SLORDM A,ORAGMP.SLORDD B
+                 WHERE A.ORDERNO = B.ORDERNO
+                   AND A.ECUSTCODE = #{rcust_id}
+                   AND A.CUSTCODE = #{gs_empCode}
+                   AND A.STATEDIV = '09'
+                   AND TO_DATE(A.ORDERDATE,'YYYY-MM-DD') < TO_DATE(SUBSTR(#{ls_ymd},1,6)||'01','YYYYMMDD')
+                   AND TO_DATE(A.ORDERDATE,'YYYY-MM-DD') >= ADD_MONTHS(TO_DATE(SUBSTR(#{ls_ymd},1,6)||'01','YYYY-MM-DD'),-3)
+               ) A,
+
+		       (SELECT (JUMUN_LIMIT / 100) JLIMIT
+		          FROM ORAGMP.CMCUSTM
+		         WHERE CUSTCODE = #{rcust_id}) B,
+                   
+		       (SELECT NVL (SUM (B.SALQTY), 0) MQTY
+		          FROM ORAGMP.SLORDM A, ORAGMP.SLORDD B
+		         WHERE A.ECUSTCODE = #{rcust_id}
+                   AND A.CUSTCODE = #{gs_empCode}
+                   AND TO_DATE(A.ORDERDATE,'YYYY-MM-DD') < TO_DATE(SUBSTR(#{ls_ymd},1,6)||'01','YYYYMMDD')
+                   AND TO_DATE(A.ORDERDATE,'YYYY-MM-DD') >= ADD_MONTHS(TO_DATE(SUBSTR(#{ls_ymd},1,6)||'01','YYYY-MM-DD'),-3)
+		           AND A.ORDERNO = B.ORDERNO
+		           AND A.STATEDIV IN ('00','01')
+		           AND B.ITEMCODE = #{ls_item_id}) C
+		]]>
+        <!--
+        <![CDATA[
+		SELECT ROUND (A.QTY * B.JLIMIT) ll_mavg_qty
+		     , C.MQTY + D.MQTY ll_mqty,
+		       ROUND (A.QTY * B.JLIMIT) - (C.MQTY + D.MQTY) ll_psb_qty
+
+		  FROM (SELECT ROUND ((NVL (SUM (B.QTY), 0) / 3)) QTY
+		          FROM SALE.SALE0203 A, SALE.SALE0204 B
+		         WHERE A.RCUST_ID = #{rcust_id}
+                   AND A.CUST_ID = #{gs_empCode}
+		           AND A.YMD < TO_DATE (SUBSTR (#{ls_ymd}, 1, 6) || '01')
+		           AND A.YMD >= ADD_MONTHS (TO_DATE (SUBSTR (#{ls_ymd}, 1, 6) || '01'), -3)
+		           AND A.GUMAE_NO = B.GUMAE_NO
+		           AND B.ITEM_ID = #{ls_item_id}) A,
+		       (SELECT NVL (SUM (B.QTY), 0) MQTY
+		          FROM SALE.SALE0203 A, SALE.SALE0204 B
+		         WHERE A.RCUST_ID = #{rcust_id}
+                   AND A.CUST_ID = #{gs_empCode}
+		           AND A.YMD >= TO_DATE (SUBSTR (#{ls_ymd}, 1, 6) || '01')
+		           AND A.YMD <= LAST_DAY (SUBSTR (#{ls_ymd}, 1, 6) || '01')
+		           AND A.GUMAE_NO = B.GUMAE_NO
+		           AND B.ITEM_ID = #{ls_item_id}) C,
+
+		       (SELECT (JUMUN_LIMIT / 100) JLIMIT
+		          FROM SALE.SALE0003
+		         WHERE CUST_ID = #{rcust_id}) B,
+		       (SELECT NVL (SUM (B.QTY), 0) MQTY
+		          FROM SALE_ON.SALE0203 A, SALE_ON.SALE0204 B
+		         WHERE A.RCUST_ID = #{rcust_id}
+                   AND A.CUST_ID = #{gs_empCode}
+		           AND A.YMD >= TO_DATE (SUBSTR (#{ls_ymd}, 1, 6) || '01')
+		           AND A.YMD <= LAST_DAY (SUBSTR (#{ls_ymd}, 1, 6) || '01')
+		           AND A.GUMAE_NO = B.GUMAE_NO
+		           AND A.RECEIPT_GB = '1'                                     /*접수*/
+		           AND B.ITEM_ID = #{ls_item_id})D
+		]]>
+        -->
+    </select>
+
+    <!-- 제품체크 -->
+    <select id="getItemChk" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT CASE PRODUCTDIV WHEN '04' THEN 'Y' ELSE 'N' END ls_chul_yn,
+        NVL (USEDIV, 'N') ls_use_yn
+        FROM ORAGMP.CMITEMM
+        WHERE ITEMCODE = #{ls_item_cd}
+        <!--
+            SELECT NVL (CHUL_YN, 'N') ls_chul_yn,
+                   NVL (USE_YN, 'N') ls_use_yn
+              FROM SALE.SALE0004
+             WHERE ITEM_ID = #{ls_item_cd}
+        -->
+    </select>
+
+
+    <!-- 창고재고 -->
+    <select id="getJaego" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT sum(QTY) ld_jaego_qty
+        FROM ORAGMP.SLWAREHOUSEM
+        WHERE itemcode = #{ls_item_cd}
+        <!--
+            SELECT   NVL (BEFORE_QTYS, 0)
+                   + NVL (IPGO_QTYS, 0)
+                   - NVL (CHULGO_QTYS, 0)
+                   - NVL (CHULGO_QTYST, 0)
+                   + NVL (BANPUM_QTYS, 0)
+                   + NVL (CONTROL_QTYS, 0) ld_jaego_qty
+              FROM SALE.SALE0305
+             WHERE YMD = (SUBSTR (#{ldt_jaego}, 1, 6) || '01')
+               AND ITEM_ID = #{ls_item_cd}
+               AND STORE_LOC = '01'
+          -->
+    </select>
+
+    <!-- 창고재고 : 제조번호별 재고의 합계 -->
+    <select id="getInvjaego" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT SUM(QTY) AS ld_invjaego_qty
+        FROM ORAGMP.SLWAREHOUSEM
+        WHERE ITEMCODE = #{ls_item_cd}
+        AND WAREHOUSE = '001'
+        <!--
+            SELECT NVL (SUM (  NVL (IPGO_QTYS, 0)
+                            - NVL (CHULGO_QTYS, 0)
+                            - NVL (CHULGO_QTYST, 0)
+                            + NVL (BANPUM_QTYS, 0)
+                           ),
+                       0
+                      ) ld_invjaego_qty
+             FROM SALE.SALE0305_1
+            WHERE ITEM_ID = #{ls_item_cd} AND STORE_LOC = '01'
+        -->
+    </select>
+
+    <!-- 개시일자부터 3개월간은 주문수량 통과 -->
+    <select id="getLiCnt" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        <![CDATA[
+		SELECT COUNT (*) li_cnt
+		  FROM ORAGMP.CMCUSTM
+		 WHERE CUSTCODE = #{ls_rcust_id}
+		   AND TO_DATE( #{ldt_jaego} , 'YYYYMMDD') BETWEEN TO_DATE( OPENDATE , 'YYYY-MM-DD') AND  ADD_MONTHS( TO_DATE( OPENDATE , 'YYYY-MM-DD'),3)
+	]]>
+        <!--
+            SELECT COUNT (*) li_cnt
+              FROM SALE.SALE0003
+             WHERE CUST_ID = #{ls_rcust_id}
+               AND #{ldt_jaego} BETWEEN START_YMD AND ADD_MONTHS (START_YMD, 3)
+         -->
+    </select>
+
+
+    <!-- 주문번호 생성 프로시저 -->
+    <parameterMap type="hashmap" id="itemParam">
+        <parameter property="ll_max" jdbcType="INTEGER" javaType="string" mode="OUT"/>
+    </parameterMap>
+    <select id="getProcedureCall" statementType="CALLABLE" parameterMap="itemParam">
+        {call oragmp.spCreateTableSerial('SLORDM',TO_CHAR(SYSDATE,'YYYY-MM-DD'),? )}
+    </select>
+<!-- 
+    <select id="getProcedureCall" parameterType="hashmap" resultType="hashmap">
+		SELECT CASE
+		       WHEN MAX(ORDERNO) IS NULL 
+		       THEN 1
+		       ELSE  TO_NUMBER(SUBSTR(TRIM(TO_CHAR(TO_NUMBER(MAX(ORDERNO)) + 1,'000000000000')),9))
+		       END AS NEWORDERNO
+		  FROM ORAGMP.SLORDM
+		 WHERE PLANTCODE = '1000'
+		   AND ORDERDATE = TO_CHAR(      TO_DATE( #{ldt_req_date} , 'YYYYMMDD' ) ,'YYYY-MM-DD')
+	</select>
+ -->
+
+    <!-- SALE_ON 주문 DETAIL 생성 -->
+    <insert id="insertDetailOrder" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+	INSERT INTO ORAGMP.SLORDD (
+                                ORDERNO     --주문번호
+                               ,PLANTCODE   --사업장
+                               ,SEQ         --일련번호
+                               ,ORDERDATE   --주문일자
+                               ,ORDERSEQ    --주문순번
+                               ,ITEMCODE    --제품코드
+                               ,SALQTY      --판매수량
+                               ,GIVQTY      --증품(할증)수량
+                               ,BONUSQTY    --추가증품수량
+                               ,DRUGPRC     --기준가
+                               ,DRUGAMT     --기준금액
+                               ,MAKINGCOST  --제조원가
+                               ,EXRTPRC
+                               ,EXRTAMT
+                               ,SALPRC      --단가
+                               ,SALAMT      --매출액
+                               ,SALVAT      --부가세
+                               ,TOTAMT      --매출합계
+                               ,BEFAMT      --사전
+                               ,AFTAMT      --사후
+                               ,INCAMT      --수수료
+                               ,TOTDISCOUNT --총할인
+                               ,GIVRATE     --할증비율
+                               ,BEFRATE     --사전비율
+                               ,AFTRATE     --사후비율
+                               ,INCRATE     --수수료비율
+                               ,SALPRC1     --출하단가1
+                               ,SALAMT1     --공급가액1
+                               ,SALVAT1     --부가세1
+                               ,TOTAMT1     --총금액1
+                               ,CUSTPRTYN   --거래장출력여부
+                               ,OUTPUTQTY   --출하수량
+                               ,RECALLDIV   --반품유형
+                               ,ABSYN       --품절여부
+                               ,PIECEYN     --낱알여부
+                               ,ENURIYN     --매출할인정리구분
+                               ,JUORDNO
+                               ,BPQTY
+                               ,LOTNO       --제조번호
+                               ,EXPDATE     --유효기간
+                               ,INSERTDT    --입력일자
+                               ,IEMPCODE    --입력자 사번
+                               ,AVGQTY      --평균수량
+                               ,AVGQTYLMTCK
+                               ,LOTDATE     --제조일자
+                               ,PIECEQTY
+                               ,REALOUTQTY
+                               ,SUPPLYDIV   --공급구분
+                               ,EMPCODE     --담당자 사번
+                               ,ORDQTYBSUNIT--주문수량배수단위
+                               ,OUTPROTYN   --퇴장방지여부
+                               ,MPLANTCODE  --관리사업장
+                               ,PAIDYN      --급여/비급여구분
+                               ,REQQTY      --요청수량
+                               ,THREEAVGCK  --
+                              )
+                       VALUES (
+                                #{ls_gumae_no}                                                          --ORDERNO     --주문번호          
+                               ,'1000'                                                                  --PLANTCODE   --사업장            
+                               ,#{ls_input_seq}                                                         --SEQ         --일련번호          
+                               ,TO_CHAR(TO_DATE(#{ldt_req_date},'YYYYMMDD') , 'YYYY-MM-DD')             --ORDERDATE   --주문일자          
+                               ,SUBSTR(#{ls_gumae_no},9,4)                                              --ORDERSEQ    --주문순번          
+                               ,#{item_id}                                                              --ITEMCODE    --제품코드          
+                               ,#{qty}                                                                  --SALQTY      --판매수량          
+                               ,0                                                                       --GIVQTY      --증품(할증)수량    
+                               ,0                                                                       --BONUSQTY    --추가증품수량      
+                               ,(SELECT DRUGPRC 
+                                   FROM ORAGMP.CMITEMM
+                                  WHERE ITEMCODE = #{item_id})                                          --DRUGPRC     --기준가            
+                               ,(SELECT DRUGPRC * TO_NUMBER(#{qty})
+                                   FROM ORAGMP.CMITEMM
+                                  WHERE ITEMCODE = #{item_id})                                          --DRUGAMT     --기준금액          
+                               ,0                                                                       --MAKINGCOST  --제조원가          
+                               ,0                                                                       --EXRTPRC                         
+                               ,0                                                                       --EXRTAMT                         
+                               ,TO_NUMBER(#{bal_amt})                                                   --SALPRC      --단가(더 큰 금액)
+                               ,ROUND(  ( TO_NUMBER(#{bal_amt}) * TO_NUMBER(#{qty}) ) / 1.1  )          --SALAMT 매출액 (공급액)
+                               ,(TO_NUMBER(#{bal_amt}) * TO_NUMBER(#{qty}))
+                                -  ROUND(  ( TO_NUMBER(#{bal_amt}) * TO_NUMBER(#{qty}) ) / 1.1  )       --SALVAT      --부가세 (공급세액)
+                               ,TO_NUMBER(#{bal_amt}) * TO_NUMBER(#{qty})                               --TOTAMT      --매출합계 (합계금액)
+                               ,0                                                                       --BEFAMT      --사전              
+                               ,0                                                                       --AFTAMT      --사후              
+                               ,0                                                                       --INCAMT      --수수료            
+                               ,0                                                                       --TOTDISCOUNT --총할인            
+                               ,0                                                                       --GIVRATE     --할증비율          
+                               ,#{percent}                                                              --BEFRATE     --사전비율          
+                               ,0                                                                       --AFTRATE     --사후비율          
+                               ,0                                                                       --INCRATE     --수수료비율        
+                               ,(SELECT AFTPRC
+                                  FROM ORAGMP.SLPROMPRCM
+                                 WHERE CUSTCODE = #{gs_empCode}
+                                   AND ECUSTCODE = #{ls_rcust_cd} 
+                                   AND ITEMCODE = #{item_id}
+                                   --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE
+                                   AND EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD') 
+                                   )                                           --SALPRC1 약정 단가(더 작은 금액)
+                                            
+                               ,(SELECT ROUND(  ( AFTPRC * TO_NUMBER(#{qty}) ) / 1.1  )
+                                  FROM ORAGMP.SLPROMPRCM 
+                                 WHERE CUSTCODE = #{gs_empCode}
+                                   AND ECUSTCODE = #{ls_rcust_cd}
+                                   AND ITEMCODE = #{item_id}
+                                   --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE
+                                   AND EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD') 
+                                   )                                           --SALAMT1     --공급가액1 매출액 (공급액)
+                                            
+                               ,(SELECT (AFTPRC * TO_NUMBER(#{qty})) -  ROUND(  ( AFTPRC * TO_NUMBER(#{qty}) ) / 1.1  )
+                                   FROM ORAGMP.SLPROMPRCM
+                                  WHERE CUSTCODE = #{gs_empCode}
+                                    AND ECUSTCODE = #{ls_rcust_cd}
+                                    AND ITEMCODE = #{item_id}
+                                    --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE 
+                                    AND EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD')
+                                    )											--SALVAT1     --부가세1 부가세 (공급세액)
+                                    
+                               ,(SELECT AFTPRC * TO_NUMBER(#{qty}) AS TOT
+                                   FROM ORAGMP.SLPROMPRCM 
+                                  WHERE CUSTCODE = #{gs_empCode}
+                                    AND ECUSTCODE = #{ls_rcust_cd} 
+                                    AND ITEMCODE = #{item_id}
+                                    --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE
+                                    AND EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD') 
+                                    )                                          --TOTAMT1     --총금액1           
+                               ,'Y'                                                                     --CUSTPRTYN   --거래장출력여부    
+                               ,0                                                                       --OUTPUTQTY   --출하수량
+                               ,''                                                                      --RECALLDIV   --반품유형          
+                               ,'N'                                                                     --ABSYN       --품절여부          
+                               ,'N'                                                                     --PIECEYN     --낱알여부          
+                               ,''                                                                      --ENURIYN     --매출할인정리구분  
+                               ,''                                                                      --JUORDNO                         
+                               ,''                                                                      --BPQTY                           
+                               ,''                                                                      --LOTNO       --제조번호          
+                               ,''                                                                      --EXPDATE     --유효기간          
+                               ,SYSDATE                                                                 --INSERTDT    --입력일자          
+                               ,#{ls_sawon_id}                                                          --IEMPCODE    --입력자 사번       
+                               ,0                                                                       --AVGQTY      --평균수량          
+                               ,''                                                                      --AVGQTYLMTCK                     
+                               ,''                                                                      --LOTDATE     --제조일자          
+                               ,0                                                                       --PIECEQTY                        
+                               ,''                                                                      --REALOUTQTY                      
+                               ,''                                                                      --SUPPLYDIV   --공급구분          
+                               ,(SELECT NVL(EMPCODE,IEMPCODE) 
+                                   FROM ORAGMP.SLPROMPRCM
+                                 WHERE CUSTCODE = #{gs_empCode}
+                                   AND ECUSTCODE = #{ls_rcust_cd} 
+                                   AND ITEMCODE = #{item_id}
+                                   --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE
+                                   AND EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD') 
+                                   )                                           --EMPCODE     --담당자 사번
+                               ,0                                                                       --ORDQTYBSUNIT--주문수량배수단위  
+                               ,'N'                                                                     --OUTPROTYN   --퇴장방지여부      
+                               ,(SELECT MPLANTCODE FROM ORAGMP.CMITEMM WHERE ITEMCODE = #{item_id})     --MPLANTCODE  --관리사업장        
+                               ,'N'                                                                     --PAIDYN      --급여/비급여구분   
+                               ,TO_NUMBER(#{qty})                                                       --REQQTY      --요청수량          
+                               ,#{threeavgck}                                                           --THREEAVGCK  --                  
+                       )
+	</insert>
+    <!--
+            INSERT INTO SALE_ON.SALE0204
+                        (YMD, GUMAE_NO, INPUT_SEQ, ITEM_ID, QTY
+                        , DANGA, AMT, VAT, RATE, DC_AMT, DC_DANGA
+                        , REQ_QTY)
+                 VALUES (#{ldt_req_date},#{ls_gumae_no}, #{ls_input_seq}, #{item_id},#{qty}
+                         , #{bal_amt}, #{supply_net}, #{supply_vat},#{percent}, #{dc_amt}, #{dc_danga}
+                         , #{qty}
+                        )
+     -->
+
+
+    <!-- SALE_ON 주문 MASTER 생성	 -->
+    <!--
+         TO-DO : 아래의 목록 조사하여 붙여야함
+
+                          ,ADDRSEQ              /*배송지 순번*/
+                          ,THREEAVGCK           /*3개월 주문수량 위반여부*/
+                          ,WIBANORDERCONFSTATUS /*위반오더승인상태      0-대기,1-승인,2-반려 지점장이 처리*/
+                          ,WIBANKIND            /*위반유형              0-정상,1-회전일,2-수량*/
+                          ,WIBANCONFDTM         /*위반오더 지점장승인일시*/
+                    =============================================================================
+
+                         ,in_BAESONJI
+                         ,'?'                           /*THREEAVGCK           3개월 주문수량 위반여부*/
+                         ,v_wiban_order_conf_status     /*WIBANORDERCONFSTATUS 위반오더승인상태      0-대기,1-승인,2-반려 지점장이 처리*/
+                         ,NVL(in_WIBAN_KIND,'0')        /*WIBANKIND            위반유형           0-정상,1-회전일,2-수량*/
+                         ,v_wiban_order_conf_dtm        /*WIBANCONFDTM         위반오더 지점장승인일시*/
+
+     -->
+    <insert id="insertMasterOrder" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+                    INSERT INTO ORAGMP.SLORDM(
+                               PLANTCODE                                                              
+                              ,ORDERNO                                                            
+                              ,ORDERDATE            --주문일자                                                            
+                              ,ORDERSEQ             --주문일련번호                                                        
+                              ,SALDIV               --영업구분      A01:판매                                              
+                              ,DATADIV              --자료구분      11:직납,12:간납                                       
+                              ,ORDERDIV             --영업영역      3:간납, 4:직납                                        
+                              ,OUTPUTDIV            --출하구분      1:택배, 9:직배                                        
+                              ,TRANSFERDIV          --배송구분      1:거래선착                                            
+                              ,CUSTCODE             --거래처                                                              
+                              ,DEPTCODE             --부서코드                                                            
+                              ,EMPCODE              --담당자코드                                                          
+                              ,ECUSTCODE            --간납처코드                                                          
+                              ,EDEPTCODE            --영업소(간납)                                                        
+                              ,EEMPCODE             --담당자(간납)                                                        
+                              ,UTDIV                --거래처유통구분                                                      
+                              ,EUTDIV               --간납처유통구분                                                      
+                              ,BNORDERNO            --상계주문번호(출하번호)                                              
+                              ,TAXDATE              --세금계산서 발행일자                                                 
+                              ,TRADEDATE            --거래명세서 발행일자                                                 
+                              ,TAXMANAGEDATE        --세금계산서 발행일자                                                 
+                              ,TRADEMANAGEDATE      --거래명세서 발행일자                                                 
+                              ,FIXDATE              --주문확정일자                                                        
+                              ,FIXSEQ               --주문확정차수                                                        
+                              ,CREDITCK             --신용불량                                                            
+                              ,SAGOCK               --사고처                                                              
+                              ,LOANLMTCK            --여신한도                                                            
+                              ,BALANCELMTCK         --잔고한도                                                            
+                              ,NOCOLLMTCK           --무수금한도                                                          
+                              ,SECURITYLMTCK        --담보가치한도                                                        
+                              ,AVGAMTLMTCK          --평균판매금액한도                                                    
+                              ,SAMPCK               --샘플출고체크                                                        
+                              ,TURNLMTCK            --회전일한도                                                          
+                              ,APPDATE              --출고일자                                                            
+                              ,YYMM                 --출고년월                                                            
+                              ,STATEDIV             --상태구분  01-입력 03-채권불량 09-매출확정 99-반려                   
+                              ,REMARK               --비고                                                                
+                              ,BIGO                 --비고2                                                               
+                              ,WAREHOUSE            --창고구분                                                            
+                              ,APPRSTATUS           --진행상태  00-등록 01-상신                                           
+                              ,INSERTDT             --입력일자                                                            
+                              ,IEMPCODE             --입력사번                                                            
+	                          ,ORDERKIND            --주문종류              10:온라인 20:SFA 30:ERP     
+	                          ,CLEANDATE            --매출할인일자                                                        
+	                          ,CLEANSEQ             --매출할인일자작업순번                                                
+	                          ,WIBANORDERREQYN      --위반오더요청여부:주문사원이 요청함
+	                          ,ADDRSEQ
+	                          ,THREEAVGCK
+                           )
+                    VALUES (
+                         '1000'                                                                 --PLANTCODE            --사업장     
+                         ,#{ls_gumae_no}                                                        --ORDERNO              --주문번호
+                         ,TO_CHAR(TO_DATE(#{ldt_req_date},'YYYYMMDD'),'YYYY-MM-DD')             --ORDERDATE            --주문일자
+                         ,SUBSTR(#{ls_gumae_no},9,4)                                            --ORDERSEQ             --주문일련번호
+                         ,'A01'                                                                 --SALDIV               --영업구분      A01:판매
+                         ,CASE WHEN #{gs_empCode} = #{ls_rcust_cd} THEN '11' ELSE '12' END      --DATADIV              --자료구분      11:직납,12:간납
+                         ,CASE WHEN #{gs_empCode} = #{ls_rcust_cd} THEN '4'  ELSE '3'  END      --ORDERDIV             --영업영역      3:간납, 4:직납
+                         ,'1'                                                                   --OUTPUTDIV            --출하구분      1:택배, 9:직배
+                         ,'1'                                                                   --TRANSFERDIV          --배송구분      1:거래선착
+                         ,#{gs_empCode}                                                         --CUSTCODE             --거래처
+                         ,(SELECT DEPTCODE FROM ORAGMP.CMCUSTM WHERE CUSTCODE = #{gs_empCode})  --DEPTCODE             --부서코드
+                         ,(SELECT EMPCODE FROM ORAGMP.CMCUSTM WHERE CUSTCODE = #{gs_empCode})   --EMPCODE              --담당자코드
+                         ,#{ls_rcust_cd}                                                        --ECUSTCODE            --간납처코드
+                         ,(SELECT DEPTCODE FROM ORAGMP.CMCUSTM WHERE CUSTCODE = #{ls_rcust_cd}) --EDEPTCODE            --영업소(간납)
+                         ,(SELECT EMPCODE FROM ORAGMP.CMCUSTM WHERE CUSTCODE = #{ls_rcust_cd})  --EEMPCODE             --담당자(간납)
+                         ,(SELECT UTDIV FROM ORAGMP.CMCUSTM WHERE CUSTCODE = #{gs_empCode})     --UTDIV                --거래처유통구분   
+                         ,(SELECT UTDIV FROM ORAGMP.CMCUSTM WHERE CUSTCODE = #{ls_rcust_cd})    --EUTDIV               --간납처유통구분  
+                         ,''                                                                    --BNORDERNO            --상계주문번호(출하번호)  
+                         ,''                                                                    --TAXDATE              --세금계산서 발행일자  
+                         ,''                                                                    --TRADEDATE            --거래명세서 발행일자  
+                         ,''                                                                    --TAXMANAGEDATE        --세금계산서 발행일자  
+                         ,''                                                                    --TRADEMANAGEDATE      --거래명세서 발행일자  
+                         ,''                                                                    --FIXDATE              --주문확정일자 
+                         ,''                                                                    --FIXSEQ               --주문확정차수 
+                         ,'N'                                                                   --CREDITCK             --신용불량 
+                         ,'N'                                                                   --SAGOCK               --사고처 
+                         ,'N'                                                                   --LOANLMTCK            --여신한도 
+                         ,'N'                                                                   --BALANCELMTCK         --잔고한도 
+                         ,'N'                                                                   --NOCOLLMTCK           --무수금한도 
+                         ,'N'                                                                   --SECURITYLMTCK        --담보가치한도 
+                         ,'N'                                                                   --AVGAMTLMTCK          --평균판매금액한도 
+                         ,'N'                                                                   --SAMPCK               --샘플출고체크 
+                         ,'N'                                                                   --TURNLMTCK            --회전일한도 
+                         ,''                                                                    --APPDATE              --출고일자  
+                         ,''                                                                    --YYMM                 --출고년월 
+                         ,'01'								                                    --STATEDIV             --상태구분  01-입력 03-채권불량 09-매출확정 99-반려
+                         ,#{ls_bigo}                                                            --REMARK               --비고
+                         ,#{ls_pro_bigo}                                                        --BIGO                 --비고2
+                         ,'001'                                                                 --WAREHOUSE            --창고구분 
+                         ,'01'                                                                  --APPRSTATUS           --진행상태  00-등록 01-상신
+                         ,SYSDATE                                                               --INSERTDT             --입력일자 
+                         ,#{gs_empCode}                                                         --IEMPCODE             --입력사번
+                         ,'10'                          										--ORDERKIND            --주문종류              10:온라인 20:SFA 30:ERP
+                         ,''										                            --CLEANDATE            --매출할인일자
+                         ,0												                        --CLEANSEQ             --매출할인일자작업순번
+                         ,'N'							  										--WIBANORDERREQYN      --위반오더요청여부:주문사원이 요청함
+                         ,#{addrseq}
+                         ,#{threeavgck}
+                    )
+	</insert>
+    <!--
+            INSERT INTO SALE_ON.SALE0203
+                    (GUMAE_NO, GUMAE_GB, YMD, SAWON_ID, CUST_ID,
+                     RSAWON_ID, RCUST_ID, GYULJAE_GB, TAX_TYPE, DECIMAL_PROC,
+                     AMT_SUM, VAT_SUM, BIGO, GUBUN, ACCEPT_YN,
+                     LIMIT_YN, INPUT_YMD, SLIP_GB, RECEIPT_GB, PDATE, PBIGO
+                    )
+             VALUES (#{ls_gumae_no}, '01', #{ldt_req_date}, #{ls_sawon_id}, #{gs_empCode},
+                     #{ls_rsawon_id}, #{ls_rcust_cd}, '01', '01', '01',
+                     #{ld_supply_net_sum}, #{ld_supply_vat_sum}, #{ls_bigo}, '01', 'Y',
+                     #{ls_limit_yn}, sysdate, '1', '1', #{ls_pro_date}, #{ls_pro_bigo}
+                    )
+
+     -->
+
+    <!-- 재고 변경 ::가출고 ::온라인주문용출고수량	 신 erp 에서는 사용 안함.-->
+    <update id="updateChulgoQty" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+	
+		UPDATE SALE.SALE0305
+		   SET CHULGO_QTYST = NVL (CHULGO_QTYST, 0) + (#{qty})
+		 WHERE YMD = TO_DATE (SUBSTR (#{ldt_req_date}, 1, 6) || '01') AND ITEM_ID = #{item_id} AND STORE_LOC = '01'
+		 
+	</update>
+
+
+    <!-- 수정화면 주문master grid -->
+    <select id="getMasterGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+    
+    <!-- 01이 온라인은 등록(APPRSTATUS 는 승인) , 03번은 승인(메출확정) -->
+    
+	SELECT A.ECUSTCODE                                  AS rcust_id
+	     , B.CUSTNAME                                   AS rcust_nm
+	     , SUBSTR (a.ORDERNO, 1, 4) || '-' || SUBSTR (a.ORDERNO, 5, 4) || '-' || SUBSTR (a.ORDERNO, 9, 4)  AS gumae_no
+	     , A.ORDERDATE                                  AS ymd
+	     , nvl2(A.SALDIV,'일반매출','   ')                  AS  GUMAE_GB
+         , CASE A.APPRSTATUS
+                  WHEN  '01'
+                     THEN '등록'
+                  WHEN '03'
+                     THEN '승인'
+                  ELSE '    '
+               END AS STATUS
+	     , ''                                           AS APP_NO
+	     , A.REMARK                                     AS BIGO
+	     , A.STATEDIV                                   AS RECEIPT_GB
+	     , A.ORDERKIND                                  AS SLIP_GB   
+	  FROM ORAGMP.SLORDM A, ORAGMP.CMCUSTM B
+	 WHERE A.ECUSTCODE = B.CUSTCODE
+	   AND A.APPRSTATUS = '01'
+	   AND A.STATEDIV = '01'
+	   AND A.ORDERDATE BETWEEN #{fr_date} AND #{to_date}
+	   AND A.CUSTCODE = #{gs_empCode}  
+		<if test="rcust_id != ''">
+		   AND A.ECUSTCODE LIKE '%' || #{rcust_id} || '%'
+	   </if>
+	<!-- 
+		SELECT A.RCUST_ID rcust_id, B.CUST_NM rcust_nm, 
+			   (   SUBSTR (a.gumae_no, 1, 4)
+		        || '-'
+		        || SUBSTR (a.gumae_no, 5, 4)
+		        || '-'
+		        || SUBSTR (a.gumae_no, 9, 4)
+		       ) gumae_no,
+			   TO_CHAR(A.YMD,'YYYY-MM-DD') ymd,
+		       NVL2 (A.GUMAE_GB, '일반매출', '        ') AS GUMAE_GB ,
+		       CASE
+		          WHEN A.RECEIPT_GB = '1'
+		             THEN '접수'
+		          WHEN A.RECEIPT_GB = '2'
+		             THEN '승인'
+		          WHEN A.RECEIPT_GB = '3'
+		             THEN '반려'
+		          ELSE '    '
+		       END AS STATUS,
+		       A.GUMAE_NOT AS APP_NO, A.BIGO, A.RECEIPT_GB, A.SLIP_GB
+		  FROM SALE_ON.SALE0203 A, SALE.SALE0003 B
+		 WHERE A.RCUST_ID = B.CUST_ID
+		   AND A.RECEIPT_GB = '1'
+		   AND A.YMD BETWEEN #{fr_date} AND #{to_date}
+		   AND A.CUST_ID = #{gs_empCode}
+		<if test="rcust_id != ''">
+		   AND A.RCUST_ID LIKE '%' || #{rcust_id} || '%'
+	   </if>
+	   --> 
+		<if test="sidx != ''">
+			ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="sidx == ''">
+			ORDER BY A.ORDERDATE
+		</if>
+		
+    </select>
+
+
+    <select id="getBasDanga" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT NVL(DRUGPRC, 0) BAS_AMT
+        FROM ORAGMP.SLPROMPRCM
+        WHERE CUSTCODE = ECUSTCODE
+        AND CUSTCODE = #{ls_rcust_id}
+        AND ITEMCODE = #{ls_item_id}
+        --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE
+        AND EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD') 
+        <!--
+        SELECT NVL(BAS_AMT, 0) BAS_AMT
+          FROM SALE.SALE0405
+         WHERE CUST_ID = #{ls_rcust_id} AND RCUST_ID = #{ls_rcust_id}
+               AND ITEM_ID = #{ls_item_id}
+         -->
+    </select>
+
+    <!-- 제품 승인 체크 -->
+    <select id="getReceiptChk" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT STATEDIV AS ls_receipt_gb
+        FROM ORAGMP.SLORDM
+        WHERE ORDERNO = #{ls_gumae_no}
+        <!--
+           SELECT receipt_gb ls_receipt_gb
+             FROM SALE_ON.sale0203
+            WHERE gumae_no = #{ls_gumae_no}
+        -->
+    </select>
+
+	<!-- SALE_ON 주문 MASTER 수정	 -->
+	<update id="updateMasterOrder" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+		UPDATE ORAGMP.SLORDM
+		   SET REMARK = #{ls_bigo}
+	     WHERE ORDERNO = #{ls_gumae_no}
+	</update>
+<!--
+ 		UPDATE SALE_ON.SALE0203
+		   SET BIGO = #{ls_bigo},
+		     LIMIT_YN = #{ls_limit_yn},
+	    	 AMT_SUM = #{ld_amt_sum},
+	    	 VAT_SUM = #{ld_vat_sum}
+		 WHERE GUMAE_NO = #{ls_gumae_no}	 
+-->
+
+    <!--
+    <update id="updateMasterAmt" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+        UPDATE SALE_ON.SALE0203
+            SET (AMT_SUM, VAT_SUM) = (SELECT SUM(AMT) AMT_SUM, SUM(VAT) VAT_SUM FROM SALE_ON.SALE0204 WHERE GUMAE_NO = #{ls_gumae_no})
+        WHERE  GUMAE_NO = #{ls_gumae_no}
+    </update>
+    -->
+    <!-- SALE_ON 주문 MASTER 금액 수정	 -->
+    <update id="updateMasterAmt" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+		UPDATE ORAGMP.SLWAREHOUSEM
+			SET QTY = NVL(QTY, 0) + (#{qty})
+		WHERE LOTDATE = TO_DATE(SUBSTR(#{ldt_req_date}, 1, 6) || '01') AND ITEMCODE = #{item_id} AND LOCATION = '01';
+	</update>
+
+    <!--
+    <update id="updateDetailOrder" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+    UPDATE SALE_ON.SALE0204
+           SET QTY = #{amend_qty},
+               AMT = #{amend_amt},
+               VAT = #{amend_vat},
+               DC_AMT = #{dc_amt},
+               REQ_QTY = #{amend_qty}
+         WHERE YMD = #{ldt_req_date}
+           AND GUMAE_NO = #{ls_gumae_no}
+           AND INPUT_SEQ = #{input_seq}
+           AND ITEM_ID = #{item_id}
+    </update>
+    -->
+    <!-- SALE_ON 주문 DETAIL 수정	 -->
+	<update id="updateDetailOrder" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+		UPDATE ORAGMP.SLORDD
+		   SET SALQTY = TO_NUMBER(#{amend_qty}),
+			   SALPRC = #{danga},
+			   SALAMT = ROUND(  ( #{danga} * TO_NUMBER(#{amend_qty}) ) / 1.1  ),
+			   SALVAT = (#{danga} * TO_NUMBER(#{amend_qty})) -  ROUND(  ( #{danga} * TO_NUMBER(#{amend_qty}) ) / 1.1  ) ,
+			   TOTAMT = #{danga} * TO_NUMBER(#{amend_qty}),
+			   REQQTY = TO_NUMBER(#{amend_qty})
+		 WHERE ORDERDATE =  TO_CHAR( TO_DATE(#{ldt_req_date},'YYYYMMDD' ) , 'YYYY-MM-DD')
+		   AND ORDERNO = #{ls_gumae_no}
+		   AND SEQ = #{input_seq}
+		   AND ITEMCODE = #{item_id}
+	</update>
+
+    <!-- SALE_ON 주문 MASTER 삭제 -->
+    <delete id="deleteMasterOrder">
+        DELETE FROM ORAGMP.SLORDM
+        WHERE ORDERNO = #{ls_gumae_no}
+
+        <!--
+            DELETE FROM SALE_ON.SALE0203
+                  WHERE GUMAE_NO = #{ls_gumae_no}
+          -->
+    </delete>
+
+    <!--
+    <delete id="deleteDetailOrder">
+        DELETE FROM SALE_ON.SALE0204
+              WHERE YMD = #{ldt_req_date}
+                AND GUMAE_NO = #{ls_gumae_no}
+                AND INPUT_SEQ = #{input_seq}
+                AND ITEM_ID = #{item_id}
+    </delete>
+    -->
+    <!-- SALE_ON 주문 DETAIL 삭제 -->
+    <delete id="deleteDetailOrder">
+		DELETE FROM ORAGMP.SLORDD
+		WHERE ORDERDATE = #{ldt_req_date}
+			  AND ORDERNO = #{ls_gumae_no}
+			  AND SEQ = #{input_seq}
+			  AND ITEMCODE = #{item_id}
+	</delete>
+
+    <!--
+    <select id="getOrderStatusGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT A.RCUST_ID rcust_id,
+        B.CUST_NM rcust_nm,
+        A.GUMAE_NO gumae_no,
+        TO_CHAR(A.YMD,'YYYY-MM-DD') ymd,
+               NVL2 (A.GUMAE_GB, '일반매출', '        ') AS gumae_gb,
+               CASE
+                  WHEN A.RECEIPT_GB = '1'
+                     THEN '접수'
+                  WHEN A.RECEIPT_GB = '2'
+                     THEN '승인'
+                  WHEN A.RECEIPT_GB = '3'
+                     THEN '반려'
+                  ELSE '    '
+               END AS status,
+               TO_CHAR(A.YMDT,'YYYY-MM-DD') AS app_ymd, A.GUMAE_NOT AS app_no,
+               CASE
+                  WHEN A.RECEIPT_GB = '1'
+                     THEN A.BIGO
+                  WHEN A.RECEIPT_GB = '2'
+                     THEN A.RETURN_DESC
+                  WHEN A.RECEIPT_GB = '3'
+                     THEN A.RETURN_DESC
+                  ELSE '    '
+               END AS bigo,
+               A.SLIP_GB,
+               A.PBIGO
+          FROM SALE_ON.SALE0203 A, SALE.SALE0003 B
+         WHERE A.RCUST_ID = B.CUST_ID
+           AND A.YMD BETWEEN #{fr_date} AND #{to_date}
+           AND A.CUST_ID = #{gs_empCode}
+            <if test="receipt_gb != null">
+                AND A.RECEIPT_GB IN
+                <foreach item="receipt_gb" collection="receipt_gb" open="(" separator="," close=")">
+                    #{receipt_gb}
+                </foreach>
+            </if>
+        <if test="sidx != ''">
+            ORDER BY ${sidx} ${sord}
+        </if>
+    </select>
+         -->
+
+    <!-- 온라인 발주 - 주문 검색 -->
+    <select id="getOrderStatusGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT A.ECUSTCODE AS RCUST_ID
+             , B.CUSTNAME AS RCUST_NM
+             , A.ORDERNO AS GUMAE_NO
+             , A.ORDERDATE AS YMD
+             , NVL2(A.SALDIV,'일반매출','   ')  AS  GUMAE_GB
+         , CASE A.APPRSTATUS
+                  WHEN  '01'
+                     THEN '등록'
+                  WHEN '03'
+                     THEN '승인'
+                  ELSE '    '
+               END AS STATUS
+             , A.FIXDATE AS APP_YMD
+             , '' AS APP_NO
+             , A.REMARK AS BIGO
+             , CASE A.ORDERKIND
+                    WHEN '10' THEN '온라인'
+                    WHEN '20' THEN 'SFA'
+                    WHEN '30' THEN 'ERP'
+                    END AS SLIP_GB
+             , A.BIGO AS PBIGO
+
+          FROM ORAGMP.SLORDM A, ORAGMP.CMCUSTM B
+         WHERE A.ECUSTCODE = B.CUSTCODE
+           AND A.ORDERDATE BETWEEN #{fr_date} AND #{to_date}
+           AND A.CUSTCODE = #{gs_empCode}
+			<if test="receipt_gb != null">
+				AND A.APPRSTATUS IN
+				<foreach item="receipt_gb" collection="receipt_gb" open="(" separator="," close=")">
+					#{receipt_gb}
+				</foreach>
+			</if>
+			<if test="sidx != ''">
+				ORDER BY ${sidx} ${sord}
+			</if>
+    </select>
+
+    <!--
+    <select id="getDetailGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        SELECT A.YMD YMD, A.GUMAE_NO GUMAE_NO, A.ITEM_ID ITEM_ID,
+               A.INPUT_SEQ INPUT_SEQ, B.ITEM_NM ITEM_NM, A.QTY QTY,
+               A.DANGA DANGA, A.AMT AMT, A.VAT VAT,
+               A.AMT + A.VAT TOT_AMT, A.AMT AMEND_AMT, A.VAT AMEND_VAT, A.RATE RATE,
+               A.DC_AMT DC_AMT, A.DC_QTY DC_QTY, A.DC_DANGA DC_DANGA,
+               B.STANDARD STANDARD, B.UNIT UNIT, A.AMT + A.VAT AMEND_TOT_AMT,
+               A.REQ_QTY REQ_QTY
+          FROM SALE_ON.SALE0204 A, SALE.SALE0004 B
+         WHERE A.ITEM_ID = B.ITEM_ID AND A.GUMAE_NO = #{gumae_no} AND A.YMD = #{ymd}
+        <if test="sidx != ''">
+            ORDER BY ${sidx} ${sord}
+        </if>
+    </select>
+     -->
+
+    <!-- 수정화면 주문detail grid	마우스 조회리스트 클릭하면 디테일 그리드에 주문번호에 맞게 다시 뿌려짐 -->
+    <select id="getDetailGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+        -- 주문번호별 디테일 / getDetailGridList / @order_online.xml / 도매거래처 로그인 - 주문 검색 - 맨하단 jqGrid 리스트
+        SELECT A.ORDERDATE                 AS YMD,
+            A.ORDERNO                   AS GUMAE_NO,
+            A.ITEMCODE                  AS ITEM_ID,
+            A.SEQ                       AS INPUT_SEQ,
+            B.ITEMNAME                  AS ITEM_NM,
+            A.SALQTY                    AS QTY,
+            A.SALPRC                    AS DANGA,
+            A.SALAMT                    AS AMT,
+            A.SALVAT                    AS VAT,
+            A.TOTAMT                    AS TOT_AMT,
+            A.SALAMT                    AS AMEND_AMT,
+            A.SALVAT                    AS AMEND_VAT,
+            A.BEFRATE                   AS RATE,
+            A.SALAMT1                   AS DC_AMT,
+            ''                          AS DC_QTY,
+            A.SALPRC1                   AS DC_DANGA,
+            B.ITEMUNIT                  AS STANDARD,
+            B.UNIT                      AS UNIT,
+            A.TOTAMT                    AS AMEND_TOT_AMT,
+            A.SALQTY                    AS REQ_QTY
+        FROM ORAGMP.CMITEMM B, ORAGMP.SLORDD A
+        WHERE A.ITEMCODE = B.ITEMCODE
+        AND A.ORDERNO  =  #{gumae_no}
+        AND A.ORDERDATE = TO_CHAR(to_date(#{ymd},'YYYYMMDD'), 'YYYY-MM-DD')
+		<if test="sidx != ''">
+			ORDER BY ${sidx} ${sord}
+		</if>
+    </select>
+    <!-- 조건 날짜 바 있어야함! -->
+
+
+    <select id="getRateDay" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        SELECT TURNDCCNT AS RATE_DAY
+        , 0 AS CONTROL_RATE_DAY
+        FROM TABLE(ORAGMP.FNSLCUSTTURN('1000', #{gs_empCode}, '%', '%', SYSDATE, 0))
+        <!--
+        SELECT CONTROL_RATE_DAY,
+               SALE.F_RATE_DAY_BEFOREMONTH(TO_CHAR (ADD_MONTHS (SYSDATE, -1), 'yyyymm'), #{gs_empCode}) AS rate_day
+          FROM SALE.SALE0003
+         WHERE CUST_ID = #{gs_empCode}
+         -->
+    </select>
+
+    <select id="getJupsuAmt" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        SELECT SUM(B.SALAMT + B.SALVAT) AS JUPSU_AMT
+        FROM ORAGMP.SLORDM A
+        ,ORAGMP.SLORDD B
+        WHERE A.PLANTCODE = B.PLANTCODE
+        AND A.ORDERNO = B.ORDERNO
+        AND A.CUSTCODE = #{gs_empCode}
+        AND A.STATEDIV = '01'
+        <!--
+        SELECT SUM(AMT_SUM) + SUM(VAT_SUM) AS jupsu_amt
+          FROM SALE_ON.SALE0203
+         WHERE CUST_ID = #{gs_empCode}
+           AND RECEIPT_GB  = '1'
+           AND ACCEPT_YN  = 'Y'
+        -->
+    </select>
+
+	<!-- 거래처 상태 체크 -->
+    <select id="getCustBeforeChk" parameterType="hashmap" resultType="hashmap">
+		-- 엑셀 업로드 전 거래처 체크 1 / getCustBeforeChk / @order_online.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+		SELECT * FROM
+		TABLE(ORAGMP.FNSLORDCHECK('1000', TO_CHAR(SYSDATE,'YYYY-MM-DD'), TO_CHAR(SYSDATE,'YYYY-MM'), #{gs_empCode} ,'',0))
+	</select>
+
+	<!-- 판매처 검색 거래처코드와 판매처코드,금액으로 체크, 최초 판매처 검색시에는 금액 정보가 없어 0 으로 셋팅 한다. -->
+    <select id="getCustBeforeChk2" parameterType="hashmap" resultType="hashmap">
+		-- 엑셀 업로드 전 거래처 체크 2 / getCustBeforeChk2 / @order_online.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+		SELECT * FROM
+		TABLE(ORAGMP.FNSLORDCHECK('1000', TO_CHAR(SYSDATE,'YYYY-MM-DD'), TO_CHAR(SYSDATE,'YYYY-MM'),#{gs_empCode}, #{rcust_id}, to_number(#{tot_amt}) ) )
+	</select>
+
+	<!-- 품목 상태 체크2 -->
+    <select id="getItemChkFnc" parameterType="hashmap" resultType="string">
+		-- 엑셀 업로드 전 제품 체크 / getItemChkFnc / @order_online.xml / 온라인 주문 - 주문 등록 - 판매처 팝업 리스트 선택
+		SELECT ORAGMP.fnSLordItemCheck(
+				    '1000'
+				    ,TO_CHAR(TO_DATE(#{ls_ymd} ,'YYYYMMDD'),'YYYY-MM-DD')
+				    ,#{gs_empCode} 
+				    ,#{rcust_id} 
+				    ,#{ls_item_id} 
+				    ,TO_NUMBER(#{ls_p_orderqty})
+				    ,TO_NUMBER(#{ls_p_modifyqty})
+				    ,'10'
+				    ,TO_NUMBER(#{ls_p_salprc})
+				    ,#{orderno}
+				) AS LIST FROM DUAL
+	</select>
+
+	<!-- 품목 상태체크 1 -->
+    <select id="getItemChkFnc1" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+    	SELECT * FROM TABLE ( ORAGMP.FNSLORDITEMCHECKT(#{ls_item_id} ))
+	</select>
+	
+	<!-- 배송지 목록 -->
+    <select id="getBaesongjiGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+        -- 배송지 목록 조회 / getBaesongjiGridList / @Order_online.xml
+        SELECT TO_CHAR(A.SEQ) AS seq
+        ,A.ADDRNAME AS addrname
+        ,A.RCVRNAME AS rcvrname
+        ,A.ADDR1 || ' ' || A.ADDR2 AS addr1
+        ,A.TELNO AS telno
+        FROM
+        ( SELECT SEQ,ADDRNAME,RCVRNAME,POST,ADDR1,ADDR2,TELNO,USEYN
+        FROM ORAGMP.CMADDRESSM
+        WHERE USEYN='Y' AND PLANTCODE ='1000' AND CUSTCODE = #{as_cust_id}
+        UNION ALL
+        SELECT 0 AS SEQ,'기본배송지' AS ADDRNAME,'기본배송지' AS RCVRNAME
+        ,POST,ADDR1,ADDR2,TELNO,'Y'
+        FROM ORAGMP.CMCUSTM
+        WHERE PLANTCODE = '1000' AND CUSTCODE = #{as_cust_id}
+        ) A
+        <if test="searchKeyword != ''">
+            WHERE A.ADDRNAME LIKE '%'|| #{searchKeyword} ||'%'
+        </if>
+        ORDER BY ${sidx} ${sord}
+    </select>
+
+    <!-- SALE_ON 엑셀업로드 주문 생성 -->
+    <insert id="insertOrderExcelUpload" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+		INSERT INTO SALE.SALE_Z_ORDER_EXCEL_UPLOAD (custcode,
+		                                        ecustcode,
+		                                        addrseq,
+		                                        barcode,
+		                                        qty)
+		     VALUES (#{cust_id}
+		                , #{rcust_id}
+		                , #{addrseq}
+		                , #{item_id}
+		                , #{qty} )
+	</insert>
+
+    <!-- SALE_ON 엑셀업로드 주문 삭제 -->
+    <delete id="deleteOrderExcelUpload" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+		DELETE FROM SALE.SALE_Z_ORDER_EXCEL_UPLOAD
+		 WHERE CUSTCODE = #{cust_id}
+	</delete>
+	
+	<!-- 엑셀업로드후 판매처 목록 조회 -->
+    <select id="getExcelStoreGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+		  SELECT B.CUSTCODE AS RCUST_ID,
+		         B.CUSTNAME AS RCUST_NM,
+		         A.ADDRSEQ AS ADDRSEQ,
+		         CASE
+		             WHEN A.ADDRSEQ = '0' THEN C.ADDR1 || ' ' || C.ADDR2
+		             ELSE D.ADDR1 || ' ' || D.ADDR2
+		         END
+		             AS ADDRNAME
+		    FROM (  SELECT CUSTCODE,
+		                   ECUSTCODE,
+		                   ADDRSEQ,
+		                   ADDRSEQ AS SUBADDRSEQ
+		              FROM SALE.SALE_Z_ORDER_EXCEL_UPLOAD
+		             WHERE CUSTCODE = #{gs_empCode}
+		          GROUP BY CUSTCODE, ECUSTCODE, ADDRSEQ) A,
+		         ORAGMP.CMCUSTM B,
+		         ORAGMP.CMCUSTM C,
+		         (SELECT *
+		            FROM ORAGMP.CMADDRESSM
+		           WHERE USEYN = 'Y' AND PLANTCODE = '1000' AND CUSTCODE = #{gs_empCode}) D
+		   WHERE     A.ECUSTCODE = B.CUSTCODE
+		         AND A.CUSTCODE = C.CUSTCODE
+		         AND A.CUSTCODE = D.CUSTCODE(+)
+		         AND A.SUBADDRSEQ = SEQ(+)
+		ORDER BY RCUST_ID, ADDRSEQ
+    </select>
+
+    <!-- 엑셀업로드후 판매처별 제품 목록 조회 -->
+    <select id="getExcelUploadItemGridList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+
+        SELECT *
+        FROM (
+        <![CDATA[
+				
+			SELECT A.CUSTCODE AS CUST_ID
+			     , A.ECUSTCODE AS RCUST_ID
+			     , A.ITEMCODE AS  ITEM_ID
+			     , B.ITEMNAME AS ITEM_NM
+			     , B.MPLANTCODE AS SAUPJANG_CD
+			     , B.ITEMUNIT AS STANDARD 
+			     , C.QTY as QTY
+			     , B.DRUGPRC AS BAS_AMT                  /*기준금액*/
+			     , A.BEFPRC BAL_AMT                      /*발행금액*/
+			     , A.BEFPRC - A.AFTPRC DC_DANGA          /*발행금액 , 약정금액*/
+			     , CASE B.PRODUCTDIV 
+			     		WHEN '04' THEN 'Y' 
+			     		ELSE 'N' 
+			     	END AS LS_CHUL_YN                    /*출하중지*/
+			     , 100 - DECODE(A.DRUGPRC,0,0
+			                             ,null,0
+			                             , ROUND(A.BEFPRC / A.DRUGPRC * 100)  
+			                   )  PERCENT  /*발행금액 , 기준금액*/
+			     , 0 DC_AMT
+			     , 0 SUPPLY_NET
+			     , 0 SUPPLY_VAT
+			     , NULL CLOSE_DATE
+			     , 0 MAVG_QTY
+			     , 0 M_QTY
+			     , 0 PSB_QTY
+			     , A.BEFPRC as STAT_DANGA
+			  FROM ORAGMP.SLPROMPRCM A 
+			     , ORAGMP.CMITEMM B
+			     , SALE.SALE_Z_ORDER_EXCEL_UPLOAD C
+			 WHERE A.ITEMCODE = B.ITEMCODE			   
+			   AND A.CUSTCODE = #{gs_empCode}
+			   AND A.ECUSTCODE = #{rcust_id}			   
+			   AND B.BARCODE = C.BARCODE	                 /* 표준코드일 경우 */ /* AND A.ITEMCODE = C.BARCODE itemcode일 경우 */
+			   AND A.CUSTCODE = C.CUSTCODE
+			   AND A.ECUSTCODE = C.ECUSTCODE
+			   AND C.ADDRSEQ = #{addrseq}
+			   AND B.EFFECTDIV <> '010'
+			   AND B.ITEMCODE NOT IN ('86001', '86002')
+			   --AND B.ITEMGBDIV NOT IN ('02')
+			   AND B.ITEMCODE NOT IN (SELECT ITEMCODE FROM ORAGMP.CMITEMM WHERE B.ITEMGBDIV IN ('02') OR B.MPLANTCODE IN '2001') 
+			   
+			   AND B.PIECEYN NOT IN('Y')
+			   --AND TO_CHAR(SYSDATE,'YYYY-MM-DD') BETWEEN SDATE AND EDATE 
+			   AND A.EDATE >= TO_CHAR(SYSDATE,'YYYY-MM-DD')
+				 )
+				]]>
+        <if test="sidx !=''">
+            ORDER BY ${sidx} ${sord}
+        </if>
+
+    </select>
+    
+    <!-- 엑셀업로드후 등록되지 않은 판매처 코드 조회 -->
+    <select id="getExcelNoStoreList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+    <![CDATA[
+		SELECT DISTINCT (ECUSTCODE) as RCUST_ID
+		  FROM SALE.SALE_Z_ORDER_EXCEL_UPLOAD
+		 WHERE     CUSTCODE = #{custcode}
+		       AND ECUSTCODE NOT IN
+		               (SELECT A.CUSTCODE
+		                  FROM ORAGMP.CMCUSTM  A,
+		                       (  SELECT ECUSTCODE
+		                            FROM ORAGMP.SLRESULTM
+		                           WHERE CUSTCODE = #{custcode}
+		                        GROUP BY ECUSTCODE) B
+		                 WHERE A.CUSTCODE = B.ECUSTCODE AND A.UTDIV <> '40')
+	]]>
+    </select>
+    
+    <!-- 엑셀업로드후 등록되지 않은 제품코드 조회 -->
+    <select id="getExcelNoItemList" parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.ItemVO">
+    <![CDATA[
+		SELECT BARCODE AS ITEM_ID
+		  FROM SALE.SALE_Z_ORDER_EXCEL_UPLOAD C
+		 WHERE     CUSTCODE = #{custcode}
+		       AND NOT EXISTS
+		               (SELECT *
+		                  FROM oragmp.slpromprcm A, oragmp.cmitemm B
+		                 WHERE     A.itemcode = B.itemcode
+		                       AND C.BARCODE = B.BARCODE
+		                       AND A.custcode = #{custcode}
+		                       AND B.effectdiv <> '010'
+		                       AND B.itemcode NOT IN ('86001', '86002'))
+	]]>
+    </select>
+    
+    <insert id="insertAccountInfo" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+     -- 로그인 사원아이디
+		INSERT INTO oragmp.SLAPPRHORD
+               (PLANTCODE ,ORDERNO    ,APPRDIV , APPRLASTSEQ , APPRWORKSEQ , INSERT_DT   ,IEMPCODE    )
+		SELECT '1000' ,#{ls_gumae_no}  ,APPRDIV , APPRLASTSEQ , APPRWORKSEQ , sysdate   ,#{gs_empCode}
+          FROM oragmp.SLAPPRM
+         WHERE APPRDIV = '01'
+    </insert>
+
+    <insert id="insertAccountInfo2" parameterType="com.hanaph.saleon.order.vo.ItemVO">
+     -- 거래처 담당사원 , 로그인 사원
+		INSERT INTO oragmp.SLAPPRHDORD
+                  (PLANTCODE , ORDERNO   , APPRSEQ   , APPRCODE  , EDITYN  , EMPCODE   , APPRYN    , INSERT_DT , IEMPCODE  )
+        SELECT '1000' , #{ls_gumae_no}, APPRSEQ    , APPRCODE   , EDITYN    , (SELECT EMPCODE FROM ORAGMP.CMCUSTM WHERE CUSTCODE = #{gs_empCode})  , 'N'    , sysdate  , #{gs_empCode}
+          FROM oragmp.SLAPPRD
+         WHERE APPRDIV = '01'
+    </insert>
+
+
+	<select id="getDefaultDelivery"  parameterType="hashmap" resultType="com.hanaph.saleon.order.vo.OrderVO">
+		SELECT 0 AS SEQ
+		     , ADDR1 || ' ' || ADDR2 AS ADDR1
+		  FROM ORAGMP.CMCUSTM
+		 WHERE PLANTCODE = '1000'
+		   AND CUSTCODE = #{gs_empCode}
+	</select>
+</mapper>
+	

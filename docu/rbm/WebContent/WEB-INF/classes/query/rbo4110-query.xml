@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+
+<queryMap desc="rbo4110(재고현황)">
+    <query id="rbo4110_s01" desc="재고현황 조회" fetchSize="10">
+      <![CDATA[
+      
+	      SELECT
+            *
+            FROM(
+            SELECT         /* rbo4110_s01_new */
+                 A.BRNC_CD      AS BRNC_CD
+                ,FC_CODE_NM('018', A.BRNC_CD)   AS BRNC_NM
+                ,A.PARTS_CD        AS PARTS_CD
+                ,B.PARTS_NM     AS PARTS_NM
+                ,A.STK_CNT         AS STK_CNT
+                ,B.PARTS_LCD    AS PARTS_LCD
+                ,FC_CODE_NM('097', B.PARTS_LCD) AS PARTS_LCD_NM
+                ,B.PARTS_MCD    AS PARTS_MCD
+                ,FC_CODE_NM('098', B.PARTS_MCD) AS PARTS_MCD_NM 
+                ,NVL((SELECT
+                        SUM(APRV_CNT) 
+                       FROM TBRB_PARTS_REQ_APPR PR
+                       WHERE PR.BRNC_CD = A.BRNC_CD 
+                            AND PR.PARTS_CD=A.PARTS_CD
+                            AND PR.BRNC_IN_YN='Y'),0) AS BRNC_IN_SUM_CNT     
+                ,NVL((SELECT
+                        SUM(USE_CNT) 
+                       FROM TBRB_PARTS_BRNC_USE PB
+                       WHERE PB.BRNC_CD = A.BRNC_CD 
+                            AND PB.PARTS_CD=A.PARTS_CD),0) AS BRNC_OUT_SUM_CNT
+                 
+                FROM TBRB_PARTS_STOCK A 
+                    ,TBRB_PARTS_MODEL B 
+                WHERE 1=1 
+                AND A.BRNC_CD LIKE '%' || NVL(?, A.BRNC_CD) || '%' -- 지점코드
+                AND A.BRNC_CD <>  '00'
+                AND A.PARTS_CD = B.PARTS_CD
+                AND B.PARTS_LCD LIKE '%' || NVL(?, B.PARTS_LCD) || '%' -- 발매기코드
+                AND B.PARTS_MCD LIKE '%' || NVL(?, B.PARTS_MCD) || '%' -- 부품분류코드
+                ORDER BY A.BRNC_CD, B.PARTS_LCD, B.PARTS_MCD, B.PARTS_NM
+        ) A
+        WHERE (BRNC_IN_SUM_CNT + BRNC_OUT_SUM_CNT) > 0
+      ]]>
+    </query>
+    
+    <query id="rbo4110_s01_new" desc="재고현황 조회(new)" fetchSize="10">
+      <![CDATA[
+
+                SELECT /* rbo4110_s01_new */
+                   *
+                  FROM(
+                  
+                      SELECT
+                                 A.CD      AS BRNC_CD
+                                ,A.CD_NM   AS BRNC_NM
+                                ,C.PARTS_CD        AS PARTS_CD
+                                ,C.PARTS_NM     AS PARTS_NM
+                               
+                                ,NVL((SELECT STK_CNT FROM TBRB_PARTS_STOCK ST 
+                                        WHERE ST.BRNC_CD = A.CD 
+                                            AND ST.PARTS_CD = C.PARTS_CD),0)  AS STK_CNT
+                                ,C.PARTS_LCD    AS PARTS_LCD
+                                ,FC_CODE_NM('097', C.PARTS_LCD) AS PARTS_LCD_NM
+                                ,C.PARTS_MCD    AS PARTS_MCD
+                                ,FC_CODE_NM('098', C.PARTS_MCD) AS PARTS_MCD_NM 
+                                ,NVL((SELECT
+                                        SUM(APRV_CNT) 
+                                       FROM TBRB_PARTS_REQ_APPR PR
+                                       WHERE PR.BRNC_CD = A.CD
+                                            AND PR.PARTS_CD=C.PARTS_CD
+                                            AND PR.BRNC_IN_YN='Y'
+                                            ),0) AS BRNC_IN_TOT_CNT     
+                                ,NVL((SELECT
+                                        SUM(USE_CNT) 
+                                       FROM TBRB_PARTS_BRNC_USE PB
+                                       WHERE PB.BRNC_CD = A.CD
+                                            AND PB.PARTS_CD=C.PARTS_CD
+                                            ),0) AS BRNC_OUT_TOT_CNT
+                                            
+                                            
+                                ,NVL((SELECT
+                                        SUM(APRV_CNT) 
+                                       FROM TBRB_PARTS_REQ_APPR PR
+                                       WHERE PR.BRNC_CD = A.CD
+                                            AND PR.PARTS_CD=C.PARTS_CD
+                                            AND PR.BRNC_IN_YN='Y'
+                                            AND PR.BRNC_IN_DT BETWEEN NVL(?, '19000101') AND NVL(?, '99991231')  ),0) AS BRNC_IN_SUM_CNT     
+                                ,NVL((SELECT
+                                        SUM(USE_CNT) 
+                                       FROM TBRB_PARTS_BRNC_USE PB
+                                       WHERE PB.BRNC_CD = A.CD
+                                            AND PB.PARTS_CD=C.PARTS_CD
+                                            AND USE_DT BETWEEN NVL(?, '19000101') AND NVL(?, '99991231') ),0) AS BRNC_OUT_SUM_CNT
+                        FROM 
+                            (SELECT  CD         --상세코드
+                                    , CD_NM      --상세코드명
+                                FROM    TBRK_SPEC_CD  
+                                WHERE   1=1
+                                AND  GRP_CD = '018'         --그룹코드
+                                AND  DEL_YN = 'N'
+                                AND  CD <> '00'
+                            ) A
+                            ,TBRB_PARTS_MODEL C
+
+                        WHERE 1=1
+                              
+                              AND A.CD LIKE '%' || NVL(?, A.CD) || '%' -- 지점코드
+                              AND C.PARTS_LCD LIKE '%' || NVL(?, C.PARTS_LCD) || '%' -- 발매기코드
+                              AND C.PARTS_MCD LIKE '%' || NVL(?, C.PARTS_MCD) || '%' -- 부품분류코드
+                              AND C.USE_YN = 'Y'
+                              
+                        ORDER BY A.CD, C.PARTS_LCD, C.PARTS_MCD, C.PARTS_NM
+                   )A
+                  -- WHERE STK_CNT + BRNC_IN_SUM_CNT+BRNC_OUT_SUM_CNT >0
+                    
+
+                    
+
+      
+      ]]>
+    </query>
+    
+</queryMap>

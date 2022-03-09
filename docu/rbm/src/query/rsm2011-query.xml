@@ -1,0 +1,1038 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM2011(매출액비교)">    
+    
+    
+    <query id="rsm2011_where01" desc="매출액 비교 WHERE(광명본장)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2011_where01 광명본장 */
+         	AND (D.MEET_CD = ? 
+				       OR D.MEET_CD = DECODE(?,'001','002')  
+				       OR D.MEET_CD = DECODE(?,'001','004')
+				)
+			AND D.SELL_CD = '01' AND D.COMM_NO IN ('01','02','03','04','08') 
+        ]]>
+    </query>
+    
+    <query id="rsm2011_where02" desc="매출액 비교 WHERE(미사리)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2011_where02 미사리 */
+         	AND (D.MEET_CD = ? 
+				       OR D.MEET_CD = DECODE(?,'001','002')  
+				       OR D.MEET_CD = DECODE(?,'001','004')
+				)
+			AND  D.SELL_CD ='03' AND  D.COMM_NO IN ('01','02','03','04','08') 
+        ]]>
+    </query>
+    
+    <query id="rsm2011_where03" desc="매출액 비교 WHERE(마이켓,지점)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2011_where03 마이켓,지점 */
+         	AND (D.MEET_CD = ? 
+			       OR D.MEET_CD = DECODE(?,'001','002')  
+			       OR D.MEET_CD = DECODE(?,'001','004')
+			)
+         	AND D.SELL_CD LIKE ?||'%' 
+         	AND D.COMM_NO = ?  				
+			                      	                
+        ]]>
+    </query>
+    
+    <query id="rsm2011_where08" desc="매출액 비교 WHERE(공동활용본장)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2011_where08 공동활용본장 */
+         	AND ((D.MEET_CD = '001' AND D.SELL_CD = '03') OR
+         	     (D.MEET_CD = '003' AND D.SELL_CD = '01'))
+         	AND (D.COMM_NO < '11' AND D.COMM_NO != '06')
+        ]]>
+    </query>
+    
+    
+ 
+    
+    <!-- 지점별 투표소 -->
+    
+    <query id="rsm2011_select02" desc="지점별투표소(SELECT)" fetchSize="10">
+        <![CDATA[	
+         	  SELECT /* rsm2011_select02 */
+	         	  	DISTINCT
+	         	  	D.SELL_CD,	-- 판매처 
+	         	  	D.COMM_NO, 	-- 지점 번호
+	         	  	D.DIV_NO,	-- 투표소 번호 
+	         	  	B.DIV_NAME 	-- 투표소 이름
+				FROM VW_PC_TELMP D,
+					 BASETOTE.CONF_DIV_INFO@DW01LINK B,
+				    VW_SDL_INFO V 
+				WHERE 1=1
+				
+				AND D.SELL_CD = B.SELL_CD
+				AND D.COMM_NO=B.COMM_NO
+				AND D.DIV_NO =B.DIV_NO
+				--AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN FROM_YEAR_DATE AND TO_YEAR_DATE
+				AND ?	BETWEEN FROM_YEAR_DATE AND TO_YEAR_DATE		-- 0:RACE_DAY 경주일
+				
+				AND D.MEET_CD=V.MEET_CD       
+				AND D.STND_YEAR=V.STND_YEAR
+				AND D.TMS=V.TMS 
+				
+				AND (D.MEET_CD = ? 		-- 1:MEET_CD 경륜 경정 구분 코드
+			       OR D.MEET_CD = DECODE(?,'001','002')	-- 2:MEET_CD 경륜 경정 구분 코드  
+			       OR D.MEET_CD = DECODE(?,'001','004')	-- 3:MEET_CD 경륜 경정 구분 코드
+				)
+				AND V.RACE_DAY	= ?		-- 4:RACE_DAY 경주일
+				
+							
+				-- 이하 분기 조건	
+				 
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2011_where04" desc="지점별투표소(광명/미사리본장)" fetchSize="10">
+        <![CDATA[
+        		/* rsm2011_where04 */
+				AND D.SELL_CD = DECODE(?,'003','03','01')  -- 4:MEET_CD 경륜 경정 구분 코드
+				AND D.COMM_NO IN ('01','02','03','04','08') 
+        ]]>
+    </query>
+    
+    <query id="rsm2011_where05" desc="지점별투표소(지점코드)" fetchSize="10">
+        <![CDATA[	
+        		/* rsm2011_where05 */
+				-- 분기 조건				
+				AND D.COMM_NO		= ?		-- 6:지점코드 
+        ]]>
+    </query>
+    
+    <query id="rsm2011_where06" desc="매출액 비교 WHERE(그린카드)" fetchSize="10">
+        <![CDATA[	
+         	/* rsm2011_where06 */
+         	AND D.DIV_NO	= ?   	                
+        ]]>
+    </query>
+    
+    <query id="rsm2011_order01" desc="지점별투표소" fetchSize="10">
+        <![CDATA[	
+        	/* rsm2011_order01 */
+         	  ORDER BY D.COMM_NO, D.DIV_NO 
+        ]]>
+    </query>
+    
+    
+    <query id="rsm2011_select03" desc="지점별투표소별 발매창구 매출액(SELECT)" fetchSize="10">
+        <![CDATA[	
+         	  SELECT /* rsm2011_select03 */
+				    WIN_NO, -- 발매창구
+				    SUM(SOLD_AMT) AS SOLD_AMT -- 매출액
+				FROM
+				(        
+				    SELECT 
+				        D.MEET_CD,
+				        D.STND_YEAR,
+				        D.TMS,
+				        D.DAY_ORD,
+				        COMM_NO,
+				        DIV_NO,
+				        WIN_NO,
+				        SOLD_AMT
+				    FROM VW_PC_TELMP D, VW_SDL_INFO V 
+					WHERE 1=1					
+					AND D.MEET_CD=V.MEET_CD       
+					AND D.STND_YEAR=V.STND_YEAR
+					AND D.TMS=V.TMS
+					AND D.DAY_ORD=V.DAY_ORD 
+				
+					AND D.MEET_CD = ? 		-- 0:경륜 경정 구분 코드
+				 	AND V.RACE_DAY	= ?		-- 3:RACE_DAY 경주일
+					
+				    AND DIV_NO		= ?		-- 6:투표소			
+				 
+        ]]>
+    </query>
+    
+    <query id="rsm2011_s04" desc="지점별투표소별 발매창구 매출액" fetchSize="10">
+        <![CDATA[	
+         	  SELECT /* rsm2011_s04 */
+				    WIN_NO, -- 발매창구
+				    SUM(SOLD_AMT) AS SOLD_AMT -- 매출액
+				FROM
+				(        
+				    SELECT 
+				        D.MEET_CD,
+				        D.STND_YEAR,
+				        D.TMS,
+				        D.DAY_ORD,
+				        COMM_NO,
+				        DIV_NO,
+				        WIN_NO,
+				        SOLD_AMT
+				    FROM VW_PC_TELMP D, VW_SDL_INFO V 
+					WHERE 1=1					
+					AND D.MEET_CD=V.MEET_CD       
+					AND D.STND_YEAR=V.STND_YEAR
+					AND D.TMS=V.TMS
+					AND D.DAY_ORD=V.DAY_ORD 
+				
+					AND D.MEET_CD   = ? 		-- 0:MEET_CD 경륜 경정 구분 코드				 					
+					AND D.SELL_CD   = ?		-- 1:판매처코드
+				    AND D.COMM_NO   = ?		-- 2:지점코드
+				    AND DIV_NO		= ?		-- 3:투표소
+					AND V.RACE_DAY	= ?		-- 4:RACE_DAY 경주일
+				)   
+				GROUP BY WIN_NO
+				ORDER BY WIN_NO			
+				 
+        ]]>
+    </query>
+     
+    
+    
+    
+    <query id="rsm2011_groupby02" desc="지점별투표소별 발매창구 매출액(GROUP BY)" fetchSize="10">
+        <![CDATA[	
+				   				    
+				)   
+				GROUP BY WIN_NO
+				ORDER BY WIN_NO 
+        ]]>
+    </query>
+    
+    
+    
+    
+    
+
+    <query id="rsm2011_select07" desc="오늘 매출액 비교" fetchSize="10">
+       	<![CDATA[	
+        SELECT /* rsm2011_select07 */
+	  		   LEV,		-- 내용 구분
+		       MEET_CD,	-- 경륜 경정 구분 코드
+		       RACE_NO,	-- 경주
+		       SELL_CD,	
+		       COMM_NO,
+		       DIV_NO,
+		       BB.CD_NM,
+		       TMS_DAY_ORD,
+		       BEFORE_DIV_TOTAL,	-- 전주
+		       BEFORE_MINUS,		-- 전주 대비
+		       PER_BEFORE,			-- 전주대비 %
+		       CASE 
+		            WHEN LEV='1' THEN MEET_DESC||' '||TMS_DAY_ORD
+		            ELSE DIV_TOTAL
+		       END AS DIV_TOTAL,	-- 현재 매출액
+		       PER_LAST,			-- 전전주 대비 %
+		       LAST_MINUS,       	-- 전전주 대비
+		       LAST_DIV_TOTAL		-- 전전주		       
+		FROM
+		(         	     
+	      SELECT LEV,
+	            MEET_CD,
+	            DECODE(MEET_CD,'001','광명','002','창원','003','미사리','004','부산') AS MEET_DESC,
+	            RACE_NO,
+	           SELL_CD,
+	           COMM_NO,
+	           DIV_NO,
+	           CASE WHEN LEV = '1' THEN MAX(B_TMS)
+	                ELSE TO_CHAR(NVL(SUM(BEFORE_DIV_TOTAL),0)) 
+	           END AS BEFORE_DIV_TOTAL,
+	           CASE WHEN LEV = '1' THEN '전주대비'
+	                ELSE TO_CHAR(NVL(SUM(BEFORE_MINUS),0)) 
+	           END AS BEFORE_MINUS,
+	           
+	           CASE WHEN LEV = '1' THEN '%'
+	                WHEN LEV = '3' THEN TO_CHAR(NVL(ROUND((SUM(DIV_TOTAL)-SUM(BEFORE_DIV_TOTAL))/SUM(BEFORE_DIV_TOTAL)*100,2),0),'FM9,999,990.00')
+	                ELSE TO_CHAR(NVL(SUM(PER_BEFORE),0),'FM9,999,990.00') 
+	           END AS PER_BEFORE,
+	           
+	           CASE WHEN LEV = '1' THEN TMS||'회'||DAY_ORD||'일차'
+	           END AS TMS_DAY_ORD,   
+	           
+	           CASE WHEN LEV = '1' THEN TMS||'회'||DAY_ORD||'일차'
+	                ELSE TO_CHAR(NVL(SUM(DIV_TOTAL),0))
+	           END AS DIV_TOTAL,   
+	           
+	           CASE WHEN LEV = '1' THEN '%'
+	                WHEN LEV = '3' THEN TO_CHAR(NVL(ROUND((SUM(DIV_TOTAL)-SUM(LAST_DIV_TOTAL))/SUM(LAST_DIV_TOTAL)*100,2),0),'FM9,999,990.00')
+	                ELSE TO_CHAR(NVL(SUM(PER_LAST),0),'FM9,999,990.00')
+	           END AS PER_LAST,
+	           
+	           CASE WHEN LEV = '1' THEN '전전주대비'
+	                ELSE TO_CHAR(NVL(SUM(LAST_MINUS),0)) 
+	           END AS LAST_MINUS,
+	           
+	           CASE WHEN LEV = '1' THEN MAX(Y_TMS)
+	                ELSE TO_CHAR(NVL(SUM(LAST_DIV_TOTAL),0))
+	           END AS LAST_DIV_TOTAL
+	           
+	      FROM
+	      (
+	            SELECT 
+	                DU.LEV,
+	                AA.MEET_CD,                                                                                  	  
+	                AA.STND_YEAR,
+	                AA.TMS,        -- 현회차
+	                AA.DAY_ORD,
+	                CASE WHEN LEV = '1' THEN '경주'
+		                WHEN LEV = '3' THEN '합계'
+		                ELSE RACE_NO
+		           END AS RACE_NO,
+	            	AA.SELL_CD,
+	            	AA.COMM_NO,
+	            	AA.DIV_NO, 
+	            	AA.DIV_TOTAL,     
+	            	AA.B_TMS,      -- 지난회차
+	            	AA.Y_TMS,      -- 지지난 회차
+	            	AA.BEFORE_DIV_TOTAL,
+	            	AA.LAST_DIV_TOTAL,
+	            	AA.BEFORE_MINUS,
+	            	AA.LAST_MINUS,
+	            	AA.PER_BEFORE,
+	            	AA.PER_LAST
+	            FROM
+	            (
+	            		SELECT
+		                    NVL(A.MEET_CD,  B.MEET_CD)   MEET_CD,                                                                                  	  
+		                    NVL(A.STND_YEAR,B.STND_YEAR) STND_YEAR,
+		                    NVL(A.TMS,     ?) TMS,    -- 현회차
+		                    NVL(A.DAY_ORD, ?) DAY_ORD,
+                         	NVL(A.RACE_NO, B.RACE_NO) RACE_NO,
+                         	NVL(A.SELL_CD, B.SELL_CD) SELL_CD,
+                         	NVL(A.COMM_NO, B.COMM_NO) COMM_NO,
+                         	NVL(A.DIV_NO,  B.DIV_NO) DIV_NO,	                    		                    	
+	                    	A.DIV_TOTAL,     
+	                    	B.B_TMS,      -- 지난회차
+	                    	B.Y_TMS,      -- 지지난 회차
+	                    	B.BEFORE_DIV_TOTAL,
+	                    	B.LAST_DIV_TOTAL,
+	                        (A.DIV_TOTAL- B.BEFORE_DIV_TOTAL) AS BEFORE_MINUS,
+	                        (A.DIV_TOTAL- B.LAST_DIV_TOTAL) AS LAST_MINUS,
+	                        CASE WHEN DIV_TOTAL>0 AND BEFORE_DIV_TOTAL >0 THEN ROUND((DIV_TOTAL-BEFORE_DIV_TOTAL)/BEFORE_DIV_TOTAL*100,2) END AS PER_BEFORE,
+	                        CASE WHEN DIV_TOTAL>0 AND LAST_DIV_TOTAL >0 THEN ROUND((DIV_TOTAL-LAST_DIV_TOTAL)/LAST_DIV_TOTAL*100,2) END AS PER_LAST
+	                        
+	                    FROM
+	                    (    
+	                    	SELECT    
+	                    		D.MEET_CD,                                                                                  	  
+	                    		D.STND_YEAR,
+	                    		D.TMS,
+	                    		D.DAY_ORD,
+	                    		V.RACE_YOIL,
+	                    		D.RACE_NO,
+	                    		MIN(SELL_CD) AS SELL_CD,
+	                    		MIN(COMM_NO) AS COMM_NO,
+	                    		MIN(DIV_NO) AS DIV_NO,
+	                    		SUM(CASE WHEN D.TMS=V.TMS THEN D.DIV_TOTAL END) AS DIV_TOTAL
+	                    	FROM                                                                                            	  
+	                    		VW_SDL_DT D,                                                                              	  
+	                    		VW_SDL_INFO V
+	                    	WHERE 1=1                                                                                           	  
+	                    	AND D.MEET_CD   = V.MEET_CD                                                                     	  
+	                    	AND D.STND_YEAR = V.STND_YEAR                                                                 	  
+	                    	AND D.TMS       = V.TMS
+	                    	AND D.DAY_ORD   = V.DAY_ORD	                    	
+	                    	AND V.RACE_DAY  = ?	                    	
+	                    			                    	
+		 	]]>
+	    </query>
+		    
+		   
+	    <query id="rsm2011_select08" desc="매출액 비교" fetchSize="10">
+       		<![CDATA[
+       			/* rsm2011_select08 */
+	                    )A FULL OUTER JOIN 
+	                    ( 	  
+	                    	SELECT                                                                                          	  
+	                    		V.MEET_CD,                                                                                  	  
+	                    		V.SHOW_YEAR STND_YEAR,
+	                    		I.RACE_YOIL,                                     
+	                    		D.RACE_NO,
+	                    		MIN(SELL_CD) AS SELL_CD,
+	                    		MIN(COMM_NO) AS COMM_NO,
+	                    		MIN(DIV_NO) AS DIV_NO,
+                                MAX(DECODE(RNUM, 2, I.TMS||'회 '||I.DAY_ORD||'일차')) AS B_TMS,  
+                                MAX(DECODE(RNUM, 3, I.TMS||'회 '||I.DAY_ORD||'일차')) AS Y_TMS,
+                                SUM(CASE WHEN RNUM = 2 THEN D.DIV_TOTAL END) AS BEFORE_DIV_TOTAL,
+                                SUM(CASE WHEN RNUM = 3 THEN D.DIV_TOTAL END) AS LAST_DIV_TOTAL 		      
+	                    	FROM                                                                                            	  
+	                    		VW_SDL_DT D,      
+	                    		VW_SDL_INFO I,                                                                               
+                               (SELECT V.MEET_CD,V.STND_YEAR SHOW_YEAR, V2.STND_YEAR,V2.TMS,V.RACE_YOIL, RNUM 
+                                   FROM VW_SDL_INFO V,
+                                         (SELECT /*+ index_desc (vw_sdl_info ix_vw_sdl_info1) */
+                                                 MEET_CD, STND_YEAR, TMS, ROW_NUMBER() OVER (PARTITION BY MEET_CD ORDER BY STND_YEAR DESC, TMS DESC) AS RNUM 
+                                          FROM   VW_SDL_INFO
+                                          WHERE  RACE_DAY BETWEEN TO_CHAR(TO_DATE(?,'YYYYMMDD') - 90,'YYYYMMDD') AND ? 
+                                          --AND    MEET_CD IN ('001','003')
+                                          AND    NVL(?, 'N') = 'N'
+                                          GROUP  BY MEET_CD, STND_YEAR, TMS                                              
+                                          UNION ALL
+                                          SELECT  MEET_CD, STND_YEAR, TMS, ROW_NUMBER() OVER (PARTITION BY MEET_CD ORDER BY STND_YEAR DESC, TMS DESC) AS RNUM
+                                          FROM   VW_SDL_INFO
+                                          WHERE  RACE_DAY <=  ?
+                                          AND    MEET_CD   = '003'
+                                          AND    RACE_YOIL = 'TUE'
+                                          AND    NVL(?, 'N') = 'Y'
+                                          ORDER BY STND_YEAR DESC, TMS DESC
+                                         ) V2        
+                                   WHERE V.RACE_DAY = ?
+                                   AND   V.MEET_CD  = V2.MEET_CD
+                                   AND   V2.RNUM < 4
+                                   ORDER BY RNUM) V
+	                    	WHERE 1=1                                                                                           	  
+	                    	AND D.MEET_CD   = I.MEET_CD                                                                     	  
+	                    	AND D.STND_YEAR = I.STND_YEAR                                                                 	  
+	                    	AND D.TMS       = I.TMS
+	                    	AND D.DAY_ORD   = I.DAY_ORD                                                                                  	  
+	                    	AND D.MEET_CD   = V.MEET_CD                                                                     	  
+	                    	AND D.STND_YEAR = V.STND_YEAR                                                                 	  
+	                    	AND D.TMS       = V.TMS
+	                    	AND I.RACE_YOIL = V.RACE_YOIL
+	                    	
+	           ]]>
+	    </query>
+    
+    
+    
+    <!-- 오늘 경주일 경우  -->
+    
+    
+    
+    
+    <query id="rsm2011_select03Today" desc="지점별투표소별 발매창구 매출액(SELECT)" fetchSize="10">
+        <![CDATA[	
+         	  SELECT /* rsm2011_select03Today */
+				    WIN_NO, -- 발매창구
+				    SUM(SOLD_AMT) AS SOLD_AMT -- 매출액
+				FROM
+				(        
+				    SELECT 
+				        D.MEET_CD,
+				        D.STND_YEAR,
+				        D.TMS,
+				        D.DAY_ORD,
+				        COMM_NO,
+				        DIV_NO,
+				        WIN_NO,
+				        SOLD_AMT
+				    FROM TBJI_PC_TELMP D, VW_SDL_INFO V 
+					WHERE 1=1					
+					AND D.MEET_CD=V.MEET_CD       
+					AND D.STND_YEAR=V.STND_YEAR
+					AND D.TMS=V.TMS 
+				
+					AND (D.MEET_CD = ? 		-- 0:경륜 경정 구분 코드
+				       OR D.MEET_CD = DECODE(?,'001','002')	-- 1:경륜 경정 구분 코드  
+				       OR D.MEET_CD = DECODE(?,'001','004')	-- 2:경륜 경정 구분 코드
+					)
+					AND V.RACE_DAY	= ?		-- 3:RACE_DAY 경주일
+					
+				    AND DIV_NO		= ?		-- 6:투표소			
+				 
+        ]]>
+    </query>
+    
+    <query id="rsm2011_s04Today" desc="지점별투표소별 발매창구 매출액(오늘)" fetchSize="10">
+        <![CDATA[	
+         	  SELECT /* rsm2011_s04Today */
+				    WIN_NO, -- 발매창구
+				    SUM(SOLD_AMT) AS SOLD_AMT -- 매출액
+				FROM
+				(        
+				    SELECT 
+				        D.MEET_CD,
+				        D.STND_YEAR,
+				        D.TMS,
+				        D.DAY_ORD,
+				        COMM_NO,
+				        DIV_NO,
+				        WIN_NO,
+				        SOLD_AMT
+				    FROM TBJI_PC_TELMP D, VW_SDL_INFO V 
+					WHERE 1=1					
+					AND D.MEET_CD=V.MEET_CD       
+					AND D.STND_YEAR=V.STND_YEAR
+					AND D.TMS=V.TMS
+					AND D.DAY_ORD=V.DAY_ORD 
+				
+					AND D.MEET_CD = ? 		-- 0:MEET_CD 경륜 경정 구분 코드
+				       
+				 					
+					AND D.COMM_NO	= ?		-- 1:지점코드
+					
+				    AND DIV_NO		= ?		-- 2:투표소
+					AND V.RACE_DAY	= ?		-- 3:RACE_DAY 경주일
+				)   
+				GROUP BY WIN_NO
+				ORDER BY WIN_NO			
+				 
+        ]]>
+    </query>
+    
+
+	    
+	    <query id="rsm2011_select07Today" desc="오늘 매출액 비교" fetchSize="10">
+        	<![CDATA[	
+         	  SELECT /* rsm2011_select07Today */
+		  		   LEV,		-- 내용 구분
+			       MEET_CD,	-- 경륜 경정 구분 코드
+			       RACE_NO,	-- 경주
+			       SELL_CD,	
+			       COMM_NO,
+			       DIV_NO,
+			       BB.CD_NM,
+			       TMS_DAY_ORD,
+			       BEFORE_DIV_TOTAL,	-- 전주
+			       BEFORE_MINUS,		-- 전주 대비
+			       PER_BEFORE,			-- 전주대비 %
+			       CASE 
+			            WHEN LEV='1' THEN MEET_DESC||' '||TMS_DAY_ORD
+			            ELSE DIV_TOTAL
+			       END AS DIV_TOTAL,	-- 현재 매출액
+			       PER_LAST,			-- 전전주 대비 %
+			       LAST_MINUS,       	-- 전전주 대비
+			       LAST_DIV_TOTAL		-- 전전주
+			       
+			FROM
+			(         
+		     
+		      SELECT LEV,
+		            MEET_CD,
+		            DECODE(MEET_CD,'001','광명','002','창원','003','미사리','004','부산') AS MEET_DESC,
+		            RACE_NO,
+		           SELL_CD,
+		           COMM_NO,
+		           DIV_NO,
+		           CASE WHEN LEV = '1' THEN MAX(B_TMS)
+		                ELSE TO_CHAR(NVL(SUM(BEFORE_DIV_TOTAL),0)) 
+		           END AS BEFORE_DIV_TOTAL,
+		           CASE WHEN LEV = '1' THEN '전주대비'
+		                ELSE TO_CHAR(NVL(SUM(BEFORE_MINUS),0)) 
+		           END AS BEFORE_MINUS,
+		           
+		           CASE WHEN LEV = '1' THEN '%'
+		                WHEN LEV = '3' THEN TO_CHAR(NVL(ROUND((SUM(DIV_TOTAL)-SUM(BEFORE_DIV_TOTAL))/SUM(BEFORE_DIV_TOTAL)*100,2),0),'FM9,999,990.00')
+		                ELSE TO_CHAR(NVL(SUM(PER_BEFORE),0),'FM9,999,990.00') 
+		           END AS PER_BEFORE,
+		           
+		           CASE WHEN LEV = '1' THEN TMS||'회'||DAY_ORD||'일차'
+		           END AS TMS_DAY_ORD,   
+		           
+		           CASE WHEN LEV = '1' THEN TMS||'회'||DAY_ORD||'일차'
+		                ELSE TO_CHAR(NVL(SUM(DIV_TOTAL),0))
+		           END AS DIV_TOTAL,   
+		           
+		           CASE WHEN LEV = '1' THEN '%'
+		                WHEN LEV = '3' THEN TO_CHAR(NVL(ROUND((SUM(DIV_TOTAL)-SUM(LAST_DIV_TOTAL))/SUM(LAST_DIV_TOTAL)*100,2),0),'FM9,999,990.00')
+		                ELSE TO_CHAR(NVL(SUM(PER_LAST),0),'FM9,999,990.00')
+		           END AS PER_LAST,
+		           
+		           CASE WHEN LEV = '1' THEN '전전주대비'
+		                ELSE TO_CHAR(NVL(SUM(LAST_MINUS),0)) 
+		           END AS LAST_MINUS,
+		           
+		           CASE WHEN LEV = '1' THEN MAX(Y_TMS)
+		                ELSE TO_CHAR(NVL(SUM(LAST_DIV_TOTAL),0))
+		           END AS LAST_DIV_TOTAL
+		           
+		      FROM
+		      (
+		            SELECT 
+		                DU.LEV,
+		                AA.MEET_CD,                                                                                  	  
+		                AA.STND_YEAR,
+		                AA.TMS,        -- 현회차
+		                AA.DAY_ORD,
+		                CASE WHEN LEV = '1' THEN '경주'
+			                WHEN LEV = '3' THEN '합계'
+			                ELSE RACE_NO
+			           END AS RACE_NO,
+		            	AA.SELL_CD,
+		            	AA.COMM_NO,
+		            	AA.DIV_NO, 
+		            	AA.DIV_TOTAL,     
+		            	AA.B_TMS,      -- 지난회차
+		            	AA.Y_TMS,      -- 지지난 회차
+		            	AA.BEFORE_DIV_TOTAL,
+		            	AA.LAST_DIV_TOTAL,
+		            	AA.BEFORE_MINUS,
+		            	AA.LAST_MINUS,
+		            	AA.PER_BEFORE,
+		            	AA.PER_LAST
+		            FROM
+		            (
+		                    SELECT 
+		                    	NVL(A.MEET_CD,  B.MEET_CD)   MEET_CD,                                                                                  	  
+		                    	NVL(A.STND_YEAR,B.STND_YEAR) STND_YEAR,
+		                    	NVL(A.TMS,     ?) TMS,    -- 현회차
+		                    	NVL(A.DAY_ORD, ?) DAY_ORD,
+                         		NVL(A.RACE_NO, B.RACE_NO) RACE_NO,
+                         		NVL(A.SELL_CD, B.SELL_CD) SELL_CD,
+                         		NVL(A.COMM_NO, B.COMM_NO) COMM_NO,
+                         		NVL(A.DIV_NO, B.DIV_NO) DIV_NO,
+		                    	A.DIV_TOTAL,     
+		                    	B.B_TMS,      -- 지난회차
+		                    	B.Y_TMS,      -- 지지난 회차
+		                    	B.BEFORE_DIV_TOTAL,
+		                    	B.LAST_DIV_TOTAL,
+		                        (A.DIV_TOTAL- B.BEFORE_DIV_TOTAL) AS BEFORE_MINUS,
+		                        (A.DIV_TOTAL- B.LAST_DIV_TOTAL) AS LAST_MINUS,
+		                        CASE WHEN DIV_TOTAL>0 AND BEFORE_DIV_TOTAL >0 THEN ROUND((DIV_TOTAL-BEFORE_DIV_TOTAL)/BEFORE_DIV_TOTAL*100,2) END AS PER_BEFORE,
+		                        CASE WHEN DIV_TOTAL>0 AND LAST_DIV_TOTAL >0 THEN ROUND((DIV_TOTAL-LAST_DIV_TOTAL)/LAST_DIV_TOTAL*100,2) END AS PER_LAST
+		                        
+		                    FROM
+		                    (    
+		                    	SELECT    
+		                    		D.MEET_CD,                                                                                  	  
+		                    		D.STND_YEAR,
+		                    		D.TMS,
+		                    		D.DAY_ORD,
+		                    		V.RACE_YOIL,
+		                    		D.RACE_NO,
+		                    		MIN(SELL_CD) AS SELL_CD,
+		                    		MIN(COMM_NO) AS COMM_NO,
+		                    		MIN(DIV_NO) AS DIV_NO,
+		                    		SUM(CASE WHEN D.TMS=V.TMS THEN D.DIV_TOTAL END) AS DIV_TOTAL
+			 	]]>
+		    </query>
+		    <query id="rsm2011_from07_01Today" desc="매출액 비교" fetchSize="10">
+		    	<![CDATA[
+		                    	/* rsm2011_from07_01Today */	
+		                    	FROM                 
+		                    		TBES_SDL_DT D,                                                                              	  
+		                    		VW_SDL_INFO V
+		                    	WHERE 1=1                                                                                           	  
+		                    	AND D.MEET_CD   = V.MEET_CD                                                                     	  
+		                    	AND D.STND_YEAR = V.STND_YEAR                                                                 	  
+		                    	AND D.TMS       = V.TMS
+		                    	AND D.DAY_ORD   = V.DAY_ORD		                    	
+		                    	AND V.RACE_DAY  = ?
+		                    	
+		                    			                    	
+			 	]]>
+		    </query>
+		    <query id="rsm2011_from07_02Today" desc="매출액 비교" fetchSize="10">
+		    	<![CDATA[
+		                    	/* rsm2011_from07_02Today */
+		                    	FROM                 
+		                    		VW_MYCAT_SALES_TODAY D,                                                                              	  
+		                    		VW_SDL_INFO V
+		                    	WHERE 1=1                                                                                           	  
+		                    	AND D.MEET_CD   = V.MEET_CD                                                                     	  
+		                    	AND D.STND_YEAR = V.STND_YEAR                                                                 	  
+		                    	AND D.TMS       = V.TMS
+		                    	AND D.DAY_ORD   = V.DAY_ORD		                    	
+		                    	AND V.RACE_DAY  = ?
+		                    	
+		                    			                    	
+			 	]]>
+		    </query>
+		    <query id="rsm2011_groupby07" desc="매출액 비교" fetchSize="10">
+		    	<![CDATA[
+		    			/* rsm2011_groupby07 */					                    	
+		                    	GROUP BY D.MEET_CD,                                                                                  	  
+		                    	      D.STND_YEAR,
+		                    	      D.TMS,
+		                    	      D.DAY_ORD,
+		                    	      V.RACE_YOIL,
+		                    	      D.RACE_NO
+		         ]]>
+		    </query>
+		    <query id="rsm2011_select08Today" desc="매출액 비교" fetchSize="10">
+        		<![CDATA[
+        			/* rsm2011_select08Today */
+		                    )A FULL OUTER JOIN 
+		                    ( 	  
+		                    	SELECT                                                                                          	  
+		                    		V.MEET_CD,                                                                                  	  
+		                    		V.SHOW_YEAR STND_YEAR,
+		                    		I.RACE_YOIL,                                       
+		                    		D.RACE_NO,
+		                    		MIN(SELL_CD) AS SELL_CD,
+		                    		MIN(COMM_NO) AS COMM_NO,
+		                    		MIN(DECODE(DIV_NO,'00','01', DIV_NO)) AS DIV_NO,
+		                    		--MIN(DIV_NO) AS DIV_NO,
+                                    MAX(DECODE(RNUM, 2, I.TMS||'회 '||I.DAY_ORD||'일차')) AS B_TMS,  
+                                    MAX(DECODE(RNUM, 3, I.TMS||'회 '||I.DAY_ORD||'일차')) AS Y_TMS,
+                                    SUM(CASE WHEN RNUM = 2 THEN D.DIV_TOTAL END) AS BEFORE_DIV_TOTAL,
+                                    SUM(CASE WHEN RNUM = 3 THEN D.DIV_TOTAL END) AS LAST_DIV_TOTAL 	      
+		                    	FROM                                                                                            	  
+		                    		TBES_SDL_DT D,  
+		                    		VW_SDL_INFO I,                                                                                  
+                                    (SELECT V.MEET_CD,V.STND_YEAR SHOW_YEAR, V2.STND_YEAR,V2.TMS,V.RACE_YOIL, RNUM 
+                                        FROM VW_SDL_INFO V,
+                                              (SELECT /*+ index_desc (vw_sdl_info ix_vw_sdl_info1) */
+                                                      MEET_CD, STND_YEAR, TMS, ROW_NUMBER() OVER (PARTITION BY MEET_CD ORDER BY STND_YEAR DESC, TMS DESC) AS RNUM 
+                                               FROM   VW_SDL_INFO
+                                               WHERE  RACE_DAY BETWEEN TO_CHAR(TO_DATE(?,'YYYYMMDD') - 90,'YYYYMMDD') AND ? 
+                                               --AND    MEET_CD IN ('001','003')
+                                               AND    NVL(?, 'N') = 'N'
+                                               GROUP  BY MEET_CD, STND_YEAR, TMS                                               
+                                               UNION ALL
+                                               SELECT  MEET_CD, STND_YEAR, TMS, ROW_NUMBER() OVER (PARTITION BY MEET_CD ORDER BY STND_YEAR DESC, TMS DESC) AS RNUM
+	                                            FROM   VW_SDL_INFO
+	                                            WHERE  RACE_DAY <=  ?
+	                                            AND    MEET_CD   = '003'
+	                                            AND    RACE_YOIL = 'TUE'
+	                                            AND    NVL(?, 'N') = 'Y'
+	                                            ORDER BY STND_YEAR DESC, TMS DESC
+                                              ) V2        
+                                        WHERE V.RACE_DAY = ?
+                                        AND   V.MEET_CD  = V2.MEET_CD
+                                        AND   V2.RNUM < 4
+                                        ORDER BY RNUM) V
+		                    	WHERE 1=1                                                                                           	  
+		                    	AND D.MEET_CD   = I.MEET_CD                                                                     	  
+		                    	AND D.STND_YEAR = I.STND_YEAR                                                                 	  
+		                    	AND D.TMS       = I.TMS
+		                    	AND D.DAY_ORD   = I.DAY_ORD                                                                                       	  
+		                    	AND D.MEET_CD   = V.MEET_CD                                                                     	  
+		                    	AND D.STND_YEAR = V.STND_YEAR                                                                 	  
+		                    	AND D.TMS       = V.TMS
+		                    	AND I.RACE_YOIL = V.RACE_YOIL
+		                    	
+		           ]]>
+		    </query>
+		                    	
+		    <query id="rsm2011_groupby08" desc="매출액 비교" fetchSize="10">
+        		<![CDATA[
+        					/* rsm2011_groupby08 */  				
+		                    	GROUP BY V.MEET_CD,V.SHOW_YEAR,I.RACE_YOIL, D.RACE_NO
+		                    )B ON 
+		                        	A.MEET_CD   = B.MEET_CD
+		                    	AND A.STND_YEAR = B.STND_YEAR
+		                    	AND A.RACE_YOIL = B.RACE_YOIL
+		                    	AND A.RACE_NO   = B.RACE_NO
+		              )AA,
+		              (SELECT LEVEL AS LEV FROM DUAL CONNECT BY LEVEL <= 3) DU
+		           ) 
+		           GROUP BY LEV,MEET_CD,STND_YEAR,DAY_ORD,
+						            SELL_CD,
+						           COMM_NO,
+						           DIV_NO,
+						           RACE_NO,TMS --,B_TMS,Y_TMS
+		            )AA,
+						(
+						-- 지점명 호출 하기 위한 공통 코드 조회
+						SELECT  CD,
+						        DECODE(CD,'01','본장','06','그린카드',CD_NM) AS CD_NM
+						  FROM 	TBRK_SPEC_CD A  
+						 WHERE 	1=1
+						 AND  A.GRP_CD = '060' 
+						 AND A.CD NOT IN('00','29')
+						) BB   	
+				WHERE 1=1
+						AND AA.COMM_NO=BB.CD(+)    			           
+		          ORDER BY       
+					     	MEET_CD DESC,  
+					     	LEV ASC,  
+					     	RACE_NO ASC
+
+			]]>
+	    </query>
+    
+    
+    
+    
+    <query id="rsm2011_select12Today" desc="지점별투표소별 발매창구 매출액(오늘)" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm2011_select12Today */
+				LEV,		-- 내용 구분
+				MEET_CD,	-- 경륜 경정 구분 코드
+				AA.SELL_CD,	
+				AA.COMM_NO,
+				AA.DIV_NO,
+				CASE 
+					WHEN LEV = '1' THEN '투표소'
+					WHEN LEV = '3' THEN '합계'		                
+					-- ELSE NVL(B.DIV_NAME,AA.DIV_NO) -- 투표소 이름
+					
+					ELSE 
+					       CASE WHEN AA.COMM_NO='06' AND AA.DIV_NO='00' THEN '본장'
+    					        WHEN AA.COMM_NO='06' AND AA.DIV_NO='15' THEN '논현'
+    					        WHEN AA.COMM_NO='06' AND AA.DIV_NO='17' THEN '올림픽공원'
+					       ELSE	NVL(B.DIV_NAME,AA.DIV_NO) END -- 투표소 이름
+					
+				END AS DIV_NAME,	-- 현재 매출액
+				TMS_DAY_ORD,
+				BEFORE_DIV_TOTAL,	-- 전주
+				BEFORE_MINUS,		-- 전주 대비
+				PER_BEFORE,			-- 전주대비 %
+				CASE 
+					WHEN LEV='1' THEN MEET_DESC||' '||TMS_DAY_ORD
+					ELSE DIV_TOTAL
+				END AS DIV_TOTAL,	-- 현재 매출액
+				PER_LAST,			-- 전전주 대비 %
+				LAST_MINUS,       	-- 전전주 대비
+				LAST_DIV_TOTAL		-- 전전주
+			FROM
+			(         
+			
+				SELECT 
+					LEV,
+					MEET_CD,
+					DECODE(MEET_CD,'001','광명','002','창원','003','미사리','004','부산') AS MEET_DESC,
+			
+					SELL_CD,
+					COMM_NO,
+					DIV_NO,
+					CASE WHEN LEV = '1' THEN B_TMS
+						ELSE TO_CHAR(NVL(SUM(BEFORE_DIV_TOTAL),0)) 
+					END AS BEFORE_DIV_TOTAL,
+					CASE WHEN LEV = '1' THEN '전주대비'
+						ELSE TO_CHAR(NVL(SUM(BEFORE_MINUS),0)) 
+					END AS BEFORE_MINUS,
+			
+					CASE WHEN LEV = '1' THEN '%'
+						WHEN LEV = '3' AND SUM(BEFORE_DIV_TOTAL) > 0 THEN TO_CHAR(NVL(ROUND((SUM(DIV_TOTAL)-SUM(BEFORE_DIV_TOTAL))/SUM(BEFORE_DIV_TOTAL)*100,2),0),'FM9,999,990.00')
+						ELSE TO_CHAR(NVL(SUM(PER_BEFORE),0),'FM9,999,990.00') 
+					END AS PER_BEFORE,
+			
+					CASE WHEN LEV = '1' THEN TMS||'회'||DAY_ORD||'일차'
+					END AS TMS_DAY_ORD,   
+			
+					CASE WHEN LEV = '1' THEN TMS||'회'||DAY_ORD||'일차'
+						ELSE TO_CHAR(NVL(SUM(DIV_TOTAL),0))
+					END AS DIV_TOTAL,   
+			
+					CASE WHEN LEV = '1' THEN '%'
+						WHEN LEV = '3' AND SUM(LAST_DIV_TOTAL) > 0  THEN TO_CHAR(NVL(ROUND((SUM(DIV_TOTAL)-SUM(LAST_DIV_TOTAL))/SUM(LAST_DIV_TOTAL)*100,2),0),'FM9,999,990.00')
+						ELSE TO_CHAR(NVL(SUM(PER_LAST),0),'FM9,999,990.00')
+					END AS PER_LAST,
+			
+					CASE WHEN LEV = '1' THEN '전전주대비'
+						ELSE TO_CHAR(NVL(SUM(LAST_MINUS),0)) 
+					END AS LAST_MINUS,
+			
+					CASE WHEN LEV = '1' THEN Y_TMS
+						ELSE TO_CHAR(NVL(SUM(LAST_DIV_TOTAL),0))
+					END AS LAST_DIV_TOTAL
+				FROM
+				(
+					SELECT 
+						DU.LEV,
+						AA.MEET_CD,                                                                                  	  
+						AA.STND_YEAR,
+						AA.TMS,        -- 현회차
+						AA.DAY_ORD,
+			
+						CASE WHEN LEV = '2' THEN AA.SELL_CD
+						END AS SELL_CD,
+			
+						CASE WHEN LEV = '2' THEN AA.COMM_NO
+						END AS COMM_NO,
+			
+						CASE WHEN LEV = '2' THEN AA.DIV_NO
+						END AS DIV_NO,
+			
+						AA.DIV_TOTAL,     
+						AA.B_TMS,      -- 지난회차
+						AA.Y_TMS,      -- 지지난 회차
+						AA.BEFORE_DIV_TOTAL,
+						AA.LAST_DIV_TOTAL,
+						AA.BEFORE_MINUS,
+						AA.LAST_MINUS,
+						AA.PER_BEFORE,
+						AA.PER_LAST
+					FROM
+					(
+					SELECT 
+						A.MEET_CD,                                                                                  	  
+						A.STND_YEAR,
+						A.TMS,        -- 현회차
+						A.DAY_ORD,
+			
+						A.SELL_CD,
+						A.COMM_NO,
+						A.DIV_NO, 
+						A.DIV_TOTAL,     
+						B.B_TMS AS B_TMS,      -- 지난회차
+						B.Y_TMS AS Y_TMS,      -- 지지난 회차
+						B.BEFORE_DIV_TOTAL,
+						B.LAST_DIV_TOTAL,
+						(A.DIV_TOTAL - NVL(B.BEFORE_DIV_TOTAL,0)) AS BEFORE_MINUS,
+						(A.DIV_TOTAL - NVL(B.LAST_DIV_TOTAL,0)) AS LAST_MINUS,
+						CASE WHEN DIV_TOTAL>0 AND BEFORE_DIV_TOTAL >0 THEN ROUND((DIV_TOTAL-BEFORE_DIV_TOTAL)/BEFORE_DIV_TOTAL*100,2) END AS PER_BEFORE,
+						CASE WHEN DIV_TOTAL>0 AND LAST_DIV_TOTAL >0 THEN ROUND((DIV_TOTAL-LAST_DIV_TOTAL)/LAST_DIV_TOTAL*100,2) END AS PER_LAST
+			
+					FROM
+					(    
+						SELECT    
+							D.MEET_CD,                                                                                  	  
+							D.STND_YEAR,
+							D.TMS,
+							D.DAY_ORD,
+							V.RACE_YOIL,
+							D.SELL_CD,
+							D.COMM_NO,
+							D.DIV_NO,
+							SUM(D.DIV_TOTAL) AS DIV_TOTAL
+						FROM                                                                                            	  
+						    TBES_SDL_DT D,                                                                              	  
+						    VW_SDL_INFO V
+						WHERE 1=1                                                                                           	  
+						AND D.MEET_CD   = V.MEET_CD                                                                     	  
+						AND D.STND_YEAR = V.STND_YEAR                                                                 	  
+						AND D.TMS       = V.TMS
+						AND D.DAY_ORD	= V.DAY_ORD
+						AND V.RACE_DAY  = ?
+		]]>
+    </query>
+    
+    <query id="rsm2011_groupby12Today" desc="지점별투표소별 발매창구 매출액(오늘)" fetchSize="10">
+        <![CDATA[
+						
+						/* rsm2011_groupby07 */					                    	
+						GROUP BY D.MEET_CD,                                                                                  	  
+						D.STND_YEAR,
+						D.TMS,
+						D.DAY_ORD,
+						V.RACE_YOIL,
+						D.SELL_CD,
+						D.COMM_NO,
+						D.DIV_NO
+	 	]]>
+    </query>
+    
+    <query id="rsm2011_select13Today" desc="지점별투표소별 발매창구 매출액(오늘)" fetchSize="10">
+        <![CDATA[
+						/* rsm2011_select13Today */
+					)A,
+					( 	
+						SELECT                                                                                          	  
+							MEET_CD,                                                                                  	  
+							STND_YEAR,
+							RACE_YOIL,                                       
+							SELL_CD,
+							COMM_NO,
+							DIV_NO,
+                            MAX(B_TMS) OVER () AS B_TMS,  
+                            MAX(Y_TMS) OVER () AS Y_TMS,
+                            BEFORE_DIV_TOTAL,
+                            LAST_DIV_TOTAL
+                        FROM (     	      
+						SELECT                                                                                          	  
+							V.MEET_CD,                                                                                  	  
+							V.STND_YEAR,
+							I.RACE_YOIL,                                       
+							D.SELL_CD,
+							D.COMM_NO,
+							D.DIV_NO,
+                            MAX(DECODE(RNUM, 2, I.TMS||'회 '||I.DAY_ORD||'일차')) AS B_TMS,  
+                            MAX(DECODE(RNUM, 3, I.TMS||'회 '||I.DAY_ORD||'일차')) AS Y_TMS,
+                            SUM(CASE WHEN RNUM = 2 THEN D.DIV_TOTAL END) AS BEFORE_DIV_TOTAL,
+                            SUM(CASE WHEN RNUM = 3 THEN D.DIV_TOTAL END) AS LAST_DIV_TOTAL 	      
+						FROM                                                                                            	  
+							TBES_SDL_DT D,     
+							VW_SDL_INFO I,                                                                             
+                           (SELECT V.MEET_CD,V.STND_YEAR,V2.TMS,V.RACE_YOIL, RNUM 
+                               FROM VW_SDL_INFO V,
+                                     (SELECT /*+ index_desc (vw_sdl_info ix_vw_sdl_info1) */
+                                             MEET_CD, STND_YEAR, TMS, ROW_NUMBER() OVER (PARTITION BY MEET_CD ORDER BY STND_YEAR DESC, TMS DESC) AS RNUM 
+                                      FROM   VW_SDL_INFO
+                                      WHERE  RACE_DAY BETWEEN TO_CHAR(TO_DATE(?,'YYYYMMDD') - 90,'YYYYMMDD') AND ? 
+                                      AND    MEET_CD IN ('001','003')
+                                      AND    NVL(?, 'N') = 'N'
+                                      GROUP  BY MEET_CD, STND_YEAR, TMS                                            
+                                      UNION ALL
+                                      SELECT 
+                                              MEET_CD, STND_YEAR, TMS, ROW_NUMBER() OVER (PARTITION BY MEET_CD ORDER BY STND_YEAR DESC, TMS DESC) AS RNUM
+                                       FROM   VW_SDL_INFO
+                                       WHERE  RACE_DAY <= ?
+                                       AND    MEET_CD   = '003'
+                                       AND    RACE_YOIL = 'TUE'
+                                       AND    NVL(?, 'N') = 'Y'
+                                       ORDER BY STND_YEAR DESC, TMS DESC
+                                     ) V2        
+                               WHERE V.RACE_DAY =  ?
+                               AND   V.MEET_CD = V2.MEET_CD
+                               AND   V2.RNUM < 4
+                               ORDER BY RNUM) V
+						WHERE 1=1                                                                                           	  
+						AND D.MEET_CD   = I.MEET_CD                                                                     	  
+						AND D.STND_YEAR = I.STND_YEAR                                                                 	  
+						AND D.TMS       = I.TMS
+						AND D.DAY_ORD   = I.DAY_ORD                                                                                        	  
+						AND D.MEET_CD   = V.MEET_CD                                                                     	  
+						AND D.STND_YEAR = V.STND_YEAR                                                                 	  
+						AND D.TMS       = V.TMS
+						AND I.RACE_YOIL = V.RACE_YOIL
+						]]>
+    </query>
+    
+        
+    <query id="rsm2011_where07" desc="지점별투표소별 발매창구 매출액(오늘) 경주번호 조건" fetchSize="10">
+        <![CDATA[   
+            /* "rsm2011_where07" */
+            AND D.RACE_NO <= (SELECT    
+                                    MAX(RACE_NO)
+                                    FROM                                                                                                  
+                                        TBES_SDL_DT J,                                                                                    
+                                        VW_SDL_INFO K
+                                     WHERE 1=1                                                                                                
+                                            AND J.MEET_CD   = K.MEET_CD                                                                           
+                                            AND J.STND_YEAR = K.STND_YEAR                                                                     
+                                            AND J.TMS       = K.TMS
+                                            AND J.DAY_ORD   = K.DAY_ORD
+                                            AND K.RACE_DAY  = ?
+                                    )              
+        ]]>
+    </query>
+       
+       
+    <query id="rsm2011_groupby13Today" desc="지점별투표소별 발매창구 매출액(오늘)" fetchSize="10">
+        <![CDATA[
+        			/* rsm2011_groupby13Today */  				
+						GROUP BY V.MEET_CD,V.STND_YEAR,I.RACE_YOIL, 
+							D.SELL_CD,
+							D.COMM_NO,
+							D.DIV_NO
+					)
+					)B 
+					WHERE 1=1
+					AND A.MEET_CD   = B.MEET_CD(+)
+					AND A.STND_YEAR = B.STND_YEAR(+)
+					AND A.RACE_YOIL = B.RACE_YOIL(+)
+					AND A.SELL_CD   = B.SELL_CD(+)
+					AND A.COMM_NO   = B.COMM_NO(+)
+					AND A.DIV_NO    = B.DIV_NO(+)
+					
+			
+					)AA,
+					(
+					--SELECT LEVEL AS LEV FROM DUAL CONNECT BY LEVEL <= 3
+                    SELECT 1 AS lev
+                    FROM dual
+                    UNION ALL
+                    SELECT 2
+                    FROM dual
+                    UNION ALL
+                    SELECT 3
+                    FROM dual
+					) DU
+				) 
+				GROUP BY LEV,MEET_CD,STND_YEAR,DAY_ORD,
+				SELL_CD,
+				COMM_NO,
+				DIV_NO,
+				TMS,B_TMS,Y_TMS
+			)AA,
+			BASETOTE.CONF_DIV_INFO@DW01LINK B
+			WHERE 1=1
+			
+			AND AA.SELL_CD = B.SELL_CD(+)
+			AND AA.COMM_NO=B.COMM_NO(+)
+			AND AA.DIV_NO =B.DIV_NO(+)
+			--AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN FROM_YEAR_DATE(+) AND TO_YEAR_DATE(+)
+			AND ? BETWEEN FROM_YEAR_DATE(+) AND TO_YEAR_DATE(+)
+			
+			ORDER BY       
+			MEET_CD DESC,  
+			LEV ASC,
+			SELL_CD,
+			COMM_NO,
+			DIV_NO
+    	]]>
+    </query>
+    
+	    
+</queryMap>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3180(그린카드 매출액)">
+    <query id="rsm3180_s01" desc="일자별 매출정보" fetchSize="10">
+        <![CDATA[
+            SELECT /* rsm3180_s01 */
+            	'그린카드' AS MYCAT, 
+            	A.RACE_DAY,
+            	COMM_NO, 
+            	DIV_NO, 
+            	--DECODE(DIV_NO,'00','본장','15','논현','올림픽') AS COMM_NAME, 
+            	C.CD_NM AS COMM_NAME,
+            	OUT_AMT, 
+            	IN_AMT, 
+            	MILEAGE_AMT, 
+            	BONUS_AMT,
+            	CONSIGN_AMT,
+            	--PURGE_AMT,
+            	(IN_AMT-OUT_AMT-MILEAGE_AMT-BONUS_AMT+CONSIGN_AMT) AS SIL_IN_AMT,
+            	TO_CHAR(TO_DATE(A.RACE_DAY,'YYYYMMDD'),'DY') AS RACE_YOIL
+			FROM (
+                    SELECT RACE_DAY,
+                           SELL_CD,
+                           '06' AS COMM_NO,
+                           DECODE(COMM_NO, '01', '00', DIV_NO) AS DIV_NO,                           
+                           SUM(OUT_AMT) AS OUT_AMT,
+                           SUM(IN_AMT)  AS IN_AMT,
+                           SUM(MILEAGE_AMT) AS MILEAGE_AMT,
+                           SUM(BONUS_AMT) AS BONUS_AMT,
+                           SUM(nvl(CONSIGN_AMT,0)) AS CONSIGN_AMT
+                           --SUM(nvl(PURGE_AMT,0)) AS PURGE_AMT
+                    FROM   TBES_MYCAT_DIVSTAT
+                    GROUP BY RACE_DAY, SELL_CD, DECODE(COMM_NO, '01', '00', DIV_NO)    			
+			      ) A, TBRK_SPEC_CD C                                             
+		   WHERE 1=1
+             AND A.RACE_DAY BETWEEN ? AND  ?   -- 0:RACE_DAY_FROM 경주일 조회시작일, 1:RACE_DAY_FROM 경주일 조회종료일
+             AND A.RACE_DAY IN (SELECT RACE_DAY FROM VW_SDL_INFO WHERE RACE_DAY BETWEEN ? AND ? and DECODE(MEET_CD,'003','003','001') LIKE ? )
+             AND CD_NM2 like ?||'%'  -- 20141002 지점매핑방식 변경 , 구소스:AND DIV_NO =   20160212 전체추가로 like로 변경          
+             AND C.GRP_CD = '127'             
+             AND A.DIV_NO = C.CD
+           ORDER BY A.RACE_DAY, DIV_NO
+        ]]>
+    </query>    
+
+    <query id="rsm3180_s02" desc="투표소별 매출액" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm3180_s02 */
+			       S.MEET_CD,
+			       C1.CD_NM AS MEET_NM, 
+			       V.RACE_DAY,
+			       BRNC_CD,
+			       C2.CD_NM AS BRNC_NM,
+			       SELL_CD||DIV_NO||PLACE AS GRN_DIV_NO,
+			       C3.CD_NM AS GRN_DIV_NM,
+			       SUM(NET_AMT) NET_AMT,
+			       TO_CHAR(TO_DATE(V.RACE_DAY,'YYYYMMDD'),'DY') AS RACE_YOIL
+			FROM TBES_MYCAT_SALES S INNER JOIN TBRK_SPEC_CD C1
+			    ON       S.MEET_CD = C1.CD
+			        AND  C1.GRP_CD = '062'	-- 시행처코드
+			INNER JOIN TBRK_SPEC_CD C2
+			    ON       S.BRNC_CD = C2.CD
+			        AND  C2.GRP_CD = '127'  -- 그린카드 지점
+			INNER JOIN TBRK_SPEC_CD C3
+			    ON       S.SELL_CD = C3.CD_TERM1
+			        AND  S.DIV_NO = C3.CD_TERM2
+			        AND  S.PLACE  = C3.CD_TERM3
+			        AND  C3.GRP_CD = '128'	-- 그린카드 투표소
+            INNER JOIN VW_SDL_INFO V
+                ON     S.RACE_DAY = V.RACE_DAY
+                    AND S.MEET_CD  = V.MEET_CD
+                    AND DECODE(V.MEET_CD,'003','003','001') LIKE ? 
+			WHERE V.RACE_DAY BETWEEN ? AND ?			
+			AND   C3.CD_TERM4 = ?  --20141002 김일준  지점코드 재매칭  --구)코드)  AND   BRNC_CD  =  
+			AND   S.MEET_CD LIKE ?||'%'
+			AND   SELL_CD||DIV_NO||PLACE LIKE ?
+			GROUP BY S.MEET_CD, V.RACE_DAY, BRNC_CD, C1.CD_NM, C2.CD_NM, C3.CD_NM, 
+			         SELL_CD||DIV_NO||PLACE, RACE_YOIL
+			ORDER BY RACE_DAY, S.MEET_CD, BRNC_CD, SELL_CD||DIV_NO||PLACE
+        ]]>
+    </query>    
+    
+    <query id="rsm3180_s03" desc="단말기별 발매건수 및 매출액" fetchSize="10">
+        <![CDATA[
+            SELECT /* rsm3180_s03 */
+            	COMM_NO, 
+            	C.CD_NM AS COMM_NAME,
+            	LOC_NM,
+            	DEV_NM,
+            	CNT, 
+            	AMT,
+            	LOC_NM || '_AVG' AS AVG
+			FROM (
+					SELECT CASE WHEN COMM_NO<10 THEN '01' ELSE COMM_NO END AS COMM_NO, LOC_NM, DEV_NM, 
+					       SUM(DEV_SALES_CNT) AS CNT, 
+					       SUM(DEV_SALES_AMT) AS AMT
+					FROM TBRS_MYCAT_TELMP M
+					        ,VW_SDL_INFO I
+					WHERE M.RACE_DAY = I.RACE_DAY
+					AND     M.MEET_CD = I.MEET_CD
+		            AND     M.RACE_DAY BETWEEN ? AND  ?  
+		            AND     DECODE(M.MEET_CD,'003','003','001') like ? 
+		            AND     M.MEET_CD LIKE ? 
+             		GROUP BY CASE WHEN COMM_NO<10 THEN '01' ELSE COMM_NO END, LOC_NM, DEV_NM   
+			      ) A, TBRK_SPEC_CD C                                             
+		   WHERE 1=1
+             AND C.GRP_CD  = '127'
+             AND A.COMM_NO = C.CD_NM2             
+             AND C.CD_NM2      = ?  --20141002 김일준 지점 매핑 변경  --구)소스 AND C.CD      = 
+           ORDER BY COMM_NO, LOC_NM, DEV_NM
+        ]]>
+    </query>    
+    
+    <query id="rsm3180_s04" desc="단말기별 발매건수 및 매출액" fetchSize="10">
+        <![CDATA[
+            SELECT /* rsm3180_s04 */
+			       A.RACE_DAY, C.RACE_YOIL, C.MEET_CD, 
+			       B.STAT_AMT, C.DT_AMT, A.TELMP_AMT,
+			       CASE WHEN C.DT_AMT <> B.STAT_AMT  THEN '002'
+			            WHEN C.DT_AMT <> A.TELMP_AMT THEN '002'
+			            ELSE '001' END AS RSLT_CD      
+			FROM (
+			        SELECT RACE_DAY, MEET_CD, SUM(DEV_SALES_AMT) AS TELMP_AMT
+			        FROM TBRS_MYCAT_TELMP
+			        WHERE RACE_DAY BETWEEN ? AND ?
+			        GROUP BY RACE_DAY, MEET_CD
+			        ) A, (
+			        SELECT RACE_DAY, MEET_CD, SUM(NET_AMT) AS STAT_AMT
+			        FROM TBRS_MYCAT_SALES_STAT
+			        WHERE RACE_DAY BETWEEN ? AND ?
+			        GROUP BY RACE_DAY, MEET_CD
+			        ) B, (
+			        SELECT RACE_DAY, B.MEET_CD, RACE_YOIL, SUM(DIV_TOTAL) AS DT_AMT
+			        FROM   VW_SDL_DT_SUM A, VW_SDL_INFO B
+			        WHERE  A.MEET_CD   = B.MEET_CD
+			        AND    A.STND_YEAR = B.STND_YEAR
+			        AND    A.MEET_CD   = B.MEET_CD
+			        AND    A.TMS       = B.TMS
+			        AND    A.DAY_ORD   = B.DAY_ORD
+			        AND    B.RACE_DAY BETWEEN ? AND ?
+			        AND    A.COMM_NO   = '06'
+			        GROUP BY RACE_DAY, B.MEET_CD, RACE_YOIL
+			        ) C
+			WHERE A.RACE_DAY = B.RACE_DAY
+			AND   A.MEET_CD  = B.MEET_CD
+			AND   A.RACE_DAY = C.RACE_DAY
+			AND   A.MEET_CD  = C.MEET_CD
+            AND   DECODE(A.MEET_CD,'003','003','001') = DECODE(?,'003','003','001') 
+            AND   A.MEET_CD LIKE ?
+            ORDER BY A.RACE_DAY, A.MEET_CD 
+        ]]>
+    </query>    
+    
+    
+</queryMap>

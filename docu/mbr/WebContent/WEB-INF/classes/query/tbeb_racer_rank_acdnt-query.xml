@@ -1,0 +1,1119 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_racer_rank_acdnt(선수별입상및위반내역)">
+    <query id="tbeb_racer_rank_acdnt_fb001" desc="선수별입상및위반내역조회" fetchSize="10">
+        <![CDATA[
+            SELECT	/*  tbeb_racer_rank_acdnt_fb001   IWORK_SFR-008 경정 선수편성 메뉴 개선 2013-12-11 8착까지 추가 수정.  */
+                   /*+ ORDERED */
+                     TRM .RACER_NO
+                   , TRM .NM_KOR
+                   , TRM .RACER_GRD_CD
+                   , NVL(TOR .RANK_1        , 0) RANK_1
+                   , NVL(TOR .RANK_2        , 0) RANK_2
+                   , NVL(TOR .RANK_3        , 0) RANK_3
+                   , NVL(TOR .RANK_4        , 0) RANK_4
+                   , NVL(TOR .RANK_5        , 0) RANK_5
+                   , NVL(TOR .RANK_6        , 0) RANK_6
+                   , NVL(TOR .RANK_7        , 0) RANK_7
+                   , NVL(TOR .RANK_8        , 0) RANK_8
+                   , TOR.AVG_RANK_SCR
+                   , TOR.AVG_ACDNT_SCR
+                   , TOR.AVG_SCR
+                   , NVL(STGP.GPP_SCR       , 0) GPP_SCR
+                   , TOR.WIN_RATIO
+                   , TOR.RACE_CNT
+                   , TOR.HIGH_RANK_RATIO
+                   , TOR.HIGH_3_RANK_RATIO
+                   , NVL(TRVA.F_CNT         , 0) F_CNT                -- F
+                   , NVL(TRVA.L_CNT         , 0) L_CNT                -- L
+                   , NVL(TRVA.ABSE_CNT      , 0) ABSE_CNT             -- 결장
+                   , NVL(TRVA.RACE_ESC_1_CNT, 0) RACE_ESC_1_CNT       -- 출주제외1
+                   , NVL(TRVA.RACE_ESC_2_CNT, 0) RACE_ESC_2_CNT       -- 출주제외2
+                   , NVL(TRVA.FOUL_ELIM_CNT , 0) FOUL_ELIM_CNT        -- 반칙실격
+                   , NVL(TRVA.ELIM_CNT      , 0) ELIM_CNT             -- 실격
+                   , NVL(TRVA.FOUL_WARN_CNT , 0) FOUL_WARN_CNT        -- 반칙경고
+                   , NVL(TRVA.WARN_CNT      , 0) WARN_CNT             -- 경고
+                   , NVL(TRVA.ATTEN_CNT     , 0) ATTEN_CNT            -- 주의
+                   , NVL(TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3), 0) TOTAL_WARN_CNT
+                   , NVL(TRUNC((TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3)) / 9), 0) RUNESC_CNT
+                   , NVL(MOD((TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3)), 9) + ROUND(MOD(TRVA.ATTEN_CNT, 3) / 3, 2), 0) WARN_SUM_CNT
+                   , TRUNC((NVL(TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3), 0) - NVL(TMS.WARN_CNT + TRUNC(TMS.ATTEN_CNT / 3), 0)) / 9) TMS_WARN
+                   , TMS.F_CNT            TMS_F_CNT         
+                   , TMS.L_CNT            TMS_L_CNT         
+                   , TMS.ABSE_CNT         TMS_ABSE_CNT      
+                   , TMS.RACE_ESC_1_CNT   TMS_RACE_ESC_1_CNT
+                   , TMS.RACE_ESC_2_CNT   TMS_RACE_ESC_2_CNT
+                   , TMS.FOUL_ELIM_CNT    TMS_FOUL_ELIM_CNT 
+                   , TMS.ELIM_CNT         TMS_ELIM_CNT      
+                   , TMS.FOUL_WARN_CNT    TMS_FOUL_WARN_CNT 
+                   , TMS.WARN_CNT         TMS_WARN_CNT      
+                   , TMS.ATTEN_CNT        TMS_ATTEN_CNT     
+                   , NVL(TRUNC(((TRVA.WARN_CNT - NVL(TMS.WARN_CNT, 0)) + TRUNC((TRVA.ATTEN_CNT - NVL(TMS.ATTEN_CNT, 0)) / 3)) / 9), 0) TMS_RUNESC_CNT
+                   , TRR.RATE_1_1, TRR.RATE_1_2, TRR.RATE_1_3
+                   , TRR.RATE_2_1, TRR.RATE_2_2, TRR.RATE_2_3
+                   , TRR.RATE_3_1, TRR.RATE_3_2, TRR.RATE_3_3
+                   , TRR.RATE_4_1, TRR.RATE_4_2, TRR.RATE_4_3
+                   , TRR.RATE_5_1, TRR.RATE_5_2,  TRR.RATE_5_3
+                   , TRR.RATE_6_1, TRR.RATE_6_2, TRR.RATE_6_3
+                   , TRR.RATE_7_1, TRR.RATE_7_2, TRR.RATE_7_3
+                   , TRR.RATE_8_1, TRR.RATE_8_2, TRR.RATE_8_3
+            FROM     TBEC_RACER_MASTER TRM
+                   , (
+ 			            SELECT
+                                 TRVA.RACER_NO
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '110', 1, NULL)), 0) F_CNT                -- F
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '120', 1, NULL)), 0) L_CNT                -- L
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '130', 1, NULL)), 0) ABSE_CNT             -- 결장
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '995', 1, NULL)), 0) RACE_ESC_1_CNT       -- 출주제외1
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '997', 1, NULL)), 0) RACE_ESC_2_CNT       -- 출주제외2
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '125', 1, NULL)), 0) FOUL_ELIM_CNT        -- 반칙실격
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '140', 1, NULL)), 0) ELIM_CNT             -- 실격
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '150', 1, NULL)), 0) FOUL_WARN_CNT        -- 반칙경고
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '210', 1, NULL)), 0) WARN_CNT             -- 경고
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '220', 1, NULL)), 0) ATTEN_CNT            -- 주의
+ 			            FROM   TBED_RACE_VOIL_ACT TRVA
+ 			            WHERE  TRVA.MBR_CD           = NVL(?, TRVA.MBR_CD)
+ 			            AND    TRVA.RACE_DAY BETWEEN ? AND ?
+ 			            GROUP BY
+ 			                     TRVA.RACER_NO
+                     ) TRVA -- 선수위반내역
+                   , (
+			            SELECT
+			                      TOR.RACER_NO
+			                    , TOR.RACE_CNT
+			                    , TRM.NM_KOR
+			                    , TRM.RACER_GRD_CD
+			                    , TOR.RANK_1
+			                    , TOR.RANK_2
+			                    , TOR.RANK_3
+			                    , TOR.RANK_4
+			                    , TOR.RANK_5
+			                    , TOR.RANK_6
+			                    , TOR.RANK_7
+			                    , TOR.RANK_8
+			                    , ROUND(TOR.AMU_RANK_SCR  / TOR.RACE_CNT, 2)                                AVG_RANK_SCR
+			                    , ROUND(TOR.AMU_ACDNT_SCR / TOR.RACE_CNT, 2)                                AVG_ACDNT_SCR
+			                    , ROUND((TOR.AMU_RANK_SCR - TOR.AMU_ACDNT_SCR) / TOR.RACE_CNT, 2)           AVG_SCR
+			                    , ROUND((TOR.RANK_1) / TOR.RACE_CNT * 100, 1)                               WIN_RATIO
+			                    , ROUND((TOR.RANK_1 + TOR.RANK_2) / TOR.RACE_CNT * 100, 1)                  HIGH_RANK_RATIO
+			                    , ROUND((TOR.RANK_1 + TOR.RANK_2 + TOR.RANK_3) / TOR.RACE_CNT * 100, 1)     HIGH_3_RANK_RATIO
+			                    , RANK() OVER (ORDER BY ROUND(TOR.AMU_RANK_SCR  / TOR.RACE_CNT, 2) DESC) RANK
+			            FROM      TBEC_RACER_MASTER TRM
+			                    , (
+			                         SELECT
+			                                  TOR.RACER_NO
+			                                , COUNT(*)                                                       RACE_CNT
+			                                , NVL(SUM(DECODE(TOR.RANK, 1, 1, 0))                        , 0) RANK_1
+			                                , NVL(SUM(DECODE(TOR.RANK, 2, 1, 0))                        , 0) RANK_2
+			                                , NVL(SUM(DECODE(TOR.RANK, 3, 1, 0))                        , 0) RANK_3
+			                                , NVL(SUM(DECODE(TOR.RANK, 4, 1, 0))                        , 0) RANK_4
+			                                , NVL(SUM(DECODE(TOR.RANK, 5, 1, 0))                        , 0) RANK_5
+			                                , NVL(SUM(DECODE(TOR.RANK, 6, 1, 0))                        , 0) RANK_6
+			                                , NVL(SUM(DECODE(TOR.RANK, 7, 1, 0))                        , 0) RANK_7
+			                                , NVL(SUM(DECODE(TOR.RANK, 8, 1, 0))                        , 0) RANK_8
+			                                , NVL(SUM(TRS .RACE_SCR      )                              , 0) AMU_RANK_SCR
+			                                , NVL(SUM(TRVA.ACDNT_SCR     )                              , 0) AMU_ACDNT_SCR
+			                         FROM     TBEB_ORGAN         TOR
+			                                , TBEB_RACE          TR
+			                                , TBEB_RANK_SCR      TRS
+			                                , (
+			                                     SELECT
+			                                              TRVA.STND_YEAR
+			                                            , TRVA.MBR_CD
+			                                            , TRVA.TMS
+			                                            , TRVA.DAY_ORD
+			                                            , TRVA.RACE_NO
+			                                            , TRVA.RACE_REG_NO
+			                                            , NVL(TRVB.ACDNT_SCR, TRVA.ACDNT_SCR) ACDNT_SCR
+			                                     FROM     (
+			                                                SELECT
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                                       , SUM(ACDNT_SCR) ACDNT_SCR
+			                                                FROM     TBED_RACE_VOIL_ACT TRVA
+			                                                       , TBEB_ACDNT_SCR     TAS
+			                                                       , TBEB_ORGAN         TOR
+			                                                WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+			                                                AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+			                                                AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+			                                                AND    TRVA.MBR_CD       = TOR.MBR_CD
+			                                                AND    TRVA.TMS          = TOR.TMS
+			                                                AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+			                                                AND    TRVA.RACE_NO      = TOR.RACE_NO
+			                                                AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+			                                                AND    TOR .ABSE_CD     <> '003'
+			                                                AND    TOR .IMMT_CLS_CD <> '003'
+			                                                AND    TRVA.RACE_DAY      BETWEEN ? AND ?
+			                                                GROUP BY
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                             ) TRVA
+			                                           , (
+			                                                SELECT
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                                       , TAS .ACDNT_SCR
+			                                                FROM     TBED_RACE_VOIL_ACT TRVA
+			                                                       , TBEB_ACDNT_SCR     TAS
+			                                                       , TBEB_ORGAN         TOR
+			                                                WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+			                                                AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+			                                                AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+			                                                AND    TRVA.MBR_CD       = TOR.MBR_CD
+			                                                AND    TRVA.TMS          = TOR.TMS
+			                                                AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+			                                                AND    TRVA.RACE_NO      = TOR.RACE_NO
+			                                                AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+			                                                AND    TOR .ABSE_CD     <> '003'
+			                                                AND    TOR .IMMT_CLS_CD <> '003'
+			                                                AND    TRVA.RACE_DAY      BETWEEN ? AND ?
+			                                                AND    TRVA.VOIL_CD     IN ('110', '120')
+			                                              ) TRVB
+			                                    WHERE  TRVA.STND_YEAR   = TRVB.STND_YEAR  (+)
+			                                    AND    TRVA.MBR_CD      = TRVB.MBR_CD     (+)
+			                                    AND    TRVA.TMS         = TRVB.TMS        (+)
+			                                    AND    TRVA.DAY_ORD     = TRVB.DAY_ORD    (+)
+			                                    AND    TRVA.RACE_NO     = TRVB.RACE_NO    (+)
+			                                    AND    TRVA.RACE_REG_NO = TRVB.RACE_REG_NO(+)
+			                                  ) TRVA
+			                         WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+			                         AND    TOR .MBR_CD       = TR  .MBR_CD
+			                         AND    TOR .TMS          = TR  .TMS
+			                         AND    TOR .DAY_ORD      = TR  .DAY_ORD
+			                         AND    TOR .RACE_NO      = TR  .RACE_NO
+			                         AND    TOR .STND_YEAR    = TRS .STND_YEAR
+			                         AND    TR  .RACE_DGRE_CD = TRS .RACE_DGRE_CD
+			                         AND    NVL(TOR .RANK,0)  = TRS .RANK
+			                         AND    TOR .STND_YEAR    = TRVA.STND_YEAR  (+)
+			                         AND    TOR .MBR_CD       = TRVA.MBR_CD     (+)
+			                         AND    TOR .TMS          = TRVA.TMS        (+)
+			                         AND    TOR .DAY_ORD      = TRVA.DAY_ORD    (+)
+			                         AND    TOR .RACE_NO      = TRVA.RACE_NO    (+)
+			                         AND    TOR .RACE_REG_NO  = TRVA.RACE_REG_NO(+)
+									 AND    TR  .RACE_STTS_CD = '001'
+			                         AND    TOR .ABSE_CD     <> '003'
+			                         AND    TOR .IMMT_CLS_CD <> '003'
+			                         AND    TOR .RACE_DAY      BETWEEN ? AND ?
+			                         AND    TOR.ST_MTHD_CD = DECODE(?, '000', TOR.ST_MTHD_CD, ?)		 
+			                         GROUP BY TOR .RACER_NO
+			                     ) TOR
+			            WHERE  TRM.RACER_NO = TOR .RACER_NO
+                     ) TOR -- 선수성적조회
+                   , (
+                        SELECT
+                               racer_no,
+                               race_cnt,
+                               decode(reg_1_rank_1, 0, 0, DECODE(reg_1_cnt,0,0,to_char(ROUND(( reg_1_rank_1 / reg_1_cnt)* 100, 2), '990.99')))|| '('||reg_1_rank_1||'/'||reg_1_cnt||')' RATE_1_1, --1번 승률
+                               decode(reg_1_rank_1+reg_1_rank_2, 0, 0, DECODE(reg_1_cnt,0,0,TO_CHAR(ROUND(( (reg_1_rank_1+reg_1_rank_2) / reg_1_cnt)* 100, 2), '990.99')))||'('||(reg_1_rank_1+reg_1_rank_2)||'/'||reg_1_cnt||')' RATE_1_2, --1번 연대율
+                               decode(reg_1_rank_1+reg_1_rank_2+reg_1_rank_3, 0, 0, DECODE(reg_1_cnt,0,0,TO_CHAR(ROUND(( (reg_1_rank_1+reg_1_rank_2+reg_1_rank_3) / reg_1_cnt)* 100, 2), '990.99')))||'('||(reg_1_rank_1+reg_1_rank_2+reg_1_rank_3)||'/'||reg_1_cnt||')' RATE_1_3, --1번 삼연대율
+                               decode(reg_2_rank_1, 0, 0, DECODE(reg_2_cnt,0,0,TO_CHAR(ROUND(( reg_2_rank_1 / reg_2_cnt)* 100, 2), '990.99')))||'('||reg_2_rank_1||'/'||reg_2_cnt||')' RATE_2_1, --2번 승률
+                               decode(reg_2_rank_1+reg_2_rank_2, 0, 0, DECODE(reg_2_cnt,0,0,TO_CHAR(ROUND(( (reg_2_rank_1+reg_2_rank_2) / reg_2_cnt)* 100, 2), '990.99')))||'('||(reg_2_rank_1+reg_2_rank_2)||'/'||reg_2_cnt||')' RATE_2_2, --2번 연대율
+                               decode(reg_2_rank_1+reg_2_rank_2+reg_2_rank_3, 0, 0, DECODE(reg_2_cnt,0,0,TO_CHAR(ROUND(( (reg_2_rank_1+reg_2_rank_2+reg_2_rank_3) / reg_2_cnt)* 100, 2), '990.99')))||'('||(reg_2_rank_1+reg_2_rank_2+reg_2_rank_3)||'/'||reg_2_cnt||')' RATE_2_3, --2번 삼연대율
+                               decode(reg_3_rank_1, 0, 0, DECODE(reg_3_cnt,0,0,TO_CHAR(ROUND(( reg_3_rank_1 / reg_3_cnt)* 100, 2), '990.99')))|| '('||reg_3_rank_1||'/'||reg_3_cnt||')' RATE_3_1, --3번 승률
+                               decode(reg_3_rank_1+reg_3_rank_2, 0, 0, DECODE(reg_3_cnt,0,0,TO_CHAR(ROUND(( (reg_3_rank_1+reg_3_rank_2) / reg_3_cnt)* 100, 2), '990.99')))|| '('||(reg_3_rank_1+reg_3_rank_2)||'/'||reg_3_cnt||')' RATE_3_2, --3번연대율
+                               decode(reg_3_rank_1+reg_3_rank_2+reg_3_rank_3, 0, 0, DECODE(reg_3_cnt,0,0,TO_CHAR(ROUND(( (reg_3_rank_1+reg_3_rank_2+reg_3_rank_3) / reg_3_cnt)* 100, 2), '990.99')))||'('||(reg_3_rank_1+reg_3_rank_2+reg_3_rank_3)||'/'||reg_3_cnt||')' RATE_3_3, --3번 삼연대율
+                               decode(reg_4_rank_1, 0, 0, DECODE(reg_4_cnt,0,0,TO_CHAR(ROUND(( reg_4_rank_1 / reg_4_cnt)* 100, 2), '990.99')))|| '('||reg_4_rank_1||'/'||reg_4_cnt||')' RATE_4_1, --4번 승률
+                               decode(reg_4_rank_1+reg_4_rank_2, 0, 0, DECODE(reg_4_cnt,0,0,TO_CHAR(ROUND(( (reg_4_rank_1+reg_4_rank_2) / reg_4_cnt)* 100, 2), '990.99')))|| '('||(reg_4_rank_1+reg_4_rank_2)||'/'||reg_4_cnt||')' RATE_4_2, --4번 연대율
+                               decode(reg_4_rank_1+reg_4_rank_2+reg_4_rank_3, 0, 0, DECODE(reg_4_cnt,0,0,TO_CHAR(ROUND(( (reg_4_rank_1+reg_4_rank_2+reg_4_rank_3) / reg_4_cnt)* 100, 2), '990.99'))) || '('||(reg_4_rank_1+reg_4_rank_2+reg_4_rank_3)||'/'||reg_4_cnt||')' RATE_4_3, --4번 삼연대율
+                               decode(reg_5_rank_1, 0, 0, DECODE(reg_5_cnt,0,0,TO_CHAR(ROUND(( reg_5_rank_1 / reg_5_cnt)* 100, 2), '990.99')))|| '('||reg_5_rank_1||'/'||reg_5_cnt||')' RATE_5_1, --5번 승률
+                               decode(reg_5_rank_1+reg_5_rank_2, 0, 0, DECODE(reg_5_cnt,0,0,TO_CHAR(ROUND(( (reg_5_rank_1+reg_5_rank_2) / reg_5_cnt)* 100, 2), '990.99')))||'('||(reg_5_rank_1+reg_5_rank_2)||'/'||reg_5_cnt||')' RATE_5_2, --5번 연대율
+                               decode(reg_5_rank_1+reg_5_rank_2+reg_5_rank_3, 0, 0, DECODE(reg_5_cnt,0,0,TO_CHAR(ROUND(( (reg_5_rank_1+reg_5_rank_2+reg_5_rank_3) / reg_5_cnt)* 100, 2), '990.99')))|| '('||(reg_5_rank_1+reg_5_rank_2+reg_5_rank_3)||'/'||reg_5_cnt||')' RATE_5_3, --5번 삼연대율
+                               decode(reg_6_rank_1, 0, 0, DECODE(reg_6_cnt,0,0,TO_CHAR(ROUND(( reg_6_rank_1 / reg_6_cnt)* 100, 2), '990.99')))|| '('||reg_6_rank_1||'/'||reg_6_cnt||')' RATE_6_1, --6번 승률
+                               decode(reg_6_rank_1+reg_6_rank_2, 0, 0, DECODE(reg_6_cnt,0,0,TO_CHAR(ROUND(( (reg_6_rank_1+reg_6_rank_2) / reg_6_cnt)* 100, 2), '990.99')))|| '('||(reg_6_rank_1+reg_6_rank_2)||'/'||reg_6_cnt||')' RATE_6_2, --6번 연대율
+                               decode(reg_6_rank_1+reg_6_rank_2+reg_6_rank_3, 0, 0, DECODE(reg_6_cnt,0,0,TO_CHAR(ROUND(( (reg_6_rank_1+reg_6_rank_2+reg_6_rank_3) / reg_6_cnt)* 100, 2), '990.99')))|| '('||(reg_6_rank_1+reg_6_rank_2+reg_6_rank_3)||'/'||reg_6_cnt||')' RATE_6_3,  --6번  삼연대율
+                               
+                               decode(reg_7_rank_1, 0, 0, DECODE(reg_7_cnt,0,0,TO_CHAR(ROUND(( reg_7_rank_1 / reg_7_cnt)* 100, 2), '990.99')))|| '('||reg_7_rank_1||'/'||reg_7_cnt||')' RATE_7_1, --7번 승률
+                               decode(reg_7_rank_1+reg_7_rank_2, 0, 0, DECODE(reg_7_cnt,0,0,TO_CHAR(ROUND(( (reg_7_rank_1+reg_7_rank_2) / reg_7_cnt)* 100, 2), '990.99')))||'('||(reg_7_rank_1+reg_7_rank_2)||'/'||reg_7_cnt||')' RATE_7_2, --7번 연대율
+                               decode(reg_7_rank_1+reg_7_rank_2+reg_7_rank_3, 0, 0, DECODE(reg_7_cnt,0,0,TO_CHAR(ROUND(( (reg_7_rank_1+reg_7_rank_2+reg_7_rank_3) / reg_7_cnt)* 100, 2), '990.99')))|| '('||(reg_7_rank_1+reg_7_rank_2+reg_7_rank_3)||'/'||reg_7_cnt||')' RATE_7_3, --7번 삼연대율
+                               
+                               decode(reg_8_rank_1, 0, 0, DECODE(reg_8_cnt,0,0,TO_CHAR(ROUND(( reg_8_rank_1 / reg_8_cnt)* 100, 2), '990.99')))|| '('||reg_8_rank_1||'/'||reg_8_cnt||')' RATE_8_1, --8번 승률
+                               decode(reg_8_rank_1+reg_8_rank_2, 0, 0, DECODE(reg_8_cnt,0,0,TO_CHAR(ROUND(( (reg_8_rank_1+reg_8_rank_2) / reg_8_cnt)* 100, 2), '990.99')))||'('||(reg_8_rank_1+reg_8_rank_2)||'/'||reg_8_cnt||')' RATE_8_2, --8번 연대율
+                               decode(reg_8_rank_1+reg_8_rank_2+reg_8_rank_3, 0, 0, DECODE(reg_8_cnt,0,0,TO_CHAR(ROUND(( (reg_8_rank_1+reg_8_rank_2+reg_8_rank_3) / reg_8_cnt)* 100, 2), '990.99')))|| '('||(reg_8_rank_1+reg_8_rank_2+reg_8_rank_3)||'/'||reg_8_cnt||')' RATE_8_3 --8번 삼연대율
+                       FROM
+                               (SELECT
+                                              TOR.RACER_NO
+                                            , COUNT(*)                                                       RACE_CNT
+                                            , NVL(sum(decode(tor.race_reg_no, 1, 1)),0) reg_1_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_1
+                                            , NVL(sum(decode(tor.race_reg_no, 2, 1)),0) reg_2_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_2
+                                            , NVL(sum(decode(tor.race_reg_no, 3, 1)),0) reg_3_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_3
+                                            , NVL(sum(decode(tor.race_reg_no, 4, 1)),0) reg_4_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_4
+                                            , NVL(sum(decode(tor.race_reg_no, 5, 1)),0) reg_5_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_5
+                                            , NVL(sum(decode(tor.race_reg_no, 6, 1)),0) reg_6_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_6
+                                            , NVL(sum(decode(tor.race_reg_no, 7, 1)),0) reg_7_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_7
+                                            , NVL(sum(decode(tor.race_reg_no, 8, 1)),0) reg_8_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_8
+                                     FROM     TBEB_ORGAN         TOR
+                                            , TBEB_RACE          TR
+                                     WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+                                     AND    TOR .MBR_CD       = TR  .MBR_CD
+                                     AND    TOR .TMS          = TR  .TMS
+                                     AND    TOR .DAY_ORD      = TR  .DAY_ORD
+                                     AND    TOR .RACE_NO      = TR  .RACE_NO
+                                     AND    TR  .RACE_STTS_CD = '001'
+                                     AND    TOR .ABSE_CD     <> '003'
+                                     AND    TOR .IMMT_CLS_CD <> '003'
+                                     AND    TOR .RACE_DAY      BETWEEN ? AND ?
+                                     AND    TOR .ST_MTHD_CD   = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+                                     GROUP BY TOR .RACER_NO
+                                     ORDER BY tor.racer_no)
+                   ) TRR  -- 정번별승률연대율삼연대율 조회
+                   , (
+ 			            SELECT
+                                 TRVA.RACER_NO
+                               , SUM(DECODE(TRVA.VOIL_CD, '110', 1, NULL)) F_CNT                -- F
+                               , SUM(DECODE(TRVA.VOIL_CD, '120', 1, NULL)) L_CNT                -- L
+                               , SUM(DECODE(TRVA.VOIL_CD, '130', 1, NULL)) ABSE_CNT             -- 결장
+                               , SUM(DECODE(TRVA.VOIL_CD, '995', 1, NULL)) RACE_ESC_1_CNT       -- 출주제외1
+                               , SUM(DECODE(TRVA.VOIL_CD, '997', 1, NULL)) RACE_ESC_2_CNT       -- 출주제외2
+                               , SUM(DECODE(TRVA.VOIL_CD, '125', 1, NULL)) FOUL_ELIM_CNT        -- 반칙실격
+                               , SUM(DECODE(TRVA.VOIL_CD, '140', 1, NULL)) ELIM_CNT             -- 실격
+                               , SUM(DECODE(TRVA.VOIL_CD, '150', 1, NULL)) FOUL_WARN_CNT        -- 반칙경고
+                               , SUM(DECODE(TRVA.VOIL_CD, '210', 1, NULL)) WARN_CNT             -- 경고
+                               , SUM(DECODE(TRVA.VOIL_CD, '220', 1, NULL)) ATTEN_CNT            -- 주의
+ 			            FROM   TBED_RACE_VOIL_ACT TRVA
+ 			            WHERE  TRVA.MBR_CD           = NVL(?, TRVA.MBR_CD)
+ 			            AND    TRVA.RACE_DAY BETWEEN ? AND ?
+ 			            GROUP BY
+ 			                     TRVA.RACER_NO
+                     ) TMS -- 당회차위반사항조회
+                     , (
+                       SELECT TOR.RACER_NO, SUM(TGP.GPP_SCR) GPP_SCR
+                         FROM  TBEB_ORGAN TOR, TBEB_RACE TR, TBEB_GPP_SCR TGP
+                        WHERE TOR.STND_YEAR = TR.STND_YEAR
+                            AND TOR.TMS = TR.TMS
+                            AND TOR.DAY_ORD = TR.DAY_ORD
+                            AND TOR.RACE_NO = TR.RACE_NO
+                            AND TOR.STND_YEAR = TGP.STND_YEAR
+                            AND TOR.DAY_ORD = TGP.DAY_ORD
+                            AND TOR.RANK = TGP.RANK
+                            AND TGP.RACE_DGRE_CD =
+                                   (CASE  WHEN TR.RACE_DGRE_CD IN ('706', '707', '708', '933', '951', '953', '954') THEN '951'
+                                             WHEN TR.RACE_DGRE_CD IN ('901', '903', '906', '952')                   THEN '952'
+                                             ELSE  TR.RACE_DGRE_CD END)
+                            AND (TOR.RANK > 0 OR (TOR.RANK = 0 AND TOR.IMMT_CLS_CD <> '002' AND TOR.ABSE_CD <> '001')) 
+                            AND TOR.MBR_CD           = NVL( ?, TOR.MBR_CD)
+                            AND TOR.RACE_DAY BETWEEN  ? AND  ?
+                            AND TOR .ST_MTHD_CD   = DECODE(?, '000', TOR.ST_MTHD_CD, ?)		
+                         GROUP BY TOR.RACER_NO                                                                                                                                          
+                      ) STGP -- GP포인트 조회
+            WHERE  TRM.RACER_NO = TRVA.RACER_NO(+)
+            AND    TRM.RACER_NO = TOR .RACER_NO
+            AND    TRM.RACER_NO = TMS .RACER_NO(+)
+            AND    TRM.RACER_NO = TRR.RACER_NO
+            AND    TRM.RACER_NO = STGP.RACER_NO(+)
+            ORDER BY TRM .RACER_NO
+        ]]>
+    </query> 
+
+    <query id="tbeb_racer_rank_acdnt_fb002" desc="선수개인 입상및위반내역조회" fetchSize="10">
+        <![CDATA[
+            SELECT	/*  tbeb_racer_rank_acdnt_fb002   IWORK_SFR-008 경정 선수편성 메뉴 개선 2013-12-11 8착까지 추가 수정.  */
+                   /*+ ORDERED */
+                     TRM .RACER_NO
+                   , TRM .NM_KOR
+                   , TRM .RACER_GRD_CD
+                   , NVL(TOR .RANK_1        , 0) RANK_1
+                   , NVL(TOR .RANK_2        , 0) RANK_2
+                   , NVL(TOR .RANK_3        , 0) RANK_3
+                   , NVL(TOR .RANK_4        , 0) RANK_4
+                   , NVL(TOR .RANK_5        , 0) RANK_5
+                   , NVL(TOR .RANK_6        , 0) RANK_6
+                   , NVL(TOR .RANK_7        , 0) RANK_7
+                   , NVL(TOR .RANK_8        , 0) RANK_8
+                   , TOR.AVG_RANK_SCR
+                   , TOR.AVG_ACDNT_SCR
+                   , TOR.AVG_SCR
+                   , NVL(STGP.GPP_SCR       , 0) GPP_SCR
+                   , TOR.WIN_RATIO
+                   , TOR.RACE_CNT
+                   , TOR.HIGH_RANK_RATIO
+                   , TOR.HIGH_3_RANK_RATIO
+                   , NVL(TRVA.F_CNT         , 0) F_CNT                -- F
+                   , NVL(TRVA.L_CNT         , 0) L_CNT                -- L
+                   , NVL(TRVA.ABSE_CNT      , 0) ABSE_CNT             -- 결장
+                   , NVL(TRVA.RACE_ESC_1_CNT, 0) RACE_ESC_1_CNT       -- 출주제외1
+                   , NVL(TRVA.RACE_ESC_2_CNT, 0) RACE_ESC_2_CNT       -- 출주제외2
+                   , NVL(TRVA.FOUL_ELIM_CNT , 0) FOUL_ELIM_CNT        -- 반칙실격
+                   , NVL(TRVA.ELIM_CNT      , 0) ELIM_CNT             -- 실격
+                   , NVL(TRVA.FOUL_WARN_CNT , 0) FOUL_WARN_CNT        -- 반칙경고
+                   , NVL(TRVA.WARN_CNT      , 0) WARN_CNT             -- 경고
+                   , NVL(TRVA.ATTEN_CNT     , 0) ATTEN_CNT            -- 주의
+                   , NVL(TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3), 0) TOTAL_WARN_CNT
+                   , NVL(TRUNC((TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3)) / 9), 0) RUNESC_CNT
+                   , NVL(MOD((TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3)), 9) + ROUND(MOD(TRVA.ATTEN_CNT, 3) / 3, 2), 0) WARN_SUM_CNT
+                   , TRUNC((NVL(TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3), 0) - NVL(TMS.WARN_CNT + TRUNC(TMS.ATTEN_CNT / 3), 0)) / 9) TMS_WARN
+                   , TMS.F_CNT            TMS_F_CNT         
+                   , TMS.L_CNT            TMS_L_CNT         
+                   , TMS.ABSE_CNT         TMS_ABSE_CNT      
+                   , TMS.RACE_ESC_1_CNT   TMS_RACE_ESC_1_CNT
+                   , TMS.RACE_ESC_2_CNT   TMS_RACE_ESC_2_CNT
+                   , TMS.FOUL_ELIM_CNT    TMS_FOUL_ELIM_CNT 
+                   , TMS.ELIM_CNT         TMS_ELIM_CNT      
+                   , TMS.FOUL_WARN_CNT    TMS_FOUL_WARN_CNT 
+                   , TMS.WARN_CNT         TMS_WARN_CNT      
+                   , TMS.ATTEN_CNT        TMS_ATTEN_CNT     
+                   , NVL(TRUNC(((TRVA.WARN_CNT - NVL(TMS.WARN_CNT, 0)) + TRUNC((TRVA.ATTEN_CNT - NVL(TMS.ATTEN_CNT, 0)) / 3)) / 9), 0) TMS_RUNESC_CNT
+                   , TRR.RATE_1_1, TRR.RATE_1_2, TRR.RATE_1_3
+                   , TRR.RATE_2_1, TRR.RATE_2_2, TRR.RATE_2_3
+                   , TRR.RATE_3_1, TRR.RATE_3_2, TRR.RATE_3_3
+                   , TRR.RATE_4_1, TRR.RATE_4_2, TRR.RATE_4_3
+                   , TRR.RATE_5_1, TRR.RATE_5_2,  TRR.RATE_5_3
+                   , TRR.RATE_6_1, TRR.RATE_6_2, TRR.RATE_6_3
+                   , TRR.RATE_7_1, TRR.RATE_7_2, TRR.RATE_7_3
+                   , TRR.RATE_8_1, TRR.RATE_8_2, TRR.RATE_8_3
+            FROM     TBEC_RACER_MASTER TRM
+                   , (
+ 			            SELECT
+                                 TRVA.RACER_NO
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '110', 1, NULL)), 0) F_CNT                -- F
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '120', 1, NULL)), 0) L_CNT                -- L
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '130', 1, NULL)), 0) ABSE_CNT             -- 결장
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '995', 1, NULL)), 0) RACE_ESC_1_CNT       -- 출주제외1
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '997', 1, NULL)), 0) RACE_ESC_2_CNT       -- 출주제외2
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '125', 1, NULL)), 0) FOUL_ELIM_CNT        -- 반칙실격
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '140', 1, NULL)), 0) ELIM_CNT             -- 실격
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '150', 1, NULL)), 0) FOUL_WARN_CNT        -- 반칙경고
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '210', 1, NULL)), 0) WARN_CNT             -- 경고
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '220', 1, NULL)), 0) ATTEN_CNT            -- 주의
+ 			            FROM   TBED_RACE_VOIL_ACT TRVA
+ 			            WHERE  TRVA.MBR_CD           = NVL(?, TRVA.MBR_CD)
+ 			            AND    TRVA.RACE_DAY BETWEEN ? AND ?
+ 			            AND    TRVA.RACER_NO = ?
+ 			            GROUP BY
+ 			                     TRVA.RACER_NO
+                     ) TRVA -- 선수위반내역
+                   , (
+			            SELECT
+			                      TOR.RACER_NO
+			                    , TOR.RACE_CNT
+			                    , TRM.NM_KOR
+			                    , TRM.RACER_GRD_CD
+			                    , TOR.RANK_1
+			                    , TOR.RANK_2
+			                    , TOR.RANK_3
+			                    , TOR.RANK_4
+			                    , TOR.RANK_5
+			                    , TOR.RANK_6
+			                    , TOR.RANK_7
+			                    , TOR.RANK_8
+			                    , ROUND(TOR.AMU_RANK_SCR  / TOR.RACE_CNT, 2)                                AVG_RANK_SCR
+			                    , ROUND(TOR.AMU_ACDNT_SCR / TOR.RACE_CNT, 2)                                AVG_ACDNT_SCR
+			                    , ROUND((TOR.AMU_RANK_SCR - TOR.AMU_ACDNT_SCR) / TOR.RACE_CNT, 2)           AVG_SCR
+			                    , ROUND((TOR.RANK_1) / TOR.RACE_CNT * 100, 1)                               WIN_RATIO
+			                    , ROUND((TOR.RANK_1 + TOR.RANK_2) / TOR.RACE_CNT * 100, 1)                  HIGH_RANK_RATIO
+			                    , ROUND((TOR.RANK_1 + TOR.RANK_2 + TOR.RANK_3) / TOR.RACE_CNT * 100, 1)     HIGH_3_RANK_RATIO
+			                    , RANK() OVER (ORDER BY ROUND(TOR.AMU_RANK_SCR  / TOR.RACE_CNT, 2) DESC) RANK
+			            FROM      TBEC_RACER_MASTER TRM
+			                    , (
+			                         SELECT
+			                                  TOR.RACER_NO
+			                                , COUNT(*)                                                       RACE_CNT
+			                                , NVL(SUM(DECODE(TOR.RANK, 1, 1, 0))                        , 0) RANK_1
+			                                , NVL(SUM(DECODE(TOR.RANK, 2, 1, 0))                        , 0) RANK_2
+			                                , NVL(SUM(DECODE(TOR.RANK, 3, 1, 0))                        , 0) RANK_3
+			                                , NVL(SUM(DECODE(TOR.RANK, 4, 1, 0))                        , 0) RANK_4
+			                                , NVL(SUM(DECODE(TOR.RANK, 5, 1, 0))                        , 0) RANK_5
+			                                , NVL(SUM(DECODE(TOR.RANK, 6, 1, 0))                        , 0) RANK_6
+			                                , NVL(SUM(DECODE(TOR.RANK, 7, 1, 0))                        , 0) RANK_7
+			                                , NVL(SUM(DECODE(TOR.RANK, 8, 1, 0))                        , 0) RANK_8
+			                                , NVL(SUM(TRS .RACE_SCR      )                              , 0) AMU_RANK_SCR
+			                                , NVL(SUM(TRVA.ACDNT_SCR     )                              , 0) AMU_ACDNT_SCR
+			                         FROM     TBEB_ORGAN         TOR
+			                                , TBEB_RACE          TR
+			                                , TBEB_RANK_SCR      TRS
+			                                , (
+			                                     SELECT
+			                                              TRVA.STND_YEAR
+			                                            , TRVA.MBR_CD
+			                                            , TRVA.TMS
+			                                            , TRVA.DAY_ORD
+			                                            , TRVA.RACE_NO
+			                                            , TRVA.RACE_REG_NO
+			                                            , NVL(TRVB.ACDNT_SCR, TRVA.ACDNT_SCR) ACDNT_SCR
+			                                     FROM     (
+			                                                SELECT
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                                       , SUM(ACDNT_SCR) ACDNT_SCR
+			                                                FROM     TBED_RACE_VOIL_ACT TRVA
+			                                                       , TBEB_ACDNT_SCR     TAS
+			                                                       , TBEB_ORGAN         TOR
+			                                                WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+			                                                AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+			                                                AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+			                                                AND    TRVA.MBR_CD       = TOR.MBR_CD
+			                                                AND    TRVA.TMS          = TOR.TMS
+			                                                AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+			                                                AND    TRVA.RACE_NO      = TOR.RACE_NO
+			                                                AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+			                                                AND    TOR .ABSE_CD     <> '003'
+			                                                AND    TOR .IMMT_CLS_CD <> '003'
+			                                                AND    TRVA.RACE_DAY    BETWEEN ? AND ?
+			                                                AND    TRVA.RACER_NO    = ?
+			                                                GROUP BY
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                             ) TRVA
+			                                           , (
+			                                                SELECT
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                                       , TAS .ACDNT_SCR
+			                                                FROM     TBED_RACE_VOIL_ACT TRVA
+			                                                       , TBEB_ACDNT_SCR     TAS
+			                                                       , TBEB_ORGAN         TOR
+			                                                WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+			                                                AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+			                                                AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+			                                                AND    TRVA.MBR_CD       = TOR.MBR_CD
+			                                                AND    TRVA.TMS          = TOR.TMS
+			                                                AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+			                                                AND    TRVA.RACE_NO      = TOR.RACE_NO
+			                                                AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+			                                                AND    TOR .ABSE_CD     <> '003'
+			                                                AND    TOR .IMMT_CLS_CD <> '003'
+			                                                AND    TRVA.VOIL_CD     IN ('110', '120')
+			                                                AND    TRVA.RACE_DAY    BETWEEN ? AND ?
+			                                                AND    TRVA.RACER_NO    = ?
+			                                              ) TRVB
+			                                    WHERE  TRVA.STND_YEAR   = TRVB.STND_YEAR  (+)
+			                                    AND    TRVA.MBR_CD      = TRVB.MBR_CD     (+)
+			                                    AND    TRVA.TMS         = TRVB.TMS        (+)
+			                                    AND    TRVA.DAY_ORD     = TRVB.DAY_ORD    (+)
+			                                    AND    TRVA.RACE_NO     = TRVB.RACE_NO    (+)
+			                                    AND    TRVA.RACE_REG_NO = TRVB.RACE_REG_NO(+)
+			                                  ) TRVA
+			                         WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+			                         AND    TOR .MBR_CD       = TR  .MBR_CD
+			                         AND    TOR .TMS          = TR  .TMS
+			                         AND    TOR .DAY_ORD      = TR  .DAY_ORD
+			                         AND    TOR .RACE_NO      = TR  .RACE_NO
+			                         AND    TOR .STND_YEAR    = TRS .STND_YEAR
+			                         AND    TR  .RACE_DGRE_CD = TRS .RACE_DGRE_CD
+			                         AND    TOR .RANK         = TRS .RANK
+			                         AND    TOR .STND_YEAR    = TRVA.STND_YEAR  (+)
+			                         AND    TOR .MBR_CD       = TRVA.MBR_CD     (+)
+			                         AND    TOR .TMS          = TRVA.TMS        (+)
+			                         AND    TOR .DAY_ORD      = TRVA.DAY_ORD    (+)
+			                         AND    TOR .RACE_NO      = TRVA.RACE_NO    (+)
+			                         AND    TOR .RACE_REG_NO  = TRVA.RACE_REG_NO(+)
+									 AND    TR  .RACE_STTS_CD = '001'
+			                         AND    TOR .ABSE_CD     <> '003'
+			                         AND    TOR .IMMT_CLS_CD <> '003'
+			                         AND    TOR .RACE_DAY      BETWEEN ? AND ?
+			                         AND    TOR .RACER_NO    = ?
+			                         AND    TOR .ST_MTHD_CD  = DECODE(?, '000', TOR.ST_MTHD_CD, ?)		 		 
+			                         GROUP BY TOR .RACER_NO
+			                     ) TOR
+			            WHERE  TRM.RACER_NO = TOR .RACER_NO
+                     ) TOR -- 선수성적조회
+                   , (
+                   		SELECT
+                                             racer_no,
+                                             race_cnt,
+                                             decode(reg_1_rank_1, 0, 0, TO_CHAR(ROUND(( reg_1_rank_1 / reg_1_cnt)* 100, 2), '990.99'))|| '('||reg_1_rank_1||'/'||reg_1_cnt||')' RATE_1_1, --1번 승률
+                                             decode(reg_1_rank_1+reg_1_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_1_rank_1+reg_1_rank_2) / reg_1_cnt)* 100, 2), '990.99'))||'('||(reg_1_rank_1+reg_1_rank_2)||'/'||reg_1_cnt||')' RATE_1_2, --1번 연대율
+                                             decode(reg_1_rank_1+reg_1_rank_2+reg_1_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_1_rank_1+reg_1_rank_2+reg_1_rank_3) / reg_1_cnt)* 100, 2), '990.99'))||'('||(reg_1_rank_1+reg_1_rank_2+reg_1_rank_3)||'/'||reg_1_cnt||')' RATE_1_3, --1번 삼연대율
+                                             decode(reg_2_rank_1, 0, 0, TO_CHAR(ROUND(( reg_2_rank_1 / reg_1_cnt)* 100, 2), '990.99'))||'('||reg_2_rank_1||'/'||reg_2_cnt||')' RATE_2_1, --2번 승률
+                                             decode(reg_2_rank_1+reg_2_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_2_rank_1+reg_2_rank_2) / reg_2_cnt)* 100, 2), '990.99'))||'('||(reg_2_rank_1+reg_2_rank_2)||'/'||reg_2_cnt||')' RATE_2_2, --2번 연대율
+                                             decode(reg_2_rank_1+reg_2_rank_2+reg_2_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_2_rank_1+reg_2_rank_2+reg_2_rank_3) / reg_2_cnt)* 100, 2), '990.99'))||'('||(reg_2_rank_1+reg_2_rank_2+reg_2_rank_3)||'/'||reg_2_cnt||')' RATE_2_3, --2번 삼연대율
+                                             decode(reg_3_rank_1, 0, 0, TO_CHAR(ROUND(( reg_3_rank_1 / reg_3_cnt)* 100, 2), '990.99'))|| '('||reg_3_rank_1||'/'||reg_3_cnt||')' RATE_3_1, --3번 승률
+                                             decode(reg_3_rank_1+reg_3_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_3_rank_1+reg_3_rank_2) / reg_3_cnt)* 100, 2), '990.99'))|| '('||(reg_3_rank_1+reg_3_rank_2)||'/'||reg_3_cnt||')' RATE_3_2, --3번연대율
+                                             decode(reg_3_rank_1+reg_3_rank_2+reg_3_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_3_rank_1+reg_3_rank_2+reg_3_rank_3) / reg_3_cnt)* 100, 2), '990.99'))||'('||(reg_3_rank_1+reg_3_rank_2+reg_3_rank_3)||'/'||reg_3_cnt||')' RATE_3_3, --3번 삼연대율
+                                             decode(reg_4_rank_1, 0, 0, TO_CHAR(ROUND(( reg_4_rank_1 / reg_4_cnt)* 100, 2), '990.99'))|| '('||reg_4_rank_1||'/'||reg_4_cnt||')' RATE_4_1, --4번 승률
+                                             decode(reg_4_rank_1+reg_4_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_4_rank_1+reg_4_rank_2) / reg_4_cnt)* 100, 2), '990.99'))|| '('||(reg_4_rank_1+reg_4_rank_2)||'/'||reg_4_cnt||')' RATE_4_2, --4번 연대율
+                                             decode(reg_4_rank_1+reg_4_rank_2+reg_4_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_4_rank_1+reg_4_rank_2+reg_4_rank_3) / reg_4_cnt)* 100, 2), '990.99')) || '('||(reg_4_rank_1+reg_4_rank_2+reg_4_rank_3)||'/'||reg_4_cnt||')' RATE_4_3, --4번 삼연대율
+                                             decode(reg_5_rank_1, 0, 0, TO_CHAR(ROUND(( reg_5_rank_1 / reg_5_cnt)* 100, 2), '990.99'))|| '('||reg_5_rank_1||'/'||reg_5_cnt||')' RATE_5_1, --5번 승률
+                                             decode(reg_5_rank_1+reg_5_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_5_rank_1+reg_5_rank_2) / reg_5_cnt)* 100, 2), '990.99'))||'('||(reg_5_rank_1+reg_5_rank_2)||'/'||reg_5_cnt||')' RATE_5_2, --5번 연대율
+                                             decode(reg_5_rank_1+reg_5_rank_2+reg_5_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_5_rank_1+reg_5_rank_2+reg_5_rank_3) / reg_5_cnt)* 100, 2), '990.99'))|| '('||(reg_5_rank_1+reg_5_rank_2+reg_5_rank_3)||'/'||reg_5_cnt||')' RATE_5_3, --5번 삼연대율
+                                             decode(reg_6_rank_1, 0, 0, TO_CHAR(ROUND(( reg_6_rank_1 / reg_6_cnt)* 100, 2), '990.99'))|| '('||reg_6_rank_1||'/'||reg_6_cnt||')' RATE_6_1, --6번 승률
+                                             decode(reg_6_rank_1+reg_6_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_6_rank_1+reg_6_rank_2) / reg_6_cnt)* 100, 2), '990.99'))|| '('||(reg_6_rank_1+reg_6_rank_2)||'/'||reg_6_cnt||')' RATE_6_2, --6번 연대율
+                                             decode(reg_6_rank_1+reg_6_rank_2+reg_6_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_6_rank_1+reg_6_rank_2+reg_6_rank_3) / reg_6_cnt)* 100, 2), '990.99'))|| '('||(reg_6_rank_1+reg_6_rank_2+reg_6_rank_3)||'/'||reg_6_cnt||')' RATE_6_3, --6번  삼연대율
+                                             
+                                             decode(reg_7_rank_1, 0, 0, TO_CHAR(ROUND(( reg_7_rank_1 / reg_7_cnt)* 100, 2), '990.99'))|| '('||reg_7_rank_1||'/'||reg_7_cnt||')' RATE_7_1, --7번 승률
+                                             decode(reg_7_rank_1+reg_7_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_7_rank_1+reg_7_rank_2) / reg_7_cnt)* 100, 2), '990.99'))||'('||(reg_7_rank_1+reg_7_rank_2)||'/'||reg_7_cnt||')' RATE_7_2, --7번 연대율
+                                             decode(reg_7_rank_1+reg_7_rank_2+reg_7_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_7_rank_1+reg_7_rank_2+reg_7_rank_3) / reg_7_cnt)* 100, 2), '990.99'))||'('||(reg_7_rank_1+reg_7_rank_2+reg_7_rank_3)||'/'||reg_7_cnt||')' RATE_7_3, --7번 삼연대율
+                                             
+                                             decode(reg_8_rank_1, 0, 0, TO_CHAR(ROUND(( reg_8_rank_1 / reg_8_cnt)* 100, 2), '990.99'))||'('||reg_8_rank_1||'/'||reg_8_cnt||')' RATE_8_1, --8번 승률
+                                             decode(reg_8_rank_1+reg_8_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_8_rank_1+reg_8_rank_2) / reg_8_cnt)* 100, 2), '990.99'))||'('||(reg_8_rank_1+reg_8_rank_2)||'/'||reg_8_cnt||')' RATE_8_2, --8번 연대율
+                                             decode(reg_8_rank_1+reg_8_rank_2+reg_8_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_8_rank_1+reg_8_rank_2+reg_8_rank_3) / reg_8_cnt)* 100, 2), '990.99'))||'('||(reg_8_rank_1+reg_8_rank_2+reg_8_rank_3)||'/'||reg_8_cnt||')' RATE_8_3 --8번 삼연대율
+                                             FROM
+                                      (SELECT
+                                              TOR.RACER_NO
+                                            , COUNT(*)                                                       RACE_CNT
+                                            , NVL(sum(decode(tor.race_reg_no, 1, 1)),0) reg_1_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_1
+                                            , NVL(sum(decode(tor.race_reg_no, 2, 1)),0) reg_2_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_2
+                                            , NVL(sum(decode(tor.race_reg_no, 3, 1)),0) reg_3_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_3
+                                            , NVL(sum(decode(tor.race_reg_no, 4, 1)),0) reg_4_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_4
+                                            , NVL(sum(decode(tor.race_reg_no, 5, 1)),0) reg_5_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_5
+                                            , NVL(sum(decode(tor.race_reg_no, 6, 1)),0) reg_6_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_6
+                                            , NVL(sum(decode(tor.race_reg_no, 7, 1)),0) reg_7_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_7
+                                            , NVL(sum(decode(tor.race_reg_no, 8, 1)),0) reg_8_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_8
+                                     FROM     TBEB_ORGAN         TOR
+                                                 , TBEB_RACE          TR
+                                     WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+                                     AND    TOR .MBR_CD       = TR  .MBR_CD
+                                     AND    TOR .TMS          = TR  .TMS
+                                     AND    TOR .DAY_ORD      = TR  .DAY_ORD
+                                     AND    TOR .RACE_NO      = TR  .RACE_NO
+                                     AND    TR  .RACE_STTS_CD = '001'
+                                     AND    TOR .ABSE_CD     <> '003'
+                                     AND    TOR .IMMT_CLS_CD <> '003'
+                                     AND    TOR .RACE_DAY      BETWEEN ? AND ?
+                                     AND    TOR .RACER_NO = ?
+                                  	 AND    TOR .ST_MTHD_CD  = DECODE(?, '000', TOR.ST_MTHD_CD, ?)		 
+                                     GROUP BY TOR.RACER_NO
+                                    )
+                   )TRR --정번별 승률연대율삼연대율 조회
+                   , (
+ 			            SELECT
+                                 TRVA.RACER_NO
+                               , SUM(DECODE(TRVA.VOIL_CD, '110', 1, NULL)) F_CNT                -- F
+                               , SUM(DECODE(TRVA.VOIL_CD, '120', 1, NULL)) L_CNT                -- L
+                               , SUM(DECODE(TRVA.VOIL_CD, '130', 1, NULL)) ABSE_CNT             -- 결장
+                               , SUM(DECODE(TRVA.VOIL_CD, '995', 1, NULL)) RACE_ESC_1_CNT       -- 출주제외1
+                               , SUM(DECODE(TRVA.VOIL_CD, '997', 1, NULL)) RACE_ESC_2_CNT       -- 출주제외2
+                               , SUM(DECODE(TRVA.VOIL_CD, '125', 1, NULL)) FOUL_ELIM_CNT        -- 반칙실격
+                               , SUM(DECODE(TRVA.VOIL_CD, '140', 1, NULL)) ELIM_CNT             -- 실격
+                               , SUM(DECODE(TRVA.VOIL_CD, '150', 1, NULL)) FOUL_WARN_CNT        -- 반칙경고
+                               , SUM(DECODE(TRVA.VOIL_CD, '210', 1, NULL)) WARN_CNT             -- 경고
+                               , SUM(DECODE(TRVA.VOIL_CD, '220', 1, NULL)) ATTEN_CNT            -- 주의
+ 			            FROM   TBED_RACE_VOIL_ACT TRVA
+ 			            WHERE  TRVA.MBR_CD   = NVL(?, TRVA.MBR_CD)
+ 			            AND    TRVA.RACE_DAY BETWEEN ? AND ?
+ 			            AND    TRVA.RACER_NO = ?
+ 			            GROUP BY
+ 			                     TRVA.RACER_NO
+                     ) TMS -- 당회차위반사항조회
+                     , (
+                       SELECT TOR.RACER_NO, SUM(TGP.GPP_SCR) GPP_SCR
+                         FROM  TBEB_ORGAN TOR, TBEB_RACE TR, TBEB_GPP_SCR TGP
+                        WHERE TOR.STND_YEAR = TR.STND_YEAR
+                            AND TOR.TMS = TR.TMS
+                            AND TOR.DAY_ORD = TR.DAY_ORD
+                            AND TOR.RACE_NO = TR.RACE_NO
+                            AND TOR.STND_YEAR = TGP.STND_YEAR
+                            AND TOR.DAY_ORD = TGP.DAY_ORD
+                            AND TOR.RANK = TGP.RANK
+                            AND TGP.RACE_DGRE_CD =
+                                   (CASE  WHEN TR.RACE_DGRE_CD IN ('706', '707', '708', '933', '951', '953', '954') THEN '951'
+                                          WHEN TR.RACE_DGRE_CD IN ('901', '903', '906', '952')                      THEN '952'
+                                          ELSE  TR.RACE_DGRE_CD END)
+                            AND (TOR.RANK > 0 OR (TOR.RANK = 0 AND TOR.IMMT_CLS_CD <> '002' AND TOR.ABSE_CD <> '001')) 
+                            AND TOR.MBR_CD           = NVL( ?, TOR.MBR_CD)
+                            AND TOR.RACE_DAY BETWEEN  ? AND  ?
+                            AND TOR.RACER_NO = ?
+                            AND TOR.ST_MTHD_CD  = DECODE(?, '000', TOR.ST_MTHD_CD, ?)		
+                         GROUP BY TOR.RACER_NO                                                                                                                                          
+                      ) STGP -- GP포인트 조회
+            WHERE  TRM.RACER_NO = TRVA.RACER_NO(+)
+            AND    TRM.RACER_NO = TOR .RACER_NO
+            AND    TRM.RACER_NO = TMS .RACER_NO(+)
+            AND    TRM.RACER_NO = TRR.RACER_NO
+            AND    TRM.RACER_NO = STGP.RACER_NO(+)
+            ORDER BY TRM .RACER_NO
+        ]]>
+    </query> 
+
+    <query id="tbeb_racer_rank_acdnt_fb003" desc="입상및위반내역조회(모든성적)" fetchSize="10">
+        <![CDATA[
+            SELECT	/*  tbeb_racer_rank_acdnt_fb003   IWORK_SFR-008 경정 선수편성 메뉴 개선 2013-12-11 8착까지 추가 수정.  */
+                     TRM .RACER_NO
+                   , TRM .NM_KOR
+                   , TRM .RACER_GRD_CD
+                   , NVL(TOR .RANK_1        , 0) RANK_1
+                   , NVL(TOR .RANK_2        , 0) RANK_2
+                   , NVL(TOR .RANK_3        , 0) RANK_3
+                   , NVL(TOR .RANK_4        , 0) RANK_4
+                   , NVL(TOR .RANK_5        , 0) RANK_5
+                   , NVL(TOR .RANK_6        , 0) RANK_6
+                   , NVL(TOR .RANK_7        , 0) RANK_7
+                   , NVL(TOR .RANK_8        , 0) RANK_8
+                   , TOR.AVG_RANK_SCR
+                   , TOR.AVG_ACDNT_SCR
+                   , TOR.AVG_SCR
+                   , TOR.WIN_RATIO
+                   , TOR.RACE_CNT
+                   , TOR.HIGH_RANK_RATIO
+                   , TOR.HIGH_3_RANK_RATIO
+                   , NVL(TRVA.F_CNT         , 0) F_CNT                -- F
+                   , NVL(TRVA.L_CNT         , 0) L_CNT                -- L
+                   , NVL(TRVA.ABSE_CNT      , 0) ABSE_CNT             -- 결장
+                   , NVL(TRVA.RACE_ESC_1_CNT, 0) RACE_ESC_1_CNT       -- 출주제외1
+                   , NVL(TRVA.RACE_ESC_2_CNT, 0) RACE_ESC_2_CNT       -- 출주제외2
+                   , NVL(TRVA.FOUL_ELIM_CNT , 0) FOUL_ELIM_CNT        -- 반칙실격
+                   , NVL(TRVA.ELIM_CNT      , 0) ELIM_CNT             -- 실격
+                   , NVL(TRVA.FOUL_WARN_CNT , 0) FOUL_WARN_CNT        -- 반칙경고
+                   , NVL(TRVA.WARN_CNT      , 0) WARN_CNT             -- 경고
+                   , NVL(TRVA.ATTEN_CNT     , 0) ATTEN_CNT            -- 주의
+                   , NVL(TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3), 0) TOTAL_WARN_CNT
+                   , NVL(TRUNC((TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3)) / 9), 0) RUNESC_CNT
+                   , NVL(MOD((TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3)), 9) + ROUND(MOD(TRVA.ATTEN_CNT, 3) / 3, 2), 0) WARN_SUM_CNT
+                   , TRUNC((NVL(TRVA.WARN_CNT + TRUNC(TRVA.ATTEN_CNT / 3), 0) - NVL(TMS.WARN_CNT + TRUNC(TMS.ATTEN_CNT / 3), 0)) / 9) TMS_WARN
+                   , TMS.F_CNT            TMS_F_CNT         
+                   , TMS.L_CNT            TMS_L_CNT         
+                   , TMS.ABSE_CNT         TMS_ABSE_CNT      
+                   , TMS.RACE_ESC_1_CNT   TMS_RACE_ESC_1_CNT
+                   , TMS.RACE_ESC_2_CNT   TMS_RACE_ESC_2_CNT
+                   , TMS.FOUL_ELIM_CNT    TMS_FOUL_ELIM_CNT 
+                   , TMS.ELIM_CNT         TMS_ELIM_CNT      
+                   , TMS.FOUL_WARN_CNT    TMS_FOUL_WARN_CNT 
+                   , TMS.WARN_CNT         TMS_WARN_CNT      
+                   , TMS.ATTEN_CNT        TMS_ATTEN_CNT     
+                   , NVL(TRUNC(((TRVA.WARN_CNT - NVL(TMS.WARN_CNT, 0)) + TRUNC((TRVA.ATTEN_CNT - NVL(TMS.ATTEN_CNT, 0)) / 3)) / 9), 0) TMS_RUNESC_CNT
+                   , TRR.RATE_1_1, TRR.RATE_1_2, TRR.RATE_1_3
+                   , TRR.RATE_2_1, TRR.RATE_2_2, TRR.RATE_2_3
+                   , TRR.RATE_3_1, TRR.RATE_3_2, TRR.RATE_3_3
+                   , TRR.RATE_4_1, TRR.RATE_4_2, TRR.RATE_4_3
+                   , TRR.RATE_5_1, TRR.RATE_5_2,  TRR.RATE_5_3
+                   , TRR.RATE_6_1, TRR.RATE_6_2, TRR.RATE_6_3
+                   , TRR.RATE_7_1, TRR.RATE_7_2, TRR.RATE_7_3
+                   , TRR.RATE_8_1, TRR.RATE_8_2, TRR.RATE_8_3
+            FROM     TBEC_RACER_MASTER TRM
+                   , (
+ 			            SELECT
+                                 TRVA.RACER_NO
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '110', 1, NULL)), 0) F_CNT                -- F
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '120', 1, NULL)), 0) L_CNT                -- L
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '130', 1, NULL)), 0) ABSE_CNT             -- 결장
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '995', 1, NULL)), 0) RACE_ESC_1_CNT       -- 출주제외1
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '997', 1, NULL)), 0) RACE_ESC_2_CNT       -- 출주제외2
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '125', 1, NULL)), 0) FOUL_ELIM_CNT        -- 반칙실격
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '140', 1, NULL)), 0) ELIM_CNT             -- 실격
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '150', 1, NULL)), 0) FOUL_WARN_CNT        -- 반칙경고
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '210', 1, NULL)), 0) WARN_CNT             -- 경고
+                               , NVL(SUM(DECODE(TRVA.VOIL_CD, '220', 1, NULL)), 0) ATTEN_CNT            -- 주의
+ 			            FROM   TBED_RACE_VOIL_ACT TRVA
+ 			            WHERE  TRVA.MBR_CD           = NVL(?, TRVA.MBR_CD)
+ 			            GROUP BY
+ 			                     TRVA.RACER_NO
+                     ) TRVA -- 선수위반내역
+                   , (
+			            SELECT
+			                      TOR.RACER_NO
+			                    , TOR.RACE_CNT
+			                    , TRM.NM_KOR
+			                    , TRM.RACER_GRD_CD
+			                    , TOR.RANK_1
+			                    , TOR.RANK_2
+			                    , TOR.RANK_3
+			                    , TOR.RANK_4
+			                    , TOR.RANK_5
+			                    , TOR.RANK_6
+			                    , TOR.RANK_7
+			                    , TOR.RANK_8
+			                    , ROUND(TOR.AMU_RANK_SCR  / TOR.RACE_CNT, 2)                                AVG_RANK_SCR
+			                    , ROUND(TOR.AMU_ACDNT_SCR / TOR.RACE_CNT, 2)                                AVG_ACDNT_SCR
+			                    , ROUND((TOR.AMU_RANK_SCR - TOR.AMU_ACDNT_SCR) / TOR.RACE_CNT, 2)           AVG_SCR
+			                    , ROUND((TOR.RANK_1) / TOR.RACE_CNT * 100, 1)                               WIN_RATIO
+			                    , ROUND((TOR.RANK_1 + TOR.RANK_2) / TOR.RACE_CNT * 100, 1)                  HIGH_RANK_RATIO
+			                    , ROUND((TOR.RANK_1 + TOR.RANK_2 + TOR.RANK_3) / TOR.RACE_CNT * 100, 1)     HIGH_3_RANK_RATIO
+			                    , RANK() OVER (ORDER BY ROUND(TOR.AMU_RANK_SCR  / TOR.RACE_CNT, 2) DESC) RANK
+			            FROM      TBEC_RACER_MASTER TRM
+			                    , (
+			                         SELECT
+			                                  TOR.RACER_NO
+			                                , COUNT(*)                                                       RACE_CNT
+			                                , NVL(SUM(DECODE(TOR.RANK, 1, 1, 0))                        , 0) RANK_1
+			                                , NVL(SUM(DECODE(TOR.RANK, 2, 1, 0))                        , 0) RANK_2
+			                                , NVL(SUM(DECODE(TOR.RANK, 3, 1, 0))                        , 0) RANK_3
+			                                , NVL(SUM(DECODE(TOR.RANK, 4, 1, 0))                        , 0) RANK_4
+			                                , NVL(SUM(DECODE(TOR.RANK, 5, 1, 0))                        , 0) RANK_5
+			                                , NVL(SUM(DECODE(TOR.RANK, 6, 1, 0))                        , 0) RANK_6
+			                                , NVL(SUM(DECODE(TOR.RANK, 7, 1, 0))                        , 0) RANK_7
+			                                , NVL(SUM(DECODE(TOR.RANK, 8, 1, 0))                        , 0) RANK_8
+			                                , NVL(SUM(TRS .RACE_SCR      )                              , 0) AMU_RANK_SCR
+			                                , NVL(SUM(TRVA.ACDNT_SCR     )                              , 0) AMU_ACDNT_SCR
+			                         FROM     TBEB_ORGAN         TOR
+			                                , TBEB_RACE          TR
+			                                , TBEB_RANK_SCR      TRS
+			                                , (
+			                                     SELECT
+			                                              TRVA.STND_YEAR
+			                                            , TRVA.MBR_CD
+			                                            , TRVA.TMS
+			                                            , TRVA.DAY_ORD
+			                                            , TRVA.RACE_NO
+			                                            , TRVA.RACE_REG_NO
+			                                            , NVL(TRVB.ACDNT_SCR, TRVA.ACDNT_SCR) ACDNT_SCR
+			                                     FROM     (
+			                                                SELECT
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                                       , SUM(ACDNT_SCR) ACDNT_SCR
+			                                                FROM     TBED_RACE_VOIL_ACT TRVA
+			                                                       , TBEB_ACDNT_SCR     TAS
+			                                                       , TBEB_ORGAN         TOR
+			                                                WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+			                                                AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+			                                                AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+			                                                AND    TRVA.MBR_CD       = TOR.MBR_CD
+			                                                AND    TRVA.TMS          = TOR.TMS
+			                                                AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+			                                                AND    TRVA.RACE_NO      = TOR.RACE_NO
+			                                                AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+			                                                AND    TOR .ABSE_CD     <> '003'
+			                                                AND    TOR .IMMT_CLS_CD <> '003'
+			                                                GROUP BY
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                             ) TRVA
+			                                           , (
+			                                                SELECT
+			                                                         TRVA.STND_YEAR
+			                                                       , TRVA.MBR_CD
+			                                                       , TRVA.TMS
+			                                                       , TRVA.DAY_ORD
+			                                                       , TRVA.RACE_NO
+			                                                       , TRVA.RACE_REG_NO
+			                                                       , TAS .ACDNT_SCR
+			                                                FROM     TBED_RACE_VOIL_ACT TRVA
+			                                                       , TBEB_ACDNT_SCR     TAS
+			                                                       , TBEB_ORGAN         TOR
+			                                                WHERE  TRVA.STND_YEAR    = TAS.STND_YEAR
+			                                                AND    TRVA.VOIL_CD      = TAS.VOIL_CD
+			                                                AND    TRVA.STND_YEAR    = TOR.STND_YEAR
+			                                                AND    TRVA.MBR_CD       = TOR.MBR_CD
+			                                                AND    TRVA.TMS          = TOR.TMS
+			                                                AND    TRVA.DAY_ORD      = TOR.DAY_ORD
+			                                                AND    TRVA.RACE_NO      = TOR.RACE_NO
+			                                                AND    TRVA.RACE_REG_NO  = TOR.RACE_REG_NO
+			                                                AND    TOR .ABSE_CD     <> '003'
+			                                                AND    TOR .IMMT_CLS_CD <> '003'
+			                                                AND    TRVA.VOIL_CD     IN ('110', '120')
+			                                              ) TRVB
+			                                    WHERE  TRVA.STND_YEAR   = TRVB.STND_YEAR  (+)
+			                                    AND    TRVA.MBR_CD      = TRVB.MBR_CD     (+)
+			                                    AND    TRVA.TMS         = TRVB.TMS        (+)
+			                                    AND    TRVA.DAY_ORD     = TRVB.DAY_ORD    (+)
+			                                    AND    TRVA.RACE_NO     = TRVB.RACE_NO    (+)
+			                                    AND    TRVA.RACE_REG_NO = TRVB.RACE_REG_NO(+)
+			                                  ) TRVA
+			                         WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+			                         AND    TOR .MBR_CD       = TR  .MBR_CD
+			                         AND    TOR .TMS          = TR  .TMS
+			                         AND    TOR .DAY_ORD      = TR  .DAY_ORD
+			                         AND    TOR .RACE_NO      = TR  .RACE_NO
+			                         AND    TOR .STND_YEAR    = TRS .STND_YEAR
+			                         AND    TR  .RACE_DGRE_CD = TRS .RACE_DGRE_CD
+			                         AND    TOR .RANK         = TRS .RANK
+			                         AND    TOR .STND_YEAR    = TRVA.STND_YEAR  (+)
+			                         AND    TOR .MBR_CD       = TRVA.MBR_CD     (+)
+			                         AND    TOR .TMS          = TRVA.TMS        (+)
+			                         AND    TOR .DAY_ORD      = TRVA.DAY_ORD    (+)
+			                         AND    TOR .RACE_NO      = TRVA.RACE_NO    (+)
+			                         AND    TOR .RACE_REG_NO  = TRVA.RACE_REG_NO(+)
+									 AND    TR  .RACE_STTS_CD = '001'
+			                         AND    TOR .ABSE_CD     <> '003'
+			                         AND    TOR .IMMT_CLS_CD <> '003'
+			                         AND    TOR .ST_MTHD_CD  = DECODE(?, '000', TOR.ST_MTHD_CD, ?)
+			                         GROUP BY TOR .RACER_NO
+			                     ) TOR
+			            WHERE  TRM.RACER_NO = TOR .RACER_NO
+                     ) TOR -- 선수성적조회
+                    , (
+                         SELECT
+                                             racer_no,
+                                             race_cnt,
+                                             decode(reg_1_rank_1, 0, 0, TO_CHAR(ROUND(( reg_1_rank_1 / reg_1_cnt)* 100, 2), '990.99'))|| '('||reg_1_rank_1||'/'||reg_1_cnt||')' RATE_1_1, --1번 승률
+                                             decode(reg_1_rank_1+reg_1_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_1_rank_1+reg_1_rank_2) / reg_1_cnt)* 100, 2), '990.99'))||'('||(reg_1_rank_1+reg_1_rank_2)||'/'||reg_1_cnt||')' RATE_1_2, --1번 연대율
+                                             decode(reg_1_rank_1+reg_1_rank_2+reg_1_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_1_rank_1+reg_1_rank_2+reg_1_rank_3) / reg_1_cnt)* 100, 2), '990.99'))||'('||(reg_1_rank_1+reg_1_rank_2+reg_1_rank_3)||'/'||reg_1_cnt||')' RATE_1_3, --1번 삼연대율
+                                             decode(reg_2_rank_1, 0, 0, TO_CHAR(ROUND(( reg_2_rank_1 / reg_1_cnt)* 100, 2), '990.99'))||'('||reg_2_rank_1||'/'||reg_2_cnt||')' RATE_2_1, --2번 승률
+                                             decode(reg_2_rank_1+reg_2_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_2_rank_1+reg_2_rank_2) / reg_2_cnt)* 100, 2), '990.99'))||'('||(reg_2_rank_1+reg_2_rank_2)||'/'||reg_2_cnt||')' RATE_2_2, --2번 연대율
+                                             decode(reg_2_rank_1+reg_2_rank_2+reg_2_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_2_rank_1+reg_2_rank_2+reg_2_rank_3) / reg_2_cnt)* 100, 2), '990.99'))||'('||(reg_2_rank_1+reg_2_rank_2+reg_2_rank_3)||'/'||reg_2_cnt||')' RATE_2_3, --2번 삼연대율
+                                             decode(reg_3_rank_1, 0, 0, TO_CHAR(ROUND(( reg_3_rank_1 / reg_3_cnt)* 100, 2), '990.99'))|| '('||reg_3_rank_1||'/'||reg_3_cnt||')' RATE_3_1, --3번 승률
+                                             decode(reg_3_rank_1+reg_3_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_3_rank_1+reg_3_rank_2) / reg_3_cnt)* 100, 2), '990.99'))|| '('||(reg_3_rank_1+reg_3_rank_2)||'/'||reg_3_cnt||')' RATE_3_2, --3번연대율
+                                             decode(reg_3_rank_1+reg_3_rank_2+reg_3_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_3_rank_1+reg_3_rank_2+reg_3_rank_3) / reg_3_cnt)* 100, 2), '990.99'))||'('||(reg_3_rank_1+reg_3_rank_2+reg_3_rank_3)||'/'||reg_3_cnt||')' RATE_3_3, --3번 삼연대율
+                                             decode(reg_4_rank_1, 0, 0, TO_CHAR(ROUND(( reg_4_rank_1 / reg_4_cnt)* 100, 2), '990.99'))|| '('||reg_4_rank_1||'/'||reg_4_cnt||')' RATE_4_1, --4번 승률
+                                             decode(reg_4_rank_1+reg_4_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_4_rank_1+reg_4_rank_2) / reg_4_cnt)* 100, 2), '990.99'))|| '('||(reg_4_rank_1+reg_4_rank_2)||'/'||reg_4_cnt||')' RATE_4_2, --4번 연대율
+                                             decode(reg_4_rank_1+reg_4_rank_2+reg_4_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_4_rank_1+reg_4_rank_2+reg_4_rank_3) / reg_4_cnt)* 100, 2), '990.99')) || '('||(reg_4_rank_1+reg_4_rank_2+reg_4_rank_3)||'/'||reg_4_cnt||')' RATE_4_3, --4번 삼연대율
+                                             decode(reg_5_rank_1, 0, 0, TO_CHAR(ROUND(( reg_5_rank_1 / reg_5_cnt)* 100, 2), '990.99'))|| '('||reg_5_rank_1||'/'||reg_5_cnt||')' RATE_5_1, --5번 승률
+                                             decode(reg_5_rank_1+reg_5_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_5_rank_1+reg_5_rank_2) / reg_5_cnt)* 100, 2), '990.99'))||'('||(reg_5_rank_1+reg_5_rank_2)||'/'||reg_5_cnt||')' RATE_5_2, --5번 연대율
+                                             decode(reg_5_rank_1+reg_5_rank_2+reg_5_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_5_rank_1+reg_5_rank_2+reg_5_rank_3) / reg_5_cnt)* 100, 2), '990.99'))|| '('||(reg_5_rank_1+reg_5_rank_2+reg_5_rank_3)||'/'||reg_5_cnt||')' RATE_5_3, --5번 삼연대율
+                                             decode(reg_6_rank_1, 0, 0, TO_CHAR(ROUND(( reg_6_rank_1 / reg_6_cnt)* 100, 2), '990.99'))|| '('||reg_6_rank_1||'/'||reg_6_cnt||')' RATE_6_1, --6번 승률
+                                             decode(reg_6_rank_1+reg_6_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_6_rank_1+reg_6_rank_2) / reg_6_cnt)* 100, 2), '990.99'))|| '('||(reg_6_rank_1+reg_6_rank_2)||'/'||reg_6_cnt||')' RATE_6_2, --6번 연대율
+                                             decode(reg_6_rank_1+reg_6_rank_2+reg_6_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_6_rank_1+reg_6_rank_2+reg_6_rank_3) / reg_6_cnt)* 100, 2), '990.99'))|| '('||(reg_6_rank_1+reg_6_rank_2+reg_6_rank_3)||'/'||reg_6_cnt||')' RATE_6_3, --6번  삼연대율
+                                             
+                                             decode(reg_7_rank_1, 0, 0, TO_CHAR(ROUND(( reg_7_rank_1 / reg_7_cnt)* 100, 2), '990.99'))|| '('||reg_7_rank_1||'/'||reg_7_cnt||')' RATE_7_1, --7번 승률
+                                             decode(reg_7_rank_1+reg_7_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_7_rank_1+reg_7_rank_2) / reg_7_cnt)* 100, 2), '990.99'))|| '('||(reg_7_rank_1+reg_7_rank_2)||'/'||reg_7_cnt||')' RATE_7_2, --7번 연대율
+                                             decode(reg_7_rank_1+reg_7_rank_2+reg_7_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_7_rank_1+reg_7_rank_2+reg_7_rank_3) / reg_7_cnt)* 100, 2), '990.99'))|| '('||(reg_7_rank_1+reg_7_rank_2+reg_7_rank_3)||'/'||reg_7_cnt||')' RATE_7_3, --7번  삼연대율
+                                             
+                                             decode(reg_8_rank_1, 0, 0, TO_CHAR(ROUND(( reg_8_rank_1 / reg_8_cnt)* 100, 2), '990.99'))|| '('||reg_8_rank_1||'/'||reg_8_cnt||')' RATE_8_1, --8번 승률
+                                             decode(reg_8_rank_1+reg_8_rank_2, 0, 0, TO_CHAR(ROUND(( (reg_8_rank_1+reg_8_rank_2) / reg_8_cnt)* 100, 2), '990.99'))|| '('||(reg_8_rank_1+reg_8_rank_2)||'/'||reg_8_cnt||')' RATE_8_2, --8번 연대율
+                                             decode(reg_8_rank_1+reg_8_rank_2+reg_8_rank_3, 0, 0, TO_CHAR(ROUND(( (reg_8_rank_1+reg_8_rank_2+reg_8_rank_3) / reg_8_cnt)* 100, 2), '990.99'))|| '('||(reg_8_rank_1+reg_8_rank_2+reg_8_rank_3)||'/'||reg_8_cnt||')' RATE_8_3 --8번  삼연대율
+                                             FROM
+                                      (SELECT
+                                              TOR.RACER_NO
+                                            , COUNT(*)                                                       RACE_CNT
+                                            , NVL(sum(decode(tor.race_reg_no, 1, 1)),0) reg_1_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_1
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 1, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_1
+                                            , NVL(sum(decode(tor.race_reg_no, 2, 1)),0) reg_2_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_2
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 2, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_2
+                                            , NVL(sum(decode(tor.race_reg_no, 3, 1)),0) reg_3_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_3
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 3, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_3
+                                            , NVL(sum(decode(tor.race_reg_no, 4, 1)),0) reg_4_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_4
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 4, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_4
+                                            , NVL(sum(decode(tor.race_reg_no, 5, 1)),0) reg_5_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_5
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 5, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_5
+                                            , NVL(sum(decode(tor.race_reg_no, 6, 1)),0) reg_6_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_6
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 6, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_6
+                                            , NVL(sum(decode(tor.race_reg_no, 7, 1)),0) reg_7_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_7
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 7, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_7
+                                            , NVL(sum(decode(tor.race_reg_no, 8, 1)),0) reg_8_cnt
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,1, 1))), 0) reg_1_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,2, 1))), 0) reg_2_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,3, 1))), 0) reg_3_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,4, 1))), 0) reg_4_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,5, 1))), 0) reg_5_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,6, 1))), 0) reg_6_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,7, 1))), 0) reg_7_rank_8
+                                            ,  NVL(SUM(DECODE(TOR.RANK, 8, decode(tor.race_reg_no,8, 1))), 0) reg_8_rank_8
+                                            
+                                     FROM     TBEB_ORGAN         TOR
+                                                 , TBEB_RACE          TR
+                                     WHERE  TOR .STND_YEAR    = TR  .STND_YEAR
+                                     AND    TOR .MBR_CD       = TR  .MBR_CD
+                                     AND    TOR .TMS          = TR  .TMS
+                                     AND    TOR .DAY_ORD      = TR  .DAY_ORD
+                                     AND    TOR .RACE_NO      = TR  .RACE_NO
+                                     AND    TR  .RACE_STTS_CD = '001'
+                                     AND    TOR .ABSE_CD     <> '003'
+                                     AND    TOR .IMMT_CLS_CD <> '003'
+                                     AND    TOR.ST_MTHD_CD  = DECODE(?, '000', TOR.ST_MTHD_CD, ?) 
+                                     GROUP BY TOR .RACER_NO
+                                     ORDER BY tor.racer_no)
+                   ) TRR  -- 정번별승률연대율삼연대율 조회
+                   , (
+ 			            SELECT
+                                 TRVA.RACER_NO
+                               , SUM(DECODE(TRVA.VOIL_CD, '110', 1, NULL)) F_CNT                -- F
+                               , SUM(DECODE(TRVA.VOIL_CD, '120', 1, NULL)) L_CNT                -- L
+                               , SUM(DECODE(TRVA.VOIL_CD, '130', 1, NULL)) ABSE_CNT             -- 결장
+                               , SUM(DECODE(TRVA.VOIL_CD, '995', 1, NULL)) RACE_ESC_1_CNT       -- 출주제외1
+                               , SUM(DECODE(TRVA.VOIL_CD, '997', 1, NULL)) RACE_ESC_2_CNT       -- 출주제외2
+                               , SUM(DECODE(TRVA.VOIL_CD, '125', 1, NULL)) FOUL_ELIM_CNT        -- 반칙실격
+                               , SUM(DECODE(TRVA.VOIL_CD, '140', 1, NULL)) ELIM_CNT             -- 실격
+                               , SUM(DECODE(TRVA.VOIL_CD, '150', 1, NULL)) FOUL_WARN_CNT        -- 반칙경고
+                               , SUM(DECODE(TRVA.VOIL_CD, '210', 1, NULL)) WARN_CNT             -- 경고
+                               , SUM(DECODE(TRVA.VOIL_CD, '220', 1, NULL)) ATTEN_CNT            -- 주의
+ 			            FROM   TBED_RACE_VOIL_ACT TRVA
+ 			            WHERE  TRVA.MBR_CD           = NVL(?, TRVA.MBR_CD)
+ 			            GROUP BY
+ 			                     TRVA.RACER_NO
+                     ) TMS -- 당회차위반사항조회
+            WHERE  TRM.RACER_NO = TRVA.RACER_NO(+)
+            AND    TRM.RACER_NO = TOR .RACER_NO
+            AND    TRM.RACER_NO = TMS .RACER_NO(+)
+            AND    TRM.RACER_NO = TRR.RACER_NO
+            ORDER BY TRM .RACER_NO
+        ]]>
+    </query> 
+
+</queryMap>

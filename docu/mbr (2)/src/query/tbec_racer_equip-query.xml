@@ -1,0 +1,510 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_racer_equip(모터/보트배정)">
+    <query id="tbeb_arrange_fc001" desc="조회" fetchSize="10">
+        <![CDATA[
+                SELECT ROWNUM AS SEQ, A.*
+                FROM 
+	                (SELECT  
+	                    TA.STND_YEAR                -- 기준년도    
+	                  , TA.MBR_CD                   -- 경정장코드
+	                  , TA.TMS                      -- 회차
+	                  , TA.RACER_ORD				-- 추첨번호
+	                  , TA.RACER_NO                 -- 주선된 등록번호
+	                  , TRM.NM_KOR                  -- 주선된 선수명
+	                  , TRM.RACER_GRD_CD            -- 선수등급
+	                  , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00046' AND CD = TRM.RACER_GRD_CD) RACER_GRD_CD_NM --선수등급명
+	                  , NVL(ROUND(TRI.ENTRY_BODY_WGHT),ROUND(TRD.WGHT)) ENTRY_BODY_WGHT  -- 입소 시 체중
+--	                  , ROUND(TRI.ENTRY_BODY_WGHT) ENTRY_BODY_WGHT  -- 입소 시 체중
+	                  , TRI.HEAL_STAT_CD            -- 건강상태
+	                  , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00085' AND CD = TRI.HEAL_STAT_CD) HEAL_STAT_CD_NM -- 건강상태명
+	                  , TA.MOT_NO                   -- 모터번호
+	                  ,	SUBSTR(TA   .MOT_NO, 6, 3) VIEW_MOT_NO
+	                  , TA.BOAT_NO                  -- 보트번호
+	                  , SUBSTR(TA   .BOAT_NO, 6, 3) VIEW_BOAT_NO
+	                  , TRI.ETC                      -- 비고    
+	                FROM 
+	                	(SELECT TA.STND_YEAR
+										        , TA.MBR_CD
+										        , TA.TMS
+										        , TA.RACER_NO
+										        , TA.BOAT_NO
+										        , TA.MOT_NO
+										        , TA.RACER_ORD		-- 추첨번호
+										        , NVL(TA.EXCL_YN,'N') AS EXCL_YN
+										FROM TBEB_ARRANGE TA
+										    , TBEB_RACE_TMS TRT
+										WHERE TRT.ARRANGE_CMPL_YN   = 'Y'
+										        AND TRT.STND_YEAR   = TA.STND_YEAR
+										        AND TRT.TMS         = TA.TMS) TA --주선완료된 것만 대상으로
+	                , TBEC_RACER_MASTER TRM
+	                , TBEC_RACER_DETAIL TRD
+	                , TBEC_RACER_INTERVIEW TRI
+	                WHERE TA.RACER_NO = TRM.RACER_NO
+	                AND TA.RACER_NO = TRD.RACER_NO
+	                AND TA.STND_YEAR = ?
+	                AND TA.MBR_CD = ?    
+	                AND TA.TMS = ? 
+	                AND TRM.NM_KOR LIKE '%' ||NVL(?, TRM.NM_KOR)|| '%'
+	                AND TA.EXCL_YN = NVL(?, 'N')
+	                AND TA.STND_YEAR = TRI.STND_YEAR(+)
+	                AND TA.MBR_CD = TRI.MBR_CD(+)
+	                AND TA.TMS = TRI.TMS(+)
+	                AND TA.RACER_NO = TRI.RACER_NO(+)
+	                --ORDER BY TRM.RACER_NO, TRM.NM_KOR) A
+	                ORDER BY TA.RACER_ORD, TRM.NM_KOR) A	-- 추첨순서로 조회
+        ]]>
+    </query>
+    <query id="tbeb_arrange_uc001" desc="저장" fetchSize="10">
+        <![CDATA[
+				UPDATE  /* tbeb_arrange_uc001 */
+				        TBEB_ARRANGE 
+				SET		MOT_NO            	= ?			-- 모터번호
+	                  , BOAT_NO           	= ?			-- 보트번호
+				      , UPDT_ID   			= ?         -- 수정자ID    
+				      , UPDT_DTM  			= SYSDATE   -- 수정일시    
+				WHERE STND_YEAR 	= NVL(?,STND_YEAR)	-- 기준년도
+                AND MBR_CD 			= NVL(?,MBR_CD)		-- 경정장코드 
+                AND TMS 			= NVL(?,TMS)		-- 회차
+                AND RACER_NO 		= NVL(?,RACER_NO)	-- 등록번호
+        ]]>
+    </query> 
+    <query id="tbeb_arrange_uc002" desc="저장" fetchSize="10">
+        <![CDATA[
+				MERGE /* tbeb_arrange_uc002 */
+				      INTO TBEB_ARRANGE TAR
+				USING 
+				     (            
+				        SELECT  A.STND_YEAR, A.MBR_CD, A.TMS
+				               ,A.RACER_NO
+				               ,B.RACER_NO AS MOT_NO
+				               ,C.RACER_NO AS BOAT_NO
+				               ,A.RACER_ORD
+				        FROM   (                
+				                SELECT STND_YEAR, MBR_CD, TMS, RACER_ORD, RACER_NO
+				                FROM   TBEC_EQUIP_PRT                 
+				                WHERE  STND_YEAR = ?
+				                AND    MBR_CD    = ?
+				                AND    TMS       = ?
+				                AND    PRT_SEQ   = ?
+				                AND    PRT_TYPE  = '001'
+				               ) A, 
+				               (                            
+				                SELECT STND_YEAR, MBR_CD, TMS, RACER_ORD, RACER_NO
+				                FROM   TBEC_EQUIP_PRT A                 
+				                WHERE  STND_YEAR = ?
+				                AND    MBR_CD    = ?
+				                AND    TMS       = ?
+				                AND    PRT_SEQ   = ?
+				                AND    PRT_TYPE  = '002'
+				               ) B, 
+				               (                            
+				                SELECT STND_YEAR, MBR_CD, TMS, RACER_ORD, RACER_NO
+				                FROM   TBEC_EQUIP_PRT A                 
+				                WHERE  STND_YEAR = ?
+				                AND    MBR_CD    = ?
+				                AND    TMS       = ?
+				                AND    PRT_SEQ   = ?
+				                AND    PRT_TYPE  = '003'
+				               ) C
+				        WHERE  A.RACER_ORD   = B.RACER_ORD
+				        AND    A.RACER_ORD   = C.RACER_ORD
+				     ) SRC
+				     ON (     TAR. STND_YEAR = SRC.STND_YEAR
+				          AND TAR.MBR_CD     = SRC.MBR_CD
+				          AND TAR.TMS        = SRC.TMS
+				          AND TAR.RACER_NO   = SRC.RACER_NO
+				         )
+				     WHEN MATCHED THEN      
+				          UPDATE SET 
+				                      TAR.MOT_NO   = SRC.MOT_NO 
+				                     ,TAR.BOAT_NO  = SRC.BOAT_NO
+				                     ,TAR.RACER_ORD= SRC.RACER_ORD		--추첨순서 저장
+				                     ,TAR.UPDT_ID  = ?
+				                     ,TAR.UPDT_DTM = SYSDATE
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_lot_fc001" desc="모터추첨대상 조회" fetchSize="10">
+        <![CDATA[
+                SELECT /* tbef_equip_lot_fc001 */
+                         TEL.STND_YEAR
+                        ,TEL.MBR_CD
+                        ,TEL.TMS
+                        ,TEL.EQUIP_NO AS MOT_NO
+                        ,SUBSTR(TEL.EQUIP_NO, 6, 3) VIEW_MOT_NO
+                        ,TEL.PREPAR_YN
+                FROM TBEB_RACE_TMS TRT,
+                    TBEF_EQUIP_LOT TEL                
+                WHERE TRT.ARRANGE_CMPL_YN   ='Y' 
+                AND TRT.STND_YEAR   	= TEL.STND_YEAR
+                AND TRT.MBR_CD      	= TEL.MBR_CD
+                AND TRT.TMS         	= TEL.TMS
+                AND (TEL.PREPAR_YN      = 'N' OR TEL.PREPAR_YN     = 'Y')
+                AND TEL.STND_YEAR       = ?        -- 기준년도
+                AND TEL.MBR_CD          = ?        -- 경정장코드 
+                AND TEL.TMS             = ?        -- 회차                
+                AND NVL(TEL.EXCL_YN,'N') = NVL(?, 'N') -- 상위장비여부('Y':상위장비,'N':일반장비)         
+                AND TEL.EQUIP_TPE_CD    = 'M'      -- 장비구분
+				AND NVL(TRT.EQUIP_DRWLT_CMPL_YN,'N') = 'Y'  -- 추첨대상확정시
+                ORDER BY TEL.PREPAR_YN, TEL.EQUIP_NO
+        ]]>
+    </query>
+    <query id="tbef_equip_lot_fc002" desc="보트추첨대상 조회" fetchSize="10">
+        <![CDATA[
+                SELECT  /* tbef_equip_lot_fc002 */
+                         TEL.STND_YEAR
+                        ,TEL.MBR_CD
+                        ,TEL.TMS
+                        ,TEL.EQUIP_NO AS BOAT_NO
+                        ,SUBSTR(TEL.EQUIP_NO, 6, 3) VIEW_BOAT_NO
+                        ,TEL.PREPAR_YN
+                FROM TBEB_RACE_TMS TRT,
+                    TBEF_EQUIP_LOT TEL 
+                WHERE TRT.ARRANGE_CMPL_YN   = 'Y' 
+                AND TRT.STND_YEAR   	= TEL.STND_YEAR
+                AND TRT.MBR_CD      	= TEL.MBR_CD
+                AND TRT.TMS         	= TEL.TMS
+                AND (TEL.PREPAR_YN 		= 'N' OR TEL.PREPAR_YN 	= 'Y')
+                AND TEL.STND_YEAR 		= ?		-- 기준년도
+                AND TEL.MBR_CD 			= ?		-- 경정장코드 
+                AND TEL.TMS 			= ?		-- 회차       
+                AND NVL(TEL.EXCL_YN,'N') = NVL(?, 'N') -- 상위장비여부('Y':상위장비,'N':일반장비)          
+                AND TEL.EQUIP_TPE_CD 	= 'B'	-- 장비구분
+				AND NVL(TRT.EQUIP_DRWLT_CMPL_YN,'N') = 'Y'  -- 추첨대상확정시
+                ORDER BY TEL.PREPAR_YN, TEL.EQUIP_NO
+        ]]>
+    </query>
+    <query id="tbeb_arrange_fc002" desc="모터/보트 배정 레포트정보 조회" fetchSize="10">
+        <![CDATA[    
+               SELECT /* tbeb_arrange_fc002 */
+                     ROWNUM AS SEQ
+	                ,STND_YEAR
+	                ,MBR_CD
+	                ,TMS
+	                ,RACER_NO
+	                ,NM_KOR
+	                ,RACER_GRD_CD
+	                ,RACER_GRD_CD_NM
+	                ,ENTRY_BODY_WGHT
+	                ,HEAL_STAT_CD
+	                ,HEAL_STAT_CD_NM
+	                ,MOT_NO
+	                ,BOAT_NO	
+	                ,SUBSTR(MOT_NO, 6, 3) VIEW_MOT_NO
+	                ,SUBSTR(BOAT_NO, 6, 3) VIEW_BOAT_NO
+	                ,ETC    
+	                ,NVL(EXCL_YN,'N') AS EXCL_YN     
+	                ,? AS PRT_TYPE                 
+               FROM 
+               (
+                SELECT  
+                    TA.STND_YEAR                	-- 기준년도    
+                  , TA.MBR_CD                   	-- 경정장코드
+                  , TA.TMS                      	-- 회차
+                  , TA.RACER_NO                 	-- 주선된 등록번호
+                  , TRM.NM_KOR                  	-- 주선된 선수명
+                  , TRM.RACER_GRD_CD            	-- 선수등급
+                  , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00046' AND CD = TRM.RACER_GRD_CD) RACER_GRD_CD_NM --선수등급명 
+                  , ROUND(NVL(TRI.ENTRY_BODY_WGHT, TRD.WGHT)) ENTRY_BODY_WGHT  -- 입소 시 체중
+--                  , ROUND(TRI.ENTRY_BODY_WGHT) ENTRY_BODY_WGHT  -- 입소 시 체중
+                  , TRI.HEAL_STAT_CD            	-- 건강상태
+                  , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00085' AND CD = TRI.HEAL_STAT_CD) HEAL_STAT_CD_NM --건강상태명
+                  , TA.MOT_NO                   -- 모터번호
+                  , TA.BOAT_NO                  -- 보트번호
+                  , TRI.ETC                      	-- 비고    
+                  , TA.EXCL_YN 
+                FROM 
+                	(SELECT TA.STND_YEAR
+										        , TA.MBR_CD
+										        , TA.TMS
+										        , TA.RACER_NO
+										        , TA.BOAT_NO
+										        , TA.MOT_NO 
+										        , NVL(TA.EXCL_YN,'N') AS EXCL_YN
+										FROM TBEB_ARRANGE TA
+										    , TBEB_RACE_TMS TRT
+										WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+										        AND TRT.STND_YEAR   = TA.STND_YEAR
+										        AND TRT.TMS         = TA.TMS) TA
+                , TBEC_RACER_MASTER TRM
+                , TBEC_RACER_DETAIL TRD
+                , TBEC_RACER_INTERVIEW TRI
+                WHERE TA .RACER_NO      = TRM.RACER_NO
+                AND   TA .RACER_NO      = TRD.RACER_NO
+                AND   TA .STND_YEAR 	= ?
+                AND   TA .MBR_CD 		= ?  
+                AND   TA .TMS 			= ?
+                AND   TRM.NM_KOR     LIKE '%' || NVL(?, TRM.NM_KOR) || '%'
+                AND   TA .EXCL_YN = NVL(?, 'N')
+                AND   TA .STND_YEAR     = TRI.STND_YEAR(+)
+                AND   TA .MBR_CD        = TRI.MBR_CD   (+)
+                AND   TA .TMS           = TRI.TMS      (+)
+                AND   TA .RACER_NO      = TRI.RACER_NO (+)
+                ORDER BY TRM.RACER_NO, TRM.NM_KOR
+                )
+        ]]>
+    </query> 
+    <query id="tbec_equip_prt_ic001" desc="저장" fetchSize="10">
+        <![CDATA[
+                INSERT /* tbeb_racer_equip-query.xml.tbec_equip_prt_ic001  사용안함*/
+                       INTO TBEC_EQUIP_PRT
+				(	STND_YEAR,
+					MBR_CD,
+					TMS,
+					PRT_SEQ,
+					RACER_ORD,
+					RACER_NO,
+					EXCL_YN,
+					PRT_TYPE,
+					INST_ID,
+					INST_DTM,
+					UPDT_ID,
+					UPDT_DTM
+				)VALUES(
+				        ?		--기준년도
+				        ,?		--경정장코드
+				        ,?		--회차
+						,?		--인쇄일련번호
+				        ,?		--선수정렬순서
+				        ,?		--선수등록번호
+				        ,?      --성적상위자 여부
+				        ,?      --출력종류(001:선수,002:모터,003:보트)
+						,?		--작성자ID   
+				        ,SYSDATE	--작성일시
+						,?		--수정자ID   
+				        ,SYSDATE	--수정일시
+				)
+        ]]>
+    </query> 
+    <query id="tbec_equip_prt_ic002" desc="선수 랜덤추첨 저장" fetchSize="10">
+        <![CDATA[
+                INSERT INTO TBEC_EQUIP_PRT TEP /* tbec_equip_prt_ic002 선수 랜덤추첨 저장 서버버전 */
+				SELECT
+				     STND_YEAR
+				    ,MBR_CD
+				    ,TMS
+				    ,PRT_SEQ
+					,ROWNUM
+				    ,RACER_NO RACER_NO
+				    ,? INST_ID
+				    ,SYSDATE  INST_DTM
+				    ,? UPDT_ID
+				    ,SYSDATE  UPDT_DTM
+				    ,EXCL_YN
+				    ,? AS PRT_TYPE
+				FROM (
+					SELECT
+					   ROWNUM
+					  ,STND_YEAR
+					  ,MBR_CD
+					  ,TMS
+					  ,RACER_NO
+					  ,? AS PRT_TYPE
+					  ,EXCL_YN
+					  ,PRT_SEQ
+					FROM
+					(
+						 SELECT
+						     TA.STND_YEAR                	-- 기준년도
+						   , TA.MBR_CD                   	-- 경정장코드
+						   , TA.TMS                      	-- 회차
+						   , TA.RACER_NO                 	-- 주선된 등록번호
+						   , EXCL_YN		--상위장비여부
+						   , (SELECT NVL(MAX(PRT_SEQ),0)+1 PRT_SEQ FROM tbec_equip_prt
+						 	WHERE STND_YEAR = TA.STND_YEAR
+						 	AND MBR_CD = TA.MBR_CD
+						 	AND TMS = TA.TMS
+						 	) PRT_SEQ
+						 FROM (
+							SELECT TA.STND_YEAR
+							   , TA.MBR_CD
+							   , TA.TMS
+							   , TA.RACER_NO
+							   , NVL(TA.EXCL_YN,'N') AS EXCL_YN
+							FROM TBEB_ARRANGE TA, TBEB_RACE_TMS TRT
+							WHERE 1=1
+							AND TRT.ARRANGE_CMPL_YN   ='Y'
+							AND TRT.STND_YEAR   = TA.STND_YEAR
+							AND TRT.TMS         = TA.TMS
+					   	 ) TA
+						 WHERE 1=1
+						 AND   TA .STND_YEAR 	=  ?
+						 AND   TA .MBR_CD 		=  ?
+						 AND   TA .TMS 			=  ?
+						 ORDER BY DBMS_RANDOM.RANDOM()
+					 )
+				)
+        ]]>
+    </query> 
+    <query id="tbec_equip_prt_ic003" desc="모터/보트 랜덤추첨 저장" fetchSize="10">
+        <![CDATA[
+                INSERT INTO TBEC_EQUIP_PRT TEP	/* tbec_equip_prt_ic003 모터/보트 랜덤추첨 저장 서버버전 */
+				SELECT
+				     STND_YEAR
+				    ,MBR_CD
+				    ,TMS
+				    ,PRT_SEQ
+					,ROWNUM
+				    ,MOT_NO RACER_NO
+				    ,? INST_ID
+				    ,SYSDATE  INST_DTM
+				    ,? UPDT_ID
+				    ,SYSDATE  UPDT_DTM
+				    ,EXCL_YN
+				    ,? AS PRT_TYPE
+				FROM (
+					SELECT
+					    TEL.STND_YEAR
+					    ,TEL.MBR_CD
+					    ,TEL.TMS
+					    ,TEL.EQUIP_NO AS MOT_NO
+					    ,TEL.PREPAR_YN
+					    ,TEL.EXCL_YN
+					    ,(SELECT NVL(MAX(PRT_SEQ),0)+1 PRT_SEQ FROM tbec_equip_prt
+						 	WHERE STND_YEAR = TRT.STND_YEAR
+						 	AND MBR_CD = TRT.MBR_CD
+						 	AND TMS = TRT.TMS
+						 ) PRT_SEQ
+					FROM TBEB_RACE_TMS TRT,
+					     TBEF_EQUIP_LOT TEL
+					WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+					AND TRT.STND_YEAR   	= TEL.STND_YEAR
+					AND TRT.MBR_CD      	= TEL.MBR_CD
+					AND TRT.TMS         	= TEL.TMS
+					AND TEL.PREPAR_YN       = 'N'
+					AND TEL.STND_YEAR       =  ?        -- 기준년도
+					AND TEL.MBR_CD          =  ?        -- 경정장코드
+					AND TEL.TMS             =  ?        -- 회차
+					AND NVL(TEL.EXCL_YN,'N') = NVL(?, 'N') -- 상위장비여부('Y':상위장비,'N':일반장비)
+					AND TEL.EQUIP_TPE_CD    = DECODE(?,'002','M','003','B','')  -- 장비구분
+					AND NVL(TRT.EQUIP_DRWLT_CMPL_YN,'N') = 'Y'  -- 추첨대상확정시
+					ORDER BY DBMS_RANDOM.RANDOM()
+				)
+        ]]>
+    </query> 
+    <query id="tbec_equip_prt_uc001" desc="저장" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbec_equip_prt_uc001 */
+			         TBEC_EQUIP_PRT SET
+			         RACER_NO  = ?
+			       , UPDT_ID   = ?
+			       , UPDT_DTM  = SYSDATE
+			WHERE  STND_YEAR   = ?
+			AND    MBR_CD      = ?
+			AND    TMS         = ?
+			AND    RACER_NO    = ?
+        ]]>
+    </query> 
+    <query id="tbec_equip_prt_fc001" desc="추첨랜덤  시퀀스조회" fetchSize="10">
+        <![CDATA[
+                     /* 추첨랜덤 시퀀스조회 */
+			SELECT	 /* tbec_equip_prt_fc001 */
+			         NVL(MAX(PRT_SEQ), 0) AS PRT_SEQ
+			        ,? AS STND_YEAR
+			        ,? AS MBR_CD
+			        ,? AS TMS
+			        ,? AS PRT_TYPE
+			        ,? AS EXCL_YN
+			FROM	TBEC_EQUIP_PRT 
+			WHERE	STND_YEAR = ?
+				AND MBR_CD 	  = ?
+				AND TMS 	  = ?
+				AND PRT_TYPE  = ?
+        ]]>
+    </query>
+    <query id="tbec_equip_prt_fc002" desc="추첨랜덤  Max값  조회" fetchSize="10">
+        <![CDATA[
+                SELECT /* tbec_equip_prt_fc002 */
+                       NVL(MAX(PRT_SEQ),1) PRT_SEQ  
+                FROM TBEC_EQUIP_PRT TEP
+                WHERE TEP.STND_YEAR 	= ?
+                AND TEP.MBR_CD 			= ?    
+                AND TEP.TMS 			= ? 
+        ]]>
+    </query>
+    <query id="tbec_equip_prt_fc003" desc="추첨랜덤  저장값 조회" fetchSize="10">
+        <![CDATA[
+                SELECT /* tbec_equip_prt_fc003 */
+                       ROWNUM AS SEQ, A.*
+                FROM 
+	                (SELECT                    
+	                  TEP.STND_YEAR                -- 기준년도    
+	                  , TEP.MBR_CD                   -- 경정장코드
+	                  , TEP.TMS                      -- 회차
+	                  , TEP.RACER_NO ORG_RACER_NO                -- 주선된 등록번호
+	                  , TEP.RACER_NO                 -- 주선된 등록번호
+	                  , TRM.NM_KOR                  -- 주선된 선수명
+	                  , TRM.RACER_GRD_CD            -- 선수등급
+	                  , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00046' AND CD = TRM.RACER_GRD_CD) RACER_GRD_CD_NM --선수등급명 
+	                  , NVL(ROUND(TRI.ENTRY_BODY_WGHT),ROUND(TRD.WGHT)) ENTRY_BODY_WGHT  -- 입소 시 체중
+--	                  , ROUND(TRI.ENTRY_BODY_WGHT) ENTRY_BODY_WGHT  -- 입소 시 체중
+	                  , TRI.HEAL_STAT_CD            -- 건강상태
+	                  , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD ='E00085' AND CD = TRI.HEAL_STAT_CD) HEAL_STAT_CD_NM             -- 건강상태명
+	                  , TA.MOT_NO                   -- 모터번호
+	                  , SUBSTR(TA.MOT_NO, 6, 3) VIEW_MOT_NO
+	                  , TA.BOAT_NO                  -- 보트번호
+	                  , SUBSTR(TA.BOAT_NO, 6, 3) VIEW_BOAT_NO
+	                  , TRI.ETC                      -- 비고    
+	                FROM TBEC_EQUIP_PRT TEP
+	                  , (SELECT TA.STND_YEAR
+	                                , TA.MBR_CD
+	                                , TA.TMS
+	                                , TA.RACER_NO
+	                                , TA.BOAT_NO
+	                                , TA.MOT_NO 
+	                    FROM TBEB_ARRANGE TA
+	                        , TBEB_RACE_TMS TRT
+	                    WHERE TRT.ARRANGE_CMPL_YN   ='Y'
+	                            AND TRT.STND_YEAR   = TA.STND_YEAR
+	                            AND TRT.TMS         = TA.TMS) TA
+	                , TBEC_RACER_MASTER TRM
+	                , TBEC_RACER_DETAIL TRD
+	                , TBEC_RACER_INTERVIEW TRI
+	                WHERE TEP.RACER_NO      = TRM.RACER_NO
+	                AND TEP.RACER_NO      = TRD.RACER_NO
+                    AND TEP.STND_YEAR       = ?
+                    AND TEP.MBR_CD          = ?
+                    AND TEP.TMS             = ?
+                    AND TEP.STND_YEAR       = TA.STND_YEAR(+)
+                    AND TEP.MBR_CD          = TA.MBR_CD(+)
+                    AND TEP.TMS             = TA.TMS(+)
+                    AND TEP.RACER_NO        = TA.RACER_NO(+)
+                    AND TEP.PRT_SEQ         = ?
+                    AND TEP.STND_YEAR       = TRI.STND_YEAR(+)
+                    AND TEP.MBR_CD          = TRI.MBR_CD(+)
+                    AND TEP.TMS             = TRI.TMS(+)
+                    AND TEP.RACER_NO        = TRI.RACER_NO(+)
+	                ORDER BY TEP.RACER_ORD) A
+        ]]>
+    </query>
+    <query id="tbec_equip_prt_fc004" desc="추첨랜덤  출력값  조회" fetchSize="10">
+        <![CDATA[
+                SELECT /* tbec_equip_prt_fc004 */
+                       PRT_SEQ
+                FROM   TBEC_EQUIP_PRT TEP
+                WHERE  TEP.STND_YEAR 	= ?
+                AND    TEP.MBR_CD 	    = ?    
+                AND    TEP.TMS 			= ?
+                AND    NVL(TEP.EXCL_YN, 'N') = NVL(?,'N') 
+                GROUP BY TEP.PRT_SEQ
+                ORDER BY TEP.PRT_SEQ
+        ]]>
+    </query>
+    
+    <query id="tbec_equip_prt_fc005" desc="추첨랜덤  출력값  조회" fetchSize="10">
+        <![CDATA[
+				SELECT  PRT_SEQ
+				       ,PRT_TYPE
+				       ,TO_CHAR(MAX(INST_DTM), 'YYYY/MM/DD HH24:MI:SS') AS PRT_DTM
+				       ,ROW_NUMBER() OVER (PARTITION BY PRT_TYPE ORDER BY PRT_SEQ) AS PRT_NUM
+                       ,NVL(EXCL_YN,'N') AS EXCL_YN
+				FROM   TBEC_EQUIP_PRT
+				WHERE  STND_YEAR = ?
+				AND    MBR_CD    = ?
+				AND    TMS       = ?
+				AND    NVL(EXCL_YN, 'N') = NVL(?,'N')
+				GROUP BY PRT_SEQ, PRT_TYPE, NVL(EXCL_YN,'N')
+				ORDER BY PRT_TYPE, TO_NUMBER(PRT_SEQ)
+        ]]>
+    </query>
+</queryMap>

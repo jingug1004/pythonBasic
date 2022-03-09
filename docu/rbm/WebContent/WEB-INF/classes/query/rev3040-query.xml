@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+
+<queryMap desc="REV3040(평가진행현황총괄)">
+    
+    <query id="rev3040_s01" desc="업무수행1차평가" fetchSize="10">
+        <![CDATA[
+          SELECT /* rev3040_s01 */
+          		 DECODE(MIN(PRM_1), 1, '완료', '미완료') AS CNT_PRM_1  
+                FROM (
+                  SELECT CASE WHEN FST_ESTM_SCR IS NOT NULL THEN 1 ELSE 0 END  AS PRM_1 
+	                  FROM TBRF_EV_WK_PRM 
+	                  WHERE 1 = 1 
+	                    AND ESTM_YEAR = ?
+	                    AND ESTM_NUM  = ? 
+	                    AND ESTM_DEPT = ?
+                    )
+        ]]>
+    </query>
+    <query id="rev3040_s02" desc="업무수행평가2차" fetchSize="10">
+        <![CDATA[			
+		  SELECT /* rev3040_s02 */
+		         DECODE(MIN(PRM_2), 1, '완료', '미완료') AS CNT_PRM_2  
+                FROM (
+                  SELECT CASE WHEN SND_ESTM_SCR IS NOT NULL THEN 1 ELSE 0 END  AS PRM_2 
+	                  FROM TBRF_EV_WK_PRM 
+	                  WHERE 1 = 1 
+	                    AND ESTM_YEAR = ?
+	                    AND ESTM_NUM  = ? 
+	                    AND ESTM_DEPT = ?
+                    )
+        ]]>
+    </query>
+    <query id="rev3040_s03" desc="근무태도" fetchSize="10">
+        <![CDATA[
+          SELECT /* rev3040_s03 */
+          		  DECODE(CNT, 3, '완료', '미완료') AS CNT_9 
+	        FROM ( 
+                SELECT NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+                     FROM TBRF_EV_APRV
+                    WHERE 1 = 1
+                      AND ESTM_YEAR = ?
+                      AND ESTM_NUM = ?
+                      AND APRV_DEPT = ?
+                      AND APRV_SEQ = '2'
+                      AND APRV_REQ_NO IS NOT NULL
+                     )     
+        ]]>
+    </query>
+    <query id="rev3040_s04" desc="서비스" fetchSize="10">
+        <![CDATA[			
+		  SELECT /* rev3040_s04 */
+		  		  DECODE(CNT, 3, '완료', '미완료') AS CNT_10 
+	        FROM ( 
+                SELECT NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+                     FROM TBRF_EV_APRV
+                    WHERE 1 = 1
+                      AND ESTM_YEAR = ?
+                      AND ESTM_NUM = ?
+                      AND APRV_DEPT = ?
+                      AND APRV_SEQ = '3'
+                      AND APRV_REQ_NO IS NOT NULL
+                     )     
+        ]]>
+    </query>
+    <query id="rev3040_s05" desc="다면" fetchSize="10">
+        <![CDATA[
+          	SELECT  /* rev3040_s05 */
+          			CASE WHEN SUM(CHK_CNT) > 0 THEN '미완료' ELSE '완료' END AS CNT_11  
+			  FROM (  
+			          -- 평가개시 여부 체크 : 평가 개시전에는 미완료  
+					  SELECT DECODE(NVL(ESTM_OPN_YN,'N'), 'N', 1, 0) AS CHK_CNT  
+					  FROM TBRF_EV_MASTER  
+					  WHERE 1=1  
+					  AND ESTM_YEAR = ?
+					     AND ESTM_NUM  = ?  
+					  UNION ALL  
+					  -- 제외가 아닌 것중에서 미완료가 한개라도 있으면 미완료.  
+					  SELECT SUM(DECODE(NVL(CFM_YN,'N'),'N',1,0))  --0보다 크면 미완료  
+					   FROM TBRF_EV_WK_MULT  
+					   WHERE 1 = 1  
+					     AND ESTM_YEAR = ?
+					     AND ESTM_NUM  = ?
+					     AND ESTM_DEPT = ?
+					     AND MULT_ESTM_GRP != '0'
+					     AND NVL(EXPT_YN,'N') = 'N'  
+			  )  
+        ]]>
+    </query>
+    <query id="rev3040_s06" desc="업무수행평가현황" fetchSize="10">
+        <![CDATA[
+				    SELECT  /* rev3040_s06 */
+						    '0' AS CHK
+						    ,A.ESTM_YEAR
+				            ,A.ESTM_NUM
+				            ,A.ESTM_DEPT
+				            ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.ESTM_DEPT) DEPT_NM
+				            ,B.MNG_NO
+				            ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND EMP_NO = B.MNG_NO) AS MNG_NM
+				            ,B.HP_NO 
+				            ,A.ESTM_FST_EMP
+				            ,(SELECT MAX(EMP_NM) FROM TBRF_EV_EMP WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND EMP_NO = A.ESTM_FST_EMP) AS ESTM_FST_NM
+				            ,A.ESTM_SND_EMP
+				            ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE WK_JOB_CD = (SELECT WK_JOB_CD FROM TBRF_EV_EMP WHERE EMP_NO = A.EMP_NO AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND ESTM_DEPT =  A.ESTM_DEPT ) AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM ) AS CNTR_JOB_NM
+				            ,A.EMP_NO
+				            ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND EMP_NO = A.EMP_NO AND ESTM_DEPT =  A.ESTM_DEPT ) AS EMP_NM
+				            ,DECODE(A.FST_ESTM_SCR, '', '미완료', '완료') AS PRM_1_YN
+				            ,DECODE(A.SND_ESTM_SCR, '', '미완료', '완료') AS PRM_2_YN
+				       FROM TBRF_EV_WK_PRM A
+				           ,(SELECT ESTM_YEAR
+				                   ,ESTM_NUM
+				                   ,ESTM_DEPT
+				                   ,EMP_NO AS MNG_NO
+				                   ,HP_NO
+				              FROM TBRF_EV_EMP 
+				             WHERE 1 = 1
+				               AND ESTM_YEAR = ?
+				               AND ESTM_NUM = ?
+				               AND MNG_GBN = 'Y'
+				            ) B
+				      WHERE 1 = 1
+				        AND A.ESTM_YEAR = B.ESTM_YEAR
+				        AND A.ESTM_NUM = B.ESTM_NUM
+				        AND A.ESTM_DEPT = B.ESTM_DEPT
+				        AND A.ESTM_YEAR = ?
+				        AND A.ESTM_NUM = ?
+				        AND A.ESTM_DEPT = ? 
+				         ORDER BY EMP_NO
+    	]]>
+    </query>
+    
+    <query id="rev3040_s07" desc="근무태도평가현황" fetchSize="10">
+        <![CDATA[
+			SELECT  /* rev3040_s07 */
+			      '0' AS CHK
+			     ,A.ESTM_YEAR
+                 ,A.ESTM_NUM
+                 ,A.ESTM_DEPT
+                 ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE DEPT_CD = A.ESTM_DEPT AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM) DEPT_NM
+                 ,B.MNG_NO
+                 ,B.HP_NO 
+                 ,A.ESTM_FST_EMP
+                 ,A.ESTM_SND_EMP
+                 ,A.EMP_NO
+                 ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE EMP_NO = A.EMP_NO AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND ESTM_DEPT =  A.ESTM_DEPT) AS EMP_NM
+                 ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE WK_JOB_CD = (SELECT WK_JOB_CD FROM TBRF_EV_EMP WHERE EMP_NO = A.EMP_NO AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND ESTM_DEPT =  A.ESTM_DEPT) AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM) AS CNTR_JOB_NM
+                 ,DECODE(C.APRV_STAS, '003', '완료', '미완료') AS MNR_YN
+            FROM TBRF_EV_WK_MNR A
+                ,(SELECT ESTM_YEAR
+                        ,ESTM_NUM
+                        ,ESTM_DEPT
+                        ,EMP_NO AS MNG_NO
+                        ,HP_NO
+                   FROM TBRF_EV_EMP 
+                  WHERE 1 = 1
+                    AND ESTM_YEAR = ?
+                    AND ESTM_NUM = ?
+                    AND MNG_GBN = 'Y'
+                 ) B
+                ,( SELECT   ESTM_YEAR
+                           ,ESTM_NUM
+                           ,APRV_DEPT
+                           ,APRV_STAS
+                      FROM TBRF_EV_APRV
+                     WHERE 1 = 1 
+                       AND ESTM_YEAR = ?
+                       AND ESTM_NUM = ? 
+                       AND APRV_SEQ = 2 
+                 ) C
+           WHERE 1 = 1
+             AND A.ESTM_YEAR = B.ESTM_YEAR
+             AND A.ESTM_YEAR = C.ESTM_YEAR
+             AND A.ESTM_NUM = B.ESTM_NUM
+             AND A.ESTM_NUM = C.ESTM_NUM
+             AND A.ESTM_DEPT = B.ESTM_DEPT
+             AND A.ESTM_DEPT = C.APRV_DEPT
+             AND A.ESTM_YEAR = ?
+             AND A.ESTM_NUM = ?
+             AND A.ESTM_DEPT = ? 
+              ORDER BY EMP_NO
+    	]]>
+    </query>
+    
+    <query id="rev3040_s08" desc="서비스평가현황" fetchSize="10">
+        <![CDATA[
+         SELECT  /* rev3040_s08 */ 
+			         '0' AS CHK
+			         ,A.ESTM_YEAR
+			         ,A.ESTM_NUM
+			         ,A.ESTM_DEPT
+			         ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE DEPT_CD = A.ESTM_DEPT AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM) DEPT_NM
+			         ,B.MNG_NO
+			         ,B.HP_NO 
+			         ,A.ESTM_FST_EMP
+			         ,A.ESTM_SND_EMP
+			         ,A.EMP_NO
+			         ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE EMP_NO = A.EMP_NO AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND ESTM_DEPT =  A.ESTM_DEPT) AS EMP_NM
+			         ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE WK_JOB_CD = (SELECT WK_JOB_CD FROM TBRF_EV_EMP WHERE EMP_NO = A.EMP_NO AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND ESTM_DEPT =  A.ESTM_DEPT) AND ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM) AS CNTR_JOB_NM
+			         ,DECODE(C.APRV_STAS, '003', '완료', '미완료') AS MNR_YN
+			    FROM TBRF_EV_WK_SRV A
+			         
+			        ,(SELECT ESTM_YEAR
+			                ,ESTM_NUM
+			                ,ESTM_DEPT
+			                ,EMP_NO AS MNG_NO
+			                ,HP_NO
+			           FROM TBRF_EV_EMP 
+			          WHERE 1 = 1
+			            AND ESTM_YEAR = ?
+			            AND ESTM_NUM = ?
+			            AND MNG_GBN = 'Y'
+			         ) B
+			        ,( SELECT   ESTM_YEAR
+			                   ,ESTM_NUM
+			                   ,APRV_DEPT
+			                   ,APRV_STAS
+			              FROM TBRF_EV_APRV
+			             WHERE 1 = 1 
+			               AND ESTM_YEAR = ?
+			               AND ESTM_NUM = ? 
+			               AND APRV_SEQ = 3 
+			         ) C
+			   WHERE 1 = 1
+			     AND A.ESTM_YEAR = B.ESTM_YEAR
+			     AND A.ESTM_YEAR = C.ESTM_YEAR
+			     AND A.ESTM_NUM = B.ESTM_NUM
+			     AND A.ESTM_NUM = C.ESTM_NUM
+			     AND A.ESTM_DEPT = B.ESTM_DEPT
+			     AND A.ESTM_DEPT = C.APRV_DEPT
+			     AND A.ESTM_YEAR = ?
+			     AND A.ESTM_NUM = ?
+			     AND A.ESTM_DEPT = ? 
+			      ORDER BY EMP_NO
+    	]]>
+    </query>
+    
+    <query id="rev3040_s09" desc="다면평가현황" fetchSize="10">
+        <![CDATA[
+     SELECT  /* rev3040_s09 */
+		    '0' AS CHK,
+		    (SELECT EMP_NO FROM TBRF_EV_EMP WHERE ESTM_YEAR = ?
+		                          AND ESTM_NUM = ?
+		                          AND ESTM_DEPT = ?
+		                          AND MNG_GBN = 'Y') AS MNG_NO
+		                   ,B.HP_NO AS HP_NO
+		                   ,B.ESTM_DEPT
+		                   ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE DEPT_CD = B.ESTM_DEPT AND ESTM_YEAR = B.ESTM_YEAR AND ESTM_NUM = B.ESTM_NUM) AS DEPT_NM
+		                   ,B.MULT_ESTM_GRP
+		                   ,B.EMP_NO
+		                   ,B.EMP_NM
+		                   ,CASE WHEN (SELECT COUNT(*)
+                              FROM TBRF_EV_WK_MULT
+                             WHERE 1 = 1
+                               AND ESTM_YEAR = B.ESTM_YEAR
+                               AND ESTM_NUM = B.ESTM_NUM
+                               AND ESTM_DEPT = B.ESTM_DEPT
+                               AND ESTM_EMP = B.EMP_NO
+                               AND (CFM_YN IS NULL
+                                OR CFM_YN <> 'Y')
+                             ) = 0 THEN '완료' ELSE '미완료' END AS MULT_YN
+		              FROM  TBRF_EV_WK_MULT A
+		                   ,(SELECT  ESTM_YEAR
+		                             ,ESTM_NUM
+		                             ,ESTM_DEPT
+		                             ,MULT_ESTM_GRP 
+		                             ,EMP_NO
+		                             ,EMP_NM
+		                             ,HP_NO                             
+		                         FROM TBRF_EV_EMP
+		                        WHERE 1 = 1
+		                          AND ESTM_YEAR = ?
+		                          AND ESTM_NUM = ?
+		                          AND ESTM_DEPT = ?
+		                          AND ESTM_ESC_GBN = 'Y' 
+		                          AND PERM_TEMP_GBN = '002' 
+		                          AND MULT_ESTM_GRP IS NOT NULL  
+		                          AND MULT_ESTM_GRP <> '0' 
+		                         GROUP BY   ESTM_YEAR
+		                                   ,ESTM_NUM
+		                                   ,ESTM_DEPT
+		                                   ,MULT_ESTM_GRP
+		                                   ,EMP_NO 
+		                                   ,EMP_NM
+		                                   ,HP_NO                                              
+		                    ) B
+		             WHERE 1 = 1
+		               AND A.ESTM_YEAR = B.ESTM_YEAR
+		               AND A.ESTM_NUM = B.ESTM_NUM
+		               AND A.ESTM_DEPT = B.ESTM_DEPT
+		               AND A.MULT_ESTM_GRP = B.MULT_ESTM_GRP
+		               AND A.ESTM_EMP = B.EMP_NO
+		               AND B.ESTM_YEAR = ?
+		               AND B.ESTM_NUM = ?
+		               AND B.ESTM_DEPT = ?
+		             GROUP BY B.ESTM_YEAR 
+			              ,B.ESTM_NUM
+			              ,B.ESTM_DEPT
+		                     ,B.MULT_ESTM_GRP
+		                     ,B.EMP_NO
+		                     ,B.EMP_NM
+		                     ,B.HP_NO
+		               ORDER BY EMP_NO  
+		]]>
+    </query>
+</queryMap>

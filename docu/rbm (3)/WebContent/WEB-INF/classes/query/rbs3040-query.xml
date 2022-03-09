@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS3040(소모품대장)">
+    <query id="rbs3040_s01" desc="소모품대장 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3040_s01 */
+                 REQ_DT         --신청일자
+				,REQ_ID       	--신청자사번
+				,SEQ            --순번
+				,SUPPL_CD       --소모품코드
+				,( NVL(QTY,0)  - NVL(RETN_QTY,0)) QTY           --수량
+				,NVL(QTY,0)                       ORG_QTY       --수량
+				,NVL2(SIGN_DT, QTY - RETN_QTY, 0) AS USE_QTY	-- 실제 수령(사용)수량
+				,REAL_RECI_ID   --실수령인사번
+				,SIGN_DT        --서명일자
+                ,U1.TEAM_NM AS APPLI_TEAM_NAME 	-- 신청자부서명
+                ,NVL(U1.USER_NM,R.REQ_ID) AS APPLI_NAME 		-- 신청자이름
+                ,U1.TEAM_NM AS USER_TEAM_NM 	-- 신청자팀명
+                ,NVL(U2.USER_NM,R.REAL_RECI_ID) AS REAL_NAME 		-- 서명자이름
+                , NVL(RETN_QTY,0)  RETN_QTY
+                , RETN_ID
+                , TO_CHAR(RETN_DT,'YYYYMMDD') RETN_DT
+                ,NVL(U3.USER_NM,R.RETN_ID) AS RETN_NAME 		-- 신청자이름
+              FROM  TBRE_SUPPL_REGI R, TBRK_SPEC_CD C,    --소모품대장 
+                    TBRK_USER U1, TBRK_USER U2, TBRK_USER U3
+             WHERE  1=1
+               AND  DECODE(?,'001',REQ_DT,'002',SIGN_DT,'')   >= ?   --신청일자 From~To
+               AND  DECODE(?,'001',REQ_DT,'002',SIGN_DT,'')   <= ?   --신청일자 From~To
+               AND  SUPPL_CD LIKE '%' || NVL(? , SUPPL_CD) || '%'   --소모품코드
+               AND  C.GRP_CD = '031'
+               AND  C.CD_TERM1 = ?
+               AND  R.SUPPL_CD = C.CD
+               AND  R.REQ_ID = U1.USER_ID(+)			-- 신청자
+               AND  R.REAL_RECI_ID = U2.USER_ID(+)		-- 서명자               
+			   AND  R.RETN_ID = U3.USER_ID(+)		-- 서명자               
+
+          ORDER BY  REQ_DT DESC        
+                   
+        ]]>
+    </query>
+    
+    <query id="rbs3040_s02" desc="소모품 대장 서명일자 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* rbs3040_s02 */
+                    COUNT(*) AS CNT               
+              FROM  TBRE_SUPPL_REGI  --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ?   --신청일자
+               AND  REQ_ID = ?   --신청자사번
+               AND  SEQ      = ?   --순번
+               AND  SUPPL_CD = ?   --소모품코드
+               AND  SIGN_DT IS NULL
+        ]]>
+    </query>
+    
+    
+    <query id="rbs3040_s03" desc="사용자인증정보조회" fetchSize="10">
+
+        <![CDATA[
+
+            SELECT
+
+                     A.USER_ID     -- 사용자ID    
+        
+                   , A.USER_NM     -- 사용자명         
+        
+                   , A.PSWD        -- 비밀번호         
+        
+                   , A.ASSO_CD     -- 업무그룹코드     
+        
+                   , A.DEPT_CD     -- 부서코드
+        
+                   , A.DEPT_NM     -- 부서이름
+        
+                   , A.TEAM_CD     -- 팀코드
+        
+                   , A.TEAM_NM     -- 팀이름
+        
+                   , A.FLOC        -- 직위코드
+        
+                   , A.FGRADE      -- 직위         
+        
+                   , A.TEL_NO      -- 전화번호         
+        
+                   , NULL CRA_CD
+        
+                   , 'F' ISVALID
+                   
+                   , A.BRNC_CD    -- 지점코드
+                   
+                   , A.HP_NO      -- 이동전화번호 
+               
+            FROM   TBRK_USER      A
+        
+            WHERE  A.USER_ID = NVL(?, A.USER_ID)
+
+        ]]>
+
+    </query>     
+    
+    
+   <query id="rbs3040_s05" desc="소모품 대장 수량 조회(소모품 수량 변경시 필요)" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs3040_s05 */
+                 NVL(RETN_QTY,0)  RETN_QTY   --수량
+
+              FROM  TBRE_SUPPL_REGI --소모품대장
+             WHERE  1=1
+               AND  REQ_DT   = ?    --신청일자
+               AND  REQ_ID = ?    --신청자사번
+               AND  SEQ      = ?    --순번
+               AND  SUPPL_CD = ?    --소모품코드
+        ]]>
+    </query>
+    
+    <query id="rbs3040_u01" desc="소모품 대장 저장" fetchSize="10">
+        <![CDATA[
+            UPDATE  TBRE_SUPPL_REGI  /*rbs3040_u01*/
+               SET  REAL_RECI_ID = ?        --실수령인사번
+                   ,SIGN_DT      = ?        --서명일자
+                   ,UPDT_ID      = ?        --수정자ID
+                   ,UPDT_DT      = SYSDATE  --수정일시              
+ 
+             WHERE  1=1
+               AND  REQ_DT   = ?   --신청일자
+               AND  REQ_ID = ?   --신청자사번
+               AND  SEQ      = ?   --순번
+               AND  SUPPL_CD = ?   --소모품코드
+        ]]>
+    </query>
+    
+    
+    <query id="rbs3040_u02" desc="소모품대장 반납 수정" fetchSize="10">
+        <![CDATA[
+        
+             UPDATE  TBRE_SUPPL_REGI  /*rbs3040_u02*/
+               SET  RETN_QTY     = ?        --반납수량 
+                   ,RETN_ID      = ?        --반납자 사번
+                   ,RETN_DT      = SYSDATE  --반납일자
+                   ,UPDT_ID      = ?        --수정자ID
+                   ,UPDT_DT      = SYSDATE  --수정일시              
+ 
+             WHERE  1=1
+               AND  REQ_DT   = ?   --신청일자
+               AND  REQ_ID = ?   --신청자사번
+               AND  SEQ      = ?   --순번
+               AND  SUPPL_CD = ?   --소모품코드
+
+        ]]>
+    </query>
+    
+    
+    <query id="rbs3040_u03" desc="소모품 재고 입력,수정" fetchSize="10">
+        <![CDATA[
+        
+             UPDATE  TBRE_SUPPL_STK  /*rbs3040_u03*/
+               SET  
+               
+                     QTY     = ?            --수량
+                    ,UPDT_ID = ?            --수정자
+                    ,UPDT_DT = SYSDATE      --수정일시
+ 
+             WHERE  1=1
+               AND  SUPPL_CD   = ?          --소모품코드
+            
+        ]]>
+    </query> 
+</queryMap>

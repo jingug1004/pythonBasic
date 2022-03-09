@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSY3080(개인정보처리메뉴 권한부여현황)">
+  <query id="rsy3080_s01" desc="권한부여현황" fetchSize="10">
+        <![CDATA[
+        SELECT  /* rsy3080_s01 */
+                 A.USER_ID             -- 사용자ID     
+               , A.USER_NM             -- 사용자명
+               , A.DEPT_CD             -- 부서코드
+               , A.DEPT_NM             -- 부서이름
+               , A.TEAM_CD             -- 팀코드
+               , A.TEAM_NM             -- 팀이름
+               , A.FLOC                -- 직위코드
+               , A.FGRADE              -- 직위  
+               , B.SEQ_NO              -- 연번
+               , B.PERSONAL_MN_ID      -- 개인정보처리화면ID
+               , (SELECT TM.MN_NM FROM TBRK_MN TM WHERE TM.MN_ID = B.PERSONAL_MN_ID) AS PERSONAL_MN		-- 개인정보처리화면
+               , B.PERSONAL_AUTH_ID    -- 개인정보 권한부여자
+               , (SELECT TU.USER_NM FROM TBRK_USER TU WHERE TU.USER_ID = B.PERSONAL_AUTH_ID) AS PERSONAL_AUTH_NM
+               , DECODE(B.PERSONAL_AUTH_CHK, 'Y', '부여', 'N', '말소') AS PERSONAL_AUTH_CHK   				-- 개인정보 권한
+               , TO_CHAR(TO_DATE(B.PERSONAL_AUTH_DT, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI') AS PERSONAL_AUTH_DT    -- 개인정보 권한부여일시
+               , B.PERSONAL_MN_IP      -- 개인정보 권한부여IP
+         FROM  TBRK_USER A, TBRK_PERSONAL_MN_AUTH_HIST B,
+         	   (
+                SELECT TM.* ,LEVEL - 1 AS LVL
+                  FROM TBRK_MN TM  --메뉴관리
+                START WITH TM.MN_ID = ?
+                CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID                                    
+                ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+               ) C
+        WHERE A.USER_ID= B.USER_ID
+          AND B.PERSONAL_MN_ID = C.MN_ID
+          AND A.TEAM_CD LIKE '%' || NVL(?, A.TEAM_CD) || '%'
+          AND A.USER_NM LIKE '%' || NVL(?, A.USER_NM) || '%' 
+          AND B.PERSONAL_AUTH_CHK = NVL(?, B.PERSONAL_AUTH_CHK)
+        ORDER BY B.SEQ_NO, A.TEAM_CD, A.FGRADE, A.USER_ID
+        ]]>
+
+    </query>
+     
+</queryMap>

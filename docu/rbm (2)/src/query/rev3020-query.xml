@@ -1,0 +1,915 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV3020(평가진행현황총괄)">    
+    <query id="rev3020_s01" desc="년도회차가져오기" fetchSize="10">
+        <![CDATA[			
+			SELECT   /* rev3020_s01 */
+					 ESTM_YEAR
+					,ESTM_NUM
+					,PRM_STR_DT
+					,PRM_END_DT
+					,ESTM_OPN_YN
+					
+					,ESTM_END_YN
+			FROM     TBRF_EV_MASTER
+			WHERE    1 = 1 
+			  AND    INST_DT = (SELECT MAX(INST_DT) 
+			                      FROM TBRF_EV_MASTER
+	                   			)
+        ]]>
+    </query>
+    
+    <query id="rev3020_s02" desc="평가생성" fetchSize="10">
+        <![CDATA[
+        	SELECT    /* rev3020_s02 */
+        	          DECODE(COUNT(*), 0, '미완료', '완료') CNT_1
+        	FROM      TBRF_EV_MASTER
+        	WHERE     1 = 1
+        	AND       ESTM_YEAR = ?
+        	AND       ESTM_NUM = ?
+        ]]>
+    </query>
+
+	<query id="rev3020_s03" desc="평가항목" fetchSize="10">
+        <![CDATA[
+        SELECT /* rev3020_s03 */
+               CNT_2 FROM ( 
+        	 --SELECT CASE WHEN (CNT_ITM_1 IS NULL OR CNT_ITM_2 IS NULL OR CNT_ITM_3 IS NULL OR CNT_ITM_4 IS NULL) THEN '미완료' 
+			 SELECT CASE WHEN (CNT_ITM_1 IS NULL OR CNT_ITM_2 IS NULL OR CNT_ITM_3 IS NULL) THEN '미완료' 
+			            ELSE '완료' 
+			       END AS CNT_2     
+			  FROM
+			    (
+			          SELECT MAX(T1.CNT_ITM_1) AS CNT_ITM_1
+			                ,MAX(T1.CNT_ITM_2) AS CNT_ITM_2
+			                ,MAX(T1.CNT_ITM_3) AS CNT_ITM_3
+			                ,MAX(T1.CNT_ITM_4) AS CNT_ITM_4
+			          FROM (      
+			                SELECT  CASE WHEN ESTM_ITEM_CD = '1'  THEN NVL(COUNT(*), 0) END CNT_ITM_1
+			                       ,CASE WHEN ESTM_ITEM_CD = '2'  THEN NVL(COUNT(*), 0) END CNT_ITM_2
+			                       ,CASE WHEN ESTM_ITEM_CD = '3'  THEN NVL(COUNT(*), 0) END CNT_ITM_3
+			                       ,CASE WHEN ESTM_YEAR = '2013' THEN 0 WHEN ESTM_ITEM_CD = '4'  THEN NVL(COUNT(*), 0) END CNT_ITM_4
+			                  FROM TBRF_EV_LARGE_ITEM
+			                 WHERE 1 = 1 
+			                   AND ESTM_YEAR = ?
+			                   AND ESTM_NUM = ?
+			                   AND ESTM_ITEM_CD BETWEEN 1 AND 4
+			                  GROUP BY ESTM_YEAR, ESTM_ITEM_CD
+			                 ) T1
+			     )     
+			  ) group by CNT_2   
+        ]]>
+    </query>
+    <query id="rev3020_s04" desc="배분표" fetchSize="10">
+        <![CDATA[
+        	SELECT   /* rev3020_s04 */
+        	         DECODE(COUNT(*), 0, '미완료', '완료') AS CNT_3
+      		FROM     TBRF_EV_DISTR
+    		WHERE    1 = 1 
+       		AND      ESTM_YEAR = ?
+       		AND      ESTM_NUM = ?
+        ]]>
+    </query>
+    <query id="rev3020_s05" desc="담당자" fetchSize="10">
+        <![CDATA[
+        	SELECT   /* rev3020_s05 */
+        	         CASE 
+        	         	WHEN (B.DEPT_CNT - A.MNG_CNT) > 0 
+        	         		THEN '미완료'
+        	         	ELSE '완료'
+      				 END AS CNT_4                 
+            FROM     (SELECT   ESTM_YEAR,
+                               ESTM_NUM,
+                               COUNT(*) AS MNG_CNT 
+                      FROM     TBRF_EV_EMP
+                      WHERE    1 = 1 
+                      AND      ESTM_YEAR = ?
+                      AND      ESTM_NUM = ?
+                      AND      MNG_GBN = 'Y'
+                      GROUP BY ESTM_YEAR,
+                               ESTM_NUM  
+            		 ) A,
+                     (SELECT   B1.ESTM_YEAR,
+                               B1.ESTM_NUM,
+                               SUM(B1.DEPT_CNT) AS DEPT_CNT
+                        FROM (
+                              SELECT   ESTM_YEAR, 
+                                       ESTM_NUM,
+                                       CASE WHEN COUNT(*) IS NOT NULL THEN 1 END AS DEPT_CNT 
+                               FROM    TBRF_EV_EMP
+                              WHERE    1 = 1 
+                              AND      ESTM_YEAR = ?
+                              AND      ESTM_NUM = ? 
+                              AND      ESTM_ESC_GBN = 'Y'
+                              GROUP BY ESTM_YEAR, 
+                                       ESTM_NUM,
+                                       ESTM_DEPT
+                            ) B1 
+                          GROUP BY B1.ESTM_YEAR, 
+                                   B1.ESTM_NUM  
+           			 ) B         
+            WHERE    1 = 1 
+            AND      A.ESTM_YEAR = B.ESTM_YEAR
+            AND      A.ESTM_NUM = B.ESTM_NUM
+        ]]>
+    </query>
+    <query id="rev3020_s06" desc="대상자" fetchSize="10">
+        <![CDATA[
+       		  SELECT /* rev3020_s06 */
+			  		 DECODE(CNT, 3, '완료', '미완료') AS CNT_5 
+		        FROM ( 
+		                SELECT NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+                               FROM TBRF_EV_APRV A
+                              WHERE 1 = 1
+                                AND ESTM_YEAR = ?
+                                AND ESTM_NUM = ?
+                                AND APRV_SEQ = '4'
+                                AND APRV_REQ_NO IS NOT NULL
+                                AND EXISTS (
+	                               SELECT *
+	                               FROM TBRF_EV_EMP B
+	                               WHERE ESTM_ESC_GBN = 'Y'                               
+	                               AND   A.ESTM_YEAR = B.ESTM_YEAR
+	                               AND   A.ESTM_NUM  = B.ESTM_NUM
+	                               AND   A.APRV_DEPT   = B.ESTM_DEPT                         
+	                               )
+                            )   
+        ]]>
+    </query>
+    
+    <query id="rev3020_s061" desc="대상자" fetchSize="10">
+        <![CDATA[
+       		  SELECT /* rev3020_s06 */
+			  		 DECODE(CNT, 3, '완료', '미완료') AS CNT_5 
+		        FROM ( 
+		                SELECT NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+                               FROM TBRF_EV_APRV
+                              WHERE 1 = 1
+                                AND ESTM_YEAR = ?
+                                AND ESTM_NUM = ?
+                                AND APRV_DEPT = ?
+                                AND APRV_SEQ = '4'
+                                AND APRV_REQ_NO IS NOT NULL
+                            )   
+        ]]>
+    </query>
+    <query id="rev3020_s07" desc="평가자" fetchSize="10">
+        <![CDATA[			
+			 SELECT DECODE(COUNT(*), 0, '완료', '미완료') AS CNT_6
+			   FROM TBRF_EV_APRV A, 
+			        (SELECT A.ESTM_YEAR, A.ESTM_NUM , A.ESTM_DEPT
+			           FROM TBRF_EV_EMP A
+			          WHERE 1 = 1
+			            AND A.ESTM_YEAR    = ?
+			            AND A.ESTM_NUM     = ?
+			            AND A.ESTM_ESC_GBN = 'Y'
+			       GROUP BY  A.ESTM_YEAR, A.ESTM_NUM, A.ESTM_DEPT) B
+			  WHERE 1=1
+			    AND A.ESTM_YEAR = B.ESTM_YEAR
+	  		    AND A.ESTM_NUM  = B.ESTM_NUM
+	 		    AND A.APRV_DEPT = B.ESTM_DEPT
+	 		    AND A.ESTM_YEAR = ?
+			    AND A.ESTM_NUM  = ?
+			    AND A.APRV_SEQ  = 1
+			    AND A.APRV_STAS = '001'
+        ]]>
+    </query>
+    <query id="rev3020_s08" desc="다면그룹" fetchSize="10">
+        <![CDATA[			
+			  SELECT /* rev3020_s08 */
+			  		 DECODE(CNT, 3, '완료', '미완료') AS CNT_7
+		        FROM (         
+                       SELECT NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT 
+                               FROM TBRF_EV_APRV
+                              WHERE 1 = 1
+                                AND ESTM_YEAR = ?
+                                AND ESTM_NUM = ?
+                                AND APRV_SEQ = '13'
+                     )      
+        ]]>
+    </query>
+    <query id="rev3020_s09" desc="업무수행1차평가" fetchSize="10">
+        <![CDATA[
+        	   SELECT /* rev3020_s09 */
+        	         DECODE(MIN(PRM_1), 1, '완료', '미완료') AS CNT_PRM_1  
+                FROM (
+                  SELECT CASE WHEN FST_ESTM_SCR IS NOT NULL THEN 1 ELSE 0 END  AS PRM_1 
+	                  FROM TBRF_EV_WK_PRM 
+	                  WHERE 1 = 1 
+	                    AND ESTM_YEAR = ?
+	                    AND ESTM_NUM  = ? 
+                    )
+        ]]>
+    </query>
+    <query id="rev3020_s10" desc="업무수행평가2차" fetchSize="10">
+        <![CDATA[			
+			  SELECT /* rev3020_s10 */
+			  		 DECODE(MIN(PRM_2), 1, '완료', '미완료') AS CNT_PRM_2  
+                FROM (
+                  SELECT CASE WHEN SND_ESTM_SCR IS NOT NULL THEN 1 ELSE 0 END  AS PRM_2 
+	                  FROM TBRF_EV_WK_PRM 
+	                  WHERE 1 = 1 
+	                    AND ESTM_YEAR = ?
+	                    AND ESTM_NUM  = ? 
+                    )
+        ]]>
+    </query>
+    <query id="rev3020_s11" desc="근무태도" fetchSize="10">
+        <![CDATA[
+			    SELECT /* rev3020_s11 */
+			  		 	DECODE(CNT, 3, '완료', '미완료') AS CNT_9 
+		       	 FROM ( 
+		                SELECT NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+                             
+                               FROM TBRF_EV_APRV
+                              WHERE 1 = 1
+                                AND ESTM_YEAR = ?
+                                AND ESTM_NUM = ?
+                                AND APRV_SEQ = '2'
+                                AND APRV_REQ_NO IS NOT NULL
+                      )          
+        ]]>
+    </query>
+    <query id="rev3020_s12" desc="서비스" fetchSize="10">
+        <![CDATA[			
+			  SELECT /* rev3020_s12 */
+			  		 DECODE(CNT, 3, '완료', '미완료') AS CNT_10 
+		        FROM ( 
+		                SELECT NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+                             
+                               FROM TBRF_EV_APRV
+                              WHERE 1 = 1
+                                AND ESTM_YEAR = ?
+                                AND ESTM_NUM = ?
+                                AND APRV_SEQ = '3'
+                                AND APRV_REQ_NO IS NOT NULL
+                      )          
+        ]]>
+    </query>
+    <query id="rev3020_s13" desc="다면" fetchSize="10">
+        <![CDATA[
+		    SELECT /* rev3020_s13 */
+		    		CASE WHEN SUM(CHK_CNT) > 0 THEN '미완료' ELSE '완료' END AS CNT_11  
+			  FROM (  
+			          -- 평가개시 여부 체크 : 평가 개시전에는 미완료  
+					  SELECT DECODE(NVL(ESTM_OPN_YN,'N'), 'N', 1, 0) AS CHK_CNT  
+					  FROM TBRF_EV_MASTER  
+					  WHERE 1=1  
+					  AND ESTM_YEAR = ?
+					     AND ESTM_NUM  = ?  
+					  UNION ALL  
+					  -- 제외가 아닌 것중에서 미완료가 한개라도 있으면 미완료.  
+					  SELECT SUM(DECODE(NVL(CFM_YN,'N'),'N',1,0))  --0보다 크면 미완료  
+					   FROM TBRF_EV_WK_MULT  
+					   WHERE 1 = 1  
+					     AND ESTM_YEAR = ?  
+					     AND ESTM_NUM  = ? 
+					     AND MULT_ESTM_GRP != '0' 
+					     AND NVL(EXPT_YN,'N') = 'N'  
+  					)  
+        ]]>
+    </query>
+    
+    <query id="rev3020_s14" desc="담당자 조회" fetchSize="10">
+        <![CDATA[
+        	SELECT   /*  rev3020_s14  */
+        	          A.ESTM_YEAR,          -- 년도
+                      A.ESTM_NUM,           -- 회차
+        	          A.DEPT_CD,            -- 부서코드
+        	          A.DEPT_NM,            -- 부서명
+        	          B.JOB_TIT_CD,         -- 직급코드
+        	          B.JOB_TIT_NM,         -- 직급명
+        	          B.EMP_NO,             -- 사번
+        	          B.EMP_NM              -- 성명
+		     FROM     ( SELECT   ESTM_YEAR,
+                                 ESTM_NUM,   
+		                         DEPT_CD,
+		                         DEPT_NM 
+		                FROM     TBRF_EV_DEPT 
+		                WHERE    1 = 1 
+		                AND      ESTM_YEAR = ? 
+		                AND      ESTM_NUM = ?   
+		                GROUP BY ESTM_YEAR,
+		                         ESTM_NUM,
+		                         DEPT_CD,
+		                         DEPT_NM) A, 
+		              ( SELECT   DEPT_CD,
+		                         JOB_TIT_CD, 
+		                         JOB_TIT_NM, 
+		                         EMP_NO, 
+		                         EMP_NM, 
+		                         MNG_GBN
+		                FROM     TBRF_EV_EMP 
+		                WHERE    1 = 1 
+		                AND      ESTM_YEAR = ? 
+		                AND      ESTM_NUM = ?  
+		                AND      MNG_GBN = 'Y'  
+		                AND      PERM_TEMP_GBN = '001') B           
+		     WHERE    B.DEPT_CD(+) = A.DEPT_CD 
+		     GROUP BY A.ESTM_YEAR,
+                      A.ESTM_NUM,  
+		              A.DEPT_CD, 
+		              A.DEPT_NM,
+		              B.MNG_GBN, 
+		              B.JOB_TIT_CD,
+		              B.JOB_TIT_NM, 
+		              B.EMP_NO, 
+		              B.EMP_NM  
+		     ORDER BY DEPT_CD   
+        ]]>
+    </query>
+    
+    <query id="rev3020_s15" desc="다면평가 제외자 점수 조회" fetchSize="10">
+        <![CDATA[
+          SELECT B.ESTM_YEAR,
+                 B.ESTM_NUM,
+                 B.ESTM_DEPT,
+                 B.EMP_NO,
+                 ROUND(A.SC, 2) AS ESTM_SCR
+			FROM ( 
+			  SELECT ESTM_YEAR,ESTM_NUM,SUM(EAVG)/COUNT(*) SC 
+			          FROM ( 
+			          SELECT ESTM_YEAR,ESTM_NUM, ESTM_DEPT,MULT_ESTM_GRP,EMP_NO, 
+			                 COUNT(ESTM_EMP),SUM(ESTM_SCR), MIN(ESTM_SCR),MAX(ESTM_SCR) , 
+			                 (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) )/ (COUNT(ESTM_EMP)-2) EAVG 
+			            FROM TBRF_EV_WK_MULT 
+			            WHERE 1=1
+			              AND ESTM_YEAR = ?
+			              AND ESTM_NUM  = ?
+			              AND MULT_ESTM_GRP > 0 
+			              AND NVL(EXPT_YN,' ') <> 'Y' 
+			              AND CFM_YN = 'Y' 
+			            GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,MULT_ESTM_GRP,EMP_NO 
+			            HAVING COUNT(ESTM_EMP) > 2 
+			         ) 
+			       GROUP BY ESTM_YEAR,ESTM_NUM 
+			      ) A, 
+			      (SELECT ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO 
+			         FROM TBRF_EV_WK_MULT A   
+			         WHERE 1 = 1   
+			           AND A.ESTM_YEAR = ?
+			           AND A.ESTM_NUM  = ?   
+			           AND A.EXPT_YN   = 'Y'   
+			       ) B 
+			WHERE A.ESTM_YEAR = B.ESTM_YEAR 
+			  AND A.ESTM_NUM = B.ESTM_NUM 
+        ]]>
+    </query>
+    
+    <query id="rev3020_s16" desc="평가를 하지 않은 사람 조회" fetchSize="10">
+        <![CDATA[
+  			SELECT /* rev3020_s16 */
+        		  ESTM_YEAR
+       			 ,ESTM_NUM
+                 ,ESTM_DEPT 
+                 ,ESTM_EMP AS EMP_NO
+                 ,(ESTM_RATE * D_RATE) AS ESTM_SCR 
+             FROM (SELECT  A.ESTM_YEAR 
+                          ,A.ESTM_NUM  
+                          ,D.ESTM_DEPT 
+                          ,A.CNTR_ITM_CD 
+                          ,C.ESTM_WK_JOB 
+                          ,D.ESTM_EMP 
+                          ,A.ESTM_RATE 
+                          ,(SELECT D_RATE * 0.01  
+                             FROM TBRF_EV_ITEM_GRD 
+                            WHERE 1 = 1 
+                              AND ESTM_YEAR = A.ESTM_YEAR 
+                              AND ESTM_NUM = A.ESTM_NUM 
+                              AND ESTM_ITEM_CD = '4') AS D_RATE 
+                     FROM TBRF_EV_LARGE_ITEM A 
+                         ,TBRF_EV_JOB_ITM_DTL B 
+                         ,TBRF_EV_EMP C 
+                         ,(SELECT   ESTM_YEAR 
+                                   ,ESTM_NUM 
+                                   ,ESTM_DEPT 
+                                   ,ESTM_EMP  
+                              FROM TBRF_EV_WK_MULT 
+                             WHERE 1 = 1 
+                               AND (CFM_YN IS NULL OR CFM_YN = 'N') 
+                               AND MULT_ESTM_GRP != 0
+                             GROUP BY ESTM_YEAR 
+                                       ,ESTM_NUM 
+                                       ,ESTM_DEPT 
+                                       ,ESTM_EMP ) D 
+                    WHERE 1 = 1 
+                      AND A.ESTM_YEAR = B.ESTM_YEAR 
+                      AND A.ESTM_YEAR = C.ESTM_YEAR 
+                      AND A.ESTM_YEAR = D.ESTM_YEAR 
+                      AND A.ESTM_NUM = B.ESTM_NUM 
+                      AND A.ESTM_NUM = C.ESTM_NUM 
+                      AND A.ESTM_NUM = D.ESTM_NUM 
+                      AND A.ESTM_ITEM_CD = B.ESTM_ITEM_CD 
+                      AND A.ESTM_ITEM_CD = B.ESTM_ITEM_CD 
+                      AND C.ESTM_DEPT = D.ESTM_DEPT 
+                      AND C.EMP_NO = D.ESTM_EMP 
+                      AND A.CNTR_ITM_CD = B.CNTR_ITM_CD 
+                      AND A.ESTM_YEAR = ?
+                      AND A.ESTM_NUM  = ?
+                      AND A.ESTM_ITEM_CD = '4' 
+                      AND B.CNTR_ITM_DTL = C.ESTM_WK_JOB 
+                  GROUP BY  A.ESTM_YEAR 
+                          ,A.ESTM_NUM  
+                          ,D.ESTM_DEPT 
+                          ,A.CNTR_ITM_CD 
+                          ,C.ESTM_WK_JOB 
+                          ,D.ESTM_EMP 
+                          ,A.ESTM_RATE   
+                 ) 
+        ]]>
+    </query>
+    
+    <query id="rev3020_s17" desc="평가개시" fetchSize="10">
+        <![CDATA[
+            SELECT  /* rev3020_s17 */
+				     ESTM_YEAR 
+				    ,ESTM_NUM
+				    --,DECODE( CNT_1 || CNT_2 || CNT_3 || CNT_4 || CNT_5 || CNT_6 || CNT_7,
+				    --        '001001001001001001001',
+				    --        'Y', 'N') AS COMPLETE_YN
+				    ,DECODE( CNT_1 || CNT_2 || CNT_3 || CNT_4 || CNT_5 || CNT_6,	--다면평가 제외
+				            '001001001001001001',
+				            'Y', 'N') AS COMPLETE_YN
+				 FROM(
+				 SELECT   A.ESTM_YEAR 
+				         ,A.ESTM_NUM 
+				         ,NVL(A.CNT_1, '002') AS CNT_1 
+				         ,NVL(B.CNT_2, '002') AS CNT_2 
+				         ,NVL(C.CNT_3, '002') AS CNT_3 
+				         ,NVL(D.CNT_4, '002') AS CNT_4 
+				         ,NVL(E.CNT_5, '002') AS CNT_5 
+				         ,NVL(F.CNT_6, '002') AS CNT_6 
+				         ,NVL(G.CNT_7, '002') AS CNT_7      
+				            FROM   (SELECT     ESTM_YEAR 
+				                             ,ESTM_NUM  
+				                             ,DECODE(COUNT(*), 0, '002', '001') CNT_1 
+				                    FROM      TBRF_EV_MASTER 
+				                    WHERE     1 = 1 
+				                    AND       ESTM_YEAR = ?
+				                    AND       ESTM_NUM  = ? 
+				                   GROUP BY ESTM_YEAR 
+				                            ,ESTM_NUM  ) A 
+				                 
+				                   ,(SELECT  T2.ESTM_YEAR 
+				                             ,T2.ESTM_NUM 
+				                             ,T2.CNT_2  
+				                       FROM (SELECT T.ESTM_YEAR 
+				                                   ,T.ESTM_NUM 
+				                                  -- ,CASE WHEN (T.CNT_ITM_1 IS NULL OR T.CNT_ITM_2 IS NULL OR T.CNT_ITM_3 IS NULL OR T.CNT_ITM_4 IS NULL) THEN '002'  --다면평가  
+				                                   ,CASE WHEN (T.CNT_ITM_1 IS NULL OR T.CNT_ITM_2 IS NULL OR T.CNT_ITM_3 IS NULL) THEN '002'  
+				                                        ELSE '001'  
+				                                   END AS CNT_2      
+				                              FROM 
+				                                ( 
+				                                      SELECT T1.ESTM_YEAR 
+				                                            ,T1.ESTM_NUM 
+				                                            ,MAX(T1.CNT_ITM_1) AS CNT_ITM_1 
+				                                            ,MAX(T1.CNT_ITM_2) AS CNT_ITM_2 
+				                                            ,MAX(T1.CNT_ITM_3) AS CNT_ITM_3 
+				                                            ,MAX(T1.CNT_ITM_4) AS CNT_ITM_4 
+				                                      FROM (       
+				                                            SELECT  ESTM_YEAR 
+				                                                   ,ESTM_NUM 
+				                                                   ,CASE WHEN ESTM_ITEM_CD = '1'  THEN NVL(COUNT(*), 0) END CNT_ITM_1 
+				                                                   ,CASE WHEN ESTM_ITEM_CD = '2'  THEN NVL(COUNT(*), 0) END CNT_ITM_2 
+				                                                   ,CASE WHEN ESTM_ITEM_CD = '3'  THEN NVL(COUNT(*), 0) END CNT_ITM_3 
+				                                                   ,CASE WHEN ESTM_ITEM_CD = '4'  THEN NVL(COUNT(*), 0) END CNT_ITM_4 
+				                                              FROM TBRF_EV_LARGE_ITEM 
+				                                             WHERE 1 = 1  
+				                                               AND ESTM_YEAR = ?
+				                                               AND ESTM_NUM  = ? 
+				                                               AND ESTM_ITEM_CD BETWEEN 1 AND 4 
+				                                              GROUP BY   ESTM_YEAR 
+				                                                           ,ESTM_NUM 
+				                                                           ,ESTM_ITEM_CD 
+				                                             ) T1 
+				                                           GROUP BY T1.ESTM_YEAR 
+				                                            ,T1.ESTM_NUM   
+				                                 ) T     
+				                              ) T2 
+				                              GROUP BY T2.ESTM_YEAR 
+				                                 ,T2.ESTM_NUM 
+				                                 ,T2.CNT_2     
+				                      ) B 
+				                   ,(SELECT   ESTM_YEAR 
+				                            ,ESTM_NUM 
+				                            ,DECODE(COUNT(*), 0, '002', '001') AS CNT_3 
+				                    FROM     TBRF_EV_DISTR 
+				                    WHERE    1 = 1  
+				                    AND      ESTM_YEAR = ?
+				                    AND      ESTM_NUM  = ? 
+				                   GROUP BY ESTM_YEAR 
+				                            ,ESTM_NUM ) C 
+				                     
+				                ,(SELECT      A.ESTM_YEAR 
+				                            ,A.ESTM_NUM 
+				                            ,CASE WHEN (B.DEPT_CNT - A.MNG_CNT) > 0 THEN '002'
+						        	         	ELSE '001'
+						      				 END AS CNT_4                 
+						            FROM     (SELECT   ESTM_YEAR,
+						                               ESTM_NUM,
+						                               COUNT(*) AS MNG_CNT 
+						                      FROM     TBRF_EV_EMP
+						                      WHERE    1 = 1 
+						                      AND      ESTM_YEAR = ?
+						                      AND      ESTM_NUM = ?
+						                      AND      MNG_GBN = 'Y'
+						                      GROUP BY ESTM_YEAR,
+						                               ESTM_NUM  
+						            		 ) A,
+						                     (SELECT   B1.ESTM_YEAR,
+						                               B1.ESTM_NUM,
+						                               SUM(B1.DEPT_CNT) AS DEPT_CNT
+						                        FROM (
+						                              SELECT   ESTM_YEAR, 
+						                                       ESTM_NUM,
+						                                       CASE WHEN COUNT(*) IS NOT NULL THEN 1 END AS DEPT_CNT 
+						                               FROM    TBRF_EV_EMP
+						                              WHERE    1 = 1 
+						                              AND      ESTM_YEAR = ?
+						                              AND      ESTM_NUM = ? 
+						                              AND      ESTM_ESC_GBN = 'Y'
+						                              GROUP BY ESTM_YEAR, 
+						                                       ESTM_NUM,
+						                                       ESTM_DEPT
+						                            ) B1 
+						                          GROUP BY B1.ESTM_YEAR, 
+						                                   B1.ESTM_NUM  
+						           			 ) B         
+						            WHERE    1 = 1 
+						            AND      A.ESTM_YEAR = B.ESTM_YEAR
+						            AND      A.ESTM_NUM = B.ESTM_NUM) D 
+				                     
+				                  ,(SELECT   ESTM_YEAR
+				                            ,ESTM_NUM
+									  		,DECODE(CNT, 3, '001', '002') AS CNT_5 
+								        FROM ( 
+								                SELECT ESTM_YEAR
+				                                	  ,ESTM_NUM   
+								                      ,NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT
+						                               FROM TBRF_EV_APRV A
+						                              WHERE 1 = 1
+						                                AND ESTM_YEAR = ?
+						                                AND ESTM_NUM = ?
+						                                AND APRV_SEQ = '4'
+						                                AND APRV_REQ_NO IS NOT NULL
+                                                        AND EXISTS (     	--2014.11.15(평가대상자가 있는 경우에만)
+	                                                       SELECT *
+	                                                       FROM TBRF_EV_EMP B
+	                                                       WHERE ESTM_ESC_GBN = 'Y'
+	                                                       AND   A.ESTM_YEAR = B.ESTM_YEAR
+	                                                       AND   A.ESTM_NUM  = B.ESTM_NUM
+	                                                       AND   A.APRV_DEPT = B.ESTM_DEPT                         
+	                                                       )
+						                           GROUP BY ESTM_YEAR
+				                                	,ESTM_NUM
+				                                	,APRV_STAS        
+	    		                            ) 
+				                      GROUP BY ESTM_YEAR 
+				                            ,ESTM_NUM
+				                            ,CNT ) E 
+				                         
+				                      ,(SELECT A.ESTM_YEAR 
+				                               ,A.ESTM_NUM  
+				                               ,CASE WHEN (((NVL(SUM(A.CNT), 1)) * 3) - NVL(SUM(B.PRM), 0) - NVL(SUM(C.MNR), 0) - NVL(SUM(D.SRV), 0)) > 0 THEN '002' ELSE '001'  
+                                               END AS CNT_6     
+                                         FROM  
+                                             (SELECT   B1.ESTM_YEAR,
+                                                       B1.ESTM_NUM,
+                                                       SUM(B1.DEPT_CNT) AS CNT
+                                                FROM (
+                                                      SELECT   ESTM_YEAR, 
+                                                               ESTM_NUM,
+                                                               CASE WHEN COUNT(*) IS NOT NULL THEN 1 END AS DEPT_CNT 
+                                                       FROM    TBRF_EV_EMP
+                                                      WHERE    1 = 1 
+                                                        AND      ESTM_ESC_GBN = 'Y'
+                                                      GROUP BY ESTM_YEAR, 
+                                                               ESTM_NUM,
+                                                               ESTM_DEPT
+                                                    ) B1 
+                                                  GROUP BY B1.ESTM_YEAR, 
+                                                           B1.ESTM_NUM  
+                                             ) A  
+                                            ,(SELECT  ESTM_YEAR 
+                                                    ,ESTM_NUM 
+                                                    ,COUNT(*) AS PRM 
+                                               FROM TBRF_EV_EMP  
+                                              WHERE 1 = 1 
+                                                AND PERM_TEMP_GBN = '001' 
+                                                AND FST_SND_GBN = '001' 
+                                             GROUP BY ESTM_YEAR 
+                                                    ,ESTM_NUM 
+                                             ) B 
+                                            ,(SELECT  ESTM_YEAR 
+                                                    ,ESTM_NUM 
+                                                    ,COUNT(*) AS MNR 
+                                               FROM TBRF_EV_EMP  
+                                              WHERE 1 = 1 
+                                                AND PERM_TEMP_GBN = '001' 
+                                                AND MNR_FST_SND = '001' 
+                                             GROUP BY ESTM_YEAR 
+                                                    ,ESTM_NUM 
+                                             ) C  
+                                            ,(SELECT  ESTM_YEAR 
+                                                    ,ESTM_NUM 
+                                                    ,COUNT(*) AS SRV 
+                                               FROM TBRF_EV_EMP  
+                                              WHERE 1 = 1 
+                                                AND PERM_TEMP_GBN = '001' 
+                                                AND SVR_FST_SND = '001' 
+                                             GROUP BY ESTM_YEAR 
+                                                    ,ESTM_NUM 
+                                             ) D   
+                                        WHERE 1 = 1 
+                                          AND A.ESTM_YEAR = B.ESTM_YEAR(+) 
+                                          AND A.ESTM_YEAR = C.ESTM_YEAR(+) 
+                                          AND A.ESTM_YEAR = D.ESTM_YEAR(+) 
+                                          AND A.ESTM_NUM = B.ESTM_NUM(+) 
+                                          AND A.ESTM_NUM = C.ESTM_NUM(+) 
+                                          AND A.ESTM_NUM = D.ESTM_NUM(+) 
+                                          AND A.ESTM_YEAR = ?
+                                          AND A.ESTM_NUM  = ?
+                                        GROUP BY  A.ESTM_YEAR 
+				                                 ,A.ESTM_NUM ) F 
+				                  
+				                     ,(  SELECT  ESTM_YEAR
+				                                ,ESTM_NUM
+				                                ,DECODE(CNT, 3, '001', '002') AS CNT_7   --다면평가 그룹생성 여부
+									        FROM (         
+							                       SELECT   ESTM_YEAR
+				                               			   ,ESTM_NUM
+							                               ,NVL(MIN(TO_NUMBER(APRV_STAS)), 1) AS CNT 
+							                               FROM TBRF_EV_APRV
+							                              WHERE 1 = 1
+							                                AND ESTM_YEAR = ?
+							                                AND ESTM_NUM = ?
+							                                AND APRV_SEQ = '13'
+							                        GROUP BY ESTM_YEAR
+				                                	,ESTM_NUM 
+				                                	,APRV_STAS          
+							                     ) 
+							                GROUP BY ESTM_YEAR
+				                                	,ESTM_NUM
+				                                	,CNT         
+				                          ) G    
+				                           
+				                      WHERE 1 = 1 
+				                        AND A.ESTM_YEAR = B.ESTM_YEAR(+) 
+				                        AND A.ESTM_YEAR = C.ESTM_YEAR(+) 
+				                        AND A.ESTM_YEAR = D.ESTM_YEAR(+) 
+				                        AND A.ESTM_YEAR = E.ESTM_YEAR(+) 
+				                        AND A.ESTM_YEAR = F.ESTM_YEAR(+) 
+				                        AND A.ESTM_YEAR = G.ESTM_YEAR(+) 
+				                        AND A.ESTM_NUM = B.ESTM_NUM(+) 
+				                        AND A.ESTM_NUM = C.ESTM_NUM(+) 
+				                        AND A.ESTM_NUM = D.ESTM_NUM(+) 
+				                        AND A.ESTM_NUM = E.ESTM_NUM(+) 
+				                        AND A.ESTM_NUM = F.ESTM_NUM(+) 
+				                        AND A.ESTM_NUM = G.ESTM_NUM(+) 
+				)   
+        ]]>
+    </query>
+    
+    <query id="rev3020_s18" desc="계약직 1차평가자 중 평가 사용자에 추가되지 않은 평가 사용자 검색" fetchSize="10">
+        <![CDATA[
+        	SELECT 
+		         A.EMP_NO
+		        ,FC_DEC(A.RES_NO) AS PSWD
+		        ,A.EMP_NM
+		        ,A.HP_NO
+		        ,'12'   || A.DEPT_CD AS TEAM_DETL_CD  --TEAM_DETL_CD  
+		        ,'GA12' || A.DEPT_CD AS TEAM_CD       --TEAM_CD  
+		        ,'GA120000' AS ASSO_CD                --ASSO_CD  
+		        ,(SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND WK_JOB_CD = '1006') AS WK_JOB_NM
+		    FROM TBRF_EV_EMP A
+		        ,TBRK_USER B
+		   WHERE 1=1
+		     AND A.EMP_NO = B.USER_ID(+)
+		     AND A.ESTM_YEAR = ?
+		     AND A.ESTM_NUM  = ?
+		     AND A.PERM_TEMP_GBN = '002' --계약직
+		     AND A.FST_SND_GBN = '001'   --1차평가자
+		     AND A.EMP_NO NOT IN (SELECT USER_ID FROM TBRK_USER)      
+		GROUP BY A.EMP_NO 
+		        ,A.RES_NO
+		        ,A.EMP_NM
+		        ,A.HP_NO
+		        ,A.DEPT_CD
+		        ,A.ESTM_YEAR
+                ,A.ESTM_NUM
+        ]]>
+    </query>
+    
+    <query id="rev3020_u01" desc="평가마감" fetchSize="10">
+        <![CDATA[
+        	UPDATE    /* rev3020_u01 */
+        	          TBRF_EV_MASTER 
+        	SET       ESTM_END_YN = 'Y',
+        		      UPDT_ID     = ?,		-- 1. 사용자 ID		
+					  UPDT_DT     = SYSDATE
+            WHERE     1 = 1
+            AND       ESTM_YEAR = ?
+            AND       ESTM_NUM = ?
+        ]]>
+    </query>
+    
+    <query id="rev3020_u02" desc="다면평가자 3명이 않되는 그룹에 평균값 넣기" fetchSize="10">
+        <![CDATA[
+			  UPDATE   /* rev3020_u02 */
+			           TBRF_EV_WK_MULT 
+			  SET      ESTM_SCR = ( SELECT ROUND(SUM(EAVG)/COUNT(*), 2) AS AVG
+									  FROM (
+									  SELECT ESTM_YEAR,
+									         ESTM_NUM, 
+									         ESTM_DEPT,
+									         MULT_ESTM_GRP,
+									         EMP_NO,
+									         COUNT(ESTM_EMP),
+									         SUM(ESTM_SCR), 
+									         MIN(ESTM_SCR),
+									         MAX(ESTM_SCR) ,
+									         (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) )/ (COUNT(ESTM_EMP)-2) EAVG
+									    FROM TBRF_EV_WK_MULT
+									    WHERE 1=1
+									      AND ESTM_YEAR = ?
+									      AND ESTM_NUM  = ?
+									      AND MULT_ESTM_GRP != 0
+									      AND NVL(EXPT_YN,' ') <> 'Y'
+									      AND CFM_YN = 'Y'
+									    GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,MULT_ESTM_GRP,EMP_NO
+									    HAVING COUNT(ESTM_EMP) > 2
+									 )
+                                    ) 
+			                 WHERE 1 = 1 
+			                   AND ESTM_YEAR = ?
+			                   AND ESTM_NUM  = ? 
+			                   AND MULT_ESTM_GRP = '0' 
+        ]]>
+    </query>
+    
+    <query id="rev3020_u03" desc="제외자/미평가자 점수 수정" fetchSize="10">
+        <![CDATA[
+        	   UPDATE TBRF_EV_WK_MULT 
+        	   		/* rev3020_u03 */
+        	      SET ESTM_SCR       = ? 
+        	         ,ESTM_RESULT_CD = '003'
+        	         ,UPDT_ID        = ?
+        	         ,UPDT_DT        = SYSDATE
+		        WHERE 1 = 1 
+		          AND ESTM_YEAR = ? 
+		          AND ESTM_NUM  = ? 
+		          AND ESTM_DEPT = ? 
+		          AND EMP_NO    = ?   
+        ]]>
+    </query>
+    
+    <query id="rev3020_u04" desc="TBRF_EV_MASTER의 시작 플래그값 변경" fetchSize="10">
+        <![CDATA[
+        	   UPDATE  /* rev3020_u04 */
+        	   		   TBRF_EV_MASTER
+                  SET  ESTM_OPN_YN  = 'Y'
+                      ,UPDT_ID      = ?
+                      ,UPDT_DT      = SYSDATE
+                WHERE  1=1
+                  AND  ESTM_YEAR = ?
+                  AND  ESTM_NUM  = ? 
+        ]]>
+    </query>
+    
+    <query id="rev3020_u05" desc="평균값 대상자에게 평균값 적용" fetchSize="10">
+        <![CDATA[
+        	   UPDATE /* rev3020_u05 */
+        	          TBRF_EV_WK_MULT 
+        	      SET ESTM_SCR = (  --평균값 산출
+  								  SELECT ROUND(SUM(EAVG)/COUNT(*), 2)   
+                                    FROM (  
+                                    SELECT ESTM_YEAR,  
+                                           ESTM_NUM,   
+                                           ESTM_DEPT,  
+                                           MULT_ESTM_GRP,  
+                                           EMP_NO,  
+                                           COUNT(ESTM_EMP),  
+                                           SUM(ESTM_SCR),   
+                                           MIN(ESTM_SCR),  
+                                           MAX(ESTM_SCR) ,  
+                                           (SUM(ESTM_SCR) - MIN(ESTM_SCR) - MAX(ESTM_SCR) )/ (COUNT(ESTM_EMP)-2) EAVG  
+                                      FROM TBRF_EV_WK_MULT  
+                                      WHERE 1=1  
+                                        AND ESTM_YEAR = ?  
+                                        AND ESTM_NUM  = ?  
+                                        AND MULT_ESTM_GRP != 0  
+                                        AND NVL(EXPT_YN,' ') <> 'Y'  
+                                        AND CFM_YN = 'Y'  
+                                      GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,MULT_ESTM_GRP,EMP_NO  
+                                      HAVING COUNT(ESTM_EMP) > 2 
+                                      ) 
+                                    ) 
+                      ,ESTM_RESULT_CD = '002'
+                      ,UPDT_ID        = ?
+                      ,UPDT_DT        = SYSDATE
+				WHERE 1 = 1 
+				  AND (ESTM_YEAR,ESTM_NUM,ESTM_DEPT,EMP_NO) in ( 
+				            -- 나를 평가한 사람이 80% 미만인것  
+				            SELECT ESTM_YEAR,ESTM_NUM,ESTM_DEPT,EMP_NO 
+				              FROM ( 
+				                SELECT ESTM_YEAR,ESTM_NUM, ESTM_DEPT,MULT_ESTM_GRP, EMP_NO,        
+				                       (SUM(DECODE(CFM_YN,'Y',1,0)) - 
+				                       SUM(DECODE(EXPT_YN,'Y',1,0))) / 
+				                       COUNT(*) *100 PER 
+				                FROM TBRF_EV_WK_MULT A 
+				                WHERE MULT_ESTM_GRP > 0     
+				                 AND ESTM_YEAR= ?
+				                 AND ESTM_NUM = ?  
+				                 GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,MULT_ESTM_GRP,EMP_NO 
+				               )   
+				            WHERE PER < 80
+				            /*
+				            UNION ALL  
+				            -- 제외된 사람 
+				            SELECT ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO   
+				             FROM TBRF_EV_WK_MULT A     
+				             WHERE 1 = 1     
+				               AND A.ESTM_YEAR = ?
+				               AND A.ESTM_NUM  = ?     
+				               AND A.EXPT_YN   = 'Y'  
+				             GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO */
+				            UNION ALL	--그룹 멤버가 2명인 경우
+				            SELECT ESTM_YEAR, ESTM_NUM, ESTM_DEPT, EMP_NO
+                            FROM TBRF_EV_WK_MULT
+                            WHERE MULT_ESTM_GRP > 0     
+                             AND ESTM_YEAR= ?
+                             AND ESTM_NUM = ?
+                             GROUP BY ESTM_YEAR, ESTM_NUM, ESTM_DEPT, EMP_NO
+                             HAVING COUNT(*) = 2 
+				            UNION ALL    
+				            -- 0 그룹인사람  
+				            SELECT ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO   
+				             FROM TBRF_EV_WK_MULT 
+				             WHERE 1 = 1     
+				               AND ESTM_YEAR = ? 
+				               AND ESTM_NUM  = ?     
+				               AND MULT_ESTM_GRP = 0 
+				            GROUP BY ESTM_YEAR,ESTM_NUM, ESTM_DEPT,EMP_NO   
+				              ) 
+        ]]>
+    </query>
+    
+    <query id="rev3020_u06" desc="다면평가 대상자에게 FLAG 부여" fetchSize="10">
+        <![CDATA[
+        	    UPDATE TBRF_EV_WK_MULT
+				   SET ESTM_RESULT_CD = '001'
+				      ,UPDT_ID = ?
+				      ,UPDT_DT = SYSDATE
+				 WHERE 1=1
+				   AND ESTM_YEAR = ?
+				   AND ESTM_NUM  = ?
+				   AND MULT_ESTM_GRP != 0   
+        ]]>
+    </query>
+    
+    <query id="rev3020_d01" desc="임시평가자 삭제" fetchSize="10">
+        <![CDATA[
+        	    DELETE /* rev3020_d01 */
+        	      FROM TBRK_USER 
+                 WHERE 1 = 1 
+                   AND GBN = '003' 
+        	   
+        ]]>
+    </query>
+    
+    <query id="rev3020_i01" desc="임시평가자 추가" fetchSize="10">
+        <![CDATA[
+			INSERT /* rev3020_i01 */ 
+			  INTO TBRK_USER (
+			  	 GBN           --구분코드
+		        ,USER_ID       --사용자ID
+		        ,PSWD          --비밀번호
+		        ,USER_NM       --사용자명
+		        ,HP_NO         --이동전화번호
+		        
+		        ,TEAM_DETL_CD  --부서코드
+		        ,TEAM_CD       --팀코드
+		        ,ASSO_CD       --본부코드
+		        ,FLOC		   --직급(보직)
+		        ,INST_ID  
+		          
+		        ,INST_DT
+			) VALUES (
+				 '003'
+				,?  --USER_ID
+				,?  --PSWD
+				,?  --USER_NM
+				,?  --HP_NO
+				
+				,?  --TEAM_DETL_CD
+				,?  --TEAM_CD
+				,?  --ASSO_CD
+				,?  --FLOC
+				,?  --INST_ID
+				
+				,SYSDATE
+			)
+        ]]>
+    </query>
+</queryMap>

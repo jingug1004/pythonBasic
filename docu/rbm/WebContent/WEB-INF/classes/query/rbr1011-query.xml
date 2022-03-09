@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBR1011(일반사항)">
+
+	<query id="rbr1011_s01" desc="일반사항 조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rbr1011_s01 */ --일반사항
+				 BRNC_CD			--지점코드
+				,STND_YEAR			--년도
+				,OP_GOAL			--운영목표
+				,POST_CD			--우편번호
+				,ADDR				--주소
+				
+				,DETL_ADDR			--상세주소
+				,INSTALL_ALOW_DT	--설치허가일자
+				,OPEN_DT			--개장일자
+				,ENT_FIX_NUM		--입장정원
+				,SALES_GOAL_CRA		--매출목표경륜
+				,SALES_GOAL_MRA		--매출목표경정
+				,SALES_GOAL_CRA_GREEN --매출목표경륜(그린카드)
+				,SALES_GOAL_MRA_GREEN --매출목표경정(그린카드)
+				,SEAT_NUM_NORMAL	  --일반실 좌석수
+				,SEAT_NUM_FIXED       --지정좌석실 좌석수
+				,SEAT_NUM_GREEN		  --그린카드존 좌석수
+			  FROM  TBRA_COMM_DESC  --일반사항
+			 WHERE	1=1
+			   AND BRNC_CD   = ?    
+			   AND STND_YEAR = ?
+        ]]>
+	</query>
+	
+	<query id="rbr1011_s02" desc="층관리 조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rbr1011_s02 */
+ 				 '0' AS CHK
+				,BRNC_CD			--지점코드
+				,STND_YEAR			--년도
+				,FLOOR				--층
+				,NVL(COMM_AREA_SQMT,0)  COMM_AREA_SQMT		--공용면적(㎡)
+				,NVL(COMM_AREA_PY,0)	COMM_AREA_PY	    --공용면적(평)
+				 
+				,NVL(ONLY_AREA_SQMT,0)	ONLY_AREA_SQMT	    --전용면적(㎡)
+				,NVL(ONLY_AREA_PY,0)    ONLY_AREA_PY		--전용면적(평)
+				
+				,(NVL(COMM_AREA_SQMT,0)+NVL(ONLY_AREA_SQMT,0)) TOT_AREA_SQMT  -- 전체면적(㎡)
+				,(NVL(COMM_AREA_PY,0) + NVL(ONLY_AREA_PY,0))   TOT_AREA_PY    -- 전체면적(평)
+				
+				,RELEA_COT_MANNED	--발매창구(유인)
+				,RELEA_COT_MANLESS	--발매창구(무인)
+				,RELEA_MACH_MANNED	--발매기(유인)
+				
+				,RELEA_MACH_MANLESS	--발매기(무인)
+				,GRN_CRD_LOC		--그린카드존
+				,RMK				--비고
+				,DECODE((SELECT  COUNT(*)
+                           FROM  TBRA_FAC_STAT
+                		  WHERE  1=1
+                		    AND  TBRA_FAC_STAT.BRNC_CD = TBRA_FLOOR_MANA.BRNC_CD
+                            AND  TBRA_FAC_STAT.STND_YEAR = TBRA_FLOOR_MANA.STND_YEAR
+                            AND  TBRA_FAC_STAT.FLOOR = TBRA_FLOOR_MANA.FLOOR)
+                		 , 0, 'Y', 'N') AS DELETE_CD	--삭제식별코드
+
+			  FROM  TBRA_FLOOR_MANA	  --층관리
+			 WHERE	1=1
+			   AND  BRNC_CD   = ?     --지점코드
+			   AND  STND_YEAR = ?     --년도
+		  ORDER BY	FLOOR
+        ]]>
+	</query>
+	
+	<query id="rbr1011_s03" desc="기본키 조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* rbr1011_s03 */
+                 COUNT(*) AS CNT      --기본키 개수
+              FROM  TBRA_FLOOR_MANA   --층관리
+             WHERE  1=1
+               AND  BRNC_CD   = ?     --지점코드
+               AND  STND_YEAR = ?     --년도
+               AND  FLOOR     = ?     --층
+        ]]>
+    </query>
+    
+    <query id="rbr1011_s04" desc="장비관리에서 층을 사용하는지 여부 조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* rbr1011_s04 */
+                 COUNT(*) AS CNT      --개수
+              FROM  TBRA_EQUIP_FACI   --장비관리
+			 WHERE  1=1
+			   AND  FLOOR = ?
+        ]]>
+    </query>
+    
+    <query id="rbr1011_s05" desc="시설현황에서 층을 사용하는지 여부 조회" fetchSize="10">
+        <![CDATA[
+            SELECT /* rbr1011_s05 */
+                 COUNT(*) AS CNT      --개수
+              FROM  TBRA_FAC_STAT     --시설현황 
+             WHERE  1=1
+               AND  FLOOR = ?
+        ]]>
+    </query>
+    
+	<query id="rbr1011_m01" desc="일반사항  입력,수정" fetchSize="10">
+        <![CDATA[
+
+			MERGE INTO TBRA_COMM_DESC A  /* rbr1011_m01 */   --일반사항
+			USING
+                    (SELECT
+                             ? AS BRNC_CD           --지점코드
+							,? AS STND_YEAR         --년도
+							,? AS OP_GOAL           --운영목표
+							,? AS POST_CD           --우편번호
+							,? AS ADDR              --주소
+							
+							,? AS DETL_ADDR         --상세주소
+							,? AS INSTALL_ALOW_DT   --설치허가일자
+							,? AS OPEN_DT           --개장일자
+							,? AS ENT_FIX_NUM       --입장정원
+							,? AS SALES_GOAL_CRA    --매출목표경륜
+							,? AS SALES_GOAL_MRA    --매출목표경정
+							,? AS SALES_GOAL_CRA_GREEN --매출목표경륜(그린카드)
+							,? AS SALES_GOAL_MRA_GREEN --매출목표경정(그린카드)
+							,? AS SEAT_NUM_NORMAL	   --일반실 좌석수
+							,? AS SEAT_NUM_FIXED       --지정좌석실 좌석수
+							,? AS SEAT_NUM_GREEN	   --그린카드존 좌석수
+							,? AS INST_ID              --작성자
+                            ,? AS UPDT_ID              --수정자
+                            
+                       FROM    DUAL ) B
+                ON (
+                        A.BRNC_CD   = B.BRNC_CD      --지점코드
+                    AND A.STND_YEAR = B.STND_YEAR    --사건순번
+			)
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+				
+					 A.OP_GOAL         = B.OP_GOAL          --운영목표
+                    ,A.POST_CD         = B.POST_CD          --우편번호
+                    ,A.ADDR            = B.ADDR             --주소
+                    ,A.DETL_ADDR       = B.DETL_ADDR        --상세주소
+                    ,A.INSTALL_ALOW_DT = B.INSTALL_ALOW_DT  --설치허가일자
+                    
+                    ,A.OPEN_DT         = B.OPEN_DT          --개장일자
+                    ,A.ENT_FIX_NUM     = B.ENT_FIX_NUM      --입장정원
+                    ,A.SALES_GOAL_CRA  = B.SALES_GOAL_CRA   --매출목표경륜
+                    ,A.SALES_GOAL_MRA  = B.SALES_GOAL_MRA   --매출목표경정
+                    ,A.SALES_GOAL_CRA_GREEN  = B.SALES_GOAL_CRA_GREEN --매출목표경륜(그린카드)
+                    ,A.SALES_GOAL_MRA_GREEN  = B.SALES_GOAL_MRA_GREEN --매출목표경정(그린카드)
+                    ,A.SEAT_NUM_NORMAL = B.SEAT_NUM_NORMAL --일반실 좌석수
+                    ,A.SEAT_NUM_FIXED  = B.SEAT_NUM_FIXED  --지정좌석실 좌석수
+                    ,A.SEAT_NUM_GREEN  = B.SEAT_NUM_GREEN  --그린카드존 좌석수
+                    ,A.UPDT_ID         = B.UPDT_ID          --수정자
+					
+					,UPDT_DT           = SYSDATE		    --수정일시
+			    
+			WHEN NOT MATCHED THEN 
+				
+				INSERT (
+			
+					 A.BRNC_CD				--지점코드
+					,A.STND_YEAR            --년도
+                    ,A.OP_GOAL              --운영목표
+                    ,A.POST_CD              --우편번호
+                    ,A.ADDR                 --주소
+                    
+                    ,A.DETL_ADDR            --상세주소
+                    ,A.INSTALL_ALOW_DT      --설치허가일자
+                    ,A.OPEN_DT              --개장일자
+                    ,A.ENT_FIX_NUM          --입장정원
+                    ,A.SALES_GOAL_CRA       --매출목표경륜
+                    ,A.SALES_GOAL_MRA       --매출목표경정        
+                    ,A.SALES_GOAL_CRA_GREEN --매출목표경륜(그린카드)
+                    ,A.SALES_GOAL_MRA_GREEN --매출목표경정(그린카드)
+                    ,A.SEAT_NUM_NORMAL --일반실 좌석수
+                    ,A.SEAT_NUM_FIXED  --지정좌석실 좌석수
+                    ,A.SEAT_NUM_GREEN  --그린카드존 좌석수
+                    ,A.INST_ID              --작성자
+                    ,A.INST_DT              --작성일시
+					
+				) VALUES (
+					 B.BRNC_CD             --지점코드
+                    ,B.STND_YEAR            --년도
+                    ,B.OP_GOAL              --운영목표
+                    ,B.POST_CD              --우편번호
+                    ,B.ADDR                 --주소
+                    
+                    ,B.DETL_ADDR            --상세주소
+                    ,B.INSTALL_ALOW_DT      --설치허가일자
+                    ,B.OPEN_DT              --개장일자
+                    ,B.ENT_FIX_NUM          --입장정원
+                    ,B.SALES_GOAL_CRA       --매출목표경륜
+                    ,B.SALES_GOAL_MRA       --매출목표경정
+                    ,B.SALES_GOAL_CRA_GREEN --매출목표경륜(그린카드)
+                    ,B.SALES_GOAL_MRA_GREEN --매출목표경정(그린카드)   
+                    ,B.SEAT_NUM_NORMAL --일반실 좌석수
+                    ,B.SEAT_NUM_FIXED  --지정좌석실 좌석수
+                    ,B.SEAT_NUM_GREEN  --그린카드존 좌석수
+                    ,B.INST_ID              --작성자
+					,SYSDATE				--작성일시
+				)		
+        ]]>				
+    </query>
+    
+	<query id="rbr1011_m02" desc="층관리  입력,수정" fetchSize="10">
+        <![CDATA[
+
+			MERGE INTO TBRA_FLOOR_MANA A /* rbr1011_m02 */   --층관리
+			USING
+                    (SELECT
+                             ? AS BRNC_CD            --지점코드
+							,? AS STND_YEAR          --년도
+							,? AS FLOOR              --층
+							,? AS COMM_AREA_SQMT     --공용면적(㎡)
+							,? AS COMM_AREA_PY       --공용면적(평)
+							
+							,? AS ONLY_AREA_SQMT     --전용면적(㎡)
+							,? AS ONLY_AREA_PY       --전용면적(평)
+							,? AS RELEA_COT_MANNED   --발매창구(유인)
+							,? AS RELEA_COT_MANLESS  --발매창구(무인)
+							,? AS RELEA_MACH_MANNED  --발매기(유인)
+							
+							,? AS RELEA_MACH_MANLESS --발매기(무인)
+							,? AS GRN_CRD_LOC        --그린카드존
+							,? AS RMK                --비고
+							,? AS INST_ID            --작성자
+                            ,? AS UPDT_ID            --수정자
+                            
+                       FROM    DUAL ) B
+                ON (
+                        A.BRNC_CD   = B.BRNC_CD     --지점코드
+                    AND A.STND_YEAR = B.STND_YEAR   --년도
+                    AND A.FLOOR     = B.FLOOR       --층
+            )                            
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+				
+					 A.COMM_AREA_SQMT     = B.COMM_AREA_SQMT       --공용면적(㎡)
+                    ,A.COMM_AREA_PY       = B.COMM_AREA_PY         --공용면적(평)
+                    ,A.ONLY_AREA_SQMT     = B.ONLY_AREA_SQMT       --전용면적(㎡)
+                    ,A.ONLY_AREA_PY       = B.ONLY_AREA_PY         --전용면적(평)
+                    ,A.RELEA_COT_MANNED   = B.RELEA_COT_MANNED     --발매창구(유인)
+                    
+                    ,A.RELEA_COT_MANLESS  = B.RELEA_COT_MANLESS    --발매창구(무인)
+                    ,A.RELEA_MACH_MANNED  = B.RELEA_MACH_MANNED    --발매기(유인)
+                    ,A.RELEA_MACH_MANLESS = B.RELEA_MACH_MANLESS   --발매기(무인)
+                    ,A.GRN_CRD_LOC        = B.GRN_CRD_LOC          --그린카드존
+                    ,A.RMK                = B.RMK                  --비고
+
+                    ,A.UPDT_ID            = B.UPDT_ID              --수정자					
+					,UPDT_DT              = SYSDATE		           --수정일시
+			    
+			WHEN NOT MATCHED THEN 
+				
+				INSERT (
+			
+					 A.BRNC_CD				--지점코드
+					,A.STND_YEAR            --년도
+                    ,A.FLOOR                --층
+                    ,A.COMM_AREA_SQMT       --공용면적(㎡)
+                    ,A.COMM_AREA_PY         --공용면적(평)
+                    
+                    ,A.ONLY_AREA_SQMT       --전용면적(㎡)
+                    ,A.ONLY_AREA_PY         --전용면적(평)
+                    ,A.RELEA_COT_MANNED     --발매창구(유인)
+                    ,A.RELEA_COT_MANLESS    --발매창구(무인)
+                    ,A.RELEA_MACH_MANNED    --발매기(유인)
+                    
+                    ,A.RELEA_MACH_MANLESS   --발매기(무인)
+                    ,A.GRN_CRD_LOC          --그린카드존
+                    ,A.RMK                  --비고    
+                    ,A.INST_ID              --작성자
+                    ,A.INST_DT              --작성일시
+					
+				) VALUES (
+					 B.BRNC_CD              --지점코드
+                    ,B.STND_YEAR            --년도
+                    ,B.FLOOR                --층
+                    ,B.COMM_AREA_SQMT       --공용면적(㎡)
+                    ,B.COMM_AREA_PY         --공용면적(평)
+                    
+                    ,B.ONLY_AREA_SQMT       --전용면적(㎡)
+                    ,B.ONLY_AREA_PY         --전용면적(평)
+                    ,B.RELEA_COT_MANNED     --발매창구(유인)
+                    ,B.RELEA_COT_MANLESS    --발매창구(무인)
+                    ,B.RELEA_MACH_MANNED    --발매기(유인)
+                    
+                    ,B.RELEA_MACH_MANLESS   --발매기(무인)
+                    ,B.GRN_CRD_LOC          --그린카드존
+                    ,B.RMK                  --비고    
+                    ,B.INST_ID              --작성자
+					,SYSDATE				--작성일시
+				)
+				
+        ]]>				
+    </query>
+    
+	<query id="rbr1011_d01" desc="입장관리_층관리 삭제" fetchSize="10">
+        <![CDATA[
+
+			DELETE  TBRA_FLOOR_MANA   /* rbr1011_d01 */	--층관리
+			 WHERE  1=1
+			   AND  BRNC_CD   = ?			--지점코드
+			   AND  STND_YEAR = ?			--년도
+			   AND	FLOOR     = ?		    --층
+        ]]>
+    </query>
+</queryMap>

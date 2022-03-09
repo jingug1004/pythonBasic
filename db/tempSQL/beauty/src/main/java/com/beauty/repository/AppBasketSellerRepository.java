@@ -1,0 +1,16 @@
+package com.beauty.repository;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.beauty.entity.AppBasket;
+import com.beauty.entity.AppBasketSeller;
+import com.beauty.entity.User;
+
+@Repository
+@Qualifier(value = "AppBasketSellerRepository")
+public interface AppBasketSellerRepository extends JpaRepository<AppBasketSeller, Long> {
+	
+	public AppBasketSeller findByBasketAndSeller(AppBasket basket, User seller);
+}

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="euc-kr" ?>
+
+<project name="can_boa" basedir=".">
+	<!-- 프로퍼티 설정 -->
+    <property name="project.name" value="${ant.project.name}"/>
+	<property name="apps.name" value="${ant.project.name}"/>
+	<property name="root.dir" value="C:/SNIS/snis_root"/>
+	<property name="jeus.dir" value="C:/SNIS/JEUS5.0"/>
+	<property name="src.dir" value="${basedir}/src"/>
+	<property name="class.dir" value="${basedir}/bin"/>	
+	<property name="conf.dir" value="${basedir}/config"/>
+    <property name="build.dir" value="${basedir}/build"/>
+	<property name="war.name" value="${apps.name}.war"/>
+	<property name="glue.dir" value="${root.dir}/WEB-INF/Glue Framework"/>
+	<property name="deploy.dir" value="${jeus.dir}/webhome/deploy_home"/>
+	<property name="container.dir" value="${jeus.dir}/webhome/jjang_container1"/>
+	<property name="report.dir" value="${build.dir}/report"/>
+
+	<!-- 클리스패스 지정 -->
+	<path id="project.classpath">
+		<fileset dir="${glue.dir}/lib/gluelib">
+			<include name="*.jar"/>
+		</fileset>
+		<fileset dir="${glue.dir}/lib/miplatformlib">
+			<include name="*.jar"/>
+		</fileset>			
+		<fileset dir="${glue.dir}/lib/stdlib">
+			<include name="*.jar"/>
+		</fileset>			
+	</path>
+	
+	<!--초기화-->
+	<target name="init">
+		<echo message="초기화를 시작합니다."/>
+		<!-- 빌드 관련 디렉토리 생성 -->
+		<mkdir dir="${build.dir}/WEB-INF/classes"/>
+		<mkdir dir="${build.dir}/WEB-INF/classes/query"/>		
+		<mkdir dir="${build.dir}/WEB-INF/classes/service"/>		
+		<mkdir dir="${build.dir}/WEB-INF/lib"/>
+		<mkdir dir="${report.dir}"/>
+
+		<!-- Glue Framework 관련 XML 파일을 빌드 디렉토리로 복사 -->
+		<copy todir="${build.dir}/WEB-INF/">
+			<fileset dir="${glue.dir}">
+				<include name="*.xml"/>
+				<exclude name="**/cvs/**"/>
+			</fileset>
+		</copy>		
+
+		<!-- Config 관련 XML 파일을 빌드 디렉토리로 복사 -->
+		<copy todir="${build.dir}/WEB-INF/classes">
+			<fileset dir="${conf.dir}">
+				<include name="*.*"/>
+				<exclude name="**/cvs/**"/>
+			</fileset>
+		</copy>				
+		
+		<!-- Glue Framework 관련 라이브러리를 빌드 디렉토리로 복사 -->
+		<copy todir="${build.dir}/WEB-INF/lib">
+			<fileset dir="${glue.dir}/lib/gluelib">
+				<include name="*.jar"/>
+				<exclude name="**/cvs/**"/>
+			</fileset>
+			<fileset dir="${glue.dir}/lib/stdlib">
+				<include name="*.jar"/>
+				<exclude name="**/cvs/**"/>
+			</fileset>		
+			<fileset dir="${glue.dir}/lib/miplatformlib">
+				<include name="*.jar"/>
+				<exclude name="**/cvs/**"/>
+			</fileset>						
+		</copy>
+	
+		<!-- query.xml을 빌드 디렉토리로 복사 -->
+		<copy todir="${build.dir}/WEB-INF/classes/query">
+			<fileset dir="${src.dir}/query">
+				<exclude name="**/cvs/**"/>
+			</fileset>
+		</copy>
+
+		<!-- service.xml을 빌드 디렉토리로 복사 -->
+		<copy todir="${build.dir}/WEB-INF/classes/service">
+			<fileset dir="${src.dir}/service">
+				<exclude name="**/cvs/**"/>
+			</fileset>
+		</copy>
+		
+		<!-- 개발자PC의 경우 컴파일된 클래스를 빌드 디렉토리로 복사 -->
+		<copy todir="${build.dir}/WEB-INF/classes">
+			<fileset dir="${class.dir}">
+				<exclude name="**/cvs/**"/>
+			</fileset>
+		</copy>
+		
+		<!-- 레포트 파일 -->
+				<copy todir="${report.dir}">
+					<fileset dir="${basedir}/report_file">
+						<exclude name="**/cvs/**"/>
+					</fileset>
+				</copy>
+	</target>
+	         			
+	<!--별도의 eclipse build 기능을 활용하지 않고 자바 소스를 컴파일 -->
+<!--	
+    <target name="compile">
+        <javac srcdir= "${src.dir}" 
+        destdir="${build.dir}/WEB-INF/classes"
+        debug="on">
+        	<classpath refid="project.classpath"/>
+        </javac>
+    </target>
+-->
+         
+	<!--war파일 압축 -->
+<!--	
+    <target name="war">
+		<echo message="WAR를 생성합니다."/>    	
+        <jar destfile="${war.name}" basedir="${build.dir}" />  
+    </target>
+-->
+	<!--개발자 PC의 JEUS Deploy HOME으로 WAR 파일 복사 -->
+<!--	
+    <target name="deploy">
+		<echo message="deploy합니다."/>    	
+		<copy todir="${deploy.dir}"  overwrite="true">
+			<fileset dir="${basedir}">
+				<include name="${war.name}"/>
+			</fileset>
+		</copy>   	
+    </target>
+-->
+
+	<!-- 개발자PC의 경우 웹 Apps를 JEUS 컨테이너로 복사 -->
+	<target name="deploy">
+		<mkdir dir="${container.dir}/${project.name}"/>
+		<copy todir="${container.dir}/${project.name}" overwrite="true">
+			<fileset dir="${build.dir}"/>
+		</copy>
+	</target>	
+	
+	<!--개발서버의 JEUS Deploy HOME으로 WAR 파일 복사 -->
+	<!--
+    <target name="deploy">
+		<echo message="deploy합니다."/>    	
+		<ftp server="150.103.20.28" 
+		 userid="snis" password="snis"
+		 remotedir="${server.target}">
+		 <fileset dir="${war.name}"/>
+		 </ftp>   	
+    </target>
+    -->	
+	
+	<!--build 디렉토리 삭제-->
+    <target name="clean">
+    	<echo message="build 디렉토리를 삭제합니다."/>
+    	<delete includeEmptyDirs="true">
+    		<fileset dir="${build.dir}"/>
+    	</delete>
+    </target>	
+
+</project>
+

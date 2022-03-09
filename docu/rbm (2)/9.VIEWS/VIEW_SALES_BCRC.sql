@@ -1,0 +1,100 @@
+DROP VIEW USRBM.VIEW_SALES_BCRC;
+
+/* Formatted on 2017-03-18 오전 10:55:29 (QP5 v5.136.908.31019) */
+CREATE OR REPLACE FORCE VIEW USRBM.VIEW_SALES_BCRC
+(
+   STND_YEAR,
+   TMS,
+   DAY_ORD,
+   RACE_DAY,
+   MEET_CD,
+   RACE_NO,
+   SELL_CD,
+   COMM_NO,
+   WIN,
+   PLA,
+   EXA,
+   QUI,
+   TRI,
+   TOT_SALES
+)
+AS
+   SELECT "RACEYY" STND_YEAR,
+          RACETIMES TMS,
+          "RACEDAYS" DAY_ORD,
+          "RACEDATE" RACE_DAY,
+          DECODE (RJANGCD, '003', '004', '099', '003', RJANGCD) AS MEET_CD,
+          "RACENO" RACE_NO,
+          DECODE (TRACKCD,
+                  '003', '04',
+                  '099', '03',
+                  '001', '01',
+                  '002', '02',
+                  TRACKCD)
+             AS SELL_CD,
+          BRANCHCD AS COMM_NO,
+          "WIN",
+          "PLA",
+          "EXA",
+          "QUI",
+          "TRI",
+          (WIN + PLA + EXA + QUI + TRI) AS TOT_SALES
+     FROM BCRC.VW_SALES_N@BCRCDBLINK
+    WHERE RACEYY > '2012' AND BRANCHCD IS NOT NULL
+   UNION ALL
+   SELECT "RACEYY" STND_YEAR,
+          RACETIMES TMS,
+          "RACEDAYS" DAY_ORD,
+          "RACEDATE" RACE_DAY,
+          DECODE (RJANGCD, '003', '004', '099', '003', RJANGCD) AS MEET_CD,
+          "RACENO" RACE_NO,
+          DECODE (TRACKCD,
+                  '003', '04',
+                  '099', '03',
+                  '001', '01',
+                  '002', '02',
+                  TRACKCD)
+             AS SELL_CD,
+          BRANCHCD AS COMM_NO,
+          "WIN",
+          "PLA",
+          "EXA",
+          "QUI",
+          "TRI",
+          (WIN + PLA + EXA + QUI + TRI) AS TOT_SALES
+     FROM BCRC.VW_SALES@BCRCDBLINK
+    WHERE RACEYY < '2013';
+COMMENT ON TABLE USRBM.VIEW_SALES_BCRC IS '부산 매출액';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.STND_YEAR IS '경주년도';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.TMS IS '회차';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.DAY_ORD IS '일차';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.RACE_DAY IS '경주일자';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.MEET_CD IS '시행처(001:광명, 002:창원,003:미사리,004:부산)';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.RACE_NO IS '경주번호';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.SELL_CD IS '판매처(01:광명, 02:창원,03:미사리,04:부산)';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.COMM_NO IS '지점코드(부산)
+    101 광복
+    102 서면
+    003 본장
+    005 본장 전자카드
+    006 광복 전자카드';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.WIN IS '단승';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.PLA IS '연승';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.EXA IS '복승';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.QUI IS '쌍승식';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.TRI IS '삼복승';
+
+COMMENT ON COLUMN USRBM.VIEW_SALES_BCRC.TOT_SALES IS '매출액';

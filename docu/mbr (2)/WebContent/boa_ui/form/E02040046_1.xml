@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="350" Id="E02040046_1" Left="8" OnLoadCompleted="fcFormLoadSetting" OnUnloadCompleted="fcFormUnloadProcess" PidAttrib="7" Title="자동선별" Top="8" Ver="1.0" Width="300" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsInComCd">
+				<Contents>
+					<colinfo id="DSNAME" size="20" type="STRING"/>
+					<colinfo id="CD_GRP_ID" size="6" type="STRING"/>
+					<colinfo id="QUERY_ID" size="256" type="STRING"/>
+					<colinfo id="DESCRIPTION" size="256" type="STRING"/>
+					<colinfo id="ALL_YN" size="1" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsOutOrganAbleRacer">
+				<Contents>
+					<colinfo id="RACE_NO" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Grid AutoEnter="TRUE" AutoFit="TRUE" AutoFitEndLine="Hide" BindDataset="dsOutOrganAbleRacer" BKColor="user15" BkColor2="user16" BkSelColor="user17" BoldHead="true" Border="Flat" BorderColor="user22" Bottom="320" Editable="TRUE" Enable="true" EndLineColor="default" FillArea="TRUE" HeadBorder="Flat" HeadHeight="20" Height="292" Id="grdRaceGap" InputPanel="FALSE" Left="6" LineColor="user18" MinWidth="100" OnCellDBLClick="grdRaceGap_OnCellDblClick" OnHeadClick="fcGridSort" Right="292" SelColor="user19" Style="snis_grid" TabOrder="3" TabStop="true" Top="28" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="286">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="80"/>
+						<col width="83"/>
+						<col width="70"/>
+					</columns>
+					<head>
+						<cell bkcolor="user20" col="0" color="user21" display="text" font="굴림,9" text="선수번호"/>
+						<cell bkcolor="user20" col="1" color="user21" display="text" font="굴림,9" text="선수명"/>
+						<cell bkcolor="user20" col="2" color="user21" display="text" font="굴림,9" text="평균평가점"/>
+					</head>
+					<body>
+						<cell align="center" col="0" colid="RACER_NO" display="text"/>
+						<cell align="center" col="1" colid="NM_KOR" display="text"/>
+						<cell align="center" col="2" colid="SCORE" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Image Height="20" Id="imgFormTitle" ImageID="m_titleblet" Left="8" TabOrder="2" Top="8" Width="17"></Image>
+		<Static Height="22" Id="stFormTitle" Left="30" Style="snis_m_title" TabOrder="1" Text="자동선별" Top="6" VAlign="Middle" Width="262"></Static>
+		<Button Align="Left" ButtonStyle="TRUE" Height="20" Id="btnClose" ImageID="btn_txt_02" Left="242" LeftMargin="15" OnClick="btnClose_OnClick" Style="snis_btn" TabOrder="4" Text="닫기" Top="324" Transparent="TRUE" Width="50"></Button>
+		<Static Height="23" Id="stInfo" Left="108" TabOrder="5" Top="10" Width="188"></Static>
+		<Static Height="23" Id="stTotCnt" Left="11" TabOrder="6" Top="327" Width="188"></Static>
+	</Form>
+	<Script><![CDATA[/***************************************************************************************************
+*   Form Common Script                                                                             *
+*     현재 총 100 컬럼임 되도록 100 컬럼 안으로 코딩을 하세요                                      *
+123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 1234567890
+***************************************************************************************************/
+
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::boa_common_script.js";
+#include "lib::boa_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = 'E02040048';
+var sBUTTONLIST   = 'TTFFFT';                          //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       ;                                    //현재 LOST FOCUS 오브젝트
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {
+	//화면환경 설정
+	sFORMCAPTION  = obj.Title;
+	sFORMLOCATION = "";
+	
+	//화면 정보 Display 및 Button 권한 설정
+//	fnc_FormLoadSetting(obj, sFORMCAPTION, sFORMLOCATION, sBUTTONLIST, sUSERAUTH);
+	
+	//초기 화면 BK Color설정 
+	fnc_SetBKColor(this);
+
+    //년도조회
+//    fce_SetStndYear(dsOutSStndYear, toInteger(fce_GetSysdate("YYYY")));
+//    cboSStndYear.Index = 0;
+
+	//공통코드 조회
+	//fce_GetComboDs(dsInComCd);
+	
+	// 화면 초기화
+	fcInit();
+	
+	// 조회
+	//fcSearchRacer();
+	
+	fcSearch();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	//자료 변경 여부를 체크하고자 하는  DataSet Object를 넘긴다.
+	var sDataset = "";
+	if ( !fnc_FormUnloadCheck(sDataset , sFormId) ) return false;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	//Return Key Press時 Next Component focus
+	if ( nChar == 13 ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+
+	//Control Key가 눌려져 있다면 단축키 처리
+	//if (bControl) fnc_HotKey(this, nChar);
+}
+
+/***************************************************************************************************
+*                                      공통 버튼 Event 처리 부분                                   *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  취소 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInit(obj) {
+    dsOutOrganAbleRacer.ClearData();
+    
+    stInfo.Text = Arg_sRaceNo + " 경주 " + Arg_sSeletedRegNo + " 번";
+    if(!fnc_IsNull(Arg_sSeletedNmKor)) stInfo.Text += " 현재선수 " +  Arg_sSeletedNmKor; 
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSearchCheck(obj) {
+	
+	return true;
+}
+
+function fcSearch(obj) {
+    if ( !fcSearchCheck(obj) ) return;
+
+	var sServiceName = "e02040046-service:searchOrganAbleRacer";
+    var sInDataSet   = "";
+    var sOutDataSet  = "dsOutOrganAbleRacer=dsOutOrganAbleRacer ";
+    
+    
+    fce_AddParam("STND_YEAR", Arg_sStndYear);
+    fce_AddParam("MBR_CD"   , Arg_sMbrCd   );
+    fce_AddParam("TMS"      , Arg_sTms     );
+    fce_AddParam("DAY_ORD"  , Arg_sDayOrd  );
+    fce_AddParam("RACE_NO"  , Arg_sRaceNo  );
+    
+    // 선택된 정번
+    fce_AddParam("RACER_NO_1", "");
+    fce_AddParam("REG_NO_1"  , Arg_sSeletedRegNo);
+    
+	
+	// 밑에 최대 7개의 파라미터가 생성됨.
+    var idx = 2;
+  
+	if(Arg_sSeletedRegNo != 1){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo1);
+		fce_AddParam("REG_NO_" + idx++  , "1");
+	}
+	if(Arg_sSeletedRegNo != 2){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo2);
+		fce_AddParam("REG_NO_" + idx++  , "2");
+	}
+	if(Arg_sSeletedRegNo != 3){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo3);
+		fce_AddParam("REG_NO_" + idx++  , "3");
+	}
+	if(Arg_sSeletedRegNo != 4){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo4);
+		fce_AddParam("REG_NO_" + idx++  , "4");
+	}
+	if(Arg_sSeletedRegNo != 5){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo5);
+		fce_AddParam("REG_NO_" + idx++  , "5");
+	}
+	if(Arg_sSeletedRegNo != 6){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo6);
+		fce_AddParam("REG_NO_" + idx++  , "6");
+	}
+	if(Arg_sSeletedRegNo != 7){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo7);
+		fce_AddParam("REG_NO_" + idx++  , "7");
+	}
+	if(Arg_sSeletedRegNo != 8){
+		fce_AddParam("RACER_NO_" + idx  , Arg_sRacerNo8);
+		fce_AddParam("REG_NO_" + idx++  , "8");
+	}
+
+	// 가편성정보 
+	fce_AddParam("ORGAN_OWNER_ID", Arg_sOrganOwnerId);
+	fce_AddParam("ORGAN_SEQ", Arg_sOrganSeq);
+	fce_AddParam("CHECK_TMS", Arg_sCheckTms);
+
+	fce_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack");
+	
+	grdRaceGap.Redraw = false;
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcSaveCheck(obj) {
+	return true;
+}
+
+function fcSave(obj) {
+    if ( !fcSaveCheck(obj) ) return;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcToExcel(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  인쇄 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcPrint(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	//화면 종료
+	Close();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행추가 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcAddRow(obj) {
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcDelRow(obj) {
+
+}
+
+/***************************************************************************************************
+*                                      공통 Function 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Text Box가 Focus를 받을 때
++-------------------------------------------------------------------------------------------------*/
+function fcEditFocus(obj) {
+	fnc_EditFocus(obj);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Help Popup Open
++-------------------------------------------------------------------------------------------------*/
+function fcHelpDialoge(obj,nX,nY) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드에서 팝업 처리 
++-------------------------------------------------------------------------------------------------*/
+function fcGrdOnExpandEdit(objGrd, nRow, nCell, strVal, nPivotIndex){
+	
+}
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+
+	if ( !fnc_Result(ErrorCode, ErrorMSG) ) return;
+	
+	// 공통코드 조회시
+	if ( sServiceName == "common-service:searchCode" ) {
+        return;
+	}
+
+	// 조회 후
+	if ( sServiceName == "e02040046-service:searchOrganAbleRacer" ) {
+	
+		
+	
+		// 동일기수 3명 이상 제거
+		fcRemoveSamePeriodRacer();		
+		
+		// 화면에 홀드 되어 있는 선수 제거
+		fcRemoveHoldRacer();
+	
+		// 코스별 진입횟수를 고려. 비어있는 코스에 들어갈 수 없는 선수 제거
+		fcRemoveCourseRacer();
+		
+		grdRaceGap.Redraw = true;
+		
+		stTotCnt.Text += "총 " + dsOutOrganAbleRacer.GetRowCount() + " 명";
+		
+		// 예상 평균점 생성
+		fcSetListAvgScr();
+		
+        return;
+	}
+
+	//오류가 없이 정상 처리되었다면...
+	fcPostProcess(sServiceName);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 Post Process!
++-------------------------------------------------------------------------------------------------*/
+function fcPostProcess(sServiceName) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  코드나 명 입력 후 Lost Focus 시 해당 정보 Display
++-------------------------------------------------------------------------------------------------*/
+function fcCodeNameDisplay(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  닫기버튼 클릭시
++-------------------------------------------------------------------------------------------------*/
+function btnClose_OnClick(obj)
+{
+	close(false);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면에 홀드 되어 있는 선수 제거
++-------------------------------------------------------------------------------------------------*/
+function fcRemoveHoldRacer() {
+
+	var raceAllocCnt = 0;
+	var sRacerNo = "";
+	
+	for(var m = dsOutOrganAbleRacer.GetRowCount()-1; m >= 0; m--){	// 가능선수
+		
+		raceAllocCnt = toInteger(dsOutOrganAbleRacer.GetColumn(m, "RACE_ALLOC_CNT"));
+		sRacerNo = dsOutOrganAbleRacer.GetColumn(m, "RACER_NO");
+		
+		for(var i = 0; i < dsOutRace.GetRowCount(); i++){		// 경주수
+		
+			if ( object( "chkRace" + (i+1)).Value != "1" ) continue;	// 홀드된 경주만
+		
+			for(var j = 0; j < toInteger(dsOutRace.GetColumn(i, "RACE_REG_NO_CNT")); j++){ // 정번수
+				var objDs = object("dsOutRacer_" + dsOutRace.GetColumn(i, "RACE_NO") + "_" + (j+1));
+
+				if(objDs.GetColumn(0, "RACER_NO")==sRacerNo){
+					raceAllocCnt--;
+				}
+			}
+			if(raceAllocCnt==0) break;
+		}
+		
+		if(raceAllocCnt==0){	// 출주수가 0이면 제거
+			dsOutOrganAbleRacer.DeleteRow(m);
+		}
+	}
+}
+	
+/*-------------------------------------------------------------------------------------------------+
+>>  코스별 진입횟수를 고려. 비어있는 코스에 들어갈 수 없는 선수 제거 - 
+>>  가장출주수가 많은 코스와 검증정번이 같은 경우만 제거. 
++-------------------------------------------------------------------------------------------------*/
+function fcRemoveCourseRacer() {
+
+	var sRacerNo = "";
+	var isCheck = "N";
+	var maxCnt = 0;
+	var maxRegStr = "";
+	var tempArr;
+	
+	var currRaceRegCnt = toInteger(dsOutRace.GetColumn(toInteger(Arg_sRaceNo)-1, "RACE_REG_NO_CNT"));  // 자동선별 경주의 정번수
+
+	for(var m = dsOutOrganAbleRacer.GetRowCount()-1; m >= 0; m--){	// 가능선수
+
+		sRacerNo = dsOutOrganAbleRacer.GetColumn(m, "RACER_NO");
+		isCheck = "N";
+		maxCnt = 0;
+		maxRegStr = "";
+		
+		for(var i = 0; i < dsOutRace.GetRowCount(); i++){		// 경주수
+		
+			for(var j = 0; j < toInteger(dsOutRace.GetColumn(i, "RACE_REG_NO_CNT")); j++){ // 정번수
+				var objDs = object("dsOutRacer_" + dsOutRace.GetColumn(i, "RACE_NO") + "_" + (j+1));
+
+				if(objDs.GetColumn(0, "RACER_NO")==sRacerNo){
+					//trace("DEL0 ::: " + sRacerNo);
+					// 빈도수가 가장 높은 수를 찾는다
+					maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_1"));
+					if(maxCnt < toInteger(objDs.GetColumn(0, "RACE_CNT_2"))) maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_2"));
+					if(maxCnt < toInteger(objDs.GetColumn(0, "RACE_CNT_3"))) maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_3"));
+					if(maxCnt < toInteger(objDs.GetColumn(0, "RACE_CNT_4"))) maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_4"));
+					if(maxCnt < toInteger(objDs.GetColumn(0, "RACE_CNT_5"))) maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_5"));
+					if(maxCnt < toInteger(objDs.GetColumn(0, "RACE_CNT_6"))) maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_6"));
+					if(currRaceRegCnt>=7 && maxCnt < toInteger(objDs.GetColumn(0, "RACE_CNT_7"))) maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_7"));
+					if(currRaceRegCnt==8 && maxCnt < toInteger(objDs.GetColumn(0, "RACE_CNT_8"))) maxCnt = toInteger(objDs.GetColumn(0, "RACE_CNT_8"));
+					
+					// 빈도수가 가장 높은 수와 같은지 비교 후 정번 문자열 포함.
+					if(maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_1"))) maxRegStr += " 1";
+					if(maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_2"))) maxRegStr += " 2";
+					if(maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_3"))) maxRegStr += " 3";
+					if(maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_4"))) maxRegStr += " 4";
+					if(maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_5"))) maxRegStr += " 5";
+					if(maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_6"))) maxRegStr += " 6";
+					if(currRaceRegCnt>=7 && maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_7"))) maxRegStr += " 7";
+					if(currRaceRegCnt==8 && maxCnt==toInteger(objDs.GetColumn(0, "RACE_CNT_8"))) maxRegStr += " 8";
+					
+					tempArr = split(trim(maxRegStr), " ");
+				
+					if(currRaceRegCnt != tempArr.length()){
+						if(indexOf(maxRegStr, Arg_sSeletedRegNo)>-1){
+							dsOutOrganAbleRacer.DeleteRow(m);
+						}
+					}
+					
+					isCheck = "Y";
+					break;
+				}
+			}
+			if(isCheck == "Y") break;
+		}
+	}
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  동일기수 3명 이상 제거
++-------------------------------------------------------------------------------------------------*/
+function fcRemoveSamePeriodRacer() {
+
+
+	var nRaceNo = toInteger(cboRaceNo.Text);
+    var racerCnt = dsOutRace.GetColumn(nRaceNo-1, "RACE_REG_NO_CNT");    
+    
+    var aRacer = Array(racerCnt);
+    
+    var dsObj;
+    var dsObj2;
+    
+    for ( var i = 1; i <= racerCnt; i ++ ) {
+
+		aRacer[i-1] = 0;
+		
+		if ( fnc_IsNull(object("dsOutRacerTemp" + i).GetColumn(0, "RACER_NO")) ) continue;    
+		dsObj = split(object("dsOutRacerTemp" + i).GetColumn(0, "RACER_NO"), "-");
+		
+		for ( var j = 1; j <= racerCnt; j ++ ) {
+		
+			if( fnc_IsNull(object("dsOutRacerTemp" + j).GetColumn(0, "RACER_NO")) ) continue;    
+			dsObj2 = split(object("dsOutRacerTemp" + j).GetColumn(0, "RACER_NO"), "-");
+			
+			if( dsObj[0] == dsObj2[0]){
+				aRacer[i-1] = aRacer[i-1] + 1;
+			}
+		}
+    }
+    
+    var tempObj;
+    var tempObj2;
+    
+    for ( var i = 0; i < aRacer.length; i ++ ) {
+    
+		if(aRacer[i]>=2){
+			
+			tempObj = split(object("dsOutRacerTemp" + (i+1)).GetColumn(0, "RACER_NO"), "-");
+			
+			for(var m = dsOutOrganAbleRacer.GetRowCount()-1; m >= 0; m--){	// 가능선수
+				
+				tempObj2 = split(dsOutOrganAbleRacer.GetColumn(m, "RACER_NO"), "-");
+				
+				if( tempObj[0] == tempObj2[0]){
+					dsOutOrganAbleRacer.DeleteRow(m);
+				}
+			}			
+		}
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  더블 클릭시 해당 선수 편성
++-------------------------------------------------------------------------------------------------*/
+function grdRaceGap_OnCellDblClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+{
+	var sRacerNo = dsOutOrganAbleRacer.GetColumn(nRow, "RACER_NO");
+		
+	for(var i = 0; i < dsOutRace.GetRowCount(); i++){		// 경주수
+	
+		if ( object( "chkRace" + (i+1)).Value == "1" ) continue;	// 홀드안된 경주만
+	
+		for(var j = 0; j < toInteger(dsOutRace.GetColumn(i, "RACE_REG_NO_CNT")); j++){ // 정번수
+			var objDs = object("dsOutRacer_" + dsOutRace.GetColumn(i, "RACE_NO") + "_" + (j+1));
+
+			if(objDs.GetColumn(0, "RACER_NO")==sRacerNo){
+				object("dsOutRacerTemp" + Arg_sSeletedRegNo).Copy(objDs);
+				
+				// 평균 점수산출
+				var nCount = global.AllWindows.count;
+				for ( var i = 0; i < nCount; i++ ) {
+					if ( global.AllWindows[i].id == "E02040046" ) {
+						global.AllWindows[i].fcSetAvgScr();
+					}
+				}				
+				
+				close(false);
+				
+				return;
+			}
+		}
+	}
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  선수별 평균 점수산출
++-------------------------------------------------------------------------------------------------*/
+function fcSetListAvgScr() {
+
+    var nAvgScr = 0;
+    var nCount  = 0;
+    var nTotScr = 0;
+    
+	var nRaceNo = toInteger(cboRaceNo.Text);
+	var racerCnt = dsOutRace.GetColumn(nRaceNo-1, "RACE_REG_NO_CNT");    
+    
+    for ( var i = 1; i <= racerCnt; i ++ ) {
+        if ( fnc_IsNull(object("dsOutRacerTemp" + i).GetColumn(1, "RACER_NO")) ) continue;
+        nTotScr += toNumber(object("dsOutRacerTemp" + i).GetColumn(1, "ENTRY_BODY_WGHT"));
+        nCount++;
+    }
+
+	var sRacerNo = "";
+	var isSet = "N";
+	var eachTotScr = 0;
+
+	for(var m = dsOutOrganAbleRacer.GetRowCount()-1; m >= 0; m--){	// 가능선수
+
+		sRacerNo = dsOutOrganAbleRacer.GetColumn(m, "RACER_NO");
+		isSet = "N";
+		eachTotScr = 0;
+		
+		for(var i = 0; i < dsOutRace.GetRowCount(); i++){		// 경주수
+		
+			for(var j = 0; j < toInteger(dsOutRace.GetColumn(i, "RACE_REG_NO_CNT")); j++){ // 정번수
+				var objDs = object("dsOutRacer_" + dsOutRace.GetColumn(i, "RACE_NO") + "_" + (j+1));
+
+				if(objDs.GetColumn(0, "RACER_NO")==sRacerNo){
+					
+					eachTotScr = nTotScr + toNumber(objDs.GetColumn(1, "ENTRY_BODY_WGHT"));
+					//trace("DEL0 ::: " + sRacerNo + "  " + eachTotScr);
+					dsOutOrganAbleRacer.SetColumn(m, "SCORE", Round(eachTotScr/(nCount+1), 2));
+					isSet = "Y";
+					break;
+				}
+			}
+			if(isSet == "Y") break;
+		}
+	}    
+}
+]]></Script>
+</Window>

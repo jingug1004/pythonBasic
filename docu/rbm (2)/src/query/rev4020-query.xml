@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV4020(개인별세부평가결과)">
+	<query id="rev4020_s01" desc="개인별세부평가결과 조회" fetchSize="10">
+		<![CDATA[
+			SELECT /* rev4020_s01 */
+				   A.ESTM_YEAR 
+		          ,A.ESTM_NUM 
+		          ,A.DEPT_CD 
+		          ,A.DEPT_NM 
+		          ,A.WK_JOB_CD 
+		          ,A.WK_JOB_NM 
+		          ,A.EMP_NO 
+		          ,A.EMP_NM 
+		          ,A.PRM_SCR 
+		          ,A.MNR_SCR 
+		          ,A.SRV_SCR 
+		          ,A.MULT_SCR 
+		          ,A.TOT_SCR 
+		          ,A.CNTR_ITM_CD 
+		          ,A.CNTR_ITM_NM 
+		          ,A.TOT_GRD 
+		          ,DECODE(NVL(B.CFM_CNT, 0), 0, '미확인', '확인') AS CFM_YN 
+		      FROM TBRF_EV_TOTAL_RSLT A 
+		          ,( SELECT  ESTM_YEAR    
+		                     ,ESTM_NUM    
+		                     ,EMP_NO    
+		                     ,COUNT(*) AS CFM_CNT         
+		                FROM TBRF_EV_OUT_LOG    
+		              WHERE 1 = 1    
+		              AND JSP_PAGE = 'estmResult.jsp'    
+		              --AND SEQ = '1'    
+		              AND CONN_TIME IS NOT NULL    
+		             GROUP BY ESTM_YEAR    
+		                     ,ESTM_NUM    
+		                     ,EMP_NO ) B 
+		     WHERE 1 = 1 
+		       AND A.ESTM_YEAR = B.ESTM_YEAR(+) 
+		       AND A.ESTM_NUM  = B.ESTM_NUM(+) 
+		       AND A.EMP_NO = B.EMP_NO(+) 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND DECODE(?, '', '1', A.DEPT_CD  ) = DECODE(?, '', '1', ?) 
+		       AND DECODE(?, '', '1', A.WK_JOB_CD) = DECODE(?, '', '1', ?)  
+		       AND A.EMP_NM LIKE '%' || NVL(?, A.EMP_NM) || '%' 
+		  ORDER BY A.CNTR_ITM_CD, A.DEPT_CD, A.WK_JOB_CD 
+        ]]>
+	</query>
+	
+	 <query id="rev4020_s02" desc="마감여부 조회 " fetchSize="10">
+        <![CDATA[
+            SELECT   /* rev4020_s02 */
+                     ESTM_YEAR,
+                     ESTM_NUM,
+                     'Y' AS LAST_ESTM_END_YN
+            FROM     TBRF_EV_MASTER
+            WHERE ESTM_YEAR = ?
+                AND ESTM_NUM = ?
+        ]]>
+    </query>  
+    
+	 <query id="rev4020_s03" desc="평가 시기 조회 " fetchSize="10">
+        <![CDATA[
+            SELECT   /* rev4020_s03 */
+                     CASE WHEN SUBSTR(ESTM_STR_DT,5,2) = '12' AND ESTM_NUM = '1' THEN '연간'
+                          WHEN TO_NUMBER(TO_CHAR(TO_DATE(ESTM_STR_DT,'YYYYMMDD'),'MM')) >6 THEN '하반기'  
+                          ELSE '상반기' END AS ESTM_TERM_NM
+            FROM     TBRF_EV_MASTER
+            WHERE    ESTM_YEAR = ?
+                AND  ESTM_NUM = ?
+        ]]>
+    </query>  
+    
+    
+    <query id="rev4020_m01" desc="개인별 최종평가등급 전송(USHUM) " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rev4020_m01 */
+                  USHUM.TBAC_VALT_D DST
+           USING (
+                     SELECT   ? AS VALT_YYYY
+                             ,? AS HALF_YEAR
+                             ,? AS EMP_NO
+                             ,? AS GRADE
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.VALT_YYYY = SRC.VALT_YYYY
+                     AND DST.HALF_YEAR = SRC.HALF_YEAR
+                     AND DST.EMP_NO    = SRC.EMP_NO
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.GRADE 		 = SRC.GRADE
+                        ,DST.UPDT_EMP_NO = SRC.USER_ID
+                        ,DST.UPDT_DT 	 = SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  VALT_YYYY
+                , HALF_YEAR
+                , EMP_NO
+                , GRADE
+                , REG_EMP_NO
+                , REG_DT
+               ) VALUES (
+                  SRC.VALT_YYYY
+                , SRC.HALF_YEAR
+                , SRC.EMP_NO
+                , SRC.GRADE
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+</queryMap>

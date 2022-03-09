@@ -1,0 +1,1227 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_racer_race_alloc(선수별출주배정)">
+    <query id="tbeb_racer_race_alloc_fb001" desc="선수주선출주횟수조회" fetchSize="10">
+        <![CDATA[
+			SELECT    /* tbeb_racer_race_alloc_fb001 */
+			          TPM  .RACER_NO
+			        , TPM  .RACER_GRD_CD
+			        , TPM  .NM_KOR
+			        , TPM  .RACER_STAT_CD
+			        , TPM  .FAVOR_COURSE_CD
+			        , TPM  .EMAIL_ADDR
+			        , TPM  .RACER_PERIO_NO
+			        , TPD  .NATV_PLAC_CD
+			        , TRRAS.TMS_6_AVG_SCR           AVG_SCR
+			        , TRRAS.TMS_6_HIGH_RANK_RATIO   HIGH_RANK_RATIO
+			        , NVL(TRBRA.RACE_ALLOC_CNT, NVL(TSRC.STND_RACE_CNT, 0)) RACE_ALLOC_CNT
+  			        , NVL(TOR  .RACE_CNT, 0) RACE_CNT
+  			        , NVL(TOR  .RACE_CNT_ONLINE, 0) RACE_CNT_ONLINE
+			        , NVL(TOR  .RUN_CNT , 0) RUN_CNT
+			        , NVL(TOR  .RUN_CNT_ONLINE , 0) RUN_CNT_ONLINE
+			        , NVL((NVL(TRBRA.RACE_ALLOC_CNT, TSRC.STND_RACE_CNT) - NVL(NORMAL_RUN_CNT, 0)), 0) REST_RUN_CNT
+			        , NVL(TOR  .NORMAL_RACE_CNT , 0) NORMAL_RACE_CNT
+			        , NVL(TOR  .NORMAL_RUN_CNT  , 0) NORMAL_RUN_CNT
+			        , NVL(TOR  .SPECIAL_RACE_CNT, 0) SPECIAL_RACE_CNT
+			        , NVL(TOR  .SPECIAL_RUN_CNT , 0) SPECIAL_RUN_CNT
+			FROM      TBEC_RACER_MASTER        TPM
+			        , TBEC_RACER_DETAIL        TPD
+			        , (
+			            SELECT
+			                     TSRC.RACER_GRD_CD
+			                   , TSRC.STND_RACE_CNT
+			            FROM   TBEB_STND_RACE_CNT        TSRC
+			            WHERE  TSRC.STND_YEAR    = ?
+			            AND    TSRC.QURT_CD      = ?
+			          ) TSRC -- 등급별기준출주수
+			        , (  
+			            SELECT 
+			                     TRBRA.RACER_NO
+			                   , TRBRA.RACE_ALLOC_CNT
+			            FROM   TBEB_RACER_BAC_RACE_ALLOC TRBRA
+			            WHERE  TRBRA.STND_YEAR   = ?
+			        	AND    TRBRA.QURT_CD     = ?
+			          ) TRBRA -- 선수별기준출주수
+			        , (
+			            SELECT
+			                      RACER_NO
+			                    , SUM(RACE_COUNT) RACE_CNT
+			                    , SUM(RACE_COUNT_ONLINE) RACE_CNT_ONLINE
+			                    , SUM(RUN_COUNT) RUN_CNT
+			                    , SUM(RUN_COUNT_ONLINE) RUN_CNT_ONLINE
+			                    , SUM(CASE WHEN ARRANGE_TPE_CD <> '003' THEN RACE_COUNT
+			                           ELSE 0
+			                      END) NORMAL_RACE_CNT
+			                    , SUM(CASE WHEN ARRANGE_TPE_CD <> '003' THEN RUN_COUNT
+			                           ELSE 0
+			                      END) NORMAL_RUN_CNT
+			                    , SUM(CASE WHEN ARRANGE_TPE_CD  = '003' THEN RACE_COUNT
+			                           ELSE 0
+			                      END) SPECIAL_RACE_CNT
+			                    , SUM(CASE WHEN ARRANGE_TPE_CD  = '003' THEN RUN_COUNT
+			                           ELSE 0
+			                      END) SPECIAL_RUN_CNT
+			            FROM    (
+			                        SELECT 
+			                                  RACER_NO
+			                                , ARRANGE_TPE_CD
+			                                , SUM(RACE_COUNT) RACE_COUNT
+			                                , SUM(RACE_COUNT_ONLINE) RACE_COUNT_ONLINE
+			                                , SUM(RUN_COUNT) RUN_COUNT
+			                                , SUM(RUN_COUNT_ONLINE) RUN_COUNT_ONLINE
+			                        FROM    (
+			                                    SELECT
+			                                             TOR.RACER_NO
+			                                           , TRT.TMS
+			                                           , TRT.ARRANGE_TPE_CD
+			                                           , 1 RACE_COUNT
+			                                           , DECODE(MIN(ST_MTHD_CD), '001', 1, 0) RACE_COUNT_ONLINE
+			                                           , COUNT(*) RUN_COUNT
+			                                           , SUM(DECODE(ST_MTHD_CD, '001', 1, 0)) RUN_COUNT_ONLINE
+			                                    FROM     TBEB_RACE_TMS   TRT
+			                                           , TBEB_ORGAN      TOR
+			                                    WHERE  TRT.STND_YEAR = TOR.STND_YEAR
+			                                    AND    TRT.MBR_CD    = TOR.MBR_CD
+			                                    AND    TRT.TMS       = TOR.TMS
+			                                    AND    (TOR.ABSE_CD  <> '003' OR TOR.ABSE_CD IS NULL)
+			                                    AND    (TRT.STND_YEAR, TRT.MBR_CD, TRT.TMS) IN (
+			                                                                                        SELECT 
+			                                                                                                 TRDO.STND_YEAR
+			                                                                                               , TRDO.MBR_CD
+			                                                                                               , TRDO.TMS
+			                                                                                        FROM     TBEB_RACE_DAY_ORD TRDO
+			                                                                                               , (
+			                                                                                                    SELECT 
+			                                                                                                             MIN(TRDO.RACE_DAY) STR_DT
+			                                                                                                           , MAX(TRDO.RACE_DAY) END_DT
+			                                                                                                    FROM     TBEB_RACE_DAY_ORD TRDO
+			                                                                                                           , TBEB_RACE_TMS     TRT
+			                                                                                                    WHERE  TRT.STND_YEAR = TRDO.STND_YEAR
+			                                                                                                    AND    TRT.MBR_CD    = TRDO.MBR_CD   
+			                                                                                                    AND    TRT.TMS       = TRDO.TMS
+			                                                                                                    AND    TRT.STND_YEAR = ?
+			                                                                                                    AND    TRT.MBR_CD    = ?
+			                                                                                                    AND    TRT.QURT_CD   = ?
+			                                                                                                 ) DT
+			                                                                                        WHERE TRDO.RACE_DAY BETWEEN STR_DT
+			                                                                                                                AND END_DT
+			                                                                                        GROUP BY 
+			                                                                                                 TRDO.STND_YEAR
+			                                                                                               , TRDO.MBR_CD
+			                                                                                               , TRDO.TMS
+			                                                                                   )
+			                                    GROUP BY 
+			                                             TOR.RACER_NO
+			                                           , TRT.TMS
+			                                           , TRT.ARRANGE_TPE_CD
+			                                )
+			                        GROUP BY 
+			                                 RACER_NO
+			                               , ARRANGE_TPE_CD
+			            )
+			            GROUP BY 
+			                     RACER_NO
+			         ) TOR -- 일차별출주수
+			       , (
+						SELECT *
+						FROM   (
+						            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                   , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <= (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   ST_MTHD_CD = '000' --ST방식전체설정
+						       )
+						WHERE  RANK = 1
+			         ) TRRAS -- 선수최근성적
+			WHERE  TPM.RACER_NO       = TPD  .RACER_NO(+)
+			AND    TPM.RACER_NO       = TRBRA.RACER_NO(+)
+			AND    TPM.RACER_NO       = TOR  .RACER_NO(+)
+			AND    TPM.RACER_NO       = TRRAS.RACER_NO(+)
+			AND    TPM.RACER_GRD_CD   = TSRC.RACER_GRD_CD(+)
+			--AND    TPM.RACER_STAT_CD IN ('001', '002')	--선수상태가 취소이면 조회하지 않음('003':취소) @2014.11.22
+            --AND    NVL(TPD.CNL_DT, ?) >= ?					-- 당해년도 취소선수는 조회됨
+			AND    DECODE(TPM.RACER_STAT_CD,'003',TPD.CNL_DT,'29991231') > (
+			                                                          SELECT MIN(RACE_DAY) 
+			                                                          FROM   TBEB_RACE_DAY_ORD 
+			                                                          WHERE  STND_YEAR = ?
+			                                                          AND    MBR_CD    = ?
+			                                                          AND    TMS       = ?)            
+			ORDER BY TPM.RACER_GRD_CD
+			       , TPM.RACER_NO
+		]]>
+    </query> 
+    <query id="tbeb_racer_race_alloc_fb002" desc="일차별출주횟수조회" fetchSize="10">
+        <![CDATA[
+			SELECT   /* tbeb_racer_race_alloc_fb002 */
+			         TRRA.STND_YEAR
+			       , TRRA.MBR_CD
+			       , TRRA.TMS
+			       , TRRA.DAY_ORD
+			       , TRRA.RACER_NO
+			       , TRRA.RACE_ALLOC_CNT
+			       , TRRA.RACE_ONLINE_CNT
+            FROM     TBEB_RACE_DAY_ORD     TRDO
+			       , TBEB_RACER_RACE_ALLOC TRRA
+            WHERE  TRRA.STND_YEAR       = TRDO.STND_YEAR
+            AND    TRRA.MBR_CD          = TRDO.MBR_CD
+            AND    TRRA.TMS             = TRDO.TMS
+            AND    TRRA.DAY_ORD         = TRDO.DAY_ORD
+			AND    TRRA.STND_YEAR       = ?
+			AND    TRRA.MBR_CD          = ?
+			AND    TRRA.TMS       BETWEEN ?
+			                          AND ?
+            AND    TRDO.ORGAN_STAT_CD  <> '002'
+        ]]>
+    </query> 
+    <query id="tbeb_racer_race_alloc_fb003" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT /*  tbeb_racer_race_alloc_fb003 IWORK_SFR-008 경정 선수편성 메뉴 개선  정번8 까지 추가 수정.  */
+	                 TOR  .STND_YEAR
+	               , TOR  .MBR_CD   
+	               , TOR  .TMS      
+	               , TRRA .DAY_ORD  
+	               , TRRA .RACE_ALLOC_CNT
+	               , NVL(NXT.RACE_ALLOC_CNT, TRRAN.RACE_ALLOC_CNT) NEXT_RACE_ALLOC_CNT
+			       , TOR  .RACER_NO ORG_RACER_NO                                            -- 선수등록번호
+			       , ''    RACER_RSN                                                        -- 선수변경사유
+			       , TOR  .RACER_NO                                                         -- 선수등록번호
+			       , TOR  .SPEC_CD                                                         -- 선수등록번호
+			       , TOR  .MOT_NO ORG_MOT_NO                                                -- 모터번호    
+			       , ''    MOT_RSN                                                          -- 모터변경사유
+			       , TOR  .MOT_NO                                                           -- 모터번호    
+			       , SUBSTR(TOR  .MOT_NO, 6, 3) VIEW_MOT_NO                                 -- 모터번호    
+			       , TOR  .BOAT_NO ORG_BOAT_NO                                              -- 보트번호    
+			       , ''    BOAT_RSN                                                         -- 보트변경사유
+			       , TOR  .BOAT_NO                                                          -- 보트번호    
+			       , SUBSTR(TOR  .BOAT_NO, 6, 3) VIEW_BOAT_NO                               -- 모터번호    
+			       , '001' ABSE_CD
+			       , TCI  .SPEC_INFO RMK                           
+			       , TRM  .RACER_GRD_CD
+			       , TRM  .NM_KOR
+			       , TRM  .RACER_STAT_CD
+			       , TRM  .FAVOR_COURSE_CD
+			       , TRM  .EMAIL_ADDR
+			       , TRM  .RACER_PERIO_NO
+			       , ''    ETC_RACE                                                         -- 보트변경사유
+			       , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00024' AND CD = TRD  .NATV_PLAC_CD) NATV_PLAC_CD
+			       , TRD  .NATY_UNIV
+			       , ROUND(NVL(TRI  .ENTRY_BODY_WGHT, TRD.WGHT)) ENTRY_BODY_WGHT
+--			       , ROUND(TRI.ENTRY_BODY_WGHT) ENTRY_BODY_WGHT
+			       , TRI  .ETC
+			       , TRIM(TO_CHAR((NVL(TRRAS.TMS_6_AVG_RANK_SCR, 0) * 0.7) + (NVL(TMRAS.AVG_RANK_SCR, 0) * 0.25) + (NVL(TBRAS.AVG_RANK_SCR, 0) * 0.05), '90.99')) SCR
+			       , RANK() OVER (ORDER BY TRIM(TO_CHAR((NVL(TRRAS.TMS_6_AVG_RANK_SCR, 0) * 0.7) + (NVL(TMRAS.AVG_RANK_SCR, 0) * 0.25) + (NVL(TBRAS.AVG_RANK_SCR, 0) * 0.05), '90.99')) DESC ) RANK
+                   , TRRAS.RACER_RANK                 TRRAS_RACER_RANK
+                   , TRRAS.TMS_6_AMU_RANK_SCR         TRRAS_TMS_6_AMU_RANK_SCR     
+                   , TRRAS.TMS_6_AVG_RANK_SCR         TRRAS_TMS_6_AVG_RANK_SCR     
+                   , TRRAS.TMS_6_AMU_ACDNT_SCR        TRRAS_TMS_6_AMU_ACDNT_SCR    
+                   , TRRAS.TMS_6_AVG_ACDNT_SCR        TRRAS_TMS_6_AVG_ACDNT_SCR    
+                   , TRRAS.TMS_6_AVG_SCR              TRRAS_TMS_6_AVG_SCR          
+                   , TRRAS.TMS_6_WIN_RATIO            TRRAS_TMS_6_WIN_RATIO        
+                   , TRRAS.TMS_6_HIGH_RANK_RATIO      TRRAS_TMS_6_HIGH_RANK_RATIO  
+                   , TRRAS.TMS_6_HIGH_3_RANK_RATIO    TRRAS_TMS_6_HIGH_3_RANK_RATIO
+                   , TRRAS.TMS_6_AVG_STRT_TM          TRRAS_TMS_6_AVG_STRT_TM      
+                   , TRRAS.TMS_8_RANK_ORD             TRRAS_TMS_8_RANK_ORD         
+                   , TRRAS.TMS_6_RACE_CNT             TRRAS_TMS_6_RACE_CNT         
+                   , TRRAS.TMS_6_RANK_1               TRRAS_TMS_6_RANK_1           
+                   , TRRAS.TMS_6_RANK_2               TRRAS_TMS_6_RANK_2           
+                   , TRRAS.TMS_6_RANK_3               TRRAS_TMS_6_RANK_3           
+                   , TRRAS.AMU_RANK_SCR               TRRAS_AMU_RANK_SCR           
+                   , TRRAS.AVG_RANK_SCR               TRRAS_AVG_RANK_SCR           
+                   , TRRAS.AMU_ACDNT_SCR              TRRAS_AMU_ACDNT_SCR          
+                   , TRRAS.AVG_ACDNT_SCR              TRRAS_AVG_ACDNT_SCR          
+                   , TRRAS.BF_AMU_ACDNT_SCR           TRRAS_BF_AMU_ACDNT_SCR      
+                   , TRRAS.BF_AVG_ACDNT_SCR           TRRAS_BF_AVG_ACDNT_SCR      
+                   , TRRAS.AF_AMU_ACDNT_SCR           TRRAS_AF_AMU_ACDNT_SCR      
+                   , TRRAS.AF_AVG_ACDNT_SCR           TRRAS_AF_AVG_ACDNT_SCR      
+                   , TRRAS.AVG_SCR                    TRRAS_AVG_SCR                
+                   , TRRAS.WIN_RATIO                  TRRAS_WIN_RATIO              
+                   , TRRAS.HIGH_RANK_RATIO            TRRAS_HIGH_RANK_RATIO        
+                   , TRRAS.HIGH_3_RANK_RATIO          TRRAS_HIGH_3_RANK_RATIO      
+                   , TRRAS.AVG_STRT_TM                TRRAS_AVG_STRT_TM            
+                   , TRRAS.RUN_CNT                    TRRAS_RUN_CNT                
+                   , TRRAS.RACE_DAY_CNT               TRRAS_RACE_DAY_CNT           
+                   , TRRAS.RACE_CNT                   TRRAS_RACE_CNT               
+                   , TRRAS.TOT_RACE_CNT               TRRAS_TOT_RACE_CNT           
+                   , TRRAS.BF_RACE_CNT                TRRAS_BF_RACE_CNT            
+                   , TRRAS.AF_RACE_CNT                TRRAS_AF_RACE_CNT            
+                   , TRRAS.RANK_1_CNT                 TRRAS_RANK_1_CNT             
+                   , TRRAS.RANK_2_CNT                 TRRAS_RANK_2_CNT             
+                   , TRRAS.RANK_3_CNT                 TRRAS_RANK_3_CNT             
+                   , TRRAS.RANK_4_CNT                 TRRAS_RANK_4_CNT             
+                   , TRRAS.RANK_5_CNT                 TRRAS_RANK_5_CNT             
+                   , TRRAS.RANK_6_CNT                 TRRAS_RANK_6_CNT
+                   , TRRAS.RANK_7_CNT                 TRRAS_RANK_7_CNT
+                   , TRRAS.RANK_8_CNT                 TRRAS_RANK_8_CNT             
+                   , TRRAS.RANK_ETC_CNT               TRRAS_RANK_ETC_CNT           
+                   , TRRAS.DGRE_JUDG_F_CNT            TRRAS_DGRE_JUDG_F_CNT        
+                   , TRRAS.DGRE_JUDG_L_CNT            TRRAS_DGRE_JUDG_L_CNT        
+                   , TRRAS.BF_F_CNT                   TRRAS_BF_F_CNT                  
+                   , TRRAS.AF_F_CNT                   TRRAS_AF_F_CNT                  
+                   , TRRAS.BF_L_CNT                   TRRAS_BF_L_CNT                  
+                   , TRRAS.AF_L_CNT                   TRRAS_AF_L_CNT                  
+                   , TRRAS.ABSE_CNT                   TRRAS_ABSE_CNT               
+                   , TRRAS.RACE_ESC_1_CNT             TRRAS_RACE_ESC_1_CNT         
+                   , TRRAS.RACE_ESC_2_CNT             TRRAS_RACE_ESC_2_CNT         
+                   , TRRAS.FOUL_ELIM_CNT              TRRAS_FOUL_ELIM_CNT          
+                   , TRRAS.ELIM_CNT                   TRRAS_ELIM_CNT               
+                   , TRRAS.FOUL_WARN_CNT              TRRAS_FOUL_WARN_CNT          
+                   , TRRAS.WARN_CNT                   TRRAS_WARN_CNT               
+                   , TRRAS.ATTEN_CNT                  TRRAS_ATTEN_CNT              
+                   , TRRAS.BF_TMS                     TRRAS_BF_TMS                 
+                   , TRRAS.BF_BF_TMS                  TRRAS_BF_BF_TMS              
+                   , TRRAS.BF_BF_BF_TMS               TRRAS_BF_BF_BF_TMS           
+                   , TRRAS.BF_MBR_CD                  TRRAS_BF_MBR_CD              
+                   , TRRAS.BF_BF_MBR_CD               TRRAS_BF_BF_MBR_CD           
+                   , TRRAS.BF_BF_BF_MBR_CD            TRRAS_BF_BF_BF_MBR_CD        
+                   , TMRAS.RUN_CNT                    TMRAS_RUN_CNT                
+                   , TMRAS.RACE_CNT                   TMRAS_RACE_CNT               
+                   , TMRAS.RACE_DAY_CNT               TMRAS_RACE_DAY_CNT           
+                   , TMRAS.RANK_1_CNT                 TMRAS_RANK_1_CNT             
+                   , TMRAS.RANK_2_CNT                 TMRAS_RANK_2_CNT             
+                   , TMRAS.RANK_3_CNT                 TMRAS_RANK_3_CNT             
+                   , TMRAS.RANK_4_CNT                 TMRAS_RANK_4_CNT             
+                   , TMRAS.RANK_5_CNT                 TMRAS_RANK_5_CNT             
+                   , TMRAS.RANK_6_CNT                 TMRAS_RANK_6_CNT
+                   , TMRAS.RANK_7_CNT                 TMRAS_RANK_7_CNT
+                   , TMRAS.RANK_8_CNT                 TMRAS_RANK_8_CNT             
+                   , TMRAS.AMU_RANK_SCR               TMRAS_AMU_RANK_SCR          
+                   , TMRAS.AVG_RANK_SCR               TMRAS_AVG_RANK_SCR           
+                   , TMRAS.WIN_RATIO                  TMRAS_WIN_RATIO              
+                   , TMRAS.HIGH_RANK_RATIO            TMRAS_HIGH_RANK_RATIO        
+                   , TMRAS.HIGH_3_RANK_RATIO          TMRAS_HIGH_3_RANK_RATIO      
+                   , TMRAS.TMS_3_ITRDT_RUN_TM         TMRAS_TMS_3_ITRDT_RUN_TM     
+                   , TMRAS.AVG_ITRDT_RUN_TM           TMRAS_AVG_ITRDT_RUN_TM       
+                   , TMRAS.MAX_ITRDT_RUN_TM           TMRAS_MAX_ITRDT_RUN_TM       
+                   , TMRAS.MIN_ITRDT_RUN_TM           TMRAS_MIN_ITRDT_RUN_TM       
+                   , TMRAS.ITRDT_RUN_TM_DVTN          TMRAS_ITRDT_RUN_TM_DVTN      
+                   , TBRAS.RUN_CNT                    TBRAS_RUN_CNT                
+                   , TBRAS.RACE_CNT                   TBRAS_RACE_CNT               
+                   , TBRAS.RACE_DAY_CNT               TBRAS_RACE_DAY_CNT           
+                   , TBRAS.RANK_1_CNT                 TBRAS_RANK_1_CNT             
+                   , TBRAS.RANK_2_CNT                 TBRAS_RANK_2_CNT             
+                   , TBRAS.RANK_3_CNT                 TBRAS_RANK_3_CNT             
+                   , TBRAS.RANK_4_CNT                 TBRAS_RANK_4_CNT             
+                   , TBRAS.RANK_5_CNT                 TBRAS_RANK_5_CNT             
+                   , TBRAS.RANK_6_CNT                 TBRAS_RANK_6_CNT
+                   , TBRAS.RANK_7_CNT                 TBRAS_RANK_7_CNT
+                   , TBRAS.RANK_8_CNT                 TBRAS_RANK_8_CNT             
+                   , TBRAS.AMU_RANK_SCR               TBRAS_AMU_RANK_SCR          
+                   , TBRAS.AVG_RANK_SCR               TBRAS_AVG_RANK_SCR           
+                   , TBRAS.WIN_RATIO                  TBRAS_WIN_RATIO              
+                   , TBRAS.HIGH_RANK_RATIO            TBRAS_HIGH_RANK_RATIO        
+                   , TBRAS.HIGH_3_RANK_RATIO          TBRAS_HIGH_3_RANK_RATIO      
+                   , TBRAS.TMS_3_ITRDT_RUN_TM         TBRAS_TMS_3_ITRDT_RUN_TM     
+                   , TBRAS.AVG_ITRDT_RUN_TM           TBRAS_AVG_ITRDT_RUN_TM       
+                   , TBRAS.MAX_ITRDT_RUN_TM           TBRAS_MAX_ITRDT_RUN_TM       
+                   , TBRAS.MIN_ITRDT_RUN_TM           TBRAS_MIN_ITRDT_RUN_TM       
+                   , TBRAS.ITRDT_RUN_TM_DVTN          TBRAS_ITRDT_RUN_TM_DVTN  
+                   , PRE  .RACE1    
+                   , PRE  .RACE2    
+			       , NVL(RACE .RACE_CNT_1, 0) RACE_CNT_1
+			       , NVL(RACE .RACE_CNT_2, 0) RACE_CNT_2
+			       , NVL(RACE .RACE_CNT_3, 0) RACE_CNT_3
+			       , NVL(RACE .RACE_CNT_4, 0) RACE_CNT_4
+			       , NVL(RACE .RACE_CNT_5, 0) RACE_CNT_5
+			       , NVL(RACE .RACE_CNT_6, 0) RACE_CNT_6
+			       , NVL(RACE .RACE_CNT_7, 0) RACE_CNT_7
+			       , NVL(RACE .RACE_CNT_8, 0) RACE_CNT_8
+			       , REGNO.PRE_RACE_REG_NO
+			FROM     TBEC_RACER_MASTER        TRM
+			       , TBEC_RACER_DETAIL        TRD
+			       , TBEB_ARRANGE             TOR
+                   , TBEB_RACER_RACE_ALLOC    TRRA
+                   , TBEC_RACER_INTERVIEW     TRI
+                   , (
+						SELECT *
+						FROM   (
+						            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                   , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <= (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체설정
+						       )
+						WHERE  RANK = 1
+                     ) TRRAS -- 선수최근성적
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TMRAS.MOT_NO 
+                                                            ORDER BY TMRAS.STND_YEAR DESC
+                                                                   , TMRAS.TMS DESC 
+                                                       ) RANK
+                                         , TMRAS.*
+                                  FROM   TBEB_MOT_RECD_ACCU_SUM TMRAS
+                                  WHERE  TMRAS.MBR_CD = ?
+                                  AND    TMRAS.STND_YEAR || LPAD(TMRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+                                  AND    TMRAS.ST_MTHD_CD = '000' --ST방식전체설정
+			                   )
+			            WHERE  RANK = 1
+			         ) TMRAS -- 모터최근성적
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO 
+                                                            ORDER BY TBRAS.STND_YEAR DESC
+                                                                   , TBRAS.TMS DESC 
+                                                       ) RANK
+                                         , TBRAS.*
+                                  FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                  WHERE  TBRAS.MBR_CD = ?
+                                  AND    TBRAS.STND_YEAR || LPAD(TBRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+                                  AND    TBRAS.ST_MTHD_CD = '000' --ST방식전체설정
+			                   )
+			            WHERE  RANK = 1
+			         ) TBRAS -- 보트최근성적
+			       , (
+                        SELECT
+                                 RACER_NO
+                               , MIN(DECODE(RACE, 1, RACE_NO || '/' || NVL(RANK, RACE_REG_NO))) RACE1
+                               , MIN(DECODE(RACE, 2, RACE_NO || '/' || NVL(RANK, RACE_REG_NO))) RACE2
+                        FROM            
+                               (
+                                    SELECT 
+                                              TOR.RACER_NO
+                                            , TOR.RACE_NO
+                                            , TOR.RANK
+                                            , TOR.RACE_REG_NO
+                                            , RANK() OVER (PARTITION BY TOR.RACER_NO ORDER BY RACE_NO DESC) RACE
+                                    FROM    TBEB_ORGAN TOR
+                                    WHERE   TOR.STND_YEAR = ?
+                                    AND     TOR.MBR_CD    = ?
+                                    AND     TOR.TMS       = ?
+                                    AND     TOR.DAY_ORD   = ( 
+                                                                SELECT  DAY_ORD - 1
+                                                                FROM    TBEB_RACE_DAY_ORD TRDO
+                                                                WHERE   TRDO.STND_YEAR = ?
+                                                                AND     TRDO.MBR_CD    = ?
+                                                                AND     TRDO.TMS       = ?
+                                                                AND     TRDO.DAY_ORD   = ?
+                                                             )
+                               )
+                        GROUP BY RACER_NO
+                     ) PRE  -- 전일 성적
+                   , ( 
+						SELECT
+						         RACER_NO
+						       , SUM(DECODE(RACE_REG_NO, 1, 1)) RACE_CNT_1
+						       , SUM(DECODE(RACE_REG_NO, 2, 1)) RACE_CNT_2
+						       , SUM(DECODE(RACE_REG_NO, 3, 1)) RACE_CNT_3
+						       , SUM(DECODE(RACE_REG_NO, 4, 1)) RACE_CNT_4
+						       , SUM(DECODE(RACE_REG_NO, 5, 1)) RACE_CNT_5
+						       , SUM(DECODE(RACE_REG_NO, 6, 1)) RACE_CNT_6
+						       , SUM(DECODE(RACE_REG_NO, 7, 1)) RACE_CNT_7
+						       , SUM(DECODE(RACE_REG_NO, 8, 1)) RACE_CNT_8
+						FROM   TBEB_ORGAN
+						WHERE  STND_YEAR = ?
+						AND    RACE_DAY  < (
+							                    SELECT
+							                           MIN(TRDO.RACE_DAY) RACE_DAY
+							                    FROM   TBEB_RACE_DAY_ORD TRDO
+							                    WHERE  TRDO.STND_YEAR = ?
+							                    AND    TRDO.MBR_CD    = ?
+							                    AND    TRDO.TMS       = ?
+							                    AND    TRDO.DAY_ORD   = ?
+						                   )
+						AND    ABSE_CD  <> '003'
+						GROUP BY RACER_NO
+
+				     ) RACE -- 정번별출주수
+				   , (
+						SELECT 
+						         RACER_NO
+						       , RACE_ALLOC_CNT
+						FROM   TBEB_RACER_RACE_ALLOC
+						WHERE  STND_YEAR = ?
+						AND    MBR_CD    = ?
+						AND    TMS       = ?				     
+						AND    DAY_ORD   = ? + 1				     
+                     ) TRRAN -- 익일출주배정수
+				   , (
+						SELECT 
+						         RACER_NO
+						       , COUNT(*) RACE_ALLOC_CNT
+						FROM   TBEB_ORGAN
+						WHERE  STND_YEAR = ?
+						AND    MBR_CD    = ?
+						AND    TMS       = ?
+						AND    DAY_ORD   = ? + 1
+						GROUP BY RACER_NO
+						       , DAY_ORD
+				     ) NXT -- 익일출주수
+				   , (
+			            SELECT  
+			                     RACER_NO   
+			                   , SUBSTR(MAX(SYS_CONNECT_BY_PATH (RACE_REG_NO, '/')), 2) PRE_RACE_REG_NO
+			            FROM   (
+            						SELECT 
+            						         RACER_NO
+            						       , RACE_REG_NO
+			                               , RANK() OVER (PARTITION BY RACER_NO 
+			                                                  ORDER BY RACE_REG_NO
+			                                             ) SEQ
+            						FROM   TBEB_ORGAN
+            						WHERE  STND_YEAR = ?
+            						AND    MBR_CD    = ?
+            						AND    TMS       = ?
+            						AND    DAY_ORD   = ? - 1
+			                   )            			                         
+			            START WITH SEQ = 1
+			            CONNECT BY PRIOR SEQ = SEQ - 1 AND PRIOR RACER_NO = RACER_NO
+			            GROUP BY RACER_NO
+			         ) REGNO -- 전일출주정번
+				   , TBEB_CNF_INSP         TCI
+			WHERE  TOR .RACER_NO  = TRM  .RACER_NO
+            AND    TOR .RACER_NO  = TRD  .RACER_NO (+)
+            AND    TOR .RACER_NO  = TRI  .RACER_NO (+)
+            AND    TOR .RACER_NO  = TRRAS.RACER_NO (+)
+            AND    TOR .RACER_NO  = PRE  .RACER_NO (+)
+            AND    TOR .RACER_NO  = RACE .RACER_NO (+)
+            AND    TOR .MOT_NO    = TMRAS.MOT_NO   (+)
+            AND    TOR .BOAT_NO   = TBRAS.BOAT_NO  (+)
+            AND    TOR .STND_YEAR = TRI  .STND_YEAR(+)
+            AND    TOR .MBR_CD    = TRI  .MBR_CD   (+)
+            AND    TOR .TMS       = TRI  .TMS      (+)
+            AND    TOR .RACER_NO  = TRI  .RACER_NO (+)
+            AND    TOR .STND_YEAR = TRRA .STND_YEAR
+            AND    TOR .MBR_CD    = TRRA .MBR_CD
+            AND    TOR .TMS       = TRRA .TMS
+            AND    TOR .RACER_NO  = TRRA .RACER_NO 
+            AND    TOR .RACER_NO  = TRRAN.RACER_NO (+)
+            AND    TOR .RACER_NO  = NXT  .RACER_NO (+)
+            AND    TOR .RACER_NO  = REGNO.RACER_NO (+)
+            AND    TOR.STND_YEAR  = TCI  .STND_YEAR(+)
+            AND    TOR.MBR_CD     = TCI  .MBR_CD   (+)
+            AND    TOR.TMS        = TCI  .TMS      (+)
+            AND    TOR.RACER_NO   = TCI  .RACER_NO (+)
+            AND    TRRA.RACE_ALLOC_CNT IS NOT NULL
+            AND    TRRA.STND_YEAR = ?
+            AND    TRRA.MBR_CD    = ?
+            AND    TRRA.TMS       = ?
+            AND    TRRA.DAY_ORD   = ?
+            ORDER BY TRRAS.RACER_RANK
+		]]>
+    </query> 
+    <query id="tbeb_racer_race_alloc_ib001" desc="선수별출주배정저장" fetchSize="10">
+        <![CDATA[
+			INSERT /* tbeb_racer_race_alloc_ib001 */
+			       INTO TBEB_RACER_RACE_ALLOC
+			(
+			         STND_YEAR      -- 기준년도    
+		      	   , MBR_CD         -- 경정장코드
+			       , TMS            -- 회차        
+			       , DAY_ORD        -- 일차        
+			       , RACER_NO       -- 선수등록번호
+			       , RACE_ALLOC_CNT -- 출주수      
+			       , RACE_ONLINE_CNT-- 출주수(온라인)
+			       , INST_ID        -- 작성자ID    
+			       , INST_DTM       -- 작성일시    
+			       , UPDT_ID        -- 수정자ID    
+			       , UPDT_DTM       -- 수정일시    
+			) VALUES (
+			         ?              -- 기준년도    
+		      	   , ?              -- 경정장코드
+			       , ?              -- 회차        
+			       , ?              -- 일차        
+			       , ?              -- 선수등록번호
+			       , NVL(?,0)       -- 출주수      
+			       , NVL(?,0)       -- 출주수(온라인)
+			       , ?              -- 작성자ID    
+			       , SYSDATE        -- 작성일시    
+			       , ?              -- 수정자ID    
+			       , SYSDATE        -- 수정일시    
+			)
+        ]]>
+    </query> 
+    <query id="tbeb_racer_race_alloc_ub001" desc="선수별출주배정수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_racer_race_alloc_ub001 */
+			       TBEB_RACER_RACE_ALLOC SET
+  			         RACER_NO       = ?               -- 선수등록번호
+			       , UPDT_ID        = ?               -- 수정자ID    
+			       , UPDT_DTM       = SYSDATE         -- 수정일시    
+			WHERE  STND_YEAR        = ?               -- 기준년도    
+		    AND    MBR_CD           = ?               -- 경정장코드
+			AND    TMS              = ?               -- 회차        
+			AND    DAY_ORD          = NVL(?, DAY_ORD) -- 일차        
+			AND    RACER_NO         = ?               -- 선수등록번호
+        ]]>
+    </query> 
+    <query id="tbeb_racer_race_alloc_ub002" desc="선수별출주배정수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_racer_race_alloc_ub002 */
+			       TBEB_RACER_RACE_ALLOC SET
+  			         RACER_NO       = ?               -- 선수등록번호
+			       , UPDT_ID        = ?               -- 수정자ID    
+			       , UPDT_DTM       = SYSDATE         -- 수정일시    
+			WHERE  STND_YEAR        = ?               -- 기준년도    
+		    AND    MBR_CD           = ?               -- 경정장코드
+			AND    TMS              = ?               -- 회차        
+			AND    DAY_ORD          > ?               -- 일차        
+			AND    RACER_NO         = ?               -- 선수등록번호
+        ]]>
+    </query> 
+    <query id="tbeb_racer_race_alloc_ub003" desc="선수별출주배정수정" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_racer_race_alloc_ub003 */
+			       TBEB_RACER_RACE_ALLOC SET
+  			         RACE_ALLOC_CNT = ( 	-- 출주수(온라인+플라잉)
+  			         	SELECT --출주표에 있는 데이터를 업데이트하고, 없으면 편성기초자료 현황 화면의 데이터를 업데이트한다.
+							DECODE(NVL(CNT,0), 0, NVL(?,0), CNT)
+						FROM (
+							SELECT COUNT(ST_MTHD_CD) CNT FROM TBEB_ORGAN
+							WHERE 1=1
+							AND STND_YEAR = ?
+							AND MBR_CD = ?
+							AND TMS = ?
+							AND DAY_ORD = ?
+							AND RACER_NO = ?
+						)
+  			         )         
+  			       , RACE_ONLINE_CNT = (	-- 출주수(온라인)
+  			       		SELECT --출주표에 있는 데이터를 업데이트하고, 없으면 편성기초자료 현황 화면의 데이터를 업데이트한다.
+							DECODE(NVL(CNT,0), 0, NVL(?,0), CNT)
+						FROM (
+							SELECT COUNT(ST_MTHD_CD) CNT FROM TBEB_ORGAN
+							WHERE 1=1
+							AND STND_YEAR = ?
+							AND MBR_CD = ?
+							AND TMS = ?
+							AND DAY_ORD = ?
+							AND RACER_NO = ?
+							AND ST_MTHD_CD = '001' --온라인스타트
+						)
+  			         )
+			       , UPDT_ID        = ?               -- 수정자ID    
+			       , UPDT_DTM       = SYSDATE         -- 수정일시    
+			WHERE  STND_YEAR        = ?               -- 기준년도    
+		    AND    MBR_CD           = ?               -- 경정장코드
+			AND    TMS              = ?               -- 회차        
+			AND    DAY_ORD          = ?               -- 일차        
+			AND    RACER_NO         = ?               -- 선수등록번호
+        ]]>
+    </query>
+    
+    <query id="tbeb_racer_race_alloc_ub003_end" desc="선수별출주배정수정(회차마감)" fetchSize="10">
+        <![CDATA[
+		    MERGE INTO TBEB_RACER_RACE_ALLOC DST /* tbeb_racer_race_alloc_ub003_end */
+			USING (
+				SELECT
+				STND_YEAR, MBR_CD, TMS, DAY_ORD, RACER_NO,
+				SUM(DECODE(ST_MTHD_CD, '001', 1,0)) ONL_CNT,
+				COUNT(RACER_NO) CNT
+				FROM TBEB_ORGAN
+				WHERE 1=1
+				AND STND_YEAR = ?
+				AND MBR_CD = ?
+				AND TMS = ?
+				GROUP BY STND_YEAR, MBR_CD, TMS, DAY_ORD, RACER_NO
+			) SRC
+			ON (
+				    DST.STND_YEAR= SRC.STND_YEAR
+				AND DST.MBR_CD   = SRC.MBR_CD
+				AND DST.TMS      = SRC.TMS
+				AND DST.DAY_ORD  = SRC.DAY_ORD
+				AND DST.RACER_NO = SRC.RACER_NO
+			)
+			WHEN MATCHED THEN
+			UPDATE SET
+			      DST.RACE_ALLOC_CNT   = SRC.CNT
+			     ,DST.RACE_ONLINE_CNT = SRC.ONL_CNT
+			     ,DST.UPDT_ID   = ?
+			     ,DST.UPDT_DTM   = SYSDATE
+		]]>
+    </query>
+    
+    <query id="tbeb_racer_race_alloc_ub004" desc="선수별출주배정수정(온라인포함)" fetchSize="10">
+        <![CDATA[
+			UPDATE /* tbeb_racer_race_alloc_ub004 */
+			       TBEB_RACER_RACE_ALLOC SET
+  			         RACE_ALLOC_CNT = NVL(?,0)        -- 출주수(온라인+플라잉)
+			       , RACE_ONLINE_CNT= NVL(?,0)        -- 온라인출주수
+			       , UPDT_ID        = ?               -- 수정자ID    
+			       , UPDT_DTM       = SYSDATE         -- 수정일시    
+			WHERE  STND_YEAR        = ?               -- 기준년도    
+		    AND    MBR_CD           = ?               -- 경정장코드
+			AND    TMS              = ?               -- 회차        
+			AND    DAY_ORD          = ?               -- 일차        
+			AND    RACER_NO         = ?               -- 선수등록번호
+        ]]>
+    </query> 
+    <query id="tbeb_racer_race_alloc_db001" desc="선수별출주배정삭제" fetchSize="10">
+        <![CDATA[
+			DELETE /* tbeb_racer_race_alloc_db001 */
+			       FROM TBEB_RACER_RACE_ALLOC
+			WHERE  STND_YEAR        = ?       -- 기준년도    
+			AND    MBR_CD           = ?       -- 경정장코드    
+			AND    TMS              = ?       -- 회차    
+        ]]>
+    </query> 
+    
+    <query id="tbeb_racer_race_alloc_fb010" desc="가편성 주선 정보조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbeb_racer_race_alloc_fb010 가편성 주선 정보조회 */
+	                 TOR  .STND_YEAR
+	               , TOR  .MBR_CD   
+	               , TOR  .TMS      
+	               , TRRA .DAY_ORD  
+	               , TRRA .RACE_ALLOC_CNT
+	               , NVL(NXT.RACE_ALLOC_CNT, TRRAN.RACE_ALLOC_CNT) NEXT_RACE_ALLOC_CNT
+			       , TOR  .RACER_NO ORG_RACER_NO                                            -- 선수등록번호
+			       , ''    RACER_RSN                                                        -- 선수변경사유
+			       , TOR  .RACER_NO                                                         -- 선수등록번호
+			       , TOR  .SPEC_CD                                                         -- 선수등록번호
+			       , TOR  .MOT_NO ORG_MOT_NO                                                -- 모터번호    
+			       , ''    MOT_RSN                                                          -- 모터변경사유
+			       , TOR  .MOT_NO                                                           -- 모터번호    
+			       , SUBSTR(TOR  .MOT_NO, 6, 3) VIEW_MOT_NO                                 -- 모터번호    
+			       , TOR  .BOAT_NO ORG_BOAT_NO                                              -- 보트번호    
+			       , ''    BOAT_RSN                                                         -- 보트변경사유
+			       , TOR  .BOAT_NO                                                          -- 보트번호    
+			       , SUBSTR(TOR  .BOAT_NO, 6, 3) VIEW_BOAT_NO                               -- 모터번호
+			       , TRRA .RACE_ONLINE_CNT						  						    -- 온라인출발 여부    
+			       , '001' ABSE_CD
+			       , TCI  .SPEC_INFO RMK                           
+			       , TRM  .RACER_GRD_CD
+			       , TRM  .NM_KOR
+			       , TRM  .RACER_STAT_CD
+			       , TRM  .FAVOR_COURSE_CD
+			       , TRM  .EMAIL_ADDR
+			       , TRM  .RACER_PERIO_NO
+			       , ''    ETC_RACE                                                         -- 보트변경사유
+			       , (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00024' AND CD = TRD  .NATV_PLAC_CD) NATV_PLAC_CD
+			       , TRD  .NATY_UNIV
+			       , ROUND(NVL(TRI  .ENTRY_BODY_WGHT, TRD.WGHT)) ENTRY_BODY_WGHT
+--			       , ROUND(TRI.ENTRY_BODY_WGHT) ENTRY_BODY_WGHT
+			       , TRI  .ETC
+			       , TRIM(TO_CHAR((NVL(TRRAS.TMS_6_AVG_RANK_SCR, 0) * 0.7) + (NVL(TMRAS.AVG_RANK_SCR, 0) * 0.25) + (NVL(TBRAS.AVG_RANK_SCR, 0) * 0.05), '90.99')) SCR
+			       , RANK() OVER (ORDER BY TRIM(TO_CHAR((NVL(TRRAS.TMS_6_AVG_RANK_SCR, 0) * 0.7) + (NVL(TMRAS.AVG_RANK_SCR, 0) * 0.25) + (NVL(TBRAS.AVG_RANK_SCR, 0) * 0.05), '90.99')) DESC ) RANK
+                   , DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RACER_RANK             ,TRRAS.RACER_RANK             )    TRRAS_RACER_RANK
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_AMU_RANK_SCR     ,TRRAS.TMS_6_AMU_RANK_SCR     )    TRRAS_TMS_6_AMU_RANK_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_AVG_RANK_SCR     ,TRRAS.TMS_6_AVG_RANK_SCR     )    TRRAS_TMS_6_AVG_RANK_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_AMU_ACDNT_SCR    ,TRRAS.TMS_6_AMU_ACDNT_SCR    )    TRRAS_TMS_6_AMU_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_AVG_ACDNT_SCR    ,TRRAS.TMS_6_AVG_ACDNT_SCR    )    TRRAS_TMS_6_AVG_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_AVG_SCR          ,TRRAS.TMS_6_AVG_SCR          )    TRRAS_TMS_6_AVG_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_WIN_RATIO        ,TRRAS.TMS_6_WIN_RATIO        )    TRRAS_TMS_6_WIN_RATIO
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_HIGH_RANK_RATIO  ,TRRAS.TMS_6_HIGH_RANK_RATIO  )    TRRAS_TMS_6_HIGH_RANK_RATIO
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_HIGH_3_RANK_RATIO,TRRAS.TMS_6_HIGH_3_RANK_RATIO)    TRRAS_TMS_6_HIGH_3_RANK_RATIO
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_AVG_STRT_TM      ,TRRAS.TMS_6_AVG_STRT_TM      )    TRRAS_TMS_6_AVG_STRT_TM
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_8_RANK_ORD         ,TRRAS.TMS_8_RANK_ORD         )    TRRAS_TMS_8_RANK_ORD
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_RACE_CNT         ,TRRAS.TMS_6_RACE_CNT         )    TRRAS_TMS_6_RACE_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_RANK_1           ,TRRAS.TMS_6_RANK_1           )    TRRAS_TMS_6_RANK_1
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_RANK_2           ,TRRAS.TMS_6_RANK_2           )    TRRAS_TMS_6_RANK_2
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TMS_6_RANK_3           ,TRRAS.TMS_6_RANK_3           )    TRRAS_TMS_6_RANK_3
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AMU_RANK_SCR           ,TRRAS.AMU_RANK_SCR           )    TRRAS_AMU_RANK_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AVG_RANK_SCR           ,TRRAS.AVG_RANK_SCR           )    TRRAS_AVG_RANK_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AMU_ACDNT_SCR          ,TRRAS.AMU_ACDNT_SCR          )    TRRAS_AMU_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AVG_ACDNT_SCR          ,TRRAS.AVG_ACDNT_SCR          )    TRRAS_AVG_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_AMU_ACDNT_SCR       ,TRRAS.BF_AMU_ACDNT_SCR       )    TRRAS_BF_AMU_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_AVG_ACDNT_SCR       ,TRRAS.BF_AVG_ACDNT_SCR       )    TRRAS_BF_AVG_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AF_AMU_ACDNT_SCR       ,TRRAS.AF_AMU_ACDNT_SCR       )    TRRAS_AF_AMU_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AF_AVG_ACDNT_SCR       ,TRRAS.AF_AVG_ACDNT_SCR       )    TRRAS_AF_AVG_ACDNT_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AVG_SCR                ,TRRAS.AVG_SCR                )    TRRAS_AVG_SCR
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.WIN_RATIO              ,TRRAS.WIN_RATIO              )    TRRAS_WIN_RATIO
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.HIGH_RANK_RATIO        ,TRRAS.HIGH_RANK_RATIO        )    TRRAS_HIGH_RANK_RATIO
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.HIGH_3_RANK_RATIO      ,TRRAS.HIGH_3_RANK_RATIO      )    TRRAS_HIGH_3_RANK_RATIO
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AVG_STRT_TM            ,TRRAS.AVG_STRT_TM            )    TRRAS_AVG_STRT_TM
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RUN_CNT                ,TRRAS.RUN_CNT                )    TRRAS_RUN_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RACE_DAY_CNT           ,TRRAS.RACE_DAY_CNT           )    TRRAS_RACE_DAY_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RACE_CNT               ,TRRAS.RACE_CNT               )    TRRAS_RACE_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.TOT_RACE_CNT           ,TRRAS.TOT_RACE_CNT           )    TRRAS_TOT_RACE_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_RACE_CNT            ,TRRAS.BF_RACE_CNT            )    TRRAS_BF_RACE_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AF_RACE_CNT            ,TRRAS.AF_RACE_CNT            )    TRRAS_AF_RACE_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_1_CNT             ,TRRAS.RANK_1_CNT             )    TRRAS_RANK_1_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_2_CNT             ,TRRAS.RANK_2_CNT             )    TRRAS_RANK_2_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_3_CNT             ,TRRAS.RANK_3_CNT             )    TRRAS_RANK_3_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_4_CNT             ,TRRAS.RANK_4_CNT             )    TRRAS_RANK_4_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_5_CNT             ,TRRAS.RANK_5_CNT             )    TRRAS_RANK_5_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_6_CNT             ,TRRAS.RANK_6_CNT             )    TRRAS_RANK_6_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_7_CNT             ,TRRAS.RANK_7_CNT             )    TRRAS_RANK_7_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_8_CNT             ,TRRAS.RANK_8_CNT             )    TRRAS_RANK_8_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RANK_ETC_CNT           ,TRRAS.RANK_ETC_CNT           )    TRRAS_RANK_ETC_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.DGRE_JUDG_F_CNT        ,TRRAS.DGRE_JUDG_F_CNT        )    TRRAS_DGRE_JUDG_F_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.DGRE_JUDG_L_CNT        ,TRRAS.DGRE_JUDG_L_CNT        )    TRRAS_DGRE_JUDG_L_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_F_CNT               ,TRRAS.BF_F_CNT               )    TRRAS_BF_F_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AF_F_CNT               ,TRRAS.AF_F_CNT               )    TRRAS_AF_F_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_L_CNT               ,TRRAS.BF_L_CNT               )    TRRAS_BF_L_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.AF_L_CNT               ,TRRAS.AF_L_CNT               )    TRRAS_AF_L_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.ABSE_CNT               ,TRRAS.ABSE_CNT               )    TRRAS_ABSE_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RACE_ESC_1_CNT         ,TRRAS.RACE_ESC_1_CNT         )    TRRAS_RACE_ESC_1_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.RACE_ESC_2_CNT         ,TRRAS.RACE_ESC_2_CNT         )    TRRAS_RACE_ESC_2_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.FOUL_ELIM_CNT          ,TRRAS.FOUL_ELIM_CNT          )    TRRAS_FOUL_ELIM_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.ELIM_CNT               ,TRRAS.ELIM_CNT               )    TRRAS_ELIM_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.FOUL_WARN_CNT          ,TRRAS.FOUL_WARN_CNT          )    TRRAS_FOUL_WARN_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.WARN_CNT               ,TRRAS.WARN_CNT               )    TRRAS_WARN_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.ATTEN_CNT              ,TRRAS.ATTEN_CNT              )    TRRAS_ATTEN_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_TMS                 ,TRRAS.BF_TMS                 )    TRRAS_BF_TMS
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_BF_TMS              ,TRRAS.BF_BF_TMS              )    TRRAS_BF_BF_TMS
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_BF_BF_TMS           ,TRRAS.BF_BF_BF_TMS           )    TRRAS_BF_BF_BF_TMS
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_MBR_CD              ,TRRAS.BF_MBR_CD              )    TRRAS_BF_MBR_CD
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_BF_MBR_CD           ,TRRAS.BF_BF_MBR_CD           )    TRRAS_BF_BF_MBR_CD
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_BF_BF_MBR_CD        ,TRRAS.BF_BF_BF_MBR_CD        )    TRRAS_BF_BF_BF_MBR_CD
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TRRAS2.BF_BF_BF_MBR_CD        ,TRRAS.BF_BF_BF_MBR_CD        )    TRRAS_BF_BF_BF_MBR_CD
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RUN_CNT                ,TMRAS.RUN_CNT               )		TMRAS_RUN_CNT                
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RACE_CNT               ,TMRAS.RACE_CNT              )		TMRAS_RACE_CNT               
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RACE_DAY_CNT           ,TMRAS.RACE_DAY_CNT          )		TMRAS_RACE_DAY_CNT           
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_1_CNT             ,TMRAS.RANK_1_CNT            )		TMRAS_RANK_1_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_2_CNT             ,TMRAS.RANK_2_CNT            )		TMRAS_RANK_2_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_3_CNT             ,TMRAS.RANK_3_CNT            )		TMRAS_RANK_3_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_4_CNT             ,TMRAS.RANK_4_CNT            )		TMRAS_RANK_4_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_5_CNT             ,TMRAS.RANK_5_CNT            )		TMRAS_RANK_5_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_6_CNT             ,TMRAS.RANK_6_CNT            )		TMRAS_RANK_6_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_7_CNT             ,TMRAS.RANK_7_CNT            )		TMRAS_RANK_7_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.RANK_8_CNT             ,TMRAS.RANK_8_CNT            )		TMRAS_RANK_8_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.AMU_RANK_SCR           ,TMRAS.AMU_RANK_SCR          )		TMRAS_AMU_RANK_SCR          
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.AVG_RANK_SCR           ,TMRAS.AVG_RANK_SCR          )		TMRAS_AVG_RANK_SCR           
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.WIN_RATIO              ,TMRAS.WIN_RATIO             )		TMRAS_WIN_RATIO              
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.HIGH_RANK_RATIO        ,TMRAS.HIGH_RANK_RATIO       )		TMRAS_HIGH_RANK_RATIO        
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.HIGH_3_RANK_RATIO      ,TMRAS.HIGH_3_RANK_RATIO     )		TMRAS_HIGH_3_RANK_RATIO      
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.TMS_3_ITRDT_RUN_TM     ,TMRAS.TMS_3_ITRDT_RUN_TM    )		TMRAS_TMS_3_ITRDT_RUN_TM     
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.AVG_ITRDT_RUN_TM       ,TMRAS.AVG_ITRDT_RUN_TM      )		TMRAS_AVG_ITRDT_RUN_TM       
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.MAX_ITRDT_RUN_TM       ,TMRAS.MAX_ITRDT_RUN_TM      )		TMRAS_MAX_ITRDT_RUN_TM       
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.MIN_ITRDT_RUN_TM       ,TMRAS.MIN_ITRDT_RUN_TM      )		TMRAS_MIN_ITRDT_RUN_TM       
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TMRAS2.ITRDT_RUN_TM_DVTN      ,TMRAS.ITRDT_RUN_TM_DVTN     )		TMRAS_ITRDT_RUN_TM_DVTN      
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RUN_CNT                ,TBRAS.RUN_CNT               )		TBRAS_RUN_CNT                
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RACE_CNT               ,TBRAS.RACE_CNT              )		TBRAS_RACE_CNT               
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RACE_DAY_CNT           ,TBRAS.RACE_DAY_CNT          )		TBRAS_RACE_DAY_CNT           
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_1_CNT             ,TBRAS.RANK_1_CNT            )		TBRAS_RANK_1_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_2_CNT             ,TBRAS.RANK_2_CNT            )		TBRAS_RANK_2_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_3_CNT             ,TBRAS.RANK_3_CNT            )		TBRAS_RANK_3_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_4_CNT             ,TBRAS.RANK_4_CNT            )		TBRAS_RANK_4_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_5_CNT             ,TBRAS.RANK_5_CNT            )		TBRAS_RANK_5_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_6_CNT             ,TBRAS.RANK_6_CNT            )		TBRAS_RANK_6_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_7_CNT             ,TBRAS.RANK_7_CNT            )		TBRAS_RANK_7_CNT
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.RANK_8_CNT             ,TBRAS.RANK_8_CNT            )		TBRAS_RANK_8_CNT             
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.AMU_RANK_SCR           ,TBRAS.AMU_RANK_SCR          )		TBRAS_AMU_RANK_SCR          
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.AVG_RANK_SCR           ,TBRAS.AVG_RANK_SCR          )		TBRAS_AVG_RANK_SCR           
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.WIN_RATIO              ,TBRAS.WIN_RATIO             )		TBRAS_WIN_RATIO              
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.HIGH_RANK_RATIO        ,TBRAS.HIGH_RANK_RATIO       )		TBRAS_HIGH_RANK_RATIO        
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.HIGH_3_RANK_RATIO      ,TBRAS.HIGH_3_RANK_RATIO     )		TBRAS_HIGH_3_RANK_RATIO      
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.TMS_3_ITRDT_RUN_TM     ,TBRAS.TMS_3_ITRDT_RUN_TM    )		TBRAS_TMS_3_ITRDT_RUN_TM     
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.AVG_ITRDT_RUN_TM       ,TBRAS.AVG_ITRDT_RUN_TM      )		TBRAS_AVG_ITRDT_RUN_TM       
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.MAX_ITRDT_RUN_TM       ,TBRAS.MAX_ITRDT_RUN_TM      )		TBRAS_MAX_ITRDT_RUN_TM       
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.MIN_ITRDT_RUN_TM       ,TBRAS.MIN_ITRDT_RUN_TM      )		TBRAS_MIN_ITRDT_RUN_TM       
+					, DECODE(TRRA.RACE_ONLINE_CNT,1,TBRAS2.ITRDT_RUN_TM_DVTN      ,TBRAS.ITRDT_RUN_TM_DVTN     )		TBRAS_ITRDT_RUN_TM_DVTN 
+                   , PRE  .RACE1    
+                   , PRE  .RACE2    
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_1_ON, '0/0'),NVL(RACE .RACE_CNT_1, '0/0')) RACE_CNT_1
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_2_ON, '0/0'),NVL(RACE .RACE_CNT_2, '0/0')) RACE_CNT_2
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_3_ON, '0/0'),NVL(RACE .RACE_CNT_3, '0/0')) RACE_CNT_3
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_4_ON, '0/0'),NVL(RACE .RACE_CNT_4, '0/0')) RACE_CNT_4
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_5_ON, '0/0'),NVL(RACE .RACE_CNT_5, '0/0')) RACE_CNT_5
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_6_ON, '0/0'),NVL(RACE .RACE_CNT_6, '0/0')) RACE_CNT_6
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_7_ON, '0/0'),NVL(RACE .RACE_CNT_7, '0/0')) RACE_CNT_7
+			       , DECODE(TRRA.RACE_ONLINE_CNT,1,NVL(RACE .RACE_CNT_8_ON, '0/0'),NVL(RACE .RACE_CNT_8, '0/0')) RACE_CNT_8
+			       , REGNO.PRE_RACE_REG_NO
+			FROM     TBEC_RACER_MASTER        TRM
+			       , TBEC_RACER_DETAIL        TRD
+			       , TBEB_ARRANGE             TOR
+                   , (
+	                    SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, RACER_NO, RACE_ALLOC_CNT, DECODE(RACE_ONLINE_CNT,0,0,1) RACE_ONLINE_CNT
+	                    FROM TBEB_RACER_RACE_ALLOC
+						WHERE 1=1
+						UNION ALL
+						SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, RACER_NO, RACE_ALLOC_CNT, 0 RACE_ONLINE_CNT
+						FROM TBEB_RACER_RACE_ALLOC
+						WHERE 1=1
+						AND RACE_ALLOC_CNT = '2'
+						UNION ALL
+						SELECT STND_YEAR, MBR_CD, TMS, DAY_ORD, RACER_NO, RACE_ALLOC_CNT, 0 RACE_ONLINE_CNT
+						FROM TBEB_RACER_RACE_ALLOC
+						WHERE 1=1
+						AND RACE_ALLOC_CNT = '3'
+                     ) TRRA
+                   , TBEC_RACER_INTERVIEW     TRI
+                   , (
+						SELECT *
+						FROM   (
+						            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                   , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <= (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   TRRAS.ST_MTHD_CD = '000' --ST방식전체
+						       )
+						WHERE  RANK = 1
+                     ) TRRAS -- 선수최근성적
+                   , (
+						SELECT *
+						FROM   (
+						            SELECT   RANK() OVER (PARTITION BY TRRAS.RACER_NO ORDER BY APLY_DT DESC) RANK
+						                   , TRRAS.*
+						            FROM   TBEB_RACER_RECD_ACCU_SUM TRRAS
+						            WHERE  TRRAS.APLY_DT <= (
+						                                        SELECT
+						                                               MAX(TRDO.RACE_DAY) RACE_DAY
+						                                        FROM   TBEB_RACE_DAY_ORD TRDO
+						                                        WHERE  TRDO.STND_YEAR = ?
+						                                        AND    TRDO.MBR_CD    = ?
+						                                        AND    TRDO.TMS       = ?
+						                                    )
+						            AND   MBR_CD = '000'
+						            AND   TMS    = 0
+						            AND   TRRAS.ST_MTHD_CD = '001' --ST방식 온라인
+						       )
+						WHERE  RANK = 1
+                     ) TRRAS2 -- 선수최근성적2(온라인) 
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TMRAS.MOT_NO 
+                                                            ORDER BY TMRAS.STND_YEAR DESC
+                                                                   , TMRAS.TMS DESC 
+                                                       ) RANK
+                                         , TMRAS.*
+                                  FROM   TBEB_MOT_RECD_ACCU_SUM TMRAS
+                                  WHERE  TMRAS.MBR_CD = ?
+                                  AND    TMRAS.STND_YEAR || LPAD(TMRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+                                  AND    TMRAS.ST_MTHD_CD = '000' --ST방식 전체
+			                   )
+			            WHERE  RANK = 1
+			         ) TMRAS -- 모터최근성적
+   			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TMRAS.MOT_NO 
+                                                            ORDER BY TMRAS.STND_YEAR DESC
+                                                                   , TMRAS.TMS DESC 
+                                                       ) RANK
+                                         , TMRAS.*
+                                  FROM   TBEB_MOT_RECD_ACCU_SUM TMRAS
+                                  WHERE  TMRAS.MBR_CD = ?
+                                  AND    TMRAS.STND_YEAR || LPAD(TMRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+                                  AND    TMRAS.ST_MTHD_CD = '001' --ST방식 온라인
+			                   )
+			            WHERE  RANK = 1
+			         ) TMRAS2 -- 모터최근성적(온라인)  
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO 
+                                                            ORDER BY TBRAS.STND_YEAR DESC
+                                                                   , TBRAS.TMS DESC 
+                                                       ) RANK
+                                         , TBRAS.*
+                                  FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                  WHERE  TBRAS.MBR_CD = ?
+                                  AND    TBRAS.STND_YEAR || LPAD(TBRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+                                  AND    TBRAS.ST_MTHD_CD = '000' --ST방식 전체
+			                   )
+			            WHERE  RANK = 1
+			         ) TBRAS -- 보트최근성적
+			       , (
+			            SELECT *
+			            FROM   (
+                                  SELECT   RANK() OVER (PARTITION BY TBRAS.BOAT_NO 
+                                                            ORDER BY TBRAS.STND_YEAR DESC
+                                                                   , TBRAS.TMS DESC 
+                                                       ) RANK
+                                         , TBRAS.*
+                                  FROM   TBEB_BOAT_RECD_ACCU_SUM TBRAS
+                                  WHERE  TBRAS.MBR_CD = ?
+                                  AND    TBRAS.STND_YEAR || LPAD(TBRAS.TMS, 3, '0') <= ? || LPAD(?, 3, '0')
+                                  AND    TBRAS.ST_MTHD_CD = '001' --ST방식 온라인
+			                   )
+			            WHERE  RANK = 1
+			         ) TBRAS2 -- 보트최근성적(온라인)			         
+			       , (
+                        SELECT
+                                 RACER_NO
+                               , MIN(DECODE(RACE, 1, RACE_NO || '/' || NVL(RANK, RACE_REG_NO))) RACE1
+                               , MIN(DECODE(RACE, 2, RACE_NO || '/' || NVL(RANK, RACE_REG_NO))) RACE2
+                        FROM            
+                               (
+                                    SELECT 
+                                              TTO.RACER_NO
+                                            , TTO.RACE_NO
+                                            , TTO.RANK
+                                            , TTO.RACE_REG_NO
+                                            , RANK() OVER (PARTITION BY TTO.RACER_NO ORDER BY TTO.RACE_NO DESC) RACE
+                                    FROM    TBEB_ORGAN TTO
+                                            , TBEB_RACE_DAY_ORD TRO
+						            WHERE   TTO.STND_YEAR = TRO.STND_YEAR
+                                    AND     TTO.MBR_CD    = TRO.MBR_CD   
+                                    AND     TTO.TMS       = TRO.TMS
+                                    AND     TTO.DAY_ORD   = TRO.DAY_ORD
+                                    AND     TRO.STND_YEAR = ?
+                                    AND     TRO.MBR_CD    = ?
+                                    AND     TRO.TMS       = ?
+                                    AND     TRO.DAY_ORD   = ? - 1
+                                    AND     TRO.ORGAN_STAT_CD = '002'  -- 편성 확정시
+                                    UNION ALL
+                                    SELECT 
+                                              TTO.RACER_NO
+                                            , TTO.RACE_NO
+                                            , NULL AS RANK
+                                            , TTO.RACE_REG_NO
+                                            , RANK() OVER (PARTITION BY TTO.RACER_NO ORDER BY TTO.RACE_NO DESC) RACE
+                                    FROM    TBEB_TEMP_ORGAN TTO
+                                            , TBEB_RACE_DAY_ORD TRO
+						            WHERE   TTO.STND_YEAR = TRO.STND_YEAR
+                                    AND     TTO.MBR_CD    = TRO.MBR_CD   
+                                    AND     TTO.TMS       = TRO.TMS
+                                    AND     TTO.DAY_ORD   = TRO.DAY_ORD
+                                    AND     TRO.STND_YEAR = ?
+                                    AND     TRO.MBR_CD    = ?
+                                    AND     TRO.TMS       = ?
+                                    AND     TRO.DAY_ORD   = ? - 1
+                                    AND     TTO.ORGAN_OWNER_ID = ?
+                                    AND     TTO.ORGAN_SEQ = ?                                                             
+                                    AND     TRO.ORGAN_STAT_CD = '001'  -- 편성 확정시             
+                               )
+                        GROUP BY RACER_NO
+                     ) PRE  -- 전일 성적
+                   , ( 
+                   		SELECT
+						      RACER_NO 
+						    , RACE_CNT_11||'/'||RACE_CNT_21 AS RACE_CNT_1
+                            , RACE_CNT_12||'/'||RACE_CNT_22 AS RACE_CNT_2
+                            , RACE_CNT_13||'/'||RACE_CNT_23 AS RACE_CNT_3
+                            , RACE_CNT_14||'/'||RACE_CNT_24 AS RACE_CNT_4
+                            , RACE_CNT_15||'/'||RACE_CNT_25 AS RACE_CNT_5
+                            , RACE_CNT_16||'/'||RACE_CNT_26 AS RACE_CNT_6
+                            , RACE_CNT_17||'/'||RACE_CNT_27 AS RACE_CNT_7
+                            , RACE_CNT_18||'/'||RACE_CNT_28 AS RACE_CNT_8
+                            
+                            , RACE_CNT_11_ON||'/'||RACE_CNT_21_ON AS RACE_CNT_1_ON
+						    , RACE_CNT_12_ON||'/'||RACE_CNT_22_ON AS RACE_CNT_2_ON
+						    , RACE_CNT_13_ON||'/'||RACE_CNT_23_ON AS RACE_CNT_3_ON
+						    , RACE_CNT_14_ON||'/'||RACE_CNT_24_ON AS RACE_CNT_4_ON
+						    , RACE_CNT_15_ON||'/'||RACE_CNT_25_ON AS RACE_CNT_5_ON
+						    , RACE_CNT_16_ON||'/'||RACE_CNT_26_ON AS RACE_CNT_6_ON
+						    , RACE_CNT_17_ON||'/'||RACE_CNT_27_ON AS RACE_CNT_7_ON
+						    , RACE_CNT_18_ON||'/'||RACE_CNT_28_ON AS RACE_CNT_8_ON
+						FROM (  
+	                        SELECT
+							         RACER_NO
+					               , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 1 THEN 1 ELSE 0 END) RACE_CNT_11
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 1 THEN 1 ELSE 0 END) RACE_CNT_21
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 2 THEN 1 ELSE 0 END) RACE_CNT_12
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 2 THEN 1 ELSE 0 END) RACE_CNT_22
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 3 THEN 1 ELSE 0 END) RACE_CNT_13
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 3 THEN 1 ELSE 0 END) RACE_CNT_23
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 4 THEN 1 ELSE 0 END) RACE_CNT_14
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 4 THEN 1 ELSE 0 END) RACE_CNT_24
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 5 THEN 1 ELSE 0 END) RACE_CNT_15
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 5 THEN 1 ELSE 0 END) RACE_CNT_25
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 6 THEN 1 ELSE 0 END) RACE_CNT_16
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 6 THEN 1 ELSE 0 END) RACE_CNT_26
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 7 THEN 1 ELSE 0 END) RACE_CNT_17
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 7 THEN 1 ELSE 0 END) RACE_CNT_27
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 1 AND RACE_REG_NO = 8 THEN 1 ELSE 0 END) RACE_CNT_18
+							       , SUM(CASE WHEN ST_MTHD_CD = '002' AND DAY_ORD = 2 AND RACE_REG_NO = 8 THEN 1 ELSE 0 END) RACE_CNT_28
+							
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 1 THEN 1 ELSE 0 END) RACE_CNT_11_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 1 THEN 1 ELSE 0 END) RACE_CNT_21_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 2 THEN 1 ELSE 0 END) RACE_CNT_12_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 2 THEN 1 ELSE 0 END) RACE_CNT_22_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 3 THEN 1 ELSE 0 END) RACE_CNT_13_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 3 THEN 1 ELSE 0 END) RACE_CNT_23_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 4 THEN 1 ELSE 0 END) RACE_CNT_14_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 4 THEN 1 ELSE 0 END) RACE_CNT_24_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 5 THEN 1 ELSE 0 END) RACE_CNT_15_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 5 THEN 1 ELSE 0 END) RACE_CNT_25_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 6 THEN 1 ELSE 0 END) RACE_CNT_16_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 6 THEN 1 ELSE 0 END) RACE_CNT_26_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 7 THEN 1 ELSE 0 END) RACE_CNT_17_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 7 THEN 1 ELSE 0 END) RACE_CNT_27_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 1 AND RACE_REG_NO = 8 THEN 1 ELSE 0 END) RACE_CNT_18_ON
+							       , SUM(CASE WHEN ST_MTHD_CD = '001' AND DAY_ORD = 2 AND RACE_REG_NO = 8 THEN 1 ELSE 0 END) RACE_CNT_28_ON
+	                        FROM (
+	                               SELECT TBO.RACER_NO, TBO.DAY_ORD, TBO.RACE_REG_NO, TBO.ST_MTHD_CD
+							       FROM   TBEB_ORGAN TBO,
+	                                      TBEB_RACE_DAY_ORD TRO,
+	                                      TBEB_RACE_TMS TRT,
+	                                      TBEB_RACE TR
+							       WHERE  TBO.STND_YEAR = TRO.STND_YEAR
+	                               AND    TBO.MBR_CD    = TRO.MBR_CD   
+	                               AND    TBO.TMS       = TRO.TMS
+	                               AND    TBO.DAY_ORD   = TRO.DAY_ORD
+	                               AND    TBO.STND_YEAR = TR.STND_YEAR
+	                               AND    TBO.MBR_CD    = TR.MBR_CD
+	                               AND    TBO.TMS       = TR.TMS
+	                               AND    TBO.DAY_ORD   = TR.DAY_ORD
+	                               AND    TBO.RACE_NO   = TR.RACE_NO
+	                               AND    TR.STND_YEAR  = TRT.STND_YEAR
+	                               AND    TR.MBR_CD     = TRT.MBR_CD
+	                               AND    TR.TMS        = TRT.TMS 
+	                               AND    TBO.STND_YEAR =  ?
+							       AND    TBO.RACE_DAY  < (
+								                   SELECT
+								                           MIN(TRDO.RACE_DAY) RACE_DAY
+								                    FROM   TBEB_RACE_DAY_ORD TRDO
+								                    WHERE  TRDO.STND_YEAR =  ?
+								                    AND    TRDO.MBR_CD    =  ?
+								                    AND    TRDO.TMS       =  ?
+								                    AND    TRDO.DAY_ORD   =  ?
+							                   )
+							       AND    TBO.ABSE_CD  <> '003'
+	                               AND    TRO.ORGAN_STAT_CD = '002'  -- 편성 확정시
+	                               AND    TR.RACE_DGRE_CD NOT IN (SELECT CD FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00151')
+	                               AND    TRT.QURT_CD = (SELECT QURT_CD FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD = ? AND TMS = ?)
+	                               AND	  TBO.DAY_ORD IN ('1','2') --화면 공간 때문에 1,2일차만 표현 
+	                               UNION ALL
+	                               SELECT RACER_NO, TBO.DAY_ORD, RACE_REG_NO, TBO.ST_MTHD_CD         
+		                           FROM   TBEB_TEMP_ORGAN TBO,
+			                              TBEB_RACE_DAY_ORD TRO,
+	                                      TBEB_RACE_TMS TRT,
+	                                      TBEB_RACE TR
+			                       WHERE  TBO.STND_YEAR = TRO.STND_YEAR
+			                       AND    TBO.MBR_CD    = TRO.MBR_CD   
+			                       AND    TBO.TMS       = TRO.TMS
+			                       AND    TBO.DAY_ORD   = TRO.DAY_ORD
+	                               AND    TBO.STND_YEAR = TR.STND_YEAR
+	                               AND    TBO.MBR_CD    = TR.MBR_CD
+	                               AND    TBO.TMS       = TR.TMS
+	                               AND    TBO.DAY_ORD   = TR.DAY_ORD
+	                               AND    TBO.RACE_NO   = TR.RACE_NO
+	                               AND    TR.STND_YEAR  = TRT.STND_YEAR
+	                               AND    TR.MBR_CD     = TRT.MBR_CD
+	                               AND    TR.TMS        = TRT.TMS   
+	                               AND    TBO.STND_YEAR =  ?
+	                               AND    TBO.MBR_CD    =  ?
+	                               AND    TBO.TMS       =  ?
+	                               AND    TBO.DAY_ORD   <  ?
+	                               AND    TBO.ORGAN_OWNER_ID = ?
+	                               AND    TBO.ORGAN_SEQ = ?
+	                               AND    TRO.ORGAN_STAT_CD = '001'  -- 편성 미확정시
+	                               AND    TR.RACE_DGRE_CD NOT IN (SELECT CD FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00151')
+	                               AND    TRT.QURT_CD = (SELECT QURT_CD FROM TBEB_RACE_TMS WHERE STND_YEAR = ? AND MBR_CD = ? AND TMS = ?)
+	                               AND	  TBO.DAY_ORD IN ('1','2') --화면 공간 때문에 1,2일차만 표현 
+	                          )
+	                          GROUP BY RACER_NO
+							)
+
+				     ) RACE -- 정번별출주수
+				   , (
+						SELECT 
+						         RACER_NO
+						       , RACE_ALLOC_CNT
+						FROM   TBEB_RACER_RACE_ALLOC
+						WHERE  STND_YEAR = ?
+						AND    MBR_CD    = ?
+						AND    TMS       = ?				     
+						AND    DAY_ORD   = ? + 1				     
+                     ) TRRAN -- 익일출주배정수
+				   , (
+						SELECT 
+						         RACER_NO
+						       , COUNT(*) RACE_ALLOC_CNT
+						FROM   TBEB_TEMP_ORGAN
+						WHERE  STND_YEAR = ?
+						AND    MBR_CD    = ?
+						AND    TMS       = ?
+						AND    DAY_ORD   = ? + 1
+                        AND    ORGAN_OWNER_ID = ?
+                        AND    ORGAN_SEQ = ?        						
+						GROUP BY RACER_NO
+						       , DAY_ORD
+				     ) NXT -- 익일출주수
+				   , (
+			            SELECT  
+			                     RACER_NO   
+			                   , SUBSTR(MAX(SYS_CONNECT_BY_PATH (RACE_REG_NO, '/')), 2) PRE_RACE_REG_NO
+			            FROM   (
+		                        SELECT 
+           						         TBO.RACER_NO
+           						       , TBO.RACE_REG_NO
+		                               , RANK() OVER (PARTITION BY TBO.RACER_NO 
+		                                                  ORDER BY TBO.RACE_REG_NO
+		                                             ) SEQ
+		                        FROM   TBEB_ORGAN TBO,
+		                               TBEB_RACE_DAY_ORD TRO
+		                        WHERE  TBO.STND_YEAR = TRO.STND_YEAR
+		                        AND    TBO.MBR_CD    = TRO.MBR_CD   
+		                        AND    TBO.TMS       = TRO.TMS
+		                        AND    TBO.DAY_ORD   = TRO.DAY_ORD
+          						AND    TBO.STND_YEAR =  ?
+          						AND    TBO.MBR_CD    =  ?
+          						AND    TBO.TMS       =  ?
+          						AND    TBO.DAY_ORD   =  ? - 1 
+		                        AND    TRO.ORGAN_STAT_CD = '002'  -- 편성 확정시
+		                        UNION ALL
+		                        SELECT 
+           						         TBO.RACER_NO
+           						       , TBO.RACE_REG_NO
+		                               , RANK() OVER (PARTITION BY TBO.RACER_NO 
+		                                                  ORDER BY TBO.RACE_REG_NO
+		                                             ) SEQ
+		                        FROM   TBEB_TEMP_ORGAN TBO,
+		                               TBEB_RACE_DAY_ORD TRO
+		                        WHERE  TBO.STND_YEAR = TRO.STND_YEAR
+		                        AND    TBO.MBR_CD    = TRO.MBR_CD   
+		                        AND    TBO.TMS       = TRO.TMS
+		                        AND    TBO.DAY_ORD   = TRO.DAY_ORD
+           						AND    TBO.STND_YEAR = ?
+           						AND    TBO.MBR_CD    = ?
+           						AND    TBO.TMS       = ?
+           						AND    TBO.DAY_ORD   = ? - 1 
+                                AND    TBO.ORGAN_OWNER_ID = ?
+                                AND    TBO.ORGAN_SEQ = ?           						
+		                        AND    TRO.ORGAN_STAT_CD = '001'  -- 편성 미확정시
+			                   )            			                         
+			            START WITH SEQ = 1
+			            CONNECT BY PRIOR SEQ = SEQ - 1 AND PRIOR RACER_NO = RACER_NO
+			            GROUP BY RACER_NO
+			         ) REGNO -- 전일출주정번
+				   , TBEB_CNF_INSP         TCI
+			WHERE  TOR .RACER_NO  = TRM  .RACER_NO
+            AND    TOR .RACER_NO  = TRD  .RACER_NO (+)
+            AND    TOR .RACER_NO  = TRI  .RACER_NO (+)
+            AND    TOR .RACER_NO  = TRRAS.RACER_NO (+)
+            AND    TOR .RACER_NO  = TRRAS2.RACER_NO (+)
+            AND    TOR .RACER_NO  = PRE  .RACER_NO (+)
+            AND    TOR .RACER_NO  = RACE .RACER_NO (+)
+            AND    TOR .MOT_NO    = TMRAS.MOT_NO   (+)
+            AND    TOR .MOT_NO    = TMRAS2.MOT_NO   (+)
+            AND    TOR .BOAT_NO   = TBRAS.BOAT_NO  (+)
+            AND    TOR .BOAT_NO   = TBRAS2.BOAT_NO  (+)
+            AND    TOR .STND_YEAR = TRI  .STND_YEAR(+)
+            AND    TOR .MBR_CD    = TRI  .MBR_CD   (+)
+            AND    TOR .TMS       = TRI  .TMS      (+)
+            AND    TOR .RACER_NO  = TRI  .RACER_NO (+)
+            AND    TOR .STND_YEAR = TRRA .STND_YEAR
+            AND    TOR .MBR_CD    = TRRA .MBR_CD
+            AND    TOR .TMS       = TRRA .TMS
+            AND    TOR .RACER_NO  = TRRA .RACER_NO 
+            AND    TOR .RACER_NO  = TRRAN.RACER_NO (+)
+            AND    TOR .RACER_NO  = NXT  .RACER_NO (+)
+            AND    TOR .RACER_NO  = REGNO.RACER_NO (+)
+            AND    TOR.STND_YEAR  = TCI  .STND_YEAR(+)
+            AND    TOR.MBR_CD     = TCI  .MBR_CD   (+)
+            AND    TOR.TMS        = TCI  .TMS      (+)
+            AND    TOR.RACER_NO   = TCI  .RACER_NO (+)
+            AND    TRRA.RACE_ALLOC_CNT IS NOT NULL
+            AND    TRRA.RACE_ALLOC_CNT != 0
+            AND    TRRA.STND_YEAR = ?
+            AND    TRRA.MBR_CD    = ?
+            AND    TRRA.TMS       = ?
+            AND    TRRA.DAY_ORD   = ?
+            ORDER BY TRRAS.RACER_RANK
+		]]>
+    </query>       
+</queryMap>

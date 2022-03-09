@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!-- Meta, title, CSS, favicons, etc. -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>발그레 | 관리자페이지</title>
+
+   	#parse ("/admin/layout/common_css.vm")
+   	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.2/themes/default/style.min.css" />
+   	
+  </head>
+
+<body class="nav-md">
+	<div class="container body">
+		<div class="main_container">
+			#parse ("/admin/layout/header.vm")
+			<!-- page content -->
+			<div class="right_col" role="main">
+				<!-- col1 -->
+				<div class="col-md-4 col-sm-12 col-xs-12">
+	                <div class="x_panel">
+	                  <div class="x_title">
+	                    <h2>카테고리<small>목록</small></h2>
+	                    <ul class="nav navbar-right panel_toolbox">
+	                      <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
+	                      </li>
+	                      <li class="dropdown">
+	                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-wrench"></i></a>
+	                        <ul class="dropdown-menu" role="menu">
+	                          <li><a href="javascript:refreshTree();">새로고침</a>
+	                          </li>
+	                        </ul>
+	                      </li>
+	                      <li><a class="close-link"><i class="fa fa-close"></i></a>
+	                      </li>
+	                    </ul>
+	                    <div class="clearfix"></div>
+	                  </div>
+	                  <div class="x_content">
+	                  	<!-- div class="col-md-12">
+	                  		<div class="form-group">
+	                  			<input type="text" id="deliverable_search"/>
+	                  			<input type="button" onclick="javascript:refreshTree();" value="검색"/>
+	                  		</div>
+	                  	</div -->
+						<div class="col-md-12">
+	    					<div id="container"></div>
+						</div>
+	                  </div>
+	              </div>
+				</div>
+				<!-- /col1 -->
+			</div>
+		<!-- page content end-->
+		</div>
+	</div>
+	#parse ("/admin/layout/footer.vm")
+	
+	#parse ("/admin/layout/common_js.vm")
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.2/jstree.min.js"></script>
+    
+    <!-- JsTree -->
+    <script>
+    var selectLevel;
+    $(function() {
+    	  $('#container').jstree({
+    	    'core' : {
+    	      'data' : {
+    	        "url" : "getCategory?lazy",
+    	        "data" : function (node) {
+    	        	console.log(node);
+    	        	var level=node.parents.length;
+    	        	return { "id" : node.id, "level": level, "search":  "" };
+    	        }
+    	      }
+    	    },
+    	    "plugins" : ["contextmenu", "types"],
+    	    "types" : {
+    	        "folder-open" : {
+    	            "icon" : "fa fa-folder-open"
+    	        },
+    	        "folder-close" : {
+    	            "icon" : "fa fa-folder"
+    	        },
+    	        "folder-open-visible" : {
+    	            "icon" : "fa fa-folder-open-o"
+    	        },
+    	        "folder-close-visible" : {
+    	            "icon" : "fa fa-folder-o"
+    	        }
+    	    },
+    	    "contextmenu" : { 
+				"items" : customMenu
+    	    }
+		});
+    	
+		$("#container").on('open_node.jstree', function (event, data) {
+			if(data.node.type == 'folder-close-visible') {
+				data.instance.set_type(data.node,'folder-open-visible');	
+			} else {
+				data.instance.set_type(data.node,'folder-open');
+			}
+    	});
+    	$("#container").on('close_node.jstree', function (event, data) {
+   			if(data.node.type == 'folder-open-visible') {
+				data.instance.set_type(data.node,'folder-close-visible');	
+			} else {
+				data.instance.set_type(data.node,'folder-close');
+			}
+    	});
+    	$("#container").bind("select_node.jstree",function(e,data) {
+			var level=data.node.parents.length;     // 1 = root level, 2 = next level down, etc
+			selectLevel = level;
+		});
+    	
+	});
+        
+    function refreshTree() {
+    	$('#container').jstree(true).refresh();
+    }
+    
+    function customMenu(node) {
+		var level=node.parents.length;     // 1 = root level, 2 = next level down, etc
+		console.log(level);
+		console.log(node.state.loaded);
+    	//Show a different label for renaming files and folders
+    	if ($(node).attr("type") == 'folder-close' || $(node).attr("type") == 'folder-open'
+    			|| $(node).attr("type") == 'folder-close-visible' || $(node).attr("type") == 'folder-open-visible') { //If node is a folder
+			var renameLabel = "이름 수정";
+    	   	if(level == 4) {
+    	   		var createLabel = "상품 등록";	
+    	   	} else {
+    	   		var createLabel = "카테고리 등록";
+    	   	}
+    	   	if($(node).attr("type") == "folder-close-visible" || $(node).attr("type") == "folder-open-visible") {
+    	   		var deleteLabel = "사용 중지";	
+    	   	} else {
+    	   		var deleteLabel = "사용";    	   		
+    	   	}
+		}
+    	
+    	var items = {
+    		"create" : {
+				"label" : createLabel,
+				"action" : function (data) {
+					var inst = $.jstree.reference(data.reference);
+                    obj = inst.get_node(data.reference);
+					if($(obj).attr("type") == "file") {
+                    	// 아이템 등록
+						editItem("add", $(obj).attr("id"), $(obj).attr("text"));	
+                    } else {
+                    	// 카테고리 등록
+                    	editCategory("add", $(obj).attr("id"), "");	
+                    }
+				}
+			},
+    		"rename" : {
+    			"separator_before" : false,
+	    		"separator_after" : true,
+    			"label" : renameLabel,   //Different label (defined above) will be shown depending on node type
+				"action" : function (data) {
+	    			var inst = $.jstree.reference(data.reference);
+                    obj = inst.get_node(data.reference);
+                    console.log($(obj).attr("text"));
+                    // 카테고리 수정
+                    editCategory("update", $(obj).attr("id"), $(obj).attr("text"));	
+				}
+			},
+			"delete" : {
+				"label" : deleteLabel,
+				"action" : function (data) {
+					var inst = $.jstree.reference(data.reference);
+                    obj = inst.get_node(data.reference);
+                   	// 카테고리 삭제
+                   	 if($(obj).attr("type") == "folder-open" || $(obj).attr("type") == "folder-close") {
+                   		 editCategory("start", $(obj).attr("id"), $(obj).attr("text"));                    		 
+                   	 } else {
+                   		 editCategory("stop", $(obj).attr("id"), $(obj).attr("text"));	 
+                   	 }
+				}
+			}
+		};
+    	
+    	if(level == 4) {
+    		delete items.create;
+    	}
+    	
+		return items;
+    }
+    
+	function editCategory(action, categoryId, name) {
+      	var formData = new FormData();
+      	formData.append("categoryId", categoryId);
+      	var mTitle;
+      	if(action == 'add') {
+      		mTitle = "등록할 카테고리명을 입력하세요.";
+      	} else if(action == 'update') {
+      		mTitle = "수정할 카테고리명을 입력하세요.";
+      	} else if(action == 'start') {
+      		action = "delete";
+      		formData.append("visible", 1);
+      		$.ajax({
+	    		url: action,
+	    		processData: false,
+				contentType: false,
+	    		data: formData,
+	    		type: 'POST',
+	    		success: function(result){
+	    			if(result.resultCode == 200) {
+	    				bootbox.alert(result.message, function() {
+    						refreshTree();
+    					});
+    				} else {
+    					bootbox.alert(result.message, function() {});
+    				}
+    			},
+    			error: function(){
+    				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+    			}
+    		});
+      		return;
+      	} else if(action == 'stop') {
+      		action = "delete";
+      		formData.append("visible", 0);
+      		$.ajax({
+    			url: action,
+    			processData: false,
+				contentType: false,
+    			data: formData,
+    			type: 'POST',
+    			success: function(result){
+    				if(result.resultCode == 200) {
+    					bootbox.alert(result.message, function() {
+    						refreshTree();
+    					});
+    				} else {
+    					bootbox.alert(result.message, function() {});
+    				}
+    			},
+    			error: function(){
+    				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+    			}
+    		});
+      		return;
+      	}
+      	
+		bootbox.prompt({
+			title: mTitle,
+			value: name,
+	        callback: function (result) {
+         		if(result) {
+         			formData.append("categoryName", result);		
+     	    		$.ajax({
+     	    			url: action,
+     	    			processData: false,
+						contentType: false,
+     	    			data: formData,
+     	    			type: 'POST',
+     	    			success: function(result){
+     	    				if(result.resultCode == 200) {
+     	    					bootbox.alert(result.message, function() {
+     	    						refreshTree();
+     	    					});
+     	    				} else {
+     	    					bootbox.alert(result.message, function() {});
+     	    				}
+     	    			},
+     	    			error: function(){
+     	    				bootbox.alert("오류가 발생였습니다.\n잠시 후 다시 시도해 주세요.", function() {});
+     	    			}
+     	    		});
+  				}
+  			}
+		});
+	}
+    </script>
+ 	<!-- /JsTree -->
+ 	
+ 	
+</body>
+</html>

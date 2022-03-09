@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : newReport.xml
+  * @메뉴명 : 신규문서등록
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="newReport"> 
+	<!-- 문서별 결재 라인 START-->
+	<select id="getApprovalDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		SELECT APP.EMP_NO, APPROVAL_SEQ, STATE, F_GW_GET_CD_NM(STATE) STATE_NM,  TO_CHAR(APPROVAL_DT,'yyyy-mm-dd hh24:mi') APPROVAL_DT, 
+		       ORDERING, TO_CHAR(READ_DT,'yyyy-mm-dd hh24:mi') READ_DT, CREATE_DT, CREATE_NO, EMP.EMP_KO_NM, 
+		       HANAHR.F_GET_DEPT_NM(EMP.DEPT_CD) DEPT_NM,
+		       HANAGROUPWARE.F_GW_GRAD_KO_NM_EMP(APP.EMP_NO) GRAD_KO_NM,
+		       APP.GROUP_DIV GROUP_DIV
+		  FROM GW_EA_APPROVAL APP, HANAHR.HR_HC_EMPBAS_0 EMP
+		 WHERE APP.EMP_NO = EMP.EMP_NO
+		   AND (EMP.ENGAG_DIV = '70010' OR EMP.ENGAG_DIV = '70030')
+	       AND APPROVAL_SEQ = #{approval_seq}	        
+		 ORDER BY ORDERING ASC
+	</select>
+	
+	<insert id="insertApproval" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		INSERT INTO GW_EA_APPROVAL
+	            (EMP_NO, APPROVAL_SEQ, STATE, ORDERING, CREATE_DT, CREATE_NO ,GROUP_DIV
+	            )
+	     VALUES (#{emp_no} , #{approval_seq} , #{state} ,#{ordering} , SYSDATE, #{create_no}, #{group_div} 
+	            )
+	</insert>
+	
+	<delete id="deleteApproval" parameterType="hashmap">
+		DELETE FROM GW_EA_APPROVAL WHERE APPROVAL_SEQ = #{approval_seq} AND STATE = 'E03001'
+	</delete>
+	<!-- 문서별 결재 라인 END-->
+	
+	<!-- 문서별 시행 라인 START-->
+	<select id="getImplDeptDetailList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ImplDeptVO">
+		SELECT DISTINCT IMPL.APPROVAL_SEQ
+		,IMPL.DEPT_CD
+		,IMPL.CREATE_DT
+		,IMPL.CREATE_NO
+		,IMPL.ORDERING
+		,DECODE(LENGTH(IMPL.DEPT_CD), 4 ,HANAHR.F_GET_DEPT_NM(IMPL.DEPT_CD), HANAHR.F_GET_EMP_KO_NM(IMPL.DEPT_CD)) DEPT_KO_NM
+	  	FROM GW_EA_IMPL_DEPT IMPL
+		WHERE APPROVAL_SEQ = #{approval_seq} 
+		ORDER BY ORDERING ASC			
+	</select>
+	
+	<insert id="insertImplDept" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptVO">
+		INSERT INTO GW_EA_IMPL_DEPT
+	            (APPROVAL_SEQ, DEPT_CD, ORDERING, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (#{approval_seq} , #{dept_cd}, #{ordering}, SYSDATE, #{create_no}
+	            )
+	</insert>
+	
+	<delete id="deleteImplDept" parameterType="hashmap">
+		DELETE FROM GW_EA_IMPL_DEPT WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	<!-- 문서별 시행 라인 END-->
+	
+	<!-- 문서별 시행부서별 사원정보 START-->
+	<update id="insertImplDeptEmp" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		INSERT INTO GW_EA_IMPL_DEPT_EMP (APPROVAL_SEQ, DEPT_CD, EMP_NO, READ_YN, CREATE_DT, CREATE_NO)
+		SELECT MAX(APPROVAL_SEQ)		
+		,MAX(DECODE(LENGTH(DEPT.DEPT_CD) ,4 ,DEPT.DEPT_CD ,EMP.DEPT_CD))		
+		,EMP.EMP_NO
+		,HANAGROUPWARE.F_GW_EA_APPROVAL_EMP(EMP.EMP_NO ,DEPT.APPROVAL_SEQ) READ_YN
+		,SYSDATE
+		,#{create_no}
+	    FROM HANAHR.HR_HC_EMPBAS_0 EMP
+	    ,GW_EA_IMPL_DEPT DEPT
+	    WHERE (EMP.DEPT_CD = DEPT.DEPT_CD OR EMP.EMP_NO = DEPT.DEPT_CD)
+	    AND (EMP.ENGAG_DIV = '70010' OR EMP.ENGAG_DIV = '70030')
+	    AND DEPT.APPROVAL_SEQ = #{approval_seq}
+	    <if test="dept_cd != null and dept_cd !=''">
+	    AND (DEPT.DEPT_CD = #{dept_cd} OR EMP.EMP_NO = #{dept_cd}) 
+	    </if>
+	    AND NOT EXISTS (
+            	SELECT EMP_NO
+                FROM GW_EA_SHARE_TARGET TARGET
+                WHERE APPROVAL_SEQ = #{approval_seq}
+                AND EMP.EMP_NO = TARGET.EMP_NO                    
+        	)
+		GROUP BY EMP.EMP_NO ,HANAGROUPWARE.F_GW_EA_APPROVAL_EMP(EMP.EMP_NO ,DEPT.APPROVAL_SEQ)  
+	</update>
+	
+	<delete id="deleteImplDeptEmp" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		DELETE FROM GW_EA_IMPL_DEPT_EMP WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	
+	<update id="updateImplDeptEmpReadYN" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		UPDATE GW_EA_IMPL_DEPT_EMP
+		   SET READ_YN = #{read_yn},
+		       READ_DT = SYSDATE
+		 WHERE APPROVAL_SEQ = #{approval_seq} AND EMP_NO = #{emp_no}
+	</update>
+	
+	<select id="getImplDeptEmpDetail" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		SELECT APPROVAL_SEQ, DEPT_CD, EMP_NO, READ_YN, READ_DT, CREATE_DT, CREATE_NO,
+		       COMPLETE_YN, TO_CHAR(COMPLETE_DT,'yyyy-mm-dd hh24:mi') COMPLETE_DT, COMPLETE_NOTE
+		  FROM GW_EA_IMPL_DEPT_EMP
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}
+	</select>
+	
+	<select id="getImplDeptEmpList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		SELECT APPROVAL_SEQ
+		,IMPL.DEPT_CD
+		,IMPL.EMP_NO
+		,READ_YN
+		,READ_DT
+		,CREATE_DT
+		,CREATE_NO
+		,HANAHR.F_GET_DEPT_NM(IMPL.DEPT_CD) DEPT_KO_NM, HANAHR.F_GET_EMP_KO_NM (IMPL.EMP_NO) EMP_KO_NM    
+        ,COMPLETE_YN, TO_CHAR(COMPLETE_DT,'yyyy-mm-dd hh24:mi') COMPLETE_DT
+        ,COMPLETE_NOTE
+		FROM GW_EA_IMPL_DEPT_EMP IMPL
+		,HANAHR.HR_HC_EMPBAS_0 EMP
+		WHERE IMPL.EMP_NO = EMP.EMP_NO
+		AND APPROVAL_SEQ = #{approval_seq}
+		AND (EMP.ENGAG_DIV = '70010' OR EMP.ENGAG_DIV = '70030')
+		<if test="dept_cd != null and dept_cd !=''">
+	    AND IMPL.DEPT_CD = #{dept_cd}
+	    </if>
+	    <if test="complete_yn != null and complete_yn !=''">
+	    AND COMPLETE_YN = #{complete_yn}
+	    </if>
+	</select>
+	
+	<update id="updateImplDeptEmpComplete" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		UPDATE GW_EA_IMPL_DEPT_EMP 
+		   SET 
+		       COMPLETE_YN = #{complete_yn}, 
+		       COMPLETE_DT = SYSDATE, 
+		       COMPLETE_NOTE = #{complete_note}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}			       
+	</update>
+	
+	<update id="deleteImplDeptEmpComplete" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		UPDATE GW_EA_IMPL_DEPT_EMP 
+		   SET 
+		       COMPLETE_YN = '', 
+               COMPLETE_DT = '', 
+		       COMPLETE_NOTE = ''
+		 WHERE APPROVAL_SEQ = #{approval_seq} 
+	</update>
+	
+	<update id="insertImplDeptEmpInterestYN" parameterType="com.hanaph.gw.ea.newReport.vo.ImplDeptEmpVO">
+		UPDATE GW_EA_IMPL_DEPT_EMP 
+		   SET 
+		       INTEREST_YN = #{interest_yn}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND EMP_NO = #{emp_no}
+	</update>
+	<!-- 문서별 시행부서별 사원정보 END-->
+	
+	<!-- 결재마스터 START-->
+	<insert id="insertApprovalMaster" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		<selectKey keyProperty="approval_seq" resultType="string" order="BEFORE">
+			SELECT F_GW_EA_APPROVAL_SEQ(#{docu_cd}) FROM DUAL
+		</selectKey>
+		INSERT INTO GW_EA_APPROVAL_MASTER
+        (
+			APPROVAL_SEQ, DOCU_SEQ, SUBJECT, MAKE_DT, STATE, SECURITY_YN,
+			DECIDE_YN, STEP_STATE, CREATE_DT, CREATE_NO, MODIFY_DT, MODIFY_NO, DELETE_YN
+        )
+    	VALUES
+    	(
+        	#{approval_seq}, #{docu_seq}, #{subject}, TO_DATE(#{make_dt}, 'YYYYMMDDHH24MISS'), #{state}, #{security_yn},
+        	#{decide_yn}, #{step_state}, SYSDATE, #{create_no}, SYSDATE, #{modify_no}, 'N'
+    	)
+	</insert>
+	
+	<update id="updateApprovalMaster" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		UPDATE GW_EA_APPROVAL_MASTER 
+		   SET 
+		   	   SUBJECT = #{subject}, 
+			   SECURITY_YN = #{security_yn}, 
+			   DECIDE_YN = #{decide_yn}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterStepState" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		UPDATE GW_EA_APPROVAL_MASTER 
+		   SET 
+			   STEP_STATE = #{step_state}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterComplete" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		UPDATE GW_EA_APPROVAL_MASTER 
+		   SET 
+			   STATE = #{state}, 
+			   STEP_STATE = #{step_state}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no},
+			   REQ_DT = SYSDATE
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterState" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		UPDATE GW_EA_APPROVAL_MASTER 
+		   SET 
+			   STATE = #{state}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterRejection" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		UPDATE GW_EA_APPROVAL_MASTER 
+		   SET 
+			   REJECTION_REASON = #{rejection_reason}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<update id="updateApprovalMasterDelete" parameterType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		UPDATE GW_EA_APPROVAL_MASTER 
+		   SET 
+			   DELETE_YN = #{delete_yn}, 
+			   MODIFY_DT = SYSDATE, 
+			   MODIFY_NO = #{modify_no}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	</update>
+	
+	<select id="approvalDetail" parameterType="string" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		SELECT MASTER.APPROVAL_SEQ, MASTER.DOCU_SEQ, MASTER.SUBJECT,
+		       TO_CHAR (MASTER.MAKE_DT, 'yyyy-mm-dd hh24:mi') MAKE_DT, MASTER.STATE,
+		       MASTER.REJECTION_REASON, MASTER.SECURITY_YN, MASTER.DECIDE_YN,
+		       MASTER.STEP_STATE,
+		       TO_CHAR (MASTER.CREATE_DT, 'yyyy-mm-dd hh24:mi') CREATE_DT,
+		       MASTER.CREATE_NO, TO_CHAR(MASTER.MODIFY_DT,'yyyy-mm-dd hh24:mi') MODIFY_DT, MASTER.MODIFY_NO, 
+		       TO_CHAR(MASTER.REQ_DT, 'YYYY-MM-DD') REQ_DT,
+		       HANAHR.F_GET_EMP_KO_NM (MASTER.CREATE_NO) EMP_KO_NM, MASTER.CREATE_NO, DOCU.DOCU_NM,
+		       DOCU.DEPT_CD, HANAHR.F_GET_DEPT_NM (DOCU.DEPT_CD) DEPT_KO_NM,
+		       CODE.CD_NM,F_GW_GET_LAST_LINE_NM(APPROVAL_SEQ) LAST_LINE_NM
+		  FROM GW_EA_APPROVAL_MASTER MASTER, GW_EA_DOCU DOCU, GW_CO_CODE CODE
+		 WHERE MASTER.APPROVAL_SEQ = #{approval_seq}
+		   AND MASTER.DOCU_SEQ = DOCU.DOCU_SEQ
+		   AND MASTER.STATE = CODE.CD
+		   AND MASTER.DELETE_YN = 'N'	
+	</select>
+	<!-- 결재마스터 END-->
+	
+	<!-- 의견 START-->
+	<select id="getOpinionList" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.OpinionVO">
+		SELECT   OPIN.OPINION_SEQ, OPIN.APPROVAL_SEQ, OPIN.CONTENTS,
+		         TO_CHAR (OPIN.CREATE_DT, 'yyyy-mm-dd hh24:mi') CREATE_DT,
+		         OPIN.CREATE_NO, EMP.EMP_KO_NM,
+		         HANAHR.F_GET_DEPT_NM (EMP.DEPT_CD) DEPT_KO_NM,
+		         HANAGROUPWARE.F_GW_GRAD_KO_NM (EMP.GRAD_CD) GRAD_KO_NM
+		    FROM HANAHR.HR_HC_EMPBAS_0 EMP, GW_EA_OPINION OPIN
+		   WHERE EMP.EMP_NO = OPIN.CREATE_NO
+		     AND (EMP.ENGAG_DIV = '70010' OR EMP.ENGAG_DIV = '70030')
+		     AND APPROVAL_SEQ = #{approval_seq}		     
+		ORDER BY OPINION_SEQ DESC		  
+	</select>
+	
+	<insert id="insertOpinion" parameterType="com.hanaph.gw.ea.newReport.vo.OpinionVO">
+		INSERT INTO GW_EA_OPINION
+	            (OPINION_SEQ, APPROVAL_SEQ, CONTENTS, CREATE_DT, CREATE_NO
+	            )
+	     VALUES (SEQ_GW_EA_OPINION.NEXTVAL, #{approval_seq}, #{contents}, SYSDATE, #{create_no}
+	            )
+	</insert>
+	
+	<delete id="deleteOpinion" parameterType="hashmap">
+		DELETE FROM GW_EA_OPINION WHERE OPINION_SEQ = #{opinion_seq}
+	</delete>
+	
+	<delete id="deleteOpinionAll" parameterType="hashmap">
+		DELETE FROM GW_EA_OPINION WHERE APPROVAL_SEQ = #{approval_seq}
+	</delete>
+	<!-- 의견 END-->
+	
+	<insert id="insertFileAttach" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		<selectKey keyProperty="file_seq" resultType="Integer" order="BEFORE">
+    		SELECT SEQ_GW_EA_FILE_APPROVAL.NEXTVAL FROM DUAL
+  		</selectKey>
+			INSERT INTO GW_EA_FILE_APPROVAL 
+			(
+				FILE_SEQ, APPROVAL_SEQ,
+				FILE_PATH, ORIGIN_FILE_NM, FILE_NM,
+				FILE_SIZE, FILE_EXT, CREATE_DT, CREATE_NO,
+				DELETE_YN
+			)
+			VALUES 
+			(
+				#{file_seq}, #{approval_seq},
+				#{file_path}, #{origin_file_nm}, #{file_nm},
+				#{file_size}, #{file_ext}, SYSDATE, #{create_no},
+				#{delete_yn}
+			)
+	</insert>
+	
+	<update id="updateFileAttach" parameterType="hashmap">
+		UPDATE GW_EA_FILE_APPROVAL
+		   SET APPROVAL_SEQ = #{approval_seq}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>
+	
+	<select id="getAttachList" parameterType="hashmap" resultType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		SELECT FILE_SEQ, APPROVAL_SEQ, FILE_PATH,
+		       ORIGIN_FILE_NM, FILE_NM, FILE_SIZE, 
+		       FILE_EXT, CREATE_DT, DELETE_YN
+		  FROM GW_EA_FILE_APPROVAL
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+		   AND DELETE_YN = 'N'
+	</select>
+
+	<update id="deleteAttach" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		UPDATE GW_EA_FILE_APPROVAL
+		   SET DELETE_YN = #{delete_yn}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>
+	
+	 	
+ 	<select id="getApprovalNowEmpNo" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		SELECT TB.APPROVAL_SEQ, TB.EMP_NO
+		  FROM (SELECT ROW_NUMBER () OVER (PARTITION BY TA.APPROVAL_SEQ ORDER BY TA.ORDERING) AS ROW_NUMBER,
+		               TA.APPROVAL_SEQ, TA.EMP_NO
+		          FROM GW_EA_APPROVAL TA
+		         WHERE APPROVAL_SEQ = #{approval_seq} 
+		           AND APPROVAL_DT IS NULL) TB, GW_EA_APPROVAL_MASTER TC           
+		 WHERE ROW_NUMBER = '1' 
+		   AND TB.APPROVAL_SEQ = TC.APPROVAL_SEQ
+		   AND TC.STATE != 'E02001'
+ 	</select>
+	
+	<select id="getApprovalPrevCheckEmpNo" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalVO">
+		SELECT TB.APPROVAL_SEQ, TB.EMP_NO
+		  FROM (SELECT ROW_NUMBER () OVER (PARTITION BY TA.APPROVAL_SEQ ORDER BY TA.ORDERING DESC) AS ROW_NUMBER,
+		               TA.APPROVAL_SEQ, TA.EMP_NO
+		          FROM GW_EA_APPROVAL TA
+		         WHERE APPROVAL_SEQ = #{approval_seq} 
+		           AND APPROVAL_DT IS not NULL) TB                      
+		 WHERE ROW_NUMBER = '1'
+	 </select>
+	 
+ 	<select id="getOriginFileNm" parameterType="String" resultType="String">
+		SELECT ORIGIN_FILE_NM FROM GW_EA_FILE_APPROVAL
+		 WHERE FILE_SEQ = #{file_seq}
+	</select>
+	 
+	<update id="deleteAttachAll" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+ 		UPDATE GW_EA_FILE_APPROVAL
+		   SET DELETE_YN = #{delete_yn}
+		 WHERE APPROVAL_SEQ = #{approval_seq}
+	 </update>
+	 
+	<!-- 의견 첨부파일 CHOE 20151207 START --> 
+ 	<insert id="insertFileOpinion" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+	<selectKey keyProperty="file_seq" resultType="Integer" order="BEFORE">
+   		SELECT SEQ_GW_EA_FILE_OPINION.NEXTVAL FROM DUAL
+ 		</selectKey>
+		INSERT INTO GW_EA_FILE_OPINION
+		(
+			FILE_SEQ, APPROVAL_SEQ, OPINION_SEQ,
+			FILE_PATH, ORIGIN_FILE_NM, FILE_NM,
+			FILE_SIZE, FILE_EXT, CREATE_DT, CREATE_NO,
+			DELETE_YN
+		)
+		VALUES 
+		(
+			#{file_seq}, #{approval_seq}, #{opinion_seq},
+			#{file_path}, #{origin_file_nm}, #{file_nm},
+			#{file_size}, #{file_ext}, SYSDATE, #{create_no},
+			#{delete_yn}
+		)
+	</insert>
+	
+	<update id="updateFileOpinion" parameterType="hashmap">
+		UPDATE GW_EA_FILE_OPINION
+		   SET APPROVAL_SEQ = #{approval_seq},
+		       OPINION_SEQ = #{opinion_seq}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>
+	
+	<select id="getFileOpinionList" parameterType="hashmap" resultType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		SELECT FILE_SEQ, APPROVAL_SEQ, OPINION_SEQ, FILE_PATH,
+		       ORIGIN_FILE_NM, FILE_NM, FILE_SIZE, 
+		       FILE_EXT, CREATE_DT, DELETE_YN
+		  FROM GW_EA_FILE_OPINION
+		 WHERE APPROVAL_SEQ = #{approval_seq}		  	    
+		   AND DELETE_YN = 'N'
+	</select>
+
+	<update id="deleteFileOpinion" parameterType="com.hanaph.gw.co.fileAttach.vo.FileAttachVO">
+		UPDATE GW_EA_FILE_OPINION
+		   SET DELETE_YN = #{delete_yn}
+		 WHERE FILE_SEQ = #{file_seq}
+	</update>	
+	
+	<select id="getOriginFileOpinionNm" parameterType="String" resultType="String">
+		SELECT ORIGIN_FILE_NM FROM GW_EA_FILE_OPINION
+		 WHERE FILE_SEQ = #{file_seq}
+	</select>
+	
+	<!-- 의견 첨부파일 CHOE 20151207 END -->
+</mapper>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem5060(지점별 지정좌석실 입출내역  조회 )">
+  
+    <query id="rem5060_s01" desc="지정좌석실 입출내역 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rem5060_s01 */          
+			       A.COMM_NO
+			      ,A.GOOD_TYPE_CD
+			      ,B.GOOD_TYPE_NM
+			      ,C.YEAR_ITEM_SEQ_NO			      
+                  ,C.GOOD_NM
+			      ,SUM(A.PRICE * A.STOR_CNT) AS STOR_AMT
+			FROM   TBRC_FS_STOR A
+			      ,TBRC_FS_GOOD_TYPE B	
+                  ,TBRC_FS_YEAR_ITEM C   		
+			WHERE A.COMM_NO = B.COMM_NO
+			AND   A.GOOD_TYPE_CD = B.GOOD_TYPE_CD
+			AND   A.COMM_NO LIKE ?||'%'
+			AND   A.STOR_DT BETWEEN ? AND ?
+            AND   A.COMM_NO = C.COMM_NO(+)
+            AND   A.YEAR_ITEM_SEQ_NO = C.YEAR_ITEM_SEQ_NO(+)			
+			GROUP BY A.COMM_NO, A.GOOD_TYPE_CD, B.GOOD_TYPE_NM,C.YEAR_ITEM_SEQ_NO, C.GOOD_NM
+			ORDER BY A.COMM_NO, A.GOOD_TYPE_CD, C.YEAR_ITEM_SEQ_NO          
+        ]]>
+    </query> 
+    
+    
+    <query id="rem5060_s02" desc="통합재무 지출결의내역  조회" fetchSize="10">
+      <![CDATA[
+		     SELECT  /* rem5060_s02 */
+                     OUT_DECIS_MNG_NO
+		            ,GENRT_DY           -- 결의일자                      
+		            ,PROF_CEN_NM||CASE WHEN  PROF_CEN_CNT>1 THEN ' 외 '||(PROF_CEN_CNT -1)||'지점' ELSE '' END AS PROF_CEN_NM
+		            ,DECIS_RMK          -- 집행내역
+		            ,DECIS_AMT          -- 집행금액                     
+		            ,DEPT_CD            -- 부서코드
+		            ,DEPT_NM            -- 부서명
+		            ,WRT_ENO            -- 작성자ID
+		            ,WRT_NM             -- 작성자명                     
+		       FROM (
+                    SELECT  OUT_DECIS_MNG_NO   -- 결의관리번호
+                           ,GENRT_DY           -- 결의일자                      
+                           ,MIN(PROF_CEN_NM)  PROF_CEN_NM
+                           ,COUNT(DISTINCT PROF_CEN) AS PROF_CEN_CNT
+                           ,DECIS_RMK          -- 집행내역
+                           ,DECIS_AMT          -- 집행금액                     
+                           ,DEPT_CD            -- 부서코드
+                           ,DEPT_NM            -- 부서명
+                           ,WRT_ENO            -- 작성자ID
+                           ,WRT_NM             -- 작성자명                     
+                    FROM   ACCT2007.VWAF_BRANCH_OUT 
+                    WHERE  ACCT_YR = SUBSTR(?, 1, 4)         			-- 발의일자 시작일자의 년도
+                    AND    DEPT_CD LIKE NVL(?, DEPT_CD) || '%'  		-- 1. 부서코드
+                    AND    GENRT_DY BETWEEN ? AND ?                   -- 2. 발의일자 시작일, 3. 발의일자 종료일
+                    AND    DECIS_RMK LIKE '%'||?||'%'
+                    GROUP BY OUT_DECIS_MNG_NO, GENRT_DY, DECIS_RMK, DECIS_AMT, DEPT_CD, DEPT_NM, WRT_ENO, WRT_NM
+                    ORDER BY OUT_DECIS_MNG_NO   
+                    )
+        ]]>
+    </query> 
+    
+</queryMap>

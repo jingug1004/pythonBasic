@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="456" Id="RBR1013" Left="8" OnLoadCompleted="fcFormLoadSetting" PidAttrib="7" Title="직원현황" Top="8" Ver="1.0" Width="796" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsEmpStat">
+				<Contents>
+					<colinfo id="BRNC_CD" size="256" summ="default" type="STRING"/>
+					<colinfo id="STND_YEAR" size="256" summ="default" type="STRING"/>
+					<colinfo id="SEQ" size="256" summ="default" type="STRING"/>
+					<colinfo id="JOB_GRP_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="WORK_GBN_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="JOB_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="CAP_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="CNTR_JOB_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="PRSN_NUM" size="256" summ="default" type="STRING"/>
+					<colinfo id="INST_ID" size="256" summ="default" type="STRING"/>
+					<colinfo id="INST_DT" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Grid AutoEnter="TRUE" AutoFit="TRUE" AutoFitEndLine="Hide" BindDataset="dsEmpStat" BKColor="user15" BkColor2="user16" BkSelColor="user17" BoldHead="true" Border="Flat" BorderColor="user22" Bottom="448" ColSizing="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="417" Id="grdEmpStat" InputPanel="FALSE" Left="6" LineColor="user18" MinWidth="100" OnHeadClick="fcGridSort" Right="790" SelColor="user19" Style="snis_grid" TabOrder="1" TabStop="true" Top="31" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="784">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="77"/>
+						<col width="68"/>
+						<col width="107"/>
+						<col width="117"/>
+						<col width="140"/>
+						<col width="77"/>
+					</columns>
+					<head>
+						<cell bkcolor="user20" col="0" color="user21" display="text" font="굴림,9,Bold" text="직군"/>
+						<cell bkcolor="user20" col="2" color="user21" display="text" font="굴림,9,Bold" text="직무"/>
+						<cell bkcolor="user20" col="3" color="user21" display="text" font="굴림,9,Bold" text="직급"/>
+						<cell bkcolor="user20" col="4" color="user21" display="text" font="굴림,9,Bold" text="보직"/>
+						<cell bkcolor="user20" col="5" color="user21" display="text" font="굴림,9,Bold" text="인원수"/>
+						<cell bkcolor="user20" col="1" color="user21" display="text" font="굴림,9,Bold" text="근무구분"/>
+					</head>
+					<body>
+						<cell align="center" checklength="Byte" col="0" colid="JOB_GRP_NM" display="text" limit="50" suppress="1" SuppressAlign="Middle"/>
+						<cell align="center" checklength="Byte" col="1" colid="WORK_GBN_NM" combocol="CD" combotext="CD" display="normal" limit="50" suppress="2" SuppressAlign="Middle"/>
+						<cell align="center" checklength="Byte" col="2" colid="JOB_NM" display="normal" imemode="native" limit="50" suppress="3" SuppressAlign="Middle"/>
+						<cell align="center" checklength="Byte" col="3" colid="CAP_NM" display="normal" limit="50"/>
+						<cell align="center" checklength="Byte" col="4" colid="CNTR_JOB_NM" display="normal" limit="50"/>
+						<cell align="right" col="5" colid="PRSN_NUM" display="number" edit="number" limit="6"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Button Align="Left" ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btnCurrYeartSave" ImageID="btn_txt_11" Left="682" OnClick="fcBtnOnClick" TabOrder="2" Text="직원정보&#32;가져오기" Top="7" UserData="S" Width="104"></Button>
+		<Static Align="Center" Border="Flat" Height="21" Id="Static0" Left="8" Style="snis_m_lable" TabOrder="3" Text="기준일자" Top="7" VAlign="Middle" Width="80"></Static>
+		<MaskEdit Border="Flat" DisplayMaskchar="-" Enable="FALSE" Height="21" Id="mskDate" Left="96" Mask="####-##-##" MaxLength="15" Style="snis_if_input01" TabOrder="4" Top="7" Type="STRING" Width="64"></MaskEdit>
+	</Form>
+	<Script><![CDATA[
+/***************************************************************************************************
+*                                         공통 Script Include                                      *
+***************************************************************************************************/
+#include "lib::rbm_common_script.js";
+#include "lib::rbm_app_script.js";
+
+/***************************************************************************************************
+*                                          화면 변수 선언부                                        *
+***************************************************************************************************/
+var sFormId       = this.GetForm().id;
+var sBUTTONLIST   = 'FFFFTFT';                         //공통기능정의(버튼순으로 T or F)
+var sUSERAUTH     = '';                                //사용자별 프로그램 사용 권한
+var sFORMCAPTION  = '';                                //Form의 Title 정보
+var sFORMLOCATION = '';                                //Form의 Location 정보
+var sUSERLAVEL    = '';                                //Form의 사용  Level
+var vREVOBJ       = Array(9);                          //결과값 처리를 위한 오브젝트 
+var sGRDTIT       = "";                                //그리드 제목
+var sCUROBJ       = "";                                //현재 LOST FOCUS 오브젝트
+
+var sMenuGrpNum     = "0";                         	   // 메뉴그룹의 갯수보관
+var sMenuListNum    = "0";                             // 메뉴리스트의 갯수보관
+var sMenuUpId       = "";
+var sMenuUpNm       = "";
+
+var sCurDate = fcd_GetSysdate("YYYYMMDD");				// 시스템의 오늘날짜
+var sCurYear = substr(sCurDate, 0, 4);					// 시스템의 현재년도
+
+/***************************************************************************************************
+*                                         공통 Event 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 Load時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormLoadSetting(obj) {  
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  최초 화면 UNLoad時 처리 할 사항
++-------------------------------------------------------------------------------------------------*/
+function fcFormUnloadProcess(obj) {
+	//자료 변경 여부를 체크하고자 하는 DataSet Object를 넘긴다.
+	var sDataset = "dsEmpStat";
+	
+	if ( !fnc_FormUnloadCheck(sDataset, sFormId) )	return true;
+}
+
+/***************************************************************************************************
+*                                      업무화면 공통 버튼 Event 처리 부분                          *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  초기화 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInit(obj) {
+	dsEmpStat.ClearData();
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  조회 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+
+// 조회 전 Check
+function fcSearchCheck(obj) {
+	fcInit(obj);
+	
+	return true;
+}
+
+function fcSearch(obj) {
+	
+	// 올해로 조회되었을 경우만 '현황저장' 버튼을 보여준다.
+	if( parent.cboStndYearSearch ==sCurYear) {
+		btnCurrYeartSave.Visible = true;
+	} else {
+		btnCurrYeartSave.Visible = false;
+	}
+	
+	if ( !fcSearchCheck(obj) ) return;
+	
+	var sServiceName, sInDataSet, sOutDataSet;
+	
+	sServiceName = "rbr1013-service:searchEmpStat";
+	sInDataSet   = "";
+	sOutDataSet  = "dsEmpStat=dsEmpStat ";
+	
+	fcd_AddParam("BRNC_CD"  , parent.cboBrncCdSearch.Value);
+	fcd_AddParam("STND_YEAR", parent.cboStndYearSearch.Value);
+	
+
+		
+		
+	/*
+	 <=
+	 <= RBM DB 에서 무조건 가져오도록 변경 함 , 아래는 주석처리 
+	 
+	if( parent.cboStndYearSearch ==sCurYear) {
+		//현재년도 조회		
+		sServiceName = "rbr1013_b-service:searchEmpStatCurr";
+		sInDataSet   = "";
+		sOutDataSet  = "dsEmpStat=dsEmpStat ";
+		
+		var nFindRow = parent.dsBrncCd.FindRowNF("CD", parent.cboBrncCdSearch.Value);
+		var sBrncCd  = parent.dsBrncCd.GetColumn(nFindRow, "CD_TERM2");
+
+		sBrncCd = substr(sBrncCd, 4, 8);
+
+		fcd_AddParam("BRNC_CD", sBrncCd);		
+	} else {
+		//과거년도 조회
+		sServiceName = "rbr1013-service:searchEmpStat";
+		sInDataSet   = "";
+		sOutDataSet  = "dsEmpStat=dsEmpStat ";
+		
+		fcd_AddParam("BRNC_CD"  , parent.cboBrncCdSearch.Value);
+		fcd_AddParam("STND_YEAR", parent.cboStndYearSearch.Value);
+	}
+	*/
+	
+	fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  저장 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+
+// 저장 전에 체크
+function fcSaveCheck(obj) {  
+	return true;
+}
+
+function fcSave(obj) {
+	if ( !fcSaveCheck() ) return false;
+	return true;
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+
+function fcDeleteCheck(obj) { 
+ 	
+	return true;
+}
+
+function fcDelete(obj) {
+		
+}
+
+
+/*-------------------------------------------------------------------------------------------------+
+>>  엑셀 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcToExcel(obj) {
+	var sExcelList = "grdEmpStat:직원현황";
+    fcd_OpenExcelListExport(sExcelList);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  프린트 인쇄 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcPrint(obj) {
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  화면 종료(닫기) 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcEnd(obj) {
+	//화면 종료
+	Close();	
+}
+
+
+/***************************************************************************************************
+*                                      Grid 삽입, 추가, 삭제 처리                                  *
+***************************************************************************************************/
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행추가 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcAddRow(obj) {
+		
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삽입 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcInsRow(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  행삭제 버튼 클릭 時 처리
++-------------------------------------------------------------------------------------------------*/
+function fcDelRow(obj) {
+	
+}
+
+
+/***************************************************************************************************
+*                                      공통 Function 처리 부분                                     *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Text Box가 Focus를 받을 때
++-------------------------------------------------------------------------------------------------*/
+function fcEditFocus(obj) {
+//	fnc_EditFocus(obj);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드 정렬
++-------------------------------------------------------------------------------------------------*/
+function fcGridSort(obj,nCell,nX,nY) {
+	//특정 Head 클릭 시 해당 항목으로 Sort(만약 특정 컬럼을 누를때만 소트하고자 한다면 nCell로 조건)
+	fnc_GridSort(obj, object(obj.BindDataset), nCell);
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Help Popup Open
++-------------------------------------------------------------------------------------------------*/
+function fcHelpDialoge(obj,nX,nY) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  그리드에서 팝업 처리 
++-------------------------------------------------------------------------------------------------*/
+function fcGrdOnExpandEdit(objGrd, nRow, nCell, strVal, nPivotIndex){
+	
+}
+
+/***************************************************************************************************
+*                                      사용자 정의  처리 부분                                      *
+***************************************************************************************************/
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 처리 해야 할 내용!
++-------------------------------------------------------------------------------------------------*/
+function fcCallBack(sServiceName, ErrorCode, ErrorMSG) {
+	
+	if ( !fnc_ResultNP(ErrorCode, ErrorMSG) ) return;
+	
+	// 조회 완료 후
+	if ( sServiceName == "rbr1013-service:searchEmpStat" ) {
+		if( dsEmpStat.rowcount > 0 ) {
+			mskDate.Text = dsEmpStat.GetColumn(dsEmpStat.row, "INST_DT");
+		} else {
+			mskDate.Text = "";
+		}
+	}			
+	
+	// 조회 완료 후
+	if ( sServiceName == "rbr1013_b-service:searchEmpStatCurr" ) {
+		mskDate.Text = sCurDate;
+	}	
+	
+	// 저장 완료 후
+	if ( sServiceName == "rbr1013-service:saveEmpStat" ) {
+		fcSearch();		
+	}	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Transaction 후 Post Process!
++-------------------------------------------------------------------------------------------------*/
+function fcPostProcess(sServiceName) {
+	
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  코드나 명 입력 후 Lost Focus 시 해당 정보 Display
++-------------------------------------------------------------------------------------------------*/
+function fcCodeNameDisplay(obj) {
+
+}
+
+/*-------------------------------------------------------------------------------------------------+
+>>  Column의 값이 변경된 경우
++-------------------------------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------------------------------+
+>>  상세코드 조회
++-------------------------------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------------------------------+
+>>  단축키 처리(Form KeyDown)
++-------------------------------------------------------------------------------------------------*/
+function fcHotKey(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam) {
+
+	//Return Key Press時 Next Component focus
+	if ( nChar == ENTER_KEY ) {
+		var oFocusComponent = GetNextComponent(true);
+		oFocusComponent.setfocus();
+		return;
+	}
+	//Control Key가 눌려져 있다면 단축키 처리
+	//if (bControl) fnc_HotKey(this, nChar);
+}
+
+function fcBtnOnClick(obj) {		
+    if(fnc_Message(SNIS_COM_1012, "Y")) {
+        
+        //저장하기 전 올해 년도인지를 체크
+        if( parent.cboStndYearSearch != sCurYear )	return;
+        
+		var sServiceName = "rbr1013-service:saveEmpStat";
+		var sInDataSet   = "dsEmpStat=dsEmpStat ";
+		var sOutDataSet  = "dsEmpStat=dsEmpStat "; 
+	    
+	    fcd_AddParam("BRNC_CD"  , cboBrncCdSearch.Value);	//지점코드
+		fcd_AddParam("STND_YEAR", sCurYear);				//현재년도
+		
+		var nFindRow = parent.dsBrncCd.FindRowNF("CD", parent.cboBrncCdSearch.Value);
+		var sBrncCd  = parent.dsBrncCd.GetColumn(nFindRow, "CD_TERM2");
+	
+		sBrncCd = substr(sBrncCd, 4, 8);
+	
+		fcd_AddParam("VW_BRNC_CD", sBrncCd);
+	 
+		fcd_SendTransaction(sServiceName, sInDataSet, sOutDataSet, "fcCallBack", false);
+    }
+}
+
+
+function fcSetFormObjByBrnc(sBrncCd){
+	fcd_SetFormObjByBrnc(this, sBrncCd);
+}
+]]></Script>
+</Window>

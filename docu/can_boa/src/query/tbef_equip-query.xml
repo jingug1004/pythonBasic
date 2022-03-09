@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbef_equip 장비 관리">
+    <query id="tbef_equip_ff001" desc="장비 조회" fetchSize="50">
+        <![CDATA[
+            /* 장비 조회 */
+			SELECT 
+				0 AS CHK,  -- check
+				STND_YEAR,	-- 기준 년도 
+				MBR_CD, 	--경정장 코드 
+				EQUIP_TPE_CD,	-- 장비 구분 
+				EQUIP_NO,	-- 장비번호 
+				EQUIP_REG_NO, 	-- 장비 등록 번호 
+				DECODE(USE_YN ,'Y',1,0) AS USE_YN,	-- 장비 사용 여부 
+			    EQUIP_STAT_CD, 	-- 장비상태
+			    EQUIP_BUY_DT, 	--구입일자 
+			    EQUIP_MAKER, 	--제조사 
+			    RMK,			-- 비고 
+			    '' AS MODIFY_IMG -- 수정여부 이미지 
+			FROM TBEF_EQUIP
+			WHERE STND_YEAR = ?		-- 기준 년도 
+			AND MBR_CD = ? 	-- 경정장 코드 
+			AND EQUIP_TPE_CD = ? 		-- 장비 구분 
+			AND USE_YN = DECODE(?, NULL, USE_YN, ?)		-- 사용여부 
+			ORDER BY EQUIP_NO
+			
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_mf001" desc="장비 저장/수정 " fetchSize="10">
+        <![CDATA[
+            /* 장비 입력/수정 */
+			MERGE INTO TBEF_EQUIP TE
+            USING (
+            	SELECT 
+					? STND_YEAR,		-- 기준년도 
+					? MBR_CD, 	-- 경정장 코드 
+					? EQUIP_TPE_CD, 		-- 장비구분 
+					? EQUIP_NO, 		-- 장비 번호 
+					? EQUIP_REG_NO, 	-- 장비 등록 번호 
+					? USE_YN, 	-- 사용여부
+					? EQUIP_STAT_CD, 		-- 장비 상태  코드 
+					? EQUIP_BUY_DT, 	--구입일자 
+					? EQUIP_MAKER, 	--제조사 
+					? RMK, 			-- 비고
+					? AS USER_ID 	-- 작성자 아이디 
+				FROM DUAL
+			) TP
+            ON (TE.STND_YEAR = TP.STND_YEAR		-- 기준년도 
+            	AND TE.MBR_CD = TP.MBR_CD		-- 경정장 코드  
+				AND TE.EQUIP_TPE_CD	= TP.EQUIP_TPE_CD		-- 장비구분  
+				AND TE.EQUIP_NO = TP.EQUIP_NO 		-- 장비번호  
+			    )
+			WHEN MATCHED THEN
+				UPDATE
+			 	SET TE.EQUIP_REG_NO = TP.EQUIP_REG_NO, 	-- 장비 등록 번호 
+			       TE.EQUIP_STAT_CD = TP.EQUIP_STAT_CD, 		-- 장비 상태 코드 
+			       TE.USE_YN = DECODE(TP.USE_YN, 1, 'Y', 'N'), -- 사용여부
+			       TE.EQUIP_BUY_DT = TP.EQUIP_BUY_DT, 	--구입일자 
+			   	   TE.EQUIP_MAKER = TP.EQUIP_MAKER, 	--제조사 
+			       TE.RMK        = TP.RMK,		-- 비고 
+			       TE.UPDT_ID    = TP.USER_ID,		-- 수정자 ID
+				   TE.UPDT_DTM  = SYSDATE   
+			WHEN NOT MATCHED THEN
+				INSERT (
+				   TE.STND_YEAR,		-- 기준년도 
+				   TE.MBR_CD, 	-- 경정장 코드 
+				   TE.EQUIP_TPE_CD, 		-- 장비구분 
+				   TE.EQUIP_NO, 		-- 장비 번호 
+				   TE.EQUIP_REG_NO, 	-- 장비 등록 번호 
+				   TE.USE_YN,	 -- 사용여부
+				   TE.EQUIP_STAT_CD, 		-- 장비 상태  코드 
+				   TE.EQUIP_BUY_DT, 	--구입일자 
+				   TE.EQUIP_MAKER, 	--제조사 
+				   TE.RMK, 			-- 비고
+				   TE.INST_ID, 		-- 작성자 아이디
+				   TE.INST_DTM 		-- 작성일시
+				   ) 
+				VALUES ( 
+					TP.STND_YEAR,		-- 기준년도 
+				   TP.MBR_CD, 	-- 경정장 코드 
+				   TP.EQUIP_TPE_CD, 		-- 장비구분 
+				   TP.EQUIP_NO, 		-- 장비 번호 
+				   TP.EQUIP_REG_NO, 	-- 장비 등록 번호 
+				   DECODE(TP.USE_YN, 1, 'Y', 'N'), 	-- 사용 여부
+				   TP.EQUIP_STAT_CD, 		-- 장비 상태  코드 
+				   TP.EQUIP_BUY_DT, 	--구입일자 
+				   TP.EQUIP_MAKER, 	--제조사 
+				   TP.RMK, 			-- 비고
+				   TP.USER_ID, 		-- 작성자 아이디
+				    SYSDATE)
+        ]]>
+    </query> 
+    
+    <query id="tbef_equip_df001" desc="삭제" fetchSize="10">
+        <![CDATA[
+            /* 장비 삭제 */
+			DELETE 
+			FROM TBEF_EQUIP
+			 WHERE STND_YEAR  = ?		-- 기준 년도 
+			 AND MBR_CD	= ? 	-- 경정장 코드 
+			 AND EQUIP_TPE_CD  = ?			-- 장비 구분  
+			 AND EQUIP_NO   = ?			-- 장비 번호 
+        ]]>
+    </query> 
+</queryMap>

@@ -1,0 +1,54 @@
+DROP VIEW USRBM.VW_RACE_INFO;
+
+/* Formatted on 2017-03-18 ¿ÀÀü 11:05:15 (QP5 v5.136.908.31019) */
+CREATE OR REPLACE FORCE VIEW USRBM.VW_RACE_INFO
+(
+   MEET_CD,
+   STND_YEAR,
+   TMS,
+   DAY_ORD,
+   RACE_NO,
+   STR_TM,
+   RACE_DAY,
+   DUE_TIME
+)
+AS
+   SELECT S2.MEET_CD,
+          S2.STND_YEAR,
+          S2.TMS,
+          S2.DAY_ORD,
+          S2.RACE_NO,
+          S2.STR_TM,
+          S3.RACE_DAY,
+          TO_DATE (RACE_DAY || STR_TM, 'YYYYMMDDHH24MI') + (13 / 24 / 60)
+             DUE_TIME
+     FROM US_CRA.TBJB_TM_LEN S2, TBES_SDL_TM S3
+    WHERE     0 = 0
+          AND S2.MEET_CD = S3.MEET_CD
+          AND S2.STND_YEAR = S3.STND_YEAR
+          AND S2.TMS = S3.TMS
+          AND S2.DAY_ORD = S3.DAY_ORD
+          AND S2.RACE_NO = S3.RACE_NO
+          AND S2.MEET_CD <> '003'
+   UNION ALL
+   SELECT '003' AS MEET_CD,
+          R.STND_YEAR,
+          TRIM (TO_CHAR (R.TMS, '00')) AS TMS,
+          TRIM (TO_CHAR (R.DAY_ORD, '0')) AS DAY_ORD,
+          R.RACE_NO,
+          R.STRT_TIME,
+          T.RACE_DAY,
+          TO_DATE (T.RACE_DAY || R.STRT_TIME, 'YYYYMMDDHH24MI')
+          + (15 / 24 / 60)
+             AS DUE_TIME
+     FROM MRASYS.TBEB_RACE R, USRBM.TBES_SDL_TM T
+    WHERE     T.MEET_CD = '003'
+          AND R.STND_YEAR = T.STND_YEAR
+          AND R.TMS = T.TMS
+          AND R.DAY_ORD = T.DAY_ORD
+          AND R.RACE_NO = T.RACE_NO;
+
+
+GRANT SELECT ON USRBM.VW_RACE_INFO TO KRACEWEB;
+
+GRANT SELECT ON USRBM.VW_RACE_INFO TO PUBLIC;

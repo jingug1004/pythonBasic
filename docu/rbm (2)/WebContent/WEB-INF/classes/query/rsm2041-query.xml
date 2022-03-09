@@ -1,0 +1,588 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM2041(경주특이사항)">
+	<query id="rsm2041_s01" desc="특이사항 조회" fetchSize="10">
+        <![CDATA[        
+            SELECT /* rsm2041_s01 */
+            		MEET_CD, -- 경륜 경정 구분 코드
+			       MEET_GUBUN, -- 광명,미사리 구분
+			       STND_YEAR, -- 기준년도
+			       TMS,        -- 회차
+				   DAY_ORD,     -- 일차
+				   RACE_DAY,   -- 경주일
+				   RACE_DAY_INFO||' ('||RACE_YOIL_KOR||') '||MEET_GUBUN||' '||TMS||'회차 '||DAY_ORD||'일차' AS RACE_DAY_INFO, -- 경주일 정보
+				   SPEC_DESC, -- 특이사항
+				   RAIN, 
+				   REST,
+				   RemarkEtc         
+			   FROM
+			(
+			    SELECT /* rsm2041_s01 */                            
+						      V.MEET_CD,  
+						      DECODE(V.MEET_CD,'003','경정','경륜') AS MEET_GUBUN,	-- 가까운 경주일의 경륜, 경정 구분                  
+						      V.STND_YEAR,                  
+						      V.TMS,                        
+						      V.DAY_ORD,     
+						      V.RACE_DAY,               
+						      TO_CHAR(TO_DATE(V.RACE_DAY,'YYYYMMDD'),'YYYY-MM-DD') AS RACE_DAY_INFO,			-- 가까운 경주일 정보
+						      V.RACE_YOIL,
+						      DECODE(V.RACE_YOIL,'MON','월','TUE','화','WED','수','THU','목','FRI','금','SAT','토','SUN','일') AS RACE_YOIL_KOR,
+						      E.SPEC_DESC,
+						      E.RAIN,
+						      E.REST,
+						      E.RemarkEtc                        
+						 FROM                               
+						      VW_SDL_INFO V,                
+						      TBRD_RACE_SPEC_DESC E               
+						 WHERE 1=1                              
+						      AND V.MEET_CD			= ?
+						      AND V.RACE_DAY	= ?
+						      AND E.MEET_CD(+)=V.MEET_CD    
+						      AND E.STND_YEAR(+)=V.STND_YEAR
+						      AND E.TMS(+)=V.TMS            
+						      AND E.DAY_ORD(+)=V.DAY_ORD                 
+			)A			                                                                                                                                                               
+			            
+        ]]>
+    </query>
+
+
+	<query id="rsm2041_s02" desc="회차 특이사항 조회" fetchSize="10">
+        <![CDATA[        
+            SELECT /* rsm2041_s02 */
+            		MEET_CD, -- 경륜 경정 구분 코드
+			       MEET_GUBUN, -- 광명,미사리 구분
+			       STND_YEAR, -- 기준년도
+			       TMS,        -- 회차
+			       DAY_ORD,
+				   RemarkEtc,
+				   SubjectRace         
+			   FROM
+			(
+			    SELECT /* rsm2041_s02 */                            
+						      V.MEET_CD,  
+						      DECODE(V.MEET_CD,'003','경정','경륜') AS MEET_GUBUN,	-- 가까운 경주일의 경륜, 경정 구분                  
+						      V.STND_YEAR,                  
+						      V.TMS,
+						      0 as DAY_ORD,                        
+						      E.RemarkEtc,
+						      E.SubjectRace                        
+						 FROM                               
+						      VW_SDL_INFO V,                
+						      TBRD_RACE_SPEC_DESC E               
+						 WHERE 1=1                              
+						      AND V.MEET_CD			= ?
+						      AND V.RACE_DAY	= ?
+						      AND E.MEET_CD(+)=V.MEET_CD    
+						      AND E.STND_YEAR(+)=V.STND_YEAR
+						      AND E.TMS(+)=V.TMS            
+						      AND E.DAY_ORD(+)=0                 
+			)A			                                                                                                                                                               
+			            
+        ]]>
+    </query>
+    
+    <query id="rsm2041_m01" desc="특이사항 입력 수정" fetchSize="10">
+        <![CDATA[        
+            MERGE INTO TBRD_RACE_SPEC_DESC A  
+			USING   
+				(SELECT
+				? AS MEET_CD	-- 경륜 경정 구분 코드      
+				,? AS STND_YEAR    -- 기준년도
+				,? AS TMS            -- 회차
+				,? AS DAY_ORD         -- 일차
+				,? AS SPEC_DESC         -- 특이사항 내용
+				,? AS RAIN
+				,? AS REST
+				,? AS RemarkEtc
+				,? AS SubjectRace
+				,? AS LOGIN_ID    -- 로그인 사용자 아이디
+				FROM    DUAL ) B  
+			
+			ON (					-- 수정조건
+				A.MEET_CD = B.MEET_CD		
+				AND A.STND_YEAR   = B.STND_YEAR           
+				AND A.TMS       = B.TMS               
+				AND A.DAY_ORD  = B.DAY_ORD          
+			)					
+			
+			WHEN MATCHED THEN
+				UPDATE SET
+				A.SPEC_DESC     = B.SPEC_DESC
+				,A.RAIN			= B.RAIN
+				,A.REST			= B.REST
+				,A.RemarkEtc	= B.RemarkEtc      
+				,A.SubjectRace	= B.SubjectRace       		    
+				,A.INST_ID      = B.LOGIN_ID                
+				,A.INST_DT   = SYSDATE             
+				,A.UPDT_ID   = B.LOGIN_ID           
+				,A.UPDT_DT    = SYSDATE            
+			WHEN NOT MATCHED THEN 
+				INSERT (
+					MEET_CD,	-- 시힝처 코드
+					STND_YEAR, 	-- 경주년도
+					TMS,		-- 회차                     
+					DAY_ORD, 	-- 일차                     
+					SPEC_DESC, 		-- 특이사항 
+					RAIN, 
+					REST,
+					RemarkEtc,
+					SubjectRace,
+					INST_ID,	-- 입력아이디
+					INST_DT,	-- 입력일시
+					UPDT_ID,	-- 수정자 아이디
+					UPDT_DT		-- 수정일시
+				) VALUES (
+					B.MEET_CD , 
+					B.STND_YEAR,  
+					B.TMS , 
+					B.DAY_ORD, 
+					B.SPEC_DESC, 
+					B.Rain,
+					B.Rest,
+					B.RemarkEtc,
+					B.SubjectRace,
+					B.LOGIN_ID, 
+					SYSDATE, 
+					B.LOGIN_ID , 
+					SYSDATE
+				)                                                                                                                                                                          
+						            
+        ]]>
+    </query>
+
+	<query id="rsm2041_s03" desc="회차 특이사항 조회" fetchSize="10">
+        <![CDATA[  
+			WITH A AS(
+			    SELECT meet_cd, stnd_year, tms, day_ord, rain, rest, remarketc, subjectrace FROM TBRD_RACE_SPEC_DESC 
+			    WHERE (meet_cd, stnd_year) = (SELECT meet_cd, stnd_year FROM VW_SDL_INFO WHERE meet_cd = ? AND race_day = ?) 
+			)
+			, B AS (
+			    SELECT  meet_cd, stnd_year 
+			            ,1 AS day_ord, '1일' AS GBN 
+			            ,max(decode(tms,1,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms1
+			            ,max(decode(tms,2,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms2
+			            ,max(decode(tms,3,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms3
+			            ,max(decode(tms,4,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms4
+			            ,max(decode(tms,5,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms5
+			            ,max(decode(tms,6,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms6
+			            ,max(decode(tms,7,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms7
+			            ,max(decode(tms,8,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms8
+			            ,max(decode(tms,9,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms9
+			            ,max(decode(tms,10,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms10
+			            ,max(decode(tms,11,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms11
+			            ,max(decode(tms,12,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms12
+			            ,max(decode(tms,13,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms13
+			            ,max(decode(tms,14,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms14
+			            ,max(decode(tms,15,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms15
+			            ,max(decode(tms,16,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms16
+			            ,max(decode(tms,17,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms17
+			            ,max(decode(tms,18,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms18
+			            ,max(decode(tms,19,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms19
+			            ,max(decode(tms,20,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms20
+			            ,max(decode(tms,21,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms21
+			            ,max(decode(tms,22,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms22
+			            ,max(decode(tms,23,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms23
+			            ,max(decode(tms,24,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms24
+			            ,max(decode(tms,25,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms25
+			            ,max(decode(tms,26,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms26
+			            ,max(decode(tms,27,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms27
+			            ,max(decode(tms,28,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms28
+			            ,max(decode(tms,29,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms29
+			            ,max(decode(tms,30,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms30
+			            ,max(decode(tms,31,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms31
+			            ,max(decode(tms,32,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms32
+			            ,max(decode(tms,33,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms33
+			            ,max(decode(tms,34,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms34
+			            ,max(decode(tms,35,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms35
+			            ,max(decode(tms,36,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms36
+			            ,max(decode(tms,37,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms37
+			            ,max(decode(tms,38,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms38
+			            ,max(decode(tms,39,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms39
+			            ,max(decode(tms,40,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms40
+			            ,max(decode(tms,41,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms41
+			            ,max(decode(tms,42,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms42
+			            ,max(decode(tms,43,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms43
+			            ,max(decode(tms,44,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms44
+			            ,max(decode(tms,45,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms45
+			            ,max(decode(tms,46,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms46
+			            ,max(decode(tms,47,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms47
+			            ,max(decode(tms,48,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms48
+			            ,max(decode(tms,49,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms49
+			            ,max(decode(tms,50,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms50
+			            ,max(decode(tms,1, remarketc)) etc1
+			            ,max(decode(tms,2, remarketc)) etc2
+			            ,max(decode(tms,3, remarketc)) etc3
+			            ,max(decode(tms,4, remarketc)) etc4
+			            ,max(decode(tms,5, remarketc)) etc5
+			            ,max(decode(tms,6, remarketc)) etc6
+			            ,max(decode(tms,7, remarketc)) etc7
+			            ,max(decode(tms,8, remarketc)) etc8
+			            ,max(decode(tms,9, remarketc)) etc9
+			            ,max(decode(tms,10, remarketc)) etc10
+			            ,max(decode(tms,11, remarketc)) etc11
+			            ,max(decode(tms,12, remarketc)) etc12
+			            ,max(decode(tms,13, remarketc)) etc13
+			            ,max(decode(tms,14, remarketc)) etc14
+			            ,max(decode(tms,15, remarketc)) etc15
+			            ,max(decode(tms,16, remarketc)) etc16
+			            ,max(decode(tms,17, remarketc)) etc17
+			            ,max(decode(tms,18, remarketc)) etc18
+			            ,max(decode(tms,19, remarketc)) etc19
+			            ,max(decode(tms,20, remarketc)) etc20
+			            ,max(decode(tms,21, remarketc)) etc21
+			            ,max(decode(tms,22, remarketc)) etc22
+			            ,max(decode(tms,23, remarketc)) etc23
+			            ,max(decode(tms,24, remarketc)) etc24
+			            ,max(decode(tms,25, remarketc)) etc25
+			            ,max(decode(tms,26, remarketc)) etc26
+			            ,max(decode(tms,27, remarketc)) etc27
+			            ,max(decode(tms,28, remarketc)) etc28
+			            ,max(decode(tms,29, remarketc)) etc29
+			            ,max(decode(tms,30, remarketc)) etc30
+			            ,max(decode(tms,31, remarketc)) etc31
+			            ,max(decode(tms,32, remarketc)) etc32
+			            ,max(decode(tms,33, remarketc)) etc33
+			            ,max(decode(tms,34, remarketc)) etc34
+			            ,max(decode(tms,35, remarketc)) etc35
+			            ,max(decode(tms,36, remarketc)) etc36
+			            ,max(decode(tms,37, remarketc)) etc37
+			            ,max(decode(tms,38, remarketc)) etc38
+			            ,max(decode(tms,39, remarketc)) etc39
+			            ,max(decode(tms,40, remarketc)) etc40
+			            ,max(decode(tms,41, remarketc)) etc41
+			            ,max(decode(tms,42, remarketc)) etc42
+			            ,max(decode(tms,43, remarketc)) etc43
+			            ,max(decode(tms,44, remarketc)) etc44
+			            ,max(decode(tms,45, remarketc)) etc45
+			            ,max(decode(tms,46, remarketc)) etc46
+			            ,max(decode(tms,47, remarketc)) etc47
+			            ,max(decode(tms,48, remarketc)) etc48
+			            ,max(decode(tms,49, remarketc)) etc49
+			            ,max(decode(tms,50, remarketc)) etc50
+			    FROM A
+			    WHERE day_ord = 1 GROUP BY meet_cd, stnd_year        
+			    UNION ALL   
+			    SELECT  meet_cd, stnd_year 
+			            ,2 AS day_ord, '2일'
+			            ,max(decode(tms,1,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms1
+			            ,max(decode(tms,2,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms2
+			            ,max(decode(tms,3,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms3
+			            ,max(decode(tms,4,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms4
+			            ,max(decode(tms,5,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms5
+			            ,max(decode(tms,6,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms6
+			            ,max(decode(tms,7,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms7
+			            ,max(decode(tms,8,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms8
+			            ,max(decode(tms,9,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms9
+			            ,max(decode(tms,10,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms10
+			            ,max(decode(tms,11,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms11
+			            ,max(decode(tms,12,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms12
+			            ,max(decode(tms,13,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms13
+			            ,max(decode(tms,14,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms14
+			            ,max(decode(tms,15,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms15
+			            ,max(decode(tms,16,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms16
+			            ,max(decode(tms,17,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms17
+			            ,max(decode(tms,18,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms18
+			            ,max(decode(tms,19,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms19
+			            ,max(decode(tms,20,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms20
+			            ,max(decode(tms,21,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms21
+			            ,max(decode(tms,22,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms22
+			            ,max(decode(tms,23,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms23
+			            ,max(decode(tms,24,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms24
+			            ,max(decode(tms,25,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms25
+			            ,max(decode(tms,26,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms26
+			            ,max(decode(tms,27,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms27
+			            ,max(decode(tms,28,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms28
+			            ,max(decode(tms,29,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms29
+			            ,max(decode(tms,30,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms30
+			            ,max(decode(tms,31,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms31
+			            ,max(decode(tms,32,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms32
+			            ,max(decode(tms,33,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms33
+			            ,max(decode(tms,34,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms34
+			            ,max(decode(tms,35,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms35
+			            ,max(decode(tms,36,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms36
+			            ,max(decode(tms,37,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms37
+			            ,max(decode(tms,38,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms38
+			            ,max(decode(tms,39,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms39
+			            ,max(decode(tms,40,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms40
+			            ,max(decode(tms,41,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms41
+			            ,max(decode(tms,42,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms42
+			            ,max(decode(tms,43,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms43
+			            ,max(decode(tms,44,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms44
+			            ,max(decode(tms,45,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms45
+			            ,max(decode(tms,46,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms46
+			            ,max(decode(tms,47,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms47
+			            ,max(decode(tms,48,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms48
+			            ,max(decode(tms,49,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms49
+			            ,max(decode(tms,50,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms50
+			            ,max(decode(tms,1, remarketc)) etc1
+			            ,max(decode(tms,2, remarketc)) etc2
+			            ,max(decode(tms,3, remarketc)) etc3
+			            ,max(decode(tms,4, remarketc)) etc4
+			            ,max(decode(tms,5, remarketc)) etc5
+			            ,max(decode(tms,6, remarketc)) etc6
+			            ,max(decode(tms,7, remarketc)) etc7
+			            ,max(decode(tms,8, remarketc)) etc8
+			            ,max(decode(tms,9, remarketc)) etc9
+			            ,max(decode(tms,10, remarketc)) etc10
+			            ,max(decode(tms,11, remarketc)) etc11
+			            ,max(decode(tms,12, remarketc)) etc12
+			            ,max(decode(tms,13, remarketc)) etc13
+			            ,max(decode(tms,14, remarketc)) etc14
+			            ,max(decode(tms,15, remarketc)) etc15
+			            ,max(decode(tms,16, remarketc)) etc16
+			            ,max(decode(tms,17, remarketc)) etc17
+			            ,max(decode(tms,18, remarketc)) etc18
+			            ,max(decode(tms,19, remarketc)) etc19
+			            ,max(decode(tms,20, remarketc)) etc20
+			            ,max(decode(tms,21, remarketc)) etc21
+			            ,max(decode(tms,22, remarketc)) etc22
+			            ,max(decode(tms,23, remarketc)) etc23
+			            ,max(decode(tms,24, remarketc)) etc24
+			            ,max(decode(tms,25, remarketc)) etc25
+			            ,max(decode(tms,26, remarketc)) etc26
+			            ,max(decode(tms,27, remarketc)) etc27
+			            ,max(decode(tms,28, remarketc)) etc28
+			            ,max(decode(tms,29, remarketc)) etc29
+			            ,max(decode(tms,30, remarketc)) etc30
+			            ,max(decode(tms,31, remarketc)) etc31
+			            ,max(decode(tms,32, remarketc)) etc32
+			            ,max(decode(tms,33, remarketc)) etc33
+			            ,max(decode(tms,34, remarketc)) etc34
+			            ,max(decode(tms,35, remarketc)) etc35
+			            ,max(decode(tms,36, remarketc)) etc36
+			            ,max(decode(tms,37, remarketc)) etc37
+			            ,max(decode(tms,38, remarketc)) etc38
+			            ,max(decode(tms,39, remarketc)) etc39
+			            ,max(decode(tms,40, remarketc)) etc40
+			            ,max(decode(tms,41, remarketc)) etc41
+			            ,max(decode(tms,42, remarketc)) etc42
+			            ,max(decode(tms,43, remarketc)) etc43
+			            ,max(decode(tms,44, remarketc)) etc44
+			            ,max(decode(tms,45, remarketc)) etc45
+			            ,max(decode(tms,46, remarketc)) etc46
+			            ,max(decode(tms,47, remarketc)) etc47
+			            ,max(decode(tms,48, remarketc)) etc48
+			            ,max(decode(tms,49, remarketc)) etc49
+			            ,max(decode(tms,50, remarketc)) etc50
+			    FROM A
+			    WHERE day_ord = 2  GROUP BY meet_cd, stnd_year        
+			    UNION ALL
+			    SELECT  meet_cd, stnd_year 
+			            ,3 AS day_ord, '3일' 
+			            ,max(decode(tms,1,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms1
+			            ,max(decode(tms,2,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms2
+			            ,max(decode(tms,3,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms3
+			            ,max(decode(tms,4,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms4
+			            ,max(decode(tms,5,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms5
+			            ,max(decode(tms,6,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms6
+			            ,max(decode(tms,7,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms7
+			            ,max(decode(tms,8,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms8
+			            ,max(decode(tms,9,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms9
+			            ,max(decode(tms,10,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms10
+			            ,max(decode(tms,11,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms11
+			            ,max(decode(tms,12,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms12
+			            ,max(decode(tms,13,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms13
+			            ,max(decode(tms,14,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms14
+			            ,max(decode(tms,15,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms15
+			            ,max(decode(tms,16,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms16
+			            ,max(decode(tms,17,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms17
+			            ,max(decode(tms,18,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms18
+			            ,max(decode(tms,19,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms19
+			            ,max(decode(tms,20,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms20
+			            ,max(decode(tms,21,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms21
+			            ,max(decode(tms,22,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms22
+			            ,max(decode(tms,23,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms23
+			            ,max(decode(tms,24,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms24
+			            ,max(decode(tms,25,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms25
+			            ,max(decode(tms,26,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms26
+			            ,max(decode(tms,27,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms27
+			            ,max(decode(tms,28,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms28
+			            ,max(decode(tms,29,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms29
+			            ,max(decode(tms,30,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms30
+			            ,max(decode(tms,31,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms31
+			            ,max(decode(tms,32,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms32
+			            ,max(decode(tms,33,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms33
+			            ,max(decode(tms,34,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms34
+			            ,max(decode(tms,35,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms35
+			            ,max(decode(tms,36,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms36
+			            ,max(decode(tms,37,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms37
+			            ,max(decode(tms,38,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms38
+			            ,max(decode(tms,39,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms39
+			            ,max(decode(tms,40,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms40
+			            ,max(decode(tms,41,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms41
+			            ,max(decode(tms,42,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms42
+			            ,max(decode(tms,43,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms43
+			            ,max(decode(tms,44,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms44
+			            ,max(decode(tms,45,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms45
+			            ,max(decode(tms,46,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms46
+			            ,max(decode(tms,47,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms47
+			            ,max(decode(tms,48,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms48
+			            ,max(decode(tms,49,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms49
+			            ,max(decode(tms,50,  decode(rain,1,'雨')||decode(rest,1,'休')  )) tms50
+			            ,max(decode(tms,1, remarketc)) etc1
+			            ,max(decode(tms,2, remarketc)) etc2
+			            ,max(decode(tms,3, remarketc)) etc3
+			            ,max(decode(tms,4, remarketc)) etc4
+			            ,max(decode(tms,5, remarketc)) etc5
+			            ,max(decode(tms,6, remarketc)) etc6
+			            ,max(decode(tms,7, remarketc)) etc7
+			            ,max(decode(tms,8, remarketc)) etc8
+			            ,max(decode(tms,9, remarketc)) etc9
+			            ,max(decode(tms,10, remarketc)) etc10
+			            ,max(decode(tms,11, remarketc)) etc11
+			            ,max(decode(tms,12, remarketc)) etc12
+			            ,max(decode(tms,13, remarketc)) etc13
+			            ,max(decode(tms,14, remarketc)) etc14
+			            ,max(decode(tms,15, remarketc)) etc15
+			            ,max(decode(tms,16, remarketc)) etc16
+			            ,max(decode(tms,17, remarketc)) etc17
+			            ,max(decode(tms,18, remarketc)) etc18
+			            ,max(decode(tms,19, remarketc)) etc19
+			            ,max(decode(tms,20, remarketc)) etc20
+			            ,max(decode(tms,21, remarketc)) etc21
+			            ,max(decode(tms,22, remarketc)) etc22
+			            ,max(decode(tms,23, remarketc)) etc23
+			            ,max(decode(tms,24, remarketc)) etc24
+			            ,max(decode(tms,25, remarketc)) etc25
+			            ,max(decode(tms,26, remarketc)) etc26
+			            ,max(decode(tms,27, remarketc)) etc27
+			            ,max(decode(tms,28, remarketc)) etc28
+			            ,max(decode(tms,29, remarketc)) etc29
+			            ,max(decode(tms,30, remarketc)) etc30
+			            ,max(decode(tms,31, remarketc)) etc31
+			            ,max(decode(tms,32, remarketc)) etc32
+			            ,max(decode(tms,33, remarketc)) etc33
+			            ,max(decode(tms,34, remarketc)) etc34
+			            ,max(decode(tms,35, remarketc)) etc35
+			            ,max(decode(tms,36, remarketc)) etc36
+			            ,max(decode(tms,37, remarketc)) etc37
+			            ,max(decode(tms,38, remarketc)) etc38
+			            ,max(decode(tms,39, remarketc)) etc39
+			            ,max(decode(tms,40, remarketc)) etc40
+			            ,max(decode(tms,41, remarketc)) etc41
+			            ,max(decode(tms,42, remarketc)) etc42
+			            ,max(decode(tms,43, remarketc)) etc43
+			            ,max(decode(tms,44, remarketc)) etc44
+			            ,max(decode(tms,45, remarketc)) etc45
+			            ,max(decode(tms,46, remarketc)) etc46
+			            ,max(decode(tms,47, remarketc)) etc47
+			            ,max(decode(tms,48, remarketc)) etc48
+			            ,max(decode(tms,49, remarketc)) etc49
+			            ,max(decode(tms,50, remarketc)) etc50
+			    FROM A
+			    WHERE day_ord = 3  GROUP BY meet_cd, stnd_year       
+			    UNION ALL
+			    SELECT  meet_cd, stnd_year 
+			            ,0 AS day_ord, '회차'
+			            ,max(decode(tms,1,  decode(subjectrace,1,'대상')  )) tms1
+			            ,max(decode(tms,2,  decode(subjectrace,1,'대상')  )) tms2
+			            ,max(decode(tms,3,  decode(subjectrace,1,'대상')  )) tms3
+			            ,max(decode(tms,4,  decode(subjectrace,1,'대상')  )) tms4
+			            ,max(decode(tms,5,  decode(subjectrace,1,'대상')  )) tms5
+			            ,max(decode(tms,6,  decode(subjectrace,1,'대상')  )) tms6
+			            ,max(decode(tms,7,  decode(subjectrace,1,'대상')  )) tms7
+			            ,max(decode(tms,8,  decode(subjectrace,1,'대상')  )) tms8
+			            ,max(decode(tms,9,  decode(subjectrace,1,'대상')  )) tms9
+			            ,max(decode(tms,10,  decode(subjectrace,1,'대상')  )) tms10
+			            ,max(decode(tms,11,  decode(subjectrace,1,'대상')  )) tms11
+			            ,max(decode(tms,12,  decode(subjectrace,1,'대상')  )) tms12
+			            ,max(decode(tms,13,  decode(subjectrace,1,'대상')  )) tms13
+			            ,max(decode(tms,14,  decode(subjectrace,1,'대상')  )) tms14
+			            ,max(decode(tms,15,  decode(subjectrace,1,'대상')  )) tms15
+			            ,max(decode(tms,16,  decode(subjectrace,1,'대상')  )) tms16
+			            ,max(decode(tms,17,  decode(subjectrace,1,'대상')  )) tms17
+			            ,max(decode(tms,18,  decode(subjectrace,1,'대상')  )) tms18
+			            ,max(decode(tms,19,  decode(subjectrace,1,'대상')  )) tms19
+			            ,max(decode(tms,20,  decode(subjectrace,1,'대상')  )) tms20
+			            ,max(decode(tms,21,  decode(subjectrace,1,'대상')  )) tms21
+			            ,max(decode(tms,22,  decode(subjectrace,1,'대상')  )) tms22
+			            ,max(decode(tms,23,  decode(subjectrace,1,'대상')  )) tms23
+			            ,max(decode(tms,24,  decode(subjectrace,1,'대상')  )) tms24
+			            ,max(decode(tms,25,  decode(subjectrace,1,'대상')  )) tms25
+			            ,max(decode(tms,26,  decode(subjectrace,1,'대상')  )) tms26
+			            ,max(decode(tms,27,  decode(subjectrace,1,'대상')  )) tms27
+			            ,max(decode(tms,28,  decode(subjectrace,1,'대상')  )) tms28
+			            ,max(decode(tms,29,  decode(subjectrace,1,'대상')  )) tms29
+			            ,max(decode(tms,30,  decode(subjectrace,1,'대상')  )) tms30
+			            ,max(decode(tms,31,  decode(subjectrace,1,'대상')  )) tms31
+			            ,max(decode(tms,32,  decode(subjectrace,1,'대상')  )) tms32
+			            ,max(decode(tms,33,  decode(subjectrace,1,'대상')  )) tms33
+			            ,max(decode(tms,34,  decode(subjectrace,1,'대상')  )) tms34
+			            ,max(decode(tms,35,  decode(subjectrace,1,'대상')  )) tms35
+			            ,max(decode(tms,36,  decode(subjectrace,1,'대상')  )) tms36
+			            ,max(decode(tms,37,  decode(subjectrace,1,'대상')  )) tms37
+			            ,max(decode(tms,38,  decode(subjectrace,1,'대상')  )) tms38
+			            ,max(decode(tms,39,  decode(subjectrace,1,'대상')  )) tms39
+			            ,max(decode(tms,40,  decode(subjectrace,1,'대상')  )) tms40
+			            ,max(decode(tms,41,  decode(subjectrace,1,'대상')  )) tms41
+			            ,max(decode(tms,42,  decode(subjectrace,1,'대상')  )) tms42
+			            ,max(decode(tms,43,  decode(subjectrace,1,'대상')  )) tms43
+			            ,max(decode(tms,44,  decode(subjectrace,1,'대상')  )) tms44
+			            ,max(decode(tms,45,  decode(subjectrace,1,'대상')  )) tms45
+			            ,max(decode(tms,46,  decode(subjectrace,1,'대상')  )) tms46
+			            ,max(decode(tms,47,  decode(subjectrace,1,'대상')  )) tms47
+			            ,max(decode(tms,48,  decode(subjectrace,1,'대상')  )) tms48
+			            ,max(decode(tms,49,  decode(subjectrace,1,'대상')  )) tms49
+			            ,max(decode(tms,50,  decode(subjectrace,1,'대상')  )) tms50
+			            ,max(decode(tms,1, remarketc)) etc1
+			            ,max(decode(tms,2, remarketc)) etc2
+			            ,max(decode(tms,3, remarketc)) etc3
+			            ,max(decode(tms,4, remarketc)) etc4
+			            ,max(decode(tms,5, remarketc)) etc5
+			            ,max(decode(tms,6, remarketc)) etc6
+			            ,max(decode(tms,7, remarketc)) etc7
+			            ,max(decode(tms,8, remarketc)) etc8
+			            ,max(decode(tms,9, remarketc)) etc9
+			            ,max(decode(tms,10, remarketc)) etc10
+			            ,max(decode(tms,11, remarketc)) etc11
+			            ,max(decode(tms,12, remarketc)) etc12
+			            ,max(decode(tms,13, remarketc)) etc13
+			            ,max(decode(tms,14, remarketc)) etc14
+			            ,max(decode(tms,15, remarketc)) etc15
+			            ,max(decode(tms,16, remarketc)) etc16
+			            ,max(decode(tms,17, remarketc)) etc17
+			            ,max(decode(tms,18, remarketc)) etc18
+			            ,max(decode(tms,19, remarketc)) etc19
+			            ,max(decode(tms,20, remarketc)) etc20
+			            ,max(decode(tms,21, remarketc)) etc21
+			            ,max(decode(tms,22, remarketc)) etc22
+			            ,max(decode(tms,23, remarketc)) etc23
+			            ,max(decode(tms,24, remarketc)) etc24
+			            ,max(decode(tms,25, remarketc)) etc25
+			            ,max(decode(tms,26, remarketc)) etc26
+			            ,max(decode(tms,27, remarketc)) etc27
+			            ,max(decode(tms,28, remarketc)) etc28
+			            ,max(decode(tms,29, remarketc)) etc29
+			            ,max(decode(tms,30, remarketc)) etc30
+			            ,max(decode(tms,31, remarketc)) etc31
+			            ,max(decode(tms,32, remarketc)) etc32
+			            ,max(decode(tms,33, remarketc)) etc33
+			            ,max(decode(tms,34, remarketc)) etc34
+			            ,max(decode(tms,35, remarketc)) etc35
+			            ,max(decode(tms,36, remarketc)) etc36
+			            ,max(decode(tms,37, remarketc)) etc37
+			            ,max(decode(tms,38, remarketc)) etc38
+			            ,max(decode(tms,39, remarketc)) etc39
+			            ,max(decode(tms,40, remarketc)) etc40
+			            ,max(decode(tms,41, remarketc)) etc41
+			            ,max(decode(tms,42, remarketc)) etc42
+			            ,max(decode(tms,43, remarketc)) etc43
+			            ,max(decode(tms,44, remarketc)) etc44
+			            ,max(decode(tms,45, remarketc)) etc45
+			            ,max(decode(tms,46, remarketc)) etc46
+			            ,max(decode(tms,47, remarketc)) etc47
+			            ,max(decode(tms,48, remarketc)) etc48
+			            ,max(decode(tms,49, remarketc)) etc49
+			            ,max(decode(tms,50, remarketc)) etc50
+			    FROM A
+			    WHERE day_ord = 0  GROUP BY meet_cd, stnd_year
+			)
+			SELECT * FROM B
+			WHERE decode(meet_cd,'003',2,9) >= day_ord 
+        ]]>
+    </query>
+
+
+    
+</queryMap>

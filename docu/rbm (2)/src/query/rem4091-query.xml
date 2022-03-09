@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rem4091(미사리현금입장현황 수동배치)">
+  
+    <query id="rem4091_s01" desc="미사리현금입장현황 조회" fetchSize="10">
+      <![CDATA[
+			SELECT SDATE, 
+			       SUM(QNTY1 + QNTY2) AS TOT_QNTY,
+			       SUM(AMNT1 + AMNT2) AS TOT_AMNT,
+			       SUM(QNTY1) AS QNTY1, 
+			       SUM(AMNT1) AS AMNT1, 
+			       SUM(QNTY2) AS QNTY2, 
+			       SUM(AMNT2) AS AMNT2,
+			       '' AS CHK
+			  FROM (
+			        SELECT SDATE, 
+			               SUM(DECODE(PAY_GBN, '현금', QNTY, 0)) AS QNTY1,
+			               SUM(DECODE(PAY_GBN, '현금', AMNT, 0)) AS AMNT1,
+			               SUM(DECODE(PAY_GBN, '무료', QNTY, 0)) AS QNTY2,
+			               SUM(DECODE(PAY_GBN, '무료', AMNT, 0)) AS AMNT2
+			          FROM TBRC_T_TRADE_MSR
+			         WHERE SDATE BETWEEN ? AND ?
+			        GROUP BY SDATE
+			       )
+			GROUP BY SDATE
+			ORDER BY SDATE DESC
+        ]]>
+    </query>
+    
+    <query id="rem4091_s02" desc="ACCESS DB 조회" fetchSize="10">
+      <![CDATA[
+      		SELECT SDATE, LOC AS M_NO, ILNO, RTN, USE_CD, PAY_GBN, QNTY, AMNT, FTIME
+			  FROM MKT_DESC_TB
+			 WHERE SDATE > '20150101'
+			   AND SDATE > NOW() -62
+			   AND LOC = '6'
+      ]]>
+    </query>
+    
+    <query id="rem4091_s03" desc="ORACLE DB 조회" fetchSize="10">
+      <![CDATA[
+      		SELECT SDATE, M_NO, ILNO, RTN, USE_CD, PAY_GBN, QNTY, AMNT, FTIME
+			  FROM TBRC_T_TRADE_MSR
+			 WHERE SDATE > '20150101'
+			   AND SDATE > SYSDATE -62
+			   AND M_NO = '6'
+      ]]>
+    </query>
+        
+    <query id="rem4091_d01" desc="미사리현금입장 삭제" fetchSize="10">
+      <![CDATA[
+            DELETE TBRC_T_TRADE_MSR
+            WHERE SDATE = ?
+              AND M_NO = ?
+              AND ILNO = ?   
+        ]]>
+    </query>
+        
+    <query id="rem4091_i01" desc="미사리현금입장 수동배치" fetchSize="10">
+      <![CDATA[
+      		INSERT INTO TBRC_T_TRADE_MSR 
+      		       ( SDATE, 
+      		         M_NO, 
+      		         ILNO, 
+      		         RTN, 
+      		         USE_CD, 
+      		         PAY_GBN, 
+      		         QNTY, 
+      		         AMNT, 
+      		         FTIME
+				   ) VALUES 
+				   (
+					 ?,		-- MKT_DESC_TB.SDATE 
+					 ?,		-- MKT_DESC_TB.LOC
+					 ?,		-- MKT_DESC_TB.ILNO 
+					 ?,		-- MKT_DESC_TB.RTN 
+					 ?,		-- MKT_DESC_TB.USE_CD 
+					 ?,		-- MKT_DESC_TB.PAY_GBN 
+					 ?,		-- MKT_DESC_TB.QNTY 
+					 ?,		-- MKT_DESC_TB.AMNT 
+					 ?		-- MKT_DESC_TB.FTIME
+                   )
+        ]]>
+    </query>
+    
+    <query id="rem4091_i02" desc="SEED TEST" fetchSize="10">
+      <![CDATA[
+      		INSERT INTO TBRC_T_TRADE_TEST 
+      		       ( COMM_NO, 
+      		         DIV_NO, 
+      		         TRANSITION_SEQ, 
+      		         MACHINE_ID, 
+      		         TRADE_DATE, 
+      		         TERM_ID, 
+      		         CARD_ID, 
+      		         CARD_SERIAL, 
+      		         REQUEST_FEE,
+      		         CARD_USER_CODE,
+      		         CARD_USER_TYPE,
+      		         IDATE
+				   ) VALUES 
+				   (
+					 FC_ENC(?),		 
+					 FC_ENC(?),		
+					 ?,		 
+					 ?,		 
+					 ?,		 
+					 ?,		 
+					 ?,		 
+					 ?,		 
+					 ?,
+					 ?,
+					 ?,
+					 ?		
+                   )
+        ]]>
+    </query>
+    
+    <query id="rem4091_s02" desc="SeedTest 조회" fetchSize="10">
+      <![CDATA[
+			SELECT FC_DEC(COMM_NO) AS COMM_NO, FC_DEC(DIV_NO) AS DIV_NO, 
+      		       TRANSITION_SEQ, MACHINE_ID, TRADE_DATE, TERM_ID, 
+      		       CARD_ID, CARD_SERIAL, REQUEST_FEE, CARD_USER_CODE,
+      		       CARD_USER_TYPE, IDATE
+			  FROM TBRC_T_TRADE_TEST
+        ]]>
+    </query>
+    
+</queryMap>

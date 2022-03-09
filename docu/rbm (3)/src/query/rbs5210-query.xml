@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbs5210(급여조정인상률 관리 )">
+  <query id="rbs5210_s01" desc="급여조정인상률 조회" fetchSize="10">
+      <![CDATA[
+            SELECT  /* rbs5210_s01 */
+                     '0' AS CHK
+                    ,R.RACER_ID
+		            ,R.RACER_NM
+		            ,R.GAME_CD
+		            ,R.RACER_TYPE
+		            ,NVL(RC.CNTR_YEAR, ?) AS CNTR_YEAR
+		            ,RC.CNTR_AMT
+		            ,RC.PAY_ADJ_CD
+		            ,RC.PAY_ADJ_SCR
+		            ,RC.PAY_ADJ_RATE
+		            ,RC.PAY_ADJ_AMT   
+		            ,NVL(U.RETIRE_GBN, '1') AS RETIRE_GBN              
+			FROM     TBRS_RACER R
+		            ,TBRS_RACER_CNTR RC
+                    ,TBRK_USER U 
+			WHERE   R.DEL_YN = 'N'
+			    AND R.RACER_ID = RC.RACER_ID(+)
+			    AND R.GAME_CD LIKE ?||'%'
+			    AND RC.CNTR_YEAR(+) = ?
+                AND NVL(R.WORK_TODT, '29991231') >= ?||'0101'
+                AND R.EMP_NO = U.USER_ID(+)
+			ORDER BY R.GAME_CD, R.RACER_ID
+        ]]>
+    </query>       
+    
+    
+  <query id="rbs5210_s02" desc="개인별 급여조정점수 조회" fetchSize="10">
+      <![CDATA[
+            SELECT /* rbs5210_s02 */
+                   '0' AS CHK
+                   ,W.RACER_ID					-- 선수번호
+		           ,R.RACER_NM					-- 선수번호
+		           ,W.CONTEST_SEQ				-- 대회연번
+		           ,C.GAME_CD					-- 종목코드
+		           ,W.WIN_HIS_SEQ				-- 입상내역연번
+		           ,W.RANK						-- 순위
+		           ,W.ENTY_NM					-- 참가종목명
+		           ,W.RMK						-- 비고
+		           ,W.WIN_DY					-- 입상일자
+		           ,C.CONTEST_NM				-- 대회명
+		           ,T.INTL_TYPE					-- 국제대회 여부
+		           ,T.CONTEST_TYPE_SEQ			-- 대회분류연번
+		           ,C1.CD_NM AS GAME_NM			-- 종목명
+                   ,PAS.SCR AS PAY_SCR
+			FROM   TBRS_WIN_HIS W, 
+			       TBRS_CONTEST C, 
+			       TBRS_CONTEST_TYPE T, 
+			       TBRS_RACER R, 
+			       TBRK_SPEC_CD C1,
+                   TBRS_PAY_ADJ_SCR_RULE PAS
+			WHERE   C.GAME_CD = C1.CD
+			   AND  C1.GRP_CD = '144'
+			   AND  W.CONTEST_SEQ = C.CONTEST_SEQ
+			   AND  C.GAME_CD = T.GAME_CD
+			   AND  C.CONTEST_TYPE_SEQ = T.CONTEST_TYPE_SEQ
+			   AND  W.RACER_ID = R.RACER_ID
+               AND  T.GAME_CD = PAS.GAME_CD
+               AND  T.CONTEST_TYPE_SEQ = PAS.CONTEST_TYPE_SEQ
+               AND  W.RANK = PAS.RANK
+               AND  W.MRTN_RACE_TYPE = PAS.MRTN_RACE_TYPE
+			   AND  W.RACER_ID LIKE ?||'%'
+			   AND  W.WIN_DY LIKE ?||'%'			   
+			ORDER BY C.GAME_CD, W.WIN_DY 
+        ]]>
+    </query>       
+    
+  <query id="rbs5210_s03" desc="급여조정인상률 재계산" fetchSize="10">
+    <![CDATA[
+            SELECT  /* rbs5210_s03 */
+                     '0' AS CHK
+                    ,R.RACER_ID
+		            ,R.RACER_NM
+		            ,R.GAME_CD
+		            ,R.RACER_TYPE
+		            ,NVL(RC.CNTR_YEAR, ?) AS CNTR_YEAR
+		            ,NVL(RC.CNTR_AMT, 0) AS CNTR_AMT
+		            ,RC.PAY_ADJ_CD
+		            ,NVL(S.PAY_SCR,0) AS PAY_ADJ_SCR
+                    ,NVL(S.PAY_RATE,0) AS PAY_ADJ_RATE
+                    ,NVL2(NVL(RC.CNTR_AMT,0), RC.CNTR_AMT * (1 + NVL(PAY_RATE,0) / 100),  NULL) AS PAY_ADJ_AMT                               
+			FROM     TBRS_RACER R
+		            ,TBRS_RACER_CNTR RC
+                    ,(SELECT PS.RACER_ID
+                                 ,PS.GAME_CD
+                                 ,PS.CNTR_YEAR
+                                 ,PS.PAY_SCR
+                                 ,PR.PAY_RATE
+                     FROM    (
+                                 SELECT  W.RACER_ID 
+                                             ,C.GAME_CD
+                                             ,SUBSTR(W.WIN_DY,1,4) AS CNTR_YEAR
+                                             ,SUM(PS.SCR) AS PAY_SCR
+                                 FROM   TBRS_WIN_HIS W
+                                           ,TBRS_CONTEST C
+                                           ,TBRS_PAY_ADJ_SCR_RULE PS                                 
+                              WHERE   W.CONTEST_SEQ = C.CONTEST_SEQ
+                                   AND  C.GAME_CD = PS.GAME_CD
+                                   AND  C.CONTEST_TYPE_SEQ = PS.CONTEST_TYPE_SEQ
+                                   AND  W.RANK = PS.RANK
+                                   AND  W.MRTN_RACE_TYPE = PS.MRTN_RACE_TYPE
+                               GROUP BY C.GAME_CD, W.RACER_ID, SUBSTR(W.WIN_DY,1,4)  ) PS
+                               ,TBRS_PAY_ADJ_RATE_RULE PR
+                    WHERE  PS.GAME_CD = PR.GAME_CD
+                        AND  PS.PAY_SCR BETWEEN PR.STR_SCR AND PR.END_SCR
+                           ) S                                   
+			WHERE   R.DEL_YN = 'N'
+			    AND R.RACER_ID = RC.RACER_ID(+)
+			    AND R.GAME_CD LIKE ?||'%'
+			    AND RC.CNTR_YEAR(+) = ?
+                AND R.RACER_ID = S.RACER_ID(+)
+                AND S.CNTR_YEAR(+) = ?
+			ORDER BY R.GAME_CD, R.RACER_ID
+        ]]>
+    </query>       
+    
+    <query id="rbs5210_m01" desc="급여조정인상률 저장 " fetchSize="10">
+      <![CDATA[
+           
+           MERGE INTO /* rbs5210_m01 */
+                  TBRS_RACER_CNTR DST
+           USING (
+                     SELECT   ? AS RACER_ID
+                             ,? AS CNTR_YEAR
+                             ,? AS CNTR_AMT
+                             ,? AS PAY_ADJ_CD
+                             ,? AS PAY_ADJ_SCR                             
+                             ,? AS PAY_ADJ_RATE
+                             ,? AS PAY_ADJ_AMT
+                             ,? AS USER_ID
+                    FROM DUAL
+                )  SRC
+                ON (
+                         DST.RACER_ID  = SRC.RACER_ID
+                     AND DST.CNTR_YEAR = SRC.CNTR_YEAR
+                   )            
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.CNTR_AMT 		= SRC.CNTR_AMT
+                        ,DST.PAY_ADJ_CD 	= SRC.PAY_ADJ_CD
+                        ,DST.PAY_ADJ_SCR   	= SRC.PAY_ADJ_SCR
+                        ,DST.PAY_ADJ_RATE 	= SRC.PAY_ADJ_RATE
+                        ,DST.PAY_ADJ_AMT   	= SRC.PAY_ADJ_AMT
+                        ,DST.UPDT_ID 		= SRC.USER_ID
+                        ,DST.UPDT_DT 		= SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  RACER_ID
+                , CNTR_YEAR
+                , CNTR_AMT
+                , PAY_ADJ_CD
+                , PAY_ADJ_SCR
+                , PAY_ADJ_RATE
+                , PAY_ADJ_AMT
+                , INST_ID
+                , INST_DT
+               ) VALUES (
+                  SRC.RACER_ID
+                , SRC.CNTR_YEAR
+                , SRC.CNTR_AMT
+                , SRC.PAY_ADJ_CD
+                , SRC.PAY_ADJ_SCR
+                , SRC.PAY_ADJ_RATE
+                , SRC.PAY_ADJ_AMT
+                , SRC.USER_ID                
+                , SYSDATE     
+              )      
+        ]]>
+    </query>    
+    
+    <query id="rbs5210_d01" desc="급여조정인상률 삭제 " fetchSize="10">
+      <![CDATA[           
+           DELETE /* rbs5210_d01 */
+            FROM TBRS_RACER_CNTR
+           WHERE RACER_ID  = ? 
+             AND CNTR_YEAR = ?
+        ]]>
+    </query>    
+    
+</queryMap>

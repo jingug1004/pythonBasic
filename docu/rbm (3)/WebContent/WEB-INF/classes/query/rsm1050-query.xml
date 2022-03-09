@@ -1,0 +1,589 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM1050(PC파일 2차검증 결과)">   
+    
+    <query id="rsm1050_01" desc="경주일정보" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1050_01 */
+					MEET_CD, -- 경주 구분 코드 
+				  STND_YEAR, -- 년도
+				  TMS,		-- 회차
+				  DAY_ORD,	-- 일차
+				  RACE_DAY,	-- 경주일
+				  RACE_YOIL  -- 요일
+			  FROM VW_SDL_INFO A
+			 WHERE 1=1
+			   AND A.MEET_CD 		= ? 	-- 0:MEET_CD '001'     	-- 경륜구분 코드                                                                          
+	    	   AND A.STND_YEAR 	= ? -- 1:STND_YEAR '2011'                                                                      
+	    	   AND A.TMS 			= ? -- 2:TMS '2'                                                                                  
+	    	   AND A.DAY_ORD 		= ? -- 3:DAY_ORD '2' 
+			  
+        ]]>
+
+    </query>   
+    
+    <query id="rsm1050_s02" desc="2차 검증 확인(SDL_DT SATLIT)" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1050_s02 */
+				A.MEET_CD,	 -- 개최지 코드
+				DECODE(A.MEET_CD,'001','경륜','003','경정') AS MEET_DESC, -- 개최지명
+				A.STND_YEAR, -- 기준년도
+				A.SELL_CD,   -- 투표지
+				A.RACE_NO,	-- 경주번호
+				DIV_TOTAL,	-- 지점합계
+				NVL(NET_AMT,0) AS NET_AMT,	-- 순매출액  합계
+				REFUND_DT,	-- 지점별 환불액
+				NVL(REFUND_SATLIT,0) AS REFUND_SATLIT,	-- 총매출액 환불액
+				CASE 
+					WHEN (DIV_TOTAL=NVL(NET_AMT,0)) AND (REFUND_DT=NVL(REFUND_SATLIT,0)) THEN '001'
+					ELSE '002'
+				END AS TF,	-- 일치 여부 코드
+				CASE 
+					WHEN (DIV_TOTAL=NVL(NET_AMT,0)) AND (REFUND_DT=NVL(REFUND_SATLIT,0)) THEN '일치'
+					ELSE '불일치'
+				END AS TF_DESC -- 일치 여부 설명
+			FROM
+			(
+				SELECT B.MEET_CD, B.STND_YEAR,A.SELL_CD,A.RACE_NO ,SUM(DIV_TOTAL) AS DIV_TOTAL,SUM(REFUND) AS REFUND_DT
+				FROM TBES_SDL_DT A, -- 지점
+					(SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+					FROM VW_SDL_INFO
+					WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+					) B   -- 경주일 정보,                                                                                    
+				WHERE 1 = 1
+			
+				AND A.MEET_CD = B.MEET_CD                                                                          
+				AND A.STND_YEAR = B.STND_YEAR                                                                      
+				AND A.TMS = B.TMS                                                                                  
+				AND A.DAY_ORD = B.DAY_ORD
+				AND SELL_CD NOT IN('02', '04')
+				GROUP BY B.MEET_CD, B.STND_YEAR,A.SELL_CD,A.RACE_NO
+			) A,	-- 4:RACE_NO '11'
+			(
+				SELECT B.MEET_CD, B.STND_YEAR,A.SELL_CD,A.RACE_NO, SUM(NET_AMT)*100 AS NET_AMT,SUM(REFUND)*100   AS REFUND_SATLIT
+				FROM TBJI_PC_SATLIT A, -- 총매출액
+				(SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+				FROM VW_SDL_INFO
+				WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+				) B   -- 경주일 정보,                                                                                    
+				WHERE 1 = 1
+				AND A.MEET_CD = B.MEET_CD                                                                          
+				AND A.STND_YEAR = B.STND_YEAR                                                                      
+				AND A.TMS = B.TMS                                                                                  
+				AND A.DAY_ORD = B.DAY_ORD
+				GROUP BY B.MEET_CD, B.STND_YEAR,A.SELL_CD,A.RACE_NO
+			) B
+			WHERE 1=1			     
+			AND A.MEET_CD = B.MEET_CD(+)                                                                          
+			AND A.STND_YEAR = B.STND_YEAR(+)                                                                      
+			AND A.SELL_CD = B.SELL_CD(+)
+			AND A.RACE_NO= B.RACE_NO(+)
+			
+			ORDER BY A.MEET_CD DESC,A.SELL_CD ASC,A.RACE_NO ASC
+        ]]>
+
+    </query>   
+    
+    
+    <query id="rsm1050_s03" desc="2차 검증 확인(SDL_DT TBJI_PC_SELLST)" fetchSize="10">
+        <![CDATA[
+			
+    SELECT /* rsm1050_s03 */
+				A.MEET_CD,	 -- 개최지 코드
+				DECODE(A.MEET_CD,'001','경륜','003','경정') AS MEET_DESC, -- 개최지명
+			    A.STND_YEAR, -- 기준년도
+			    A.SELL_CD,   -- 투표지
+			    A.COMM_NO, -- 발매지점
+			    A.RACE_NO,	-- 경주번호
+			    DIV_TOTAL,	-- 지점합계
+			    
+				NVL(AMOUNT8,0) AS AMOUNT8,	    -- 구간별 순매출액 합계
+				NVL(AMT_TOTAL,0) AS AMT_TOTAL, 	-- DW구간별 매출액 합계
+			    CASE 
+			      WHEN (DIV_TOTAL=NVL(AMOUNT8,0)) THEN '001'
+			      ELSE '002'
+			      END AS TF,	-- 일치 여부 코드
+			    CASE 
+			      WHEN (DIV_TOTAL=NVL(AMOUNT8,0)) THEN '일치'
+			      ELSE '불일치'
+			      END AS TF_DESC, -- 일치 여부 설명
+			    CASE 
+			      WHEN (DIV_TOTAL=NVL(AMT_TOTAL,0)) THEN '001'
+			      ELSE '002'
+			      END AS TF2,	-- 일치 여부 코드
+			    CASE 
+			      WHEN (DIV_TOTAL=NVL(AMT_TOTAL,0)) THEN '일치'
+			      ELSE '불일치'
+			      END AS TF_DESC2 -- 일치 여부 설명
+				FROM(
+				
+					-- TBES_SDL_DT
+				    SELECT A.MEET_CD, 
+				           A.STND_YEAR,A.SELL_CD,A.COMM_NO,A.RACE_NO ,(SUM(DIV_TOTAL)+SUM(REFUND)) AS DIV_TOTAL
+				    FROM
+				    (
+    				        SELECT A.MEET_CD, 
+    				            A.STND_YEAR,A.SELL_CD,
+    				            CASE WHEN  A.COMM_NO>='11' THEN A.COMM_NO 
+    						         ELSE '00' 
+    						    END AS COMM_NO,
+    				            A.RACE_NO ,DIV_TOTAL,REFUND
+        				    FROM TBES_SDL_DT A, -- 지점
+    			            (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+    				             FROM VW_SDL_INFO
+    				             WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+    				            ) B   -- 경주일 정보,                                                                                    
+    			    	 WHERE 1 = 1
+    			    	     	     
+    			    	     AND A.MEET_CD = B.MEET_CD                                                                          
+    			    	     AND A.STND_YEAR = B.STND_YEAR                                                                      
+    			    	     AND A.TMS = B.TMS                                                                                  
+    			    	     AND A.DAY_ORD = B.DAY_ORD
+    			    	     AND SELL_CD NOT IN('02', '04') 			    	
+			    	)A
+			    	GROUP BY A.MEET_CD, A.STND_YEAR,A.SELL_CD,A.COMM_NO,A.RACE_NO) A,	-- 4:RACE_NO '11'			    	
+				  (
+				  
+				  	-- TBJI_PC_SELLST
+				    SELECT A.MEET_CD, A.STND_YEAR,A.SELL_CD,A.COMM_NO,A.RACE_NO, SUM(AMOUNT8)*100 AS AMOUNT8
+				    FROM
+				    (
+				        SELECT A.MEET_CD, A.STND_YEAR,A.SELL_CD,
+				               CASE WHEN  A.COMM_NO>='11' THEN A.COMM_NO 
+    						         ELSE '00' 
+    						    END AS COMM_NO,
+				               A.RACE_NO, AMOUNT8
+    				    FROM TBJI_PC_SELLST A, -- 승식
+    			            (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+    				             FROM VW_SDL_INFO
+    				             WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+    				            ) B   -- 경주일 정보,                                                                                    
+    			    	 WHERE 1 = 1
+    			    	     	     
+    			    	     AND A.MEET_CD = B.MEET_CD                                                                          
+    			    	     AND A.STND_YEAR = B.STND_YEAR                                                                      
+    			    	     AND A.TMS = B.TMS                                                                                  
+    			    	     AND A.DAY_ORD = B.DAY_ORD			    	
+			    	)A
+			    	GROUP BY A.MEET_CD, A.STND_YEAR,A.SELL_CD,A.COMM_NO,A.RACE_NO
+			    		ORDER BY A.SELL_CD,RACE_NO
+			     ) B,
+			     (
+                   -- BASETOTE.PC_SELLST@DW01LINK
+                   SELECT A.MEET_CD, A.STND_YEAR,A.SELL_CD,A.COMM_NO,A.RACE_NO, SUM(AMT_TOTAL) AS AMT_TOTAL
+                   FROM
+                   (
+                       SELECT TRIM(TO_CHAR(A.MEET_CD,'000')) AS MEET_CD, A.STND_YEAR, TRIM(TO_CHAR(A.SELL_CD,'00')) AS SELL_CD,
+                              -- DW 지점에는 그린카드 금액이 합산되어 있음
+                              CASE WHEN  A.COMM_NO>=11 AND A.WIN_TYPE NOT IN (5,7) THEN TO_CHAR(A.COMM_NO) 
+                                    ELSE '00' 
+                               END AS COMM_NO,
+                              TRIM(TO_CHAR(A.RACE_NO,'00')) AS RACE_NO,  AMT_TOTAL
+                       FROM BASETOTE.PC_SELLST@DW01LINK A, -- 승식
+                           (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD, RACE_DAY
+                                FROM VW_SDL_INFO
+                                WHERE RACE_DAY = FC_GET_RACEDAY( ?, ?, ?, ?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+                               ) B   -- 경주일 정보,                                                                                    
+                        WHERE 1 = 1                                      
+                            AND A.YEAR_DATE = B.RACE_DAY
+                            AND A.MEET_CD = TO_NUMBER(B.MEET_CD)
+                   )A
+                   GROUP BY A.MEET_CD, A.STND_YEAR,A.SELL_CD,A.COMM_NO,A.RACE_NO
+                   ORDER BY A.SELL_CD,RACE_NO
+			     ) C
+			WHERE 1=1			     
+				AND A.MEET_CD 	= B.MEET_CD(+)                                                                          
+				AND A.STND_YEAR = B.STND_YEAR(+)                                                                      
+				AND A.SELL_CD 	= B.SELL_CD(+)
+				AND A.COMM_NO 	= B.COMM_NO(+)
+				AND A.RACE_NO	= B.RACE_NO(+)
+				AND A.MEET_CD 	= C.MEET_CD(+)                                                                          
+				AND A.STND_YEAR = C.STND_YEAR(+)                                                                      
+				AND A.SELL_CD 	= C.SELL_CD(+)
+				AND A.COMM_NO 	= C.COMM_NO(+)
+				AND A.RACE_NO	= C.RACE_NO(+)
+			ORDER BY A.MEET_CD DESC, A.SELL_CD ASC,A.COMM_NO  ASC, A.RACE_NO  ASC
+        ]]>
+
+    </query>
+    
+    <query id="rsm1050_s04" desc="2차 검증 확인(SDL_DT TBJI_PC_TELMP)" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1050_s04 */
+				A.MEET_CD,	 -- 개최지 코드
+				DECODE(A.MEET_CD,'001','경륜','003','경정') AS MEET_DESC, -- 개최지명
+				A.STND_YEAR, -- 기준년도
+				A.SELL_CD,   -- 투표지
+				A.COMM_NO,	-- 투표소 코드
+			
+				DIV_TOTAL,	-- 지점합계
+				NVL(SOLD_AMT,0) AS SOLD_AMT,	-- 순매출액 합계
+				CASE 
+					WHEN DIV_TOTAL= NVL(SOLD_AMT,0) THEN '001'
+					ELSE '002'
+				END AS TF,	-- 일치 여부 코드
+				CASE 
+					WHEN DIV_TOTAL= NVL(SOLD_AMT,0) THEN '일치'
+					ELSE '불일치'
+				END AS TF_DESC -- 일치 여부 설명
+			FROM(
+				SELECT 
+					MEET_CD, STND_YEAR, SELL_CD, COMM_NO, 
+					SUM(DIV_TOTAL)+SUM(REFUND) DIV_TOTAL
+				FROM (
+					SELECT B.MEET_CD, B.STND_YEAR,
+					    CASE WHEN A.COMM_NO ='06' THEN '01' ELSE A.SELL_CD END AS SELL_CD,
+						CASE WHEN A.COMM_NO>='11' THEN A.COMM_NO ELSE '00' END AS COMM_NO,
+						DIV_TOTAL,
+						REFUND
+					FROM TBES_SDL_DT A, -- 지점
+						 (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+				             FROM VW_SDL_INFO
+				             WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+				            ) B   -- 경주일 정보,                                                                                    
+					WHERE 1 = 1
+			
+					AND A.MEET_CD = B.MEET_CD                                                                          
+					AND A.STND_YEAR = B.STND_YEAR                                                                      
+					AND A.TMS = B.TMS                                                                                  
+					AND A.DAY_ORD = B.DAY_ORD
+					AND SELL_CD NOT IN('02', '04') 
+				) GROUP BY MEET_CD, STND_YEAR, SELL_CD, COMM_NO    
+				-- 경륜,경정,교차,지점별 쿼리 분기
+				) A,	-- 4:RACE_NO '11'
+				(
+				SELECT 
+					MEET_CD, STND_YEAR, SELL_CD, COMM_NO, 
+					SUM(SOLD_AMT)-SUM(CNCL_AMT) AS SOLD_AMT
+				FROM
+				(
+					SELECT B.MEET_CD, B.STND_YEAR,A.SELL_CD,
+						CASE WHEN  A.COMM_NO>='11' THEN A.COMM_NO 
+						     ELSE '00' 
+						END AS COMM_NO,
+					SOLD_AMT, CNCL_AMT
+					FROM TBJI_PC_TELMP A, -- 승식
+						 (SELECT MEET_CD, STND_YEAR, TMS, DAY_ORD
+				             FROM VW_SDL_INFO
+				             WHERE RACE_DAY = FC_GET_RACEDAY(?,?,?,?) -- 0:MEET_CD , 1:STND_YEAR, 2:TMS, 3:DAY_ORD
+				            ) B   -- 경주일 정보,                                                                                    
+					WHERE 1 = 1
+					AND A.MEET_CD = B.MEET_CD                                                                          
+					AND A.STND_YEAR = B.STND_YEAR                                                                      
+					AND A.TMS = B.TMS                                                                                  
+					AND A.DAY_ORD = B.DAY_ORD
+				)B
+				-- 경륜,경정,교차,지점별 쿼리 분기
+				GROUP BY B.MEET_CD, B.STND_YEAR,B.SELL_CD,B.COMM_NO
+			
+			) B 	
+			WHERE 1=1			     
+			AND A.MEET_CD = B.MEET_CD(+)                                                                          
+			AND A.STND_YEAR = B.STND_YEAR(+)       
+			AND A.SELL_CD= B.SELL_CD(+)                                                               
+			AND A.COMM_NO= B.COMM_NO(+)			
+			ORDER BY B.MEET_CD DESC, B.STND_YEAR,A.SELL_CD,A.COMM_NO
+        ]]>
+
+    </query>      
+    
+    
+    
+    <query id="rsm1050_s05" desc="년도별 최근 회차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1050_s05 */
+			        B.TMS,					-- 회차
+			        B.TMS||'회' AS TMS_DESC,	-- 회차 표현
+				    NVL(MAX(B.TMS) OVER(),0) AS MAX_TMS -- 최근 회차
+			FROM VW_SDL_INFO B, TBJI_PC_FILE_VERI C
+			WHERE 1=1
+			  AND C.MEET_CD = B.MEET_CD                                                                          
+    	      AND C.STND_YEAR = B.STND_YEAR                                                                      
+    	      AND C.TMS = B.TMS                                                                                  
+    	      AND C.DAY_ORD = B.DAY_ORD
+			  AND B.MEET_CD = ?
+			  AND B.STND_YEAR = ?
+			GROUP BY B.TMS			  
+			ORDER BY B.TMS DESC			 
+        ]]>
+    </query>   
+    
+    <query id="rsm1050_06" desc="년도별 최근 회차별 최근 일차" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1050_06 */
+				  B.DAY_ORD,	-- 일차
+				  B.DAY_ORD||'일차' AS DAY_DESC,	-- 일차 표현
+				  MAX(B.DAY_ORD) OVER() AS MAX_DAY_ORD -- 최근 일차
+			  FROM VW_SDL_INFO B, TBJI_PC_FILE_VERI C
+			 WHERE 1=1
+			   AND C.MEET_CD   = B.MEET_CD                                                                          
+	    	   AND C.STND_YEAR = B.STND_YEAR                                                                      
+	    	   AND C.TMS       = B.TMS                                                                                  
+	    	   AND C.DAY_ORD   = B.DAY_ORD			
+			   AND B.MEET_CD   = ?                                                               
+	    	   AND B.STND_YEAR = ? -- 1:STND_YEAR '2011'                                                                      
+	    	   AND B.TMS 	   = ? -- 2:TMS '2'
+	    	 GROUP BY B.DAY_ORD
+	    	 ORDER BY B.DAY_ORD  
+        ]]>
+    </query>
+    
+    
+    
+    
+    <query id="rsm1050_s06" desc="TBJI_PC_SATLIT와 TBJI_PC_SATLIT_SUM 합계 비교" fetchSize="10">
+        <![CDATA[
+            SELECT /* rsm1050_s06 */
+                   AA.MEET_CD,      -- 경륜 경정 구분 코드
+                   AA.MEET_DESC,    -- 경륜, 경정 구분 표현
+                   AA.STND_YEAR,    -- 기준년도
+                   AA.TMS,          -- 회차
+                   AA.DAY_ORD,      -- 일차
+                   AA.SELL_CD,      -- 운영처                   
+                   AA.COMM_NO,      -- 지점 코드                       
+                   AA.DIV_NO,       -- 투표소
+                   
+                   AA.DT_TOTAL_AMT,
+                   AA.DT_REFUND,
+                   AA.DT_DIV_TOTAL,
+                   
+                   AA.TOTAL_AMT,    -- TBJI_PC_SATLIT 매출액
+                   AA.REFUND,       -- TBJI_PC_SATLIT 환불액       
+                   AA.NET_AMT,       -- TBJI_PC_SATLIT 순매출액
+                   
+                   AA.TOTAL_AMT_SUM,    -- TBJI_PC_SATLIT_SUM 매출액
+                   AA.REFUND_SUM,       -- TBJI_PC_SATLIT_SUM 환불액       
+                   AA.NET_AMT_SUM,       -- TBJI_PC_SATLIT_SUM 순매출액
+                   
+                   AA.TF,    -- 일치 여부 코드
+                   DECODE(AA.TF,'001','일치','불일치')  AS TF_DESC -- 일치 여부 설명
+            FROM       
+            (
+                SELECT 
+                       AA.MEET_CD,      -- 경륜 경정 구분 코드
+                       DECODE(AA.MEET_CD,'003','경정','경륜') AS MEET_DESC, -- 경륜, 경정 구분 표현
+                       AA.STND_YEAR,    -- 기준년도
+                       AA.TMS,          -- 회차
+                       AA.DAY_ORD,      -- 일차
+                       AA.SELL_CD,      -- 운영처
+                       AA.COMM_NO,      -- 지점 코드
+                       AA.DIV_NO,       -- 투표소
+                       AA.TOTAL_AMT,    -- TBJI_PC_SATLIT 매출액
+                       AA.REFUND,       -- TBJI_PC_SATLIT 환불액       
+                       AA.NET_AMT,       -- TBJI_PC_SATLIT 순매출액
+                       
+                       BB.TOTAL_AMT_SUM,    -- TBJI_PC_SATLIT_SUM 매출액
+                       BB.REFUND_SUM,       -- TBJI_PC_SATLIT_SUM 환불액       
+                       BB.NET_AMT_SUM,       -- TBJI_PC_SATLIT_SUM 순매출액
+                       
+                       CC.DT_TOTAL_AMT,
+                       CC.DT_DIV_TOTAL,
+                       CC.DT_REFUND,
+                       
+                       CASE 
+                            WHEN (AA.TOTAL_AMT=BB.TOTAL_AMT_SUM) AND (AA.REFUND=BB.REFUND_SUM) AND (AA.NET_AMT=BB.NET_AMT_SUM) AND
+                                 (AA.TOTAL_AMT=CC.DT_TOTAL_AMT) AND (AA.REFUND=CC.DT_REFUND) AND (AA.NET_AMT=CC.DT_DIV_TOTAL) THEN '001'
+                            ELSE '002'
+                       END AS TF    -- 일치 여부 코드
+                       
+                FROM
+                (
+                    SELECT
+                        MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO, DIV_NO ,
+                        SUM(TOTAL_AMT) TOTAL_AMT, SUM(REFUND) REFUND, SUM(NET_AMT) NET_AMT,
+                        'SYSTEM',SYSDATE,'SYSTEM',SYSDATE
+                    FROM TBJI_PC_SATLIT
+                    WHERE 1=1
+                    AND MEET_CD     = ? -- 0:MEET_CD '001'
+                    AND STND_YEAR   = ? -- 1:STND_YEAR '2011'
+                    AND TMS         = ? -- 2:TMS '2'
+                    AND DAY_ORD     = ? -- 3:DAY_ORD '2'
+                    GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO,DIV_NO
+                )AA,
+                (
+                    SELECT
+                        MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO, DIV_NO,
+                        TOTAL_AMT AS TOTAL_AMT_SUM, 
+                        REFUND AS REFUND_SUM, 
+                        NET_AMT AS NET_AMT_SUM,
+                        INST_ID,INST_DT,UPDT_ID,UPDT_DT
+                    FROM TBJI_PC_SATLIT_SUM    
+                   WHERE 1=1
+                     AND MEET_CD    = ? -- 4:MEET_CD '001'
+                     AND STND_YEAR  = ? -- 5:STND_YEAR '2011'
+                     AND TMS        = ? -- 6:TMS '2'
+                     AND DAY_ORD    = ? -- 7:DAY_ORD '2'
+                )BB,
+                (
+                
+                    SELECT
+                        MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO, DIV_NO,
+                        (SUM(DIV_TOTAL)+SUM(REFUND))/100 AS DT_TOTAL_AMT,
+                        SUM(DIV_TOTAL)/100 AS DT_DIV_TOTAL,
+                        SUM(REFUND)/100    AS DT_REFUND
+                    FROM TBES_SDL_DT A    
+                   WHERE 1=1
+                     AND MEET_CD    = ? -- 8:MEET_CD '001'
+                     AND STND_YEAR  = ? -- 9:STND_YEAR '2011'
+                     AND TMS        = ? -- 10:TMS '2'
+                     AND DAY_ORD    = ? -- 11:DAY_ORD '2'
+                   GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO, DIV_NO                
+                 
+                )CC
+                WHERE 1=1
+                  AND AA.MEET_CD   = BB.MEET_CD(+)                                                      
+                  AND AA.STND_YEAR = BB.STND_YEAR(+)
+                  AND AA.TMS       = BB.TMS(+)
+                  AND AA.DAY_ORD   = BB.DAY_ORD(+)
+                  AND AA.SELL_CD   = BB.SELL_CD(+)
+                  AND AA.COMM_NO   = BB.COMM_NO(+)
+                  AND AA.DIV_NO    = BB.DIV_NO(+)
+                  AND AA.MEET_CD   = CC.MEET_CD(+)                                                      
+                  AND AA.STND_YEAR = CC.STND_YEAR(+)
+                  AND AA.TMS       = CC.TMS(+)
+                  AND AA.DAY_ORD   = CC.DAY_ORD(+)
+                  AND AA.SELL_CD   = CC.SELL_CD(+)
+                  AND AA.COMM_NO   = CC.COMM_NO(+)
+                  AND AA.DIV_NO    = CC.DIV_NO(+)
+                ORDER BY AA.SELL_CD, AA.COMM_NO,AA.DIV_NO  
+            )AA
+            WHERE 1=1             
+            ORDER BY AA.SELL_CD, AA.COMM_NO,AA.DIV_NO     
+        ]]>
+
+    </query>      
+    
+    
+    
+    <query id="rsm1050_s06(X)" desc="TBJI_PC_SATLIT와 TBJI_PC_SATLIT_SUM 합계 비교" fetchSize="10">
+        <![CDATA[
+			SELECT /* rsm1050_s06 */
+				   AA.MEET_CD,      -- 경륜 경정 구분 코드
+				   AA.MEET_DESC,	-- 경륜, 경정 구분 표현
+			       AA.STND_YEAR,    -- 기준년도
+				   AA.TMS,          -- 회차
+				   AA.DAY_ORD,      -- 일차
+				   AA.SELL_CD,      -- 운영처
+				   CC.CD_NM AS SELL_NM, -- 운영처 이름
+			       AA.COMM_NO,      -- 지점 코드
+			       NVL(BB.CD_NM,AA.COMM_NO) AS BRNC_NM,        -- 지점 명    
+			       AA.DIV_NO,       -- 투표소
+			       AA.TOTAL_AMT,    -- TBJI_PC_SATLIT 매출액
+			       AA.REFUND,       -- TBJI_PC_SATLIT 환불액       
+			       AA.NET_AMT,       -- TBJI_PC_SATLIT 순매출액
+			       
+			       AA.TOTAL_AMT_SUM,    -- TBJI_PC_SATLIT_SUM 매출액
+			       AA.REFUND_SUM,       -- TBJI_PC_SATLIT_SUM 환불액       
+			       AA.NET_AMT_SUM,       -- TBJI_PC_SATLIT_SUM 순매출액
+			       
+			       AA.TF,	-- 일치 여부 코드
+				   DECODE(AA.TF,'001','일치','불일치')  AS TF_DESC -- 일치 여부 설명
+			FROM	   
+			(
+			    SELECT 
+			           AA.MEET_CD,      -- 경륜 경정 구분 코드
+			           DECODE(AA.MEET_CD,'003','경정','경륜') AS MEET_DESC, -- 경륜, 경정 구분 표현
+			           AA.STND_YEAR,    -- 기준년도
+			    	   AA.TMS,          -- 회차
+			    	   AA.DAY_ORD,      -- 일차
+			    	   AA.SELL_CD,      -- 운영처
+			           AA.COMM_NO,      -- 지점 코드
+			           AA.DIV_NO,       -- 투표소
+			           AA.TOTAL_AMT,    -- TBJI_PC_SATLIT 매출액
+			           AA.REFUND,       -- TBJI_PC_SATLIT 환불액       
+			           AA.NET_AMT,       -- TBJI_PC_SATLIT 순매출액
+			           
+			           BB.TOTAL_AMT_SUM,    -- TBJI_PC_SATLIT_SUM 매출액
+			           BB.REFUND_SUM,       -- TBJI_PC_SATLIT_SUM 환불액       
+			           BB.NET_AMT_SUM,       -- TBJI_PC_SATLIT_SUM 순매출액
+			           
+			           CASE 
+			                WHEN (AA.TOTAL_AMT=BB.TOTAL_AMT_SUM) AND (AA.REFUND=BB.REFUND_SUM) AND (AA.NET_AMT=BB.NET_AMT_SUM) THEN '001'
+			                ELSE '002'
+			    	   END AS TF	-- 일치 여부 코드
+			    	   
+			    FROM
+			    (
+			        SELECT
+                        MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO,
+						CASE WHEN COMM_NO NOT IN('06','07') THEN '00' ELSE DIV_NO END AS DIV_NO ,
+                        SUM(TOTAL_AMT) TOTAL_AMT, SUM(REFUND) REFUND, SUM(NET_AMT) NET_AMT,
+                        'SYSTEM',SYSDATE,'SYSTEM',SYSDATE
+                    FROM TBJI_PC_SATLIT
+                    WHERE 1=1
+                    AND MEET_CD 	= ? -- 0:MEET_CD '001'
+                    AND STND_YEAR	= ? -- 1:STND_YEAR '2011'
+                    AND TMS			= ? -- 2:TMS '2'
+                    AND DAY_ORD		= ?	-- 3:DAY_ORD '2'
+                    GROUP BY MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO, 
+                    CASE WHEN COMM_NO NOT IN('06','07') THEN '00' ELSE DIV_NO END
+			    )AA,
+			    (
+			        SELECT
+                        MEET_CD, STND_YEAR, TMS, DAY_ORD, SELL_CD, COMM_NO, DIV_NO,
+                        TOTAL_AMT AS TOTAL_AMT_SUM, 
+                        REFUND AS REFUND_SUM, 
+                        NET_AMT AS NET_AMT_SUM,
+                        INST_ID,INST_DT,UPDT_ID,UPDT_DT
+                    FROM TBJI_PC_SATLIT_SUM    
+                   WHERE 1=1
+                     AND MEET_CD	= ? -- 4:MEET_CD '001'
+                     AND STND_YEAR	= ? -- 5:STND_YEAR '2011'
+                     AND TMS		= ? -- 6:TMS '2'
+                     AND DAY_ORD	= ? -- 7:DAY_ORD '2'
+			    )BB
+			    WHERE 1=1
+			      AND AA.MEET_CD   = BB.MEET_CD(+)                                                      
+			      AND AA.STND_YEAR = BB.STND_YEAR(+)
+			      AND AA.TMS       = BB.TMS(+)
+			      AND AA.DAY_ORD   = BB.DAY_ORD(+)
+			      AND AA.SELL_CD   = BB.SELL_CD(+)
+			      AND AA.COMM_NO   = BB.COMM_NO(+)
+			      AND AA.DIV_NO    = BB.DIV_NO(+)
+			    ORDER BY AA.SELL_CD, AA.COMM_NO,AA.DIV_NO  
+			)AA,
+			(
+			    SELECT LEV,
+			        '01' AS SELL_CD,    -- 운영처
+			        AA.CD,         --상세코드
+			        CASE 
+			            WHEN LEV='2' THEN '15'
+			            WHEN LEV='3' THEN '17'
+			        ELSE '00' 
+			        END AS DIV_NO,
+			        CASE 
+			            WHEN LEV='1' THEN  '그린카드 본장'
+			            WHEN LEV='2' THEN  '그린카드 논현'
+			            WHEN LEV='3' THEN  '그린카드 올림픽'
+			        ELSE AA.CD_NM
+			        END AS CD_NM         --상세코드
+			    FROM
+			    (
+			        SELECT DECODE(A.CD,'06',LEV) AS LEV,
+			                A.CD,         --상세코드
+			                A.CD_NM         --상세코드
+			        FROM	   
+			        (
+			            SELECT  A.CD,         --상세코드
+			                    DECODE(A.CD,'01','본장',A.CD_NM) AS CD_NM         --상세코드
+			            FROM 	TBRK_SPEC_CD A
+			            WHERE 	1=1
+			            AND  A.GRP_CD = '018'         --그룹코드
+			            AND A.CD NOT IN('00','98')
+			        )A,(SELECT LEVEL AS LEV FROM DUAL CONNECT BY LEVEL <= 3)  DU
+			    )AA    
+			    GROUP BY AA.LEV,CD,AA.CD_NM
+			    ORDER BY CD
+			)BB,
+			(SELECT CD, CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD = '063') CC
+			WHERE 1=1 
+			AND AA.SELL_CD = CC.CD(+)
+			AND AA.SELL_CD = BB.SELL_CD(+)
+			AND AA.COMM_NO = BB.CD(+)
+			AND AA.DIV_NO = BB.DIV_NO(+)
+			ORDER BY AA.SELL_CD, AA.COMM_NO,AA.DIV_NO     
+        ]]>
+
+    </query>      
+    
+</queryMap>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<Window>
+	<Form Height="336" Id="form_parent" Left="8" PidAttrib="7" Title="form_parent" Top="8" Ver="1.0" Width="600" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="dsDest">
+				<Contents>
+					<colinfo Id="code" Size="256" Type="STRING"/>
+					<colinfo Id="name" Size="256" Type="STRING"/>
+					<colinfo Id="price" Size="256" Type="STRING"/>
+					<colinfo Id="qgbn" Size="256" Type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="dsSrc">
+				<Contents>
+					<colinfo Id="code" Size="256" Type="STRING"/>
+					<colinfo Id="name" Size="256" Type="STRING"/>
+					<colinfo Id="price" Size="256" Type="INT"/>
+					<record>
+						<code>N1203</code>
+						<name>주홍글씨</name>
+						<price>23500</price>
+					</record>
+					<record>
+						<code>P3421</code>
+						<name>Man&#32;On&#32;Fire</name>
+						<price>25500</price>
+					</record>
+					<record>
+						<code>C3452</code>
+						<name>Resident&#32;Evil&#32;2</name>
+						<price>13500</price>
+					</record>
+					<record>
+						<code>P2341</code>
+						<name>If&#32;Only</name>
+						<price>21000</price>
+					</record>
+					<record>
+						<code>P0909</code>
+						<name>색즉시공</name>
+						<price>19000</price>
+					</record>
+					<record>
+						<code>C1342</code>
+						<name>아라한&#32;장풍대작전</name>
+						<price>20000</price>
+					</record>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Grid AreaSelect="TRUE" BindDataset="dsDest" BKColor="linen" BkColor2="default" BoldHead="FALSE" Border="Flat" BorderColor="mediumvioletred" Bottom="319" ColSelect="TRUE" DropMode="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" Height="255" Id="gdDrop" InputPanel="FALSE" Left="8" LineColor="slateblue" OnDragEnter="gdDrop_OnDragEnter" OnDragLeave="gdDrop_OnDragLeave" OnDrop="gdDrop_OnDrop" Right="584" TabOrder="1" TabStop="true" Top="64" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="576">
+			<contents>
+				<columns>
+					<col width="80"/>
+					<col width="288"/>
+					<col width="202"/>
+					<col width="80"/>
+				</columns>
+				<head>
+					<cell bkcolor="midnightblue" col="0" color="white" display="text" text="CODE"/>
+					<cell bkcolor="midnightblue" col="1" color="white" display="text" text="타이틀명"/>
+					<cell bkcolor="midnightblue" col="2" color="white" display="text" text="가&#32;격"/>
+					<cell bkcolor="midnightblue" col="3" color="white" display="text" text="구분"/>
+				</head>
+				<body>
+					<cell bkcolor="papayawhip" bkcolor2="mistyrose" col="0" colid="code" display="text"/>
+					<cell bkcolor="papayawhip" bkcolor2="mistyrose" col="1" colid="name" display="text"/>
+					<cell bkcolor="papayawhip" bkcolor2="mistyrose" col="2" colid="price" display="text"/>
+					<cell align="center" bkcolor="expr:decode(qgbn,&apos;0&apos;,&apos;lightgreen&apos;,&apos;pink&apos;)" col="3" display="text" expr="decode(qgbn,&apos;0&apos;,&apos;신규&apos;,&apos;변경&apos;)"/>
+				</body>
+			</contents>
+		</Grid>
+		<Button Height="24" Id="Button0" Left="485" OnClick="Button0_OnClick" TabOrder="2" Text="Button0" Top="33" Width="97"></Button>
+	</Form>
+	<Script><![CDATA[
+function Button0_OnClick(obj)
+{
+	Open("template::form_child.xml", , 300, 300, "WinLevel=-1 TaskBar=true", 100, 100);
+}
+function gdDrop_OnDragEnter(obj,objDragObj,nX,nY,varKeyState,nRow,nCell)
+{
+	obj.BkColor = "pink";	
+}
+function gdDrop_OnDragLeave(obj,objDragObj)
+{
+	obj.BkColor = "linen";
+}
+function gdDrop_OnDrop(obj,objDragObj,objDataObj,nPosX,nPosY,varKeyState,nRow,nCell)
+{
+	var curRow = nRow;
+
+// trace(	dataObj.GetData("CF_TEXT"));
+
+	var dataObj = objDataObj;
+	var dragObj = objDragObj;
+	
+	if(dataObj.GetData("CF_TEXT")=="gdMulti") // MultiLine Grid 에서 온경우
+	{
+		for(i=0;i<dsSrc.RowCount();i++) // 소스 데이터셋 카운트 루핑
+		{
+			if(dsSrc.GetSelect(i)==TRUE) // 선택된놈인지 체크
+			{
+				curRow = dsDest.InsertRow(curRow);
+				
+				dsDest.SetColumn(curRow,'code',dsSrc.GetColumn(i,'code'));
+				dsDest.SetColumn(curRow,'name',dsSrc.GetColumn(i,'name'));
+				dsDest.SetColumn(curRow,'price',dsSrc.GetColumn(i,'price'));
+				dsDest.SetColumn(curRow,'qgbn',0); // 구분값을 신규로
+			}
+		}
+	}
+	else if(dataObj.GetData("CF_TEXT")=="gdArea") // Area Grid 에서 온경우
+	{
+		var nStartRow = dragObj.GetAreaStartRow();
+		var nStartCol = dragObj.GetAreaStartCol();
+		var nEndRow = dragObj.GetAreaEndRow();
+		var nEndCol = dragObj.GetAreaEndCol();
+		
+		if(nCell != -1 && nCell != nStartCol) // 시작점이 서로 다른 셀입니다
+		{
+			alert('선택 영역을 Drop 할수 없습니다. [ Unmatching Cell ]'); break;
+		}
+		// 선택영역이 붙여 넣을 라인을 넘어감
+		else if(dsDest.RowCount() < nEndRow - nStartRow + 1)
+		{
+			alert('선택 영역을 Drop 할수 없습니다. [ Row Over ]'); break;
+		}
+		// 선택영역이 붙여 넣을 컬럼을 넘어감
+		else if(dsDest.ColCount() < nEndCol - nStartCol)
+		{
+			alert('선택 영역을 Drop 할수 없습니다. [ Column Over ]'); break;
+		}
+		else // 선택 영역이 Drop 되기에 충분한 영역이 확보 되어있음
+		{
+			// Drop 시작
+			for(i=0;i<=nEndRow - nStartRow;i++)
+			{
+				for(j=0;j<nEndCol - nStartCol;j++)
+				{
+					// 매트릭스 구조로 데이터 밀어 넣음
+					dsDest.SetColumn(curRow + i,dsDest.GetColID(nStartCol + j),dsSrc2.GetColumn(nStartRow + i,dsSrc2.GetColID(nStartCol + j)));
+					dsDest.SetColumn(curRow + i,'qgbn',1); //구분자를 변경으로
+				}
+			}
+		}
+	}
+	EndDrop(obj);
+}
+function EndDrop(obj)
+{
+	// 원래 색상으로
+	obj.BkColor = "linen";
+}]]></Script>
+</Window>

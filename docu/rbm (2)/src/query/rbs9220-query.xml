@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS9220(지점별 전자카드 발매건수)">
+        
+    <query id="rbs9220_s01" desc="지점별 전자카드 발매건수(월별)" fetchSize="10">
+        <![CDATA[
+            
+			  SELECT '' AS CHK,
+			         STND_YEAR,
+			         STND_MM,
+			         BRNC_CD,
+			         ISSUE_CNT
+			    FROM TBRE_GREENCARD_ISSUE_CNT
+			  WHERE 1 = 1
+			   AND STND_YEAR = NVL(?, STND_YEAR)
+			   AND STND_MM = NVL(?, STND_MM)
+			   AND BRNC_CD = NVL(?, BRNC_CD) 
+			  ORDER BY STND_YEAR, STND_MM, BRNC_CD
+        ]]>
+    </query>
+    
+    <query id="rbs9220_s02" desc="지점별 전자카드 발매건수(연도별)" fetchSize="10">
+        <![CDATA[
+			WITH ISSUE_YEAR AS (
+				SELECT BRNC_CD, 
+				       STND_YEAR, 
+				       SUM(ISSUE_CNT) AS ISSUE_CNT
+				  FROM TBRE_GREENCARD_ISSUE_CNT
+				 WHERE 1 = 1
+				   AND STND_YEAR = NVL(?, STND_YEAR)
+			   	   AND BRNC_CD = NVL(?, BRNC_CD)
+				GROUP BY BRNC_CD, STND_YEAR
+			),
+			LAST_YEAR AS (
+				SELECT BRNC_CD AS LAST_BRNC_CD,
+				       STND_YEAR AS LAST_STND_YEAR, 
+				       SUM(ISSUE_CNT) AS LAST_ISSUE_CNT
+				  FROM TBRE_GREENCARD_ISSUE_CNT
+				 WHERE 1 = 1
+				   AND STND_YEAR = NVL(? - 1, STND_YEAR)
+			       AND BRNC_CD = NVL(?, BRNC_CD)
+				GROUP BY BRNC_CD, STND_YEAR
+			)
+			SELECT BRNC_CD, STND_YEAR, ISSUE_CNT,
+			       LAST_BRNC_CD, LAST_STND_YEAR, LAST_ISSUE_CNT
+			  FROM ISSUE_YEAR IY, LAST_YEAR LY
+			 WHERE 1=1
+			   AND IY.BRNC_CD = LY.LAST_BRNC_CD(+)
+        ]]>
+    </query>
+    
+    <query id="rbs9220_m01" desc="지점별 전자카드 발급수 저장,수정" fetchSize="10">
+        <![CDATA[
+            MERGE INTO TBRE_GREENCARD_ISSUE_CNT A /* rbs9220_m01 */  --지점별 전자카드 발급수
+	            USING
+	                    (SELECT  ? AS BRNC_CD             --지점코드
+	                            ,? AS STND_YEAR           --발급년도
+	                            ,? AS STND_MM             --발급월
+	                            ,? AS ISSUE_CNT           --발급건수
+	                            ,? AS INST_ID             --작성자                        
+	                            ,? AS UPDT_ID             --수정자
+	                       FROM DUAL ) B
+	                ON (
+	                        A.BRNC_CD    = B.BRNC_CD      --지점코드
+	                    AND A.STND_YEAR  = B.STND_YEAR    --발급년도
+	                    AND A.STND_MM    = B.STND_MM      --발급월
+	            )            
+	            
+	            WHEN MATCHED THEN
+	                UPDATE SET 
+	                     A.ISSUE_CNT    = B.ISSUE_CNT     --발급건수
+	                    ,A.UPDT_ID      = B.UPDT_ID       --수정자
+	                    ,A.UPDT_DT      = SYSDATE         --수정일시       
+	            WHEN NOT MATCHED THEN
+	                INSERT (
+	                         A.BRNC_CD                    --지점코드
+	                        ,A.STND_YEAR                  --발급년도
+	                        ,A.STND_MM                    --발급월
+	                        ,A.ISSUE_CNT                  --발급건수
+	                        ,A.INST_ID                    --작성자                        
+	                        ,A.INST_DT                    --작성일
+	                    
+	                ) VALUES (
+		                     B.BRNC_CD                    --지점코드
+		                    ,B.STND_YEAR                  --발급년도
+		                    ,B.STND_MM                    --발급월
+		                    ,B.ISSUE_CNT                  --발급건수
+		                    ,B.INST_ID                    --작성자                            
+		                    ,SYSDATE                      --작성일시
+	                )
+        ]]>
+    </query>
+    
+    <query id="rbs9220_d01" desc="그룹코드삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  /* rbs9220_d01 */ 
+			  FROM  TBRE_GREENCARD_ISSUE_CNT
+			 WHERE  1=1
+			   AND  BRNC_CD   = ?  --지점코드
+			   AND  STND_YEAR = ?  --발급년도
+			   AND  STND_MM   = ?  --발급월
+        ]]>
+    </query>  
+    
+</queryMap>

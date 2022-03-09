@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbdb_grd_estm_bas_scr(등급사정(단일등급))">
+
+	<query id="tbdb_detl_race_sche_race_yy_fb001" desc="조회" fetchSize="10">
+        <![CDATA[
+	        SELECT	DISTINCT TDRS.RACE_YY
+			FROM	TBDB_DETL_RACE_SCHE	TDRS
+			ORDER BY TDRS.RACE_YY
+		]]>
+    </query>
+    
+    <query id="tbdb_detl_race_sche_round_fb001" desc="조회" fetchSize="10">
+        <![CDATA[
+	        SELECT	TDRS.ROUND
+			FROM	TBDB_DETL_RACE_SCHE	TDRS
+			WHERE	RACE_YY = ?
+			ORDER BY TDRS.ROUND
+		]]>
+    </query>
+
+    <query id="tbdb_grd_estm_bas_scr_fb002" desc="조회" fetchSize="10">
+        <![CDATA[
+	    			SELECT	A.RACE_YY,
+					A.CAND_NO,
+			        A.CAND_NM,
+			        A.GRD,
+			        A.ROUND_CNT,
+			        ROUND(A.POINT_MARKS_SUM / A.DAY_CNT_SUM, 3)		AVG_POINT,
+			        --평가점
+			        --출주회수 >= 기본출주 회수 일때 	  득점합 / 일수합
+			        --출주회수 <  기본출주 회수 일때 	  득점합 + (부족일수 * 최하위득점) / 일수합 + 부족일수
+			        --출주회수 =  0 일때			 TBDB_REC_TOT.YY_AVG_RACE_SCR(기존평가점) * 0.95
+			        CASE 
+			        	WHEN A.ROUND_CNT >=	?	THEN
+			            	ROUND(A.POINT_MARKS_SUM / A.DAY_CNT_SUM, 3)
+			            WHEN A.ROUND_CNT <	?	THEN
+			            	ROUND(
+			            		 (A.POINT_MARKS_SUM + ((? - A.ROUND_CNT) * (A.PROP_SCR + ?))) 
+			            		 / (A.DAY_CNT_SUM + (? - A.ROUND_CNT))
+			            	, 3)
+			            WHEN A.ROUND_CNT =	0	THEN
+			            	ROUND(A.YY_AVG_RACE_SCR * 0.95, 3)
+			        END				VALUATION																--평가점
+			FROM	(
+			        SELECT	TRT.RACE_YY, 
+			        		TRT.CAND_NO,																	--후보생번호
+			        		TRT.CAND_NM,																	--후보생명
+			                TRT.GRD,																		--등급
+			                TRT.YY_AVG_RACE_SCR,															--기존평가점
+			                COUNT(TRP.ROUND)												ROUND_CNT,		--출주회수
+							SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.POINT_MARKS END) 		POINT_MARKS_SUM,--득점합
+							SUM(CASE WHEN TRP.DAY_CNT >= 1 	THEN TRP.DAY_CNT END)			DAY_CNT_SUM,		--일수합
+			        		TGS.PROP_SCR
+					FROM	TBDB_REC_TOT		TRT
+			        INNER JOIN
+			        		TBDB_RACE_POINT		TRP
+			        ON		TRT.RACE_YY = TRP.RACE_YY
+			        AND		TRT.CAND_NO = TRP.CAND_NO
+					INNER JOIN
+						  	TBDB_RACER_GRD_SCR	TGS
+					ON		TRT.RACE_YY = TGS.RACE_YY
+					AND		TRT.GRD = TGS.GRD
+					AND     TRP.ROUND = TGS.ROUND --추가     
+			        WHERE	TRT.RACE_YY	 = ?
+			        AND		TRP.ROUND 	>= ?
+			        AND		TRP.ROUND 	<= ?
+			        GROUP BY TRT.RACE_YY, TRT.CAND_NO, TRT.CAND_NM, TRT.GRD, TRT.YY_AVG_RACE_SCR,TGS.PROP_SCR
+					)		A
+			ORDER BY A.CAND_NO 
+		]]>
+    </query>
+    
+</queryMap>

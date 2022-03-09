@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rbr1030(투표소 관리 [미사용 by chojob 2016.03.24])">
+   <query id="rbr1030_s01" desc="투표소 조회" fetchSize="10">
+      <![CDATA[
+              SELECT   /* rbr1030_s01 */
+                        '' AS CHK                       --선택
+				       ,A.GRN_ZN_NO                 --그린존(투표소)번호
+				       ,A.COMM_NO                   --지점코드
+				       ,A.STR_DY                    --시작일자
+				       ,A.END_DY                    --종료일자
+				       ,A.GRN_ZN_NM                 --그린존(투표소) 명
+				       ,A.MGR_USER_ID               --매니저 사번
+				       ,A.POSI_DESC                 --투표소 위치
+				       ,B.EMP_NM AS MGR_USER_NM   -- 매니저 이름
+				       ,A.FIXEDSEAT_YN
+				       ,A.OLD_CODE
+				 FROM TBRA_GREEN_ZONE A, TBRK_USER_TEMP B
+				 WHERE (CASE WHEN A.COMM_NO <'10' THEN '00' ELSE A.COMM_NO END) = ?        
+				   AND A.MGR_USER_ID = B.EMP_NO(+)
+				   AND B.CO_WRK_GBN(+) = '001'
+				 UNION ALL
+				 SELECT '' AS CHK
+				       ,NULL,NULL,NULL,NULL,NULL
+				       ,NULL,NULL,NULL,NULL,NULL
+				 FROM   DUAL         
+				 ORDER BY 3,2            
+        ]]>
+     </query>
+    
+     <query id="rbr1030_s02" desc="발매창구 매핑정보  조회" fetchSize="10">
+      <![CDATA[
+               WITH TELMP AS (	/* rbr1030_s02 */
+					SELECT COMM_NO, WIN_NO, TELLER_ID
+				     	FROM (
+				            SELECT (CASE WHEN A.MEET_CD = '003' AND A.COMM_NO<'10' THEN '98'
+				                         WHEN A.MEET_CD != '003' AND A.COMM_NO<'10' THEN '00'
+				                         ELSE A.COMM_NO 
+				                    END) COMM_NO, 
+				            	WIN_NO, TELLER_ID, ROW_NUMBER() OVER(PARTITION BY COMM_NO, WIN_NO ORDER BY RACE_DAY DESC) AS RN
+				            FROM VW_PC_TELMP A, VW_SDL_INFO B
+				            WHERE A.MEET_CD = B.MEET_CD
+				            AND   A.STND_YEAR = B.STND_YEAR
+				            AND   A.TMS = B.TMS
+				            AND   A.DAY_ORD = B.DAY_ORD
+				            AND   A.MEET_CD = (CASE WHEN ? = '98' THEN '003' ELSE '001' END)
+				            AND   A.MEET_CD IN ('001','003')
+				            AND   B.RACE_DAY BETWEEN TO_CHAR(SYSDATE -21, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+				            AND  (CASE WHEN A.COMM_NO<'10' THEN '00' ELSE A.COMM_NO END) = DECODE(?,'98','00',?)
+				            AND  COMM_NO != '06'
+				            AND  SOLD_AMT > 0
+				        )
+				    	WHERE RN = 1
+				)
+				SELECT
+				       '' AS CHK                       			--선택
+				      ,T.COMM_NO                   				--지점코드
+				      ,NVL(M.GRN_ZN_CD,'001') GRN_ZN_CD			--그린존(투표소) 종류
+				      ,T.WIN_NO                    				--발매창구번호
+				      ,DECODE(M.WIN_NO,NULL,'002','001') MAP_CD --매핑형태: 001(실적존재, 매핑), 002(실적존매, 미매핑), 003(실적없음, 매핑)
+				      ,M.INST_ID                   				--입력자 사번
+				      ,M.INST_DT                   				--입력일시
+				FROM TELMP T, TBRA_WIN_NO_MAPP M
+				WHERE 1=1
+				AND   T.COMM_NO = M.COMM_NO(+)
+				AND   T.WIN_NO = M.WIN_NO(+)
+				UNION ALL
+				SELECT  /* rbr1030_s02 */
+				       '' AS CHK
+				      ,COMM_NO
+				      ,NVL(GRN_ZN_CD,'001') GRN_ZN_CD
+				      ,WIN_NO
+				      ,'003' MAP_CD
+				      ,INST_ID
+				      ,INST_DT
+				FROM TBRA_WIN_NO_MAPP
+				WHERE 1=1
+				AND  (COMM_NO, WIN_NO) NOT IN (SELECT COMM_NO, WIN_NO FROM TELMP GROUP BY COMM_NO, WIN_NO)
+				AND  COMM_NO = ?
+				ORDER BY WIN_NO
+        ]]>
+    </query>
+    
+    <query id="rbr1030_s04" desc="그린카드창구 매핑정보  조회" fetchSize="10">
+      <![CDATA[
+               WITH TELMP AS ( 	/* rbr1030_s04 */
+					SELECT COMM_NO, CHNL_CD, DEV_NM
+				     	FROM (
+				            SELECT (CASE WHEN MEET_CD = '003' AND COMM_NO<'10' THEN '98'
+				                         WHEN MEET_CD != '003' AND COMM_NO<'10' THEN '00'
+				                         ELSE COMM_NO 
+				                    END) COMM_NO,
+				            	CHNL_CD, DEV_NM, ROW_NUMBER() OVER(PARTITION BY COMM_NO, CHNL_CD, DEV_NM ORDER BY RACE_DAY DESC) AS RN
+				            FROM TBRS_MYCAT_TELMP
+				            WHERE RACE_DAY BETWEEN TO_CHAR(SYSDATE -21, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+				           	AND   MEET_CD = (CASE WHEN ? = '98' THEN '003' ELSE '001' END)
+				            AND  (CASE WHEN COMM_NO<'10' THEN '00' ELSE COMM_NO END) = DECODE(?,'98','00',?)
+				            AND   MEET_CD IN ('001','003')
+				            AND CHNL_CD = '001'	--단말기(001), 그린카드(002)
+				        )
+				    	WHERE RN = 1
+				    GROUP BY COMM_NO, CHNL_CD, DEV_NM	
+				)
+				SELECT  /* rbr1030_s02 */
+				       '' AS CHK                       			--선택
+				      ,T.COMM_NO                   				--지점코드
+				      ,T.CHNL_CD                 				--장비구분: 001(단말), 002(앱)
+				      ,T.DEV_NM                    				--단말번호
+				      ,DECODE(M.DEV_NM,NULL,'002','001') MAP_CD --매핑형태: 001(실적존재, 매핑), 002(실적존매, 미매핑), 003(실적없음, 매핑)
+				      ,M.INST_ID                   				--입력자 사번
+				      ,M.INST_DT                   				--입력일시
+				      ,NVL(M.GRN_ZN_CD,'001') GRN_ZN_CD			--그린존(투표소) 종류
+				FROM TELMP T, TBRA_MYCAT_NO_MAPP M
+				WHERE 1=1
+				AND   T.COMM_NO = M.COMM_NO(+)
+				AND   T.CHNL_CD = M.CHNL_CD(+)
+				AND   T.DEV_NM  = M.DEV_NM(+)
+				UNION ALL
+				SELECT  /* rbr1030_s02 */
+				       '' AS CHK
+				      ,COMM_NO
+				      ,CHNL_CD
+				      ,DEV_NM
+				      ,'003' MAP_CD
+				      ,INST_ID
+				      ,INST_DT
+				      ,NVL(GRN_ZN_CD,'001') GRN_ZN_CD
+				FROM TBRA_MYCAT_NO_MAPP
+				WHERE 1=1
+				AND  (COMM_NO, CHNL_CD, DEV_NM) NOT IN (SELECT COMM_NO, CHNL_CD, DEV_NM FROM TELMP GROUP BY COMM_NO, CHNL_CD, DEV_NM)
+				AND  COMM_NO = ?
+				ORDER BY DEV_NM
+        ]]>
+    </query>
+    
+    
+     <query id="rbr1030_s03" desc="투표소 중복 여부 조회 [미사용 by chojob 2016.03.24]" fetchSize="10">
+      <![CDATA[
+				WITH X AS 
+				(
+				          SELECT COMM_NO, WIN_NO, STR_DY, END_DY, ROW_NUMBER() OVER (PARTITION BY COMM_NO, WIN_NO ORDER BY STR_DY) RN
+				          FROM TBRA_WIN_NO_MAPP
+				)
+				SELECT COMM_NO, WIN_NO, STR_DY, END_DY, B.STR_DY AS STR_DY2, B.END_DY AS END_DY2 
+				FROM X A, X B
+				WHERE A.COMM_NO = B.COMM_NO
+				AND   A.WIN_NO = B.WIN_NO
+				AND   A.RN = B.RN -1 
+				AND   A.END_DY >= B.STR_DY
+				AND   A.COMM_NO = ?                     
+        ]]>
+    </query>
+    
+    
+     <query id="rbr1030_u01" desc="투표소 수정 [미사용 by chojob 2016.03.24]" fetchSize="10">
+      <![CDATA[
+               UPDATE  /* rbr1030_u01 */
+                       TBRA_GREEN_ZONE
+			   SET     END_DY       = ?
+			          ,GRN_ZN_NM    = ?
+			          ,MGR_USER_ID  = ?
+			          ,POSI_DESC    = ?
+			          ,FIXEDSEAT_YN = ?
+			          ,UPDT_ID      = ?
+			          ,UPDT_DT      = SYSDATE
+				 WHERE GRN_ZN_NO = ?
+				 AND   COMM_NO   = ?
+				 AND   STR_DY    = ?             
+        ]]>
+    </query>
+    
+     <query id="rbr1030_m01" desc="발매창구 매핑정보 수정" fetchSize="10">
+      <![CDATA[
+               MERGE  /* rbr1030_m01 */
+                      INTO TBRA_WIN_NO_MAPP DST
+               USING (
+                      SELECT  ? AS WIN_NO
+                             ,? AS GRN_ZN_NO
+                             ,? AS COMM_NO
+                             ,? AS STR_DY
+                             ,? AS END_DY
+                             ,? AS MACHIN_TYPE
+                             ,? AS USER_ID
+                      FROM   DUAL       
+                      ) SRC
+                   ON (
+                            DST.WIN_NO  = SRC.WIN_NO
+                        AND DST.STR_DY  = SRC.STR_DY
+                        AND DST.COMM_NO = SRC.COMM_NO
+                      )
+                   WHEN MATCHED THEN
+                       UPDATE SET
+                            DST.GRN_ZN_NO   = SRC.GRN_ZN_NO
+                           ,DST.END_DY      = SRC.END_DY
+                           ,DST.MACHIN_TYPE = SRC.MACHIN_TYPE
+                           ,DST.UPDT_ID     = SRC.USER_ID
+                           ,DST.UPDT_DT     = SYSDATE
+                   WHEN NOT MATCHED THEN
+                       INSERT (
+                                WIN_NO
+                               ,GRN_ZN_NO
+                               ,COMM_NO
+                               ,STR_DY
+                               ,END_DY
+                               ,MACHIN_TYPE
+                               ,INST_ID
+                               ,INST_DT
+                               ) VALUES (
+                                SRC.WIN_NO
+                               ,SRC.GRN_ZN_NO
+                               ,SRC.COMM_NO
+                               ,SRC.STR_DY
+                               ,SRC.END_DY
+                               ,SRC.MACHIN_TYPE
+                               ,SRC.USER_ID
+                               ,SYSDATE
+                               )       
+        ]]>
+    </query>
+    
+    <query id="rbr1030_m01" desc="발매창구 매핑정보 수정" fetchSize="10">
+      <![CDATA[
+               MERGE  /* rbr1030_m01 */
+                      INTO TBRA_WIN_NO_MAPP DST
+               USING (
+                      SELECT  ? AS WIN_NO
+                             ,? AS GRN_ZN_NO
+                             ,? AS COMM_NO
+                             ,? AS STR_DY
+                             ,? AS END_DY
+                             ,? AS MACHIN_TYPE
+                             ,? AS USER_ID
+                      FROM   DUAL       
+                      ) SRC
+                   ON (
+                            DST.WIN_NO  = SRC.WIN_NO
+                        AND DST.STR_DY  = SRC.STR_DY
+                        AND DST.COMM_NO = SRC.COMM_NO
+                      )
+                   WHEN MATCHED THEN
+                       UPDATE SET
+                            DST.GRN_ZN_NO   = SRC.GRN_ZN_NO
+                           ,DST.END_DY      = SRC.END_DY
+                           ,DST.MACHIN_TYPE = SRC.MACHIN_TYPE
+                           ,DST.UPDT_ID     = SRC.USER_ID
+                           ,DST.UPDT_DT     = SYSDATE
+                   WHEN NOT MATCHED THEN
+                       INSERT (
+                                WIN_NO
+                               ,GRN_ZN_NO
+                               ,COMM_NO
+                               ,STR_DY
+                               ,END_DY
+                               ,MACHIN_TYPE
+                               ,INST_ID
+                               ,INST_DT
+                               ) VALUES (
+                                SRC.WIN_NO
+                               ,SRC.GRN_ZN_NO
+                               ,SRC.COMM_NO
+                               ,SRC.STR_DY
+                               ,SRC.END_DY
+                               ,SRC.MACHIN_TYPE
+                               ,SRC.USER_ID
+                               ,SYSDATE
+                               )       
+        ]]>
+    </query>
+        
+    
+     <query id="rbr1030_i01" desc="투표소 입력 [미사용 by chojob 2016.03.24]" fetchSize="10">
+      <![CDATA[
+               INSERT  /* rbr1030_i01 */
+                       INTO TBRA_GREEN_ZONE (
+                       GRN_ZN_NO
+                      ,COMM_NO
+                      ,STR_DY
+			          ,END_DY
+			          ,GRN_ZN_NM
+			          ,MGR_USER_ID
+			          ,POSI_DESC
+			          ,OLD_CODE
+			          ,FIXEDSEAT_YN
+			          ,INST_ID
+			          ,INST_DT )
+			    VALUES (
+			           ?
+			          ,?
+			          ,?
+			          ,?
+			          ,?
+			          ,?
+			          ,?
+			          ,?
+			          ,?
+			          ,?
+			          ,SYSDATE 
+			          )             
+        ]]>
+    </query>
+    
+    <query id="rbr1030_i02" desc="지점별 창구번호 매핑 정보 입력" fetchSize="10">
+      <![CDATA[
+               INSERT  /* rbr1030_i02 */
+                       INTO TBRA_WIN_NO_MAPP (
+                       COMM_NO
+                      ,WIN_NO
+                      ,GRN_ZN_CD
+			          ,INST_ID
+			          ,INST_DT )
+			    VALUES (
+			           ?
+			          ,?
+			          ,?
+			          ,?
+			          ,SYSDATE 
+			          )             
+        ]]>
+    </query>
+    
+    <query id="rbr1030_i03" desc="지점별 그린카드단말 정보 입력" fetchSize="10">
+      <![CDATA[
+               INSERT  /* rbr1030_i03 */
+                       INTO TBRA_MYCAT_NO_MAPP (
+                       COMM_NO
+                      ,CHNL_CD
+                      ,DEV_NM
+                      ,GRN_ZN_CD
+			          ,INST_ID
+			          ,INST_DT )
+			    VALUES (
+			           ?
+			          ,?
+			          ,?
+			          ,?
+			          ,?
+			          ,SYSDATE 
+			          )             
+        ]]>
+    </query>
+    
+     <query id="rbr1030_d01" desc="투표소 삭제 [미사용 by chojob 2016.03.24]" fetchSize="10">
+      <![CDATA[
+               DELETE  /* rbr1030_d01 */
+                       FROM TBRA_GREEN_ZONE
+				 WHERE GRN_ZN_NO = ?
+				 AND   COMM_NO   = ?
+				 AND   STR_DY    = ?             
+        ]]>
+    </query>
+    
+    <query id="rbr1030_d02" desc="지점별 창구번호 매핑 정보 삭제" fetchSize="10">
+      <![CDATA[
+               DELETE  /* rbr1030_d01 */
+                       FROM TBRA_WIN_NO_MAPP
+			   WHERE COMM_NO = ?
+        ]]>
+    </query>
+    
+    <query id="rbr1030_d03" desc="지점별 그린카드단말 정보 삭제" fetchSize="10">
+      <![CDATA[
+               DELETE  /* rbr1030_d01 */
+                       FROM TBRA_MYCAT_NO_MAPP
+			   WHERE COMM_NO = ?
+        ]]>
+    </query>
+    
+    
+    
+    
+  
+</queryMap>

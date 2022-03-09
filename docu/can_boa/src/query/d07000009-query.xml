@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="d07000009">
+    <query id="d07000009_s01" desc="훈련숙박비 조회" fetchSize="10">
+        <![CDATA[
+           SELECT  /* d07000009_s01 */
+                    '0' AS CHK
+                   ,SEQ                       --연번
+			       ,APLY_STR_DT               --적용시작일자
+			       ,APLY_END_DT               --적용종료일자
+			       ,TRNG_DAYS                 --훈련일자
+			       ,COMP_EDU_CD               --의무훈련코드
+			       ,ROOM_CHRG_AMT             --숙박비
+			       ,RMK                       --비고
+			       ,COMMUTE_YN                --출퇴근 여부
+			       ,TRNG_RSN_CD               --훈련사유코드
+			       ,INST_ID                   --입력자 사번
+			       ,INST_DTM                  --입력일시
+			       ,UPDT_ID                   --수정자 사번
+			       ,UPDT_DTM                  --수정일시
+			 FROM TBDN_TRNG_ROOM_CHRG
+			 WHERE ? BETWEEN APLY_STR_DT AND APLY_END_DT	-- 기준일자
+			 ORDER BY APLY_STR_DT, TRNG_DAYS, COMP_EDU_CD
+        ]]>
+    </query>    
+    
+      <query id="d07000009_m01" desc="훈련숙박비 입력" fetchSize="10">
+        <![CDATA[
+       MERGE INTO /* d07000009_m01 */
+                  TBDN_TRNG_ROOM_CHRG DST
+       USING (
+                     SELECT ? AS SEQ,
+                            ? AS APLY_STR_DT,
+                            ? AS APLY_END_DT, 
+                            ? AS TRNG_DAYS,
+                            ? AS COMP_EDU_CD,
+                            ? AS ROOM_CHRG_AMT,
+                            ? AS RMK,
+                            DECODE(?,'1','1','0') AS COMMUTE_YN,
+                            ? AS TRNG_RSN_CD,
+                            ? AS USER_ID
+                    FROM DUAL
+             )  SRC
+            ON (
+                      DST.SEQ = SRC.SEQ
+             )          
+            WHEN MATCHED THEN
+                  UPDATE SET
+                         DST.APLY_STR_DT = SRC.APLY_STR_DT
+                        ,DST.TRNG_DAYS   = SRC.TRNG_DAYS
+                        ,DST.COMP_EDU_CD = SRC.COMP_EDU_CD
+                        ,DST.APLY_END_DT = SRC.APLY_END_DT
+                        ,DST.ROOM_CHRG_AMT = SRC.ROOM_CHRG_AMT
+                        ,DST.RMK         = SRC.RMK
+                        ,DST.COMMUTE_YN  = SRC.COMMUTE_YN
+                        ,DST.TRNG_RSN_CD = SRC.TRNG_RSN_CD
+                        ,DST.UPDT_ID     = SRC.USER_ID
+                        ,DST.UPDT_DTM    = SYSDATE    
+            WHEN NOT MATCHED THEN
+                INSERT (
+                  SEQ
+                , APLY_STR_DT
+                , APLY_END_DT
+                , TRNG_DAYS
+                , COMP_EDU_CD
+                , ROOM_CHRG_AMT
+                , RMK
+                , COMMUTE_YN
+                , TRNG_RSN_CD
+                , INST_ID
+                , INST_DTM
+               ) VALUES (
+                  (SELECT NVL(MAX(SEQ),0)+1 FROM TBDN_TRNG_ROOM_CHRG)
+                , SRC.APLY_STR_DT
+                , SRC.APLY_END_DT
+                , SRC.TRNG_DAYS
+                , NVL(SRC.COMP_EDU_CD, '000')
+                , SRC.ROOM_CHRG_AMT
+                , SRC.RMK
+                , SRC.COMMUTE_YN
+                , SRC.TRNG_RSN_CD
+                , SRC.USER_ID                
+                , SYSDATE    
+               )
+              
+        ]]>
+    </query> 
+    
+    <query id="d07000009_d01" desc="훈련숙박비 삭제" fetchSize="10">
+		<![CDATA[
+			DELETE  /* d07000009_d01 */
+			FROM   TBDN_TRNG_ROOM_CHRG
+			WHERE  SEQ = ?
+	    ]]>
+    </query>
+</queryMap>

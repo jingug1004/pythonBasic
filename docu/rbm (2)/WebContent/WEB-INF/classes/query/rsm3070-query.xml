@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3070(장소별 매출액)">
+    <query id="rsm3070_s01" desc="장소별 매출액" fetchSize="10">
+        <![CDATA[
+			   SELECT /* rsm3070_s01 */                                                                               
+				     A.MEET_CD,		-- 경륜 구분 코드
+				     A.STND_YEAR,	-- 기준 년도
+				     DECODE(GP_TMS,0,A.TMS||'',DECODE(GP_STND_YEAR,0,'TOTAL',1,'AVG')) TMS,	-- 회차
+				     DECODE(GP_TMS,0,A.MIN_DAY) MIN_DAY,                                        -- 날짜
+				     DECODE(GP_STND_YEAR,0,SUB1,1,SUB1/CNT_TMS) BONGJANG,                       -- 본장 매출액
+				     DECODE(GP_STND_YEAR,0,RATE1) RATE1,                                        -- 본장 점유율
+				     ROUND(DECODE(GP_STND_YEAR,0,SUB2,1,SUB2/CNT_TMS)) DIV_TOTAL,               -- 장외지점 매출액       
+				     DECODE(GP_STND_YEAR,0,RATE2) RATE2,                                        -- 장외지점 점유율       
+				     ROUND(DECODE(GP_STND_YEAR,0,SUB3,1,SUB3/CNT_TMS)) GYEJWA,                  -- 계좌 매출액       
+				     DECODE(GP_STND_YEAR,0,RATE3) RATE3,                                        -- 계좌 점유율       
+				     ROUND(DECODE(GP_STND_YEAR,0,SUB4,1,SUB4/CNT_TMS)) GYOCHA,                  -- 교차 매출액       
+				     DECODE(GP_STND_YEAR,0,RATE4) RATE4,                                        -- 교차 점유율       
+				     ROUND(DECODE(GP_STND_YEAR,0,DIV_TOTAL_SUM,DIV_TOTAL_SUM/CNT_TMS)) TOTAL    -- 합계           
+				 FROM                                                                                  
+				 (                                                                                     
+				     SELECT                                                                            
+				         A.MEET_CD,                                                                    
+				         A.STND_YEAR,                                                                  
+				         GROUPING(A.STND_YEAR) GP_STND_YEAR,                                           
+				         GROUPING(A.TMS) GP_TMS,                                                       
+				         A.TMS,                                                                        
+				         MIN(A.RACE_DAY) MIN_DAY,                                                      
+				         COUNT(DISTINCT A.TMS) CNT_TMS,                                                
+				         SUM(                                                                          
+				            CASE                                                                       
+				                WHEN A.SELL_CD = DECODE( ? ,'003','03','01') AND A.COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL -- 0:MEET_CD 경주 구분 코드     
+				                ELSE 0                                                                 
+				            END                                                                        
+				         ) SUB1,                                                                       
+				         TO_CHAR(                                                                      
+				             SUM(                                                                      
+				                CASE                                                                   
+				                    WHEN A.SELL_CD = DECODE( ? ,'003','03','01') AND A.COMM_NO IN ('01','02','03','04','08') THEN DIV_TOTAL 
+				                    ELSE 0                                                             
+				                END                                                                    
+				                )/SUM(DIV_TOTAL)*100,'990.00'                                          
+				         ) RATE1,                                                                      
+				         SUM(                                                                          
+				            CASE                                                                       
+				                WHEN A.SELL_CD IN DECODE(A.MEET_CD, '003','03','01') AND A.COMM_NO  IN ('01','02','03','04','08','06') THEN 0 -- 본장, 마이켓 제외
+				                WHEN A.SELL_CD IN ('01','03') AND A.COMM_NO = '06' THEN 0
+				                WHEN A.SELL_CD IN ('01','03') THEN DIV_TOTAL                 
+				                ELSE 0                                                                 
+				            END                                                                        
+				         ) SUB2,                                                                       
+				         TO_CHAR(                                                                      
+				             SUM(                                                                      
+				                CASE                                                                   
+				                    WHEN A.SELL_CD IN DECODE(A.MEET_CD, '003','03','01') AND A.COMM_NO IN ('01','02','03','04','08','06') THEN 0             
+				                    WHEN A.SELL_CD IN ('01','03') AND A.COMM_NO = '06' THEN 0
+				                    WHEN A.SELL_CD IN ('01','03') THEN DIV_TOTAL
+				                    ELSE 0                                                             
+				                END                                                                    
+				                )/SUM(DIV_TOTAL)*100,'990.00'                                          
+				         ) RATE2,                                                                      
+				         SUM(                                                                          
+				            CASE                                                                       
+				                WHEN A.SELL_CD IN ('01','03') AND A.COMM_NO ='06' THEN DIV_TOTAL                 
+				                ELSE 0                                                                 
+				            END                                                                        
+				         ) SUB3,                                                                       
+				         TO_CHAR(                                                                      
+				             SUM(                                                                      
+				                CASE                                                                   
+				                    WHEN A.SELL_CD IN ('01','03') AND A.COMM_NO ='06' THEN DIV_TOTAL             
+				                    ELSE 0                                                             
+				                END                                                                    
+				                )/SUM(DIV_TOTAL)*100,'990.00'                                          
+				         ) RATE3,                                                                      
+				         SUM(                                                                          
+				            CASE                                                                       
+				                WHEN A.SELL_CD NOT IN('01','03') THEN DIV_TOTAL                                    
+				                ELSE 0                                                                 
+				            END                                                                        
+				         ) SUB4,                                                                       
+				         TO_CHAR(                                                                      
+				             SUM(                                                                      
+				                CASE                                                                   
+				                    WHEN A.SELL_CD NOT IN('01','03') THEN DIV_TOTAL                                
+				                    ELSE 0                                                             
+				                END                                                                    
+				                )/SUM(DIV_TOTAL)*100,'990.00'                                          
+				         ) RATE4,                                                                      
+				         SUM(DIV_TOTAL) DIV_TOTAL_SUM                                                  
+				     FROM                                                                              
+				     (                                                                                 
+				         SELECT                                                                        
+				             A.MEET_CD,                                                                
+				             A.STND_YEAR,                                                              
+				             A.TMS,                                                                    
+				             A.DAY_ORD,                                                                
+				             B.RACE_DAY,                                                               
+				             A.SELL_CD,                                                                
+				             A.COMM_NO,                                                                
+				             A.DIV_TOTAL                                                               
+				         FROM                                                                          
+				              (                                                                        
+				                 SELECT                                                                
+				                     A.MEET_CD,                                                        
+				                     A.STND_YEAR,                                                      
+				                     A.TMS,                                                            
+				                     A.DAY_ORD,                                                        
+				                     A.SELL_CD, A.COMM_NO, SUM(A.DIV_TOTAL) DIV_TOTAL                  
+				                 FROM VW_SDL_DT_SUM A -- 지점                                                    
+				                 WHERE 1 = 1                                                           
+				                     AND A.MEET_CD = ?       -- 경륜 구분 코드                                   
+				                     AND A.STND_YEAR = ?     -- 기준년도                           
+				                 GROUP BY A.MEET_CD, A.STND_YEAR, A.TMS, A.DAY_ORD,                    
+				               A.SELL_CD, A.COMM_NO                                                    
+				              ) A,                                                                     
+				              VW_SDL_INFO B   -- 경주일 정보                                                            
+				             WHERE 1 = 1                                                               
+				                 AND B.RACE_DAY LIKE ?||'%'  -- 기준년도                                 
+				                 AND B.STND_YEAR=?           -- 기준년도                                 
+				                 AND A.MEET_CD = B.MEET_CD                                             
+				                 AND A.STND_YEAR = B.STND_YEAR                                         
+				                 AND A.TMS = B.TMS                                                     
+				                 AND A.DAY_ORD = B.DAY_ORD                                             
+				      ) A                                                                              
+				      GROUP BY A.MEET_CD
+				      , A.STND_YEAR, A.TMS
+				      -- , ROLLUP(A.STND_YEAR, A.TMS) -- 최종 레코드의  TOTAL, SUM 생성용                                              
+				 ) A                                                                                   
+				 WHERE 1 = 1                                                                           
+				 ORDER BY                                                                              
+				         A.MEET_CD,                                                                    
+				         A.STND_YEAR,                                                                  
+				         A.GP_STND_YEAR,                                                               
+				         A.GP_TMS,                                                                     
+				         A.TMS                                                                                                                                      
+
+        ]]>
+    </query>
+                          
+    
+</queryMap>

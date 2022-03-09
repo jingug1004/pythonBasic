@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbea_duty_prs_hst(업무이력)">    		   
+    <query id="tbea_duty_prs_hst_fa000" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			       NVL(MAX(SEQ_NO), 0) + 1 SEQ_NO
+			FROM   TBEA_DUTY_PRS_HST
+			WHERE  STND_YEAR = ?
+			AND    MBR_CD    = ?
+        ]]>
+    </query>
+    <query id="tbea_duty_prs_hst_fa001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT
+			         STND_YEAR
+			       , MBR_CD
+			       , SEQ_NO
+			       , MONTH
+			       , TMS
+			       , DAY_ORD
+			       , RACE_NO
+			       , DUTY_CD
+			       , WORK_CD
+			       , PROG_STAT
+			       , PROG_DESC
+			       , USER_NAME
+			       , INST_ID
+			       , TO_CHAR(INST_DTM, 'YYYY-MM-DD HH24:MI:SS') INST_DTM
+			FROM   (	SELECT
+						         STND_YEAR
+						       , MBR_CD
+						       , SEQ_NO
+						       , MONTH
+						       , TMS
+						       , DAY_ORD
+						       , RACE_NO
+						       , DUTY_CD
+						       , WORK_CD
+						       , PROG_STAT
+						       , PROG_DESC
+						       , (SELECT DISTINCT USER_NM FROM VWEA_USER WHERE USER_ID = A.INST_ID) USER_NAME
+						       , INST_ID
+						       , INST_DTM
+						FROM   TBEA_DUTY_PRS_HST A
+						WHERE  STND_YEAR = ?
+						AND    MBR_CD    = ?
+						AND    TMS       = ?
+						AND    '001'     = ?
+						
+						UNION ALL
+						
+						SELECT
+						         STND_YEAR
+						       , MBR_CD
+						       , SEQ_NO
+						       , MONTH
+						       , TMS
+						       , DAY_ORD
+						       , RACE_NO
+						       , DUTY_CD
+						       , WORK_CD
+						       , PROG_STAT
+						       , PROG_DESC
+						       , (SELECT DISTINCT USER_NM FROM VWEA_USER WHERE USER_ID = A.INST_ID) USER_NAME
+						       , INST_ID
+						       , INST_DTM
+						FROM   TBEA_DUTY_PRS_HST A
+						WHERE  INST_DTM BETWEEN TO_DATE(? || '000000', 'YYYYMMDDHH24MISS')
+						                    AND TO_DATE(? || '235959', 'YYYYMMDDHH24MISS')
+						AND    '002'     = ?
+						
+						UNION ALL
+						
+						SELECT
+						         STND_YEAR
+						       , MBR_CD
+						       , SEQ_NO
+						       , MONTH
+						       , TMS
+						       , DAY_ORD
+						       , RACE_NO
+						       , DUTY_CD
+						       , WORK_CD
+						       , PROG_STAT
+						       , PROG_DESC
+						       , (SELECT DISTINCT USER_NM FROM VWEA_USER WHERE USER_ID = A.INST_ID) USER_NAME
+						       , INST_ID
+						       , INST_DTM
+						FROM   TBEA_DUTY_PRS_HST A
+						WHERE  MONTH     = ?
+						AND    '003'     = ?
+				   )
+			ORDER BY INST_DTM DESC
+        ]]>
+    </query>
+    <query id="tbea_duty_prs_hst_fa002" desc="조회" fetchSize="10">
+        <![CDATA[
+            SELECT
+                     STND_YEAR
+                   , MBR_CD
+                   , SEQ_NO
+                   , MONTH
+                   , TMS
+                   , DAY_ORD
+                   , RACE_NO
+                   , DUTY_CD
+                   , DUTY_NM
+                   , WORK_CD
+                   , WORK_NM
+                   , PROG_STAT
+                   , PROG_STAT_NM
+                   , PROG_DESC
+                   , INST_ID
+                   , TO_CHAR(INST_DTM, 'YYYY-MM-DD HH24:MI') INST_DTM
+			FROM	(
+					SELECT
+                    		     STND_YEAR
+                               , MBR_CD
+                               , SEQ_NO
+                               , MONTH
+                               , TMS
+                               , DAY_ORD
+                               , RACE_NO
+                               , DUTY_CD
+                               , TSC1.CD_NM DUTY_NM
+                               , WORK_CD
+                               , TSC2.CD_NM WORK_NM
+                               , PROG_STAT
+                               , TSC3.CD_NM PROG_STAT_NM
+                               , PROG_DESC
+                               , TDPH.INST_ID
+                               , TDPH.INST_DTM
+                               , RANK() OVER (ORDER BY TDPH.INST_DTM DESC) SEQ
+                        FROM   TBEA_DUTY_PRS_HST TDPH
+                                , TBEA_SPEC_CD TSC1
+                                , TBEA_SPEC_CD TSC2
+                                , TBEA_SPEC_CD TSC3
+                        WHERE   TSC1.GRP_CD = 'E00120'
+                                AND TSC2.GRP_CD = 'E00131'
+                                AND TSC3.GRP_CD = 'E00132'
+                                AND TDPH.DUTY_CD = TSC1.CD
+                                AND TDPH.WORK_CD = TSC2.CD
+                                AND TDPH.PROG_STAT = TSC3.CD
+                   )
+            WHERE  SEQ < 100
+            ORDER BY SEQ
+        ]]>
+    </query>
+    <query id="tbea_duty_prs_hst_ia001" desc="입력" fetchSize="10">
+        <![CDATA[    
+			INSERT INTO TBEA_DUTY_PRS_HST
+			(
+			         STND_YEAR  -- 기준년도  
+			       , MBR_CD     -- 경정장코드
+			       , SEQ_NO     -- 일련번호  
+			       , MONTH      -- 월
+			       , TMS        -- 회차      
+			       , DAY_ORD    -- 일차      
+			       , RACE_NO    -- 경주번호  
+			       , DUTY_CD    -- 업무코드  
+			       , WORK_CD    -- 작업코드  
+			       , PROG_STAT  -- 진행상태  
+			       , PROG_DESC  -- 진행내용  
+			       , INST_ID    -- 작성자ID  
+			       , INST_DTM   -- 작성일시  
+			) VALUES (
+			         ?          -- 기준년도  
+			       , ?          -- 경정장코드
+			       , ?          -- 일련번호  
+			       , ?          -- 월
+			       , ?          -- 회차      
+			       , ?          -- 일차      
+			       , ?          -- 경주번호  
+			       , ?          -- 업무코드  
+			       , ?          -- 작업코드  
+			       , ?          -- 진행상태  
+			       , ?          -- 진행내용  
+			       , ?          -- 작성자ID  
+			       , SYSDATE    -- 작성일시  
+			)       
+        ]]>
+    </query>
+    <query id="tbea_duty_prs_hst_ua001" desc="입력" fetchSize="10">
+        <![CDATA[    
+			UPDATE TBEA_DUTY_PRS_HST SET
+			       PROG_DESC   = ? -- 진행내용  
+			WHERE  STND_YEAR   = ? -- 기준년도  
+			AND    MBR_CD      = ? -- 경정장코드
+			AND    SEQ_NO      = ? -- 일련번호  
+        ]]>
+    </query>
+</queryMap>

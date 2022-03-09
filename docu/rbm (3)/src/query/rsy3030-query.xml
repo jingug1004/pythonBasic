@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSY3030(메뉴 권한 관리)">
+  <query id="rsy3030_s01" desc="메뉴그룹조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* rsy3030_s01 */
+                     A.MN_ID               -- 메뉴아이디
+                   , A.MN_NM                  -- 메뉴명
+                   , A.ORD_NO                 -- 순서번호
+                   , A.UP_MN_ID               -- 상위메뉴ID
+                   , D.MN_ID UPUP_MN_ID
+                   , A.PROGRAM_ID AS SCRN_ID  -- 화면ID
+                   
+                   , A.URL                    -- 메뉴URL
+                   , A.RMK                    -- 비고
+                   , A.LVL                    -- 메뉴 레벨                   
+                   , '0' AS CHK
+                   , ' ' AS CLOLR
+                   
+                   , A.MN_LEVEL               -- 메뉴순
+                   , ROWNUM AS SEQ
+            FROM     (
+                        SELECT
+                               TM.* ,LEVEL - 1 AS LVL
+                        FROM   TBRK_MN TM  --메뉴관리
+                        START  WITH TM.MN_ID = ?
+                        CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID                                    
+                        ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+                     ) A
+                     ,TBRK_MN C, TBRK_MN D
+                     ,(
+                            SELECT  
+                              USER_ID    
+                            , MN_ID    
+                       FROM TBRK_ADMIN_INFO
+                      WHERE USER_ID = ?
+                    ) E
+            WHERE  A.LVL > 0
+                   AND A.MN_ID = E.MN_ID
+                   AND A.UP_MN_ID = C.MN_ID(+)
+                   AND C.UP_MN_ID = D.MN_ID(+)
+                   --AND A.PERSONAL_DATA_MN = 'Y'
+                   
+            ORDER BY ORD_NO, SEQ
+            
+            
+        ]]>
+
+    </query>
+ 
+    <query id="rsy3030_s02" desc="사용자 조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* rsy3030_s02 */
+                      A.USER_ID          -- 사용자ID     
+                    , USER_NM        -- 사용자명         
+                    , PSWD           -- 비밀번호
+                    , DEPT_CD        -- 부서코드
+                    , DEPT_NM       -- 부서이름
+                    , TEAM_CD       -- 팀코드
+                    , TEAM_NM       -- 팀이름
+                    , FLOC          -- 직위코드
+                    , FGRADE            -- 직위         
+                    , TEL_NO         -- 전화번호         
+                    , EMAIL         -- 이메일       
+                    , '0' AS CHK
+                    , NVL(SRCH_YN,0) SRCH_YN
+                    , NVL(INPT_YN,0) INPT_YN
+                    , NVL(APRO_YN,0) APRO_YN
+                    , STR_DT_TM
+                    , PERSONAL_YN
+                    , PERSONAL_MN_IP
+              FROM  TBRK_USER A, 
+                    (SELECT 
+                              USER_ID    
+                            , MN_ID
+                            , STR_DT_TM    
+                            , DECODE(SRCH_YN, 'Y', 1, 0) SRCH_YN    
+                            , DECODE(INPT_YN, 'Y', 1, 0) INPT_YN
+                            , DECODE(APRO_YN, 'Y', 1, 0) APRO_YN
+                            , PERSONAL_YN
+                            , PERSONAL_MN_IP 
+                            , INST_ID    
+                            , INST_DT    
+                            , UPDT_ID    
+                            , UPDT_DT    
+                       FROM TBRK_MN_AUTH_HIST    
+                      WHERE MN_ID = ?
+                      AND   TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+                    ) B
+             WHERE  A.USER_ID= B.USER_ID(+)
+                AND A.TEAM_CD LIKE  '%' || NVL(? , A.TEAM_CD) || '%' 
+             ORDER BY A.ORD_NO, A.TEAM_CD, A.FGRADE, A.USER_ID
+
+        ]]>
+
+    </query>  
+            
+    <query id="rsy3030_d05" desc="마이메뉴 삭제" fetchSize="10">
+
+        <![CDATA[
+            DELETE  FROM TBRK_MY_MENU
+                    WHERE USER_ID = ?
+                      AND MN_ID   = ?                  
+
+        ]]>
+
+    </query>
+             
+	<query id="rsy3030_s11" desc="나의 메뉴 조회" fetchSize="10">
+        <![CDATA[                
+
+			SELECT  /*rsy3030_s11*/
+			          A.USER_ID  
+			        , DECODE(B.LVL, '2', B.UP_MN_ID, B.UPUP_MN_ID) UPUP_MN_ID
+			        , DECODE(B.LVL, '2', B.UPMNNM, B.UPUPMN_NM) UPUPMN_NM
+			        , B.UP_MN_ID
+			        , B.UPMNNM
+			        , B.MN_ID
+			        , B.MN_NM
+			        , B.LVL 
+			        , B.ORD_NO
+			        , B.MN_LEVEL  
+                    , NVL2(D.MN_ID,'1','0') AS CHK  
+			  FROM  (SELECT USER_ID    
+			                , MN_ID    
+			                , DECODE(SRCH_YN, 'Y', 1, 0) SRCH_YN    
+			           FROM TBRK_MN_AUTH_HIST    
+			          WHERE USER_ID = ?
+			          AND   TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN STR_DT_TM AND END_DT_TM
+                      UNION ALL                      
+                      SELECT ?
+                            ,MN_ID, 1
+                      FROM   TBRK_MN TM
+                      WHERE  BASE_SRCH_YN ='Y'
+                        AND  'NORM' = ( -- NORN: 일반사용자/임시사용자,  ESTM:평가사용자
+                                      DECODE((SELECT MAX(GBN) FROM TBRK_USER WHERE USER_ID = ?),'003','ESTM','NORM'))
+			        ) A
+			        
+			        ,(SELECT A.MN_ID
+			                , A.MN_NM
+			                , A.UP_MN_ID
+			                , C.MN_NM UPMNNM
+			                , D.MN_ID UPUP_MN_ID
+			                , D.MN_NM UPUPMN_NM
+			                , A.LVL 
+			                , A.ORD_NO
+			                , A.MN_LEVEL 
+			                , ROWNUM AS SEQ     
+			          FROM  (SELECT MN_ID
+			                        , MN_NM
+			                        , UP_MN_ID
+			                        , ORD_NO
+			                        , MN_LEVEL
+			                        , URL
+			                        , LEVEL - 1 AS LVL       
+			        
+			                   FROM TBRK_MN        
+			                   START WITH MN_ID = 'R000000'
+			                   CONNECT BY PRIOR  MN_ID =  UP_MN_ID
+			                   ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+			                 ) A
+			                 , TBRK_MN B, TBRK_MN C, TBRK_MN D
+			        
+			         WHERE A.MN_ID    = B.MN_ID
+			           AND A.UP_MN_ID = C.MN_ID
+			           AND C.UP_MN_ID = D.MN_ID
+			           AND A.URL IS NOT NULL
+			        
+			       ORDER BY A.ORD_NO, TO_NUMBER(A.MN_LEVEL) ASC
+			       ) B,
+                    (
+                      SELECT MN_ID 
+                      FROM   TBRK_MY_MENU
+                      WHERE USER_ID = ?
+                     ) D 			
+			 WHERE   B.MN_ID = A.MN_ID(+)
+                 AND B.MN_ID = D.MN_ID(+) 
+                 AND A.SRCH_YN = '1'
+                 AND B.MN_ID NOT LIKE 'RBB%'    
+			 ORDER BY B.ORD_NO, B.SEQ                 
+        ]]>
+
+    </query>
+              
+	<query id="rsy3030_s12" desc="나의 메뉴 조회" fetchSize="10">
+        <![CDATA[ 
+             SELECT   /*rsy3030_s12*/
+                      B.MN_ID
+                    , B.MN_NM
+                    , B.ORD_NO
+                    , B.MN_LEVEL  
+                    , B.URL          
+                    , ROWNUM AS SEQ      
+              FROM  TBRK_MY_MENU A,
+                    (
+                        SELECT TM.* ,LEVEL - 1 AS LVL
+                        FROM   TBRK_MN TM  --메뉴관리
+                        START  WITH TM.MN_ID = 'R000000'
+                        CONNECT BY PRIOR  TM.MN_ID =  TM.UP_MN_ID                                    
+                        ORDER SIBLINGS BY UP_MN_ID, ORD_NO, TO_NUMBER(MN_LEVEL)
+                    ) B,
+                    TBRK_MN C                       
+             WHERE B.LVL > 0
+               AND B.MN_ID = C.MN_ID(+)
+               AND A.MN_ID = B.MN_ID
+               AND B.MN_ID NOT LIKE 'RBB%'                 
+               AND A.USER_ID =  ?   
+             ORDER BY B.ORD_NO, SEQ			                
+        ]]>
+    </query>
+     
+    <query id="rsy3030_i02" desc="마이메뉴 입력" fetchSize="10">
+
+        <![CDATA[
+            INSERT INTO TBRK_MY_MENU (
+                  USER_ID
+                , MN_ID
+                , INST_DTM
+            ) VALUES (
+                  ?                             -- USER_ID
+                , ?                             -- MN_ID
+                , SYSDATE                       -- INST_DT
+            )
+        ]]>
+
+    </query>       
+     
+</queryMap>

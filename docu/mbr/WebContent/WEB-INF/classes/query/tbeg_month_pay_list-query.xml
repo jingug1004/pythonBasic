@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeg_month_pay 상금 대장  ">
+   
+    <query id="tbeg_month_pay_list_ff001" desc="상금  대장  조회" fetchSize="10">
+        <![CDATA[
+        	-- 상금 대장 조회 
+			SELECT 
+			    NUM,    -- 일련번호 
+			    TPE,	-- roollup 유형 
+			    RACER_NO,   -- 선수 번호 
+			    RACER_PERIO_NO, -- 기수 
+			    RACER_NM,   -- 선수명
+			    SUPP_AMT_01,    -- 성적상금 
+			    SUPP_AMT_02,    -- 출전수당
+			    SUPP_AMT_31,    -- 이벤트수당
+			    SUPP_AMT_03,    -- 안전수당
+			    SUPP_AMT_05,    -- 무사고상금
+			    SUPP_AMT_06,    -- 연승상금
+			    SUPP_AMT_10,    -- 식대 
+			    SUPP_AMT_12,    -- 선수연금(사업자부담)
+			    SUPP_AMT_ETC,   -- 기타수당
+			    SUPP_AMT_30,    -- 지급총액
+			    AID_AMT_01,     -- 소득세 
+			    AID_AMT_02,     -- 주민세
+			    AID_AMT_04,     -- 선수회비
+			    AID_AMT_05,     -- 선수연금(본인부담)
+			    AID_AMT_10,     -- 식대 
+			    AID_AMT_12,     -- 선수연금(사업자부담)
+			    AID_AMT_ETC,    -- 기타공제
+			    AID_AMT_20,     -- 공제총액
+			    REAL_SUPP_AMT,  -- 실지급액 
+			    UNCOLLECT_AMT	-- 미수금 
+			FROM (
+			    SELECT 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  ''
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN ''
+			             ELSE ''||MIN(NUM) END  AS NUM, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  ''
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN ''
+			             ELSE RACER_NO END  AS RACER_NO, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  RACER_PERIO_NO||'기 계'
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN '총계'
+			             ELSE MIN(RACER_NM) END  AS RACER_NM ,
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  1   -- 소계 
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN 0    -- 총계
+			             ELSE 1 END  ORD_TPE, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  1   -- 소계 
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN 0    -- 총계
+			             ELSE 2 END  TPE , 
+			        MIN(RACER_PERIO_NO) AS RACER_PERIO_NO,
+			        SUM(SUPP_AMT_01) AS SUPP_AMT_01,
+			        SUM(SUPP_AMT_02) AS SUPP_AMT_02, 
+			        SUM(SUPP_AMT_31) AS SUPP_AMT_31,
+			        SUM(SUPP_AMT_03) AS SUPP_AMT_03, 
+			        SUM(SUPP_AMT_05) AS SUPP_AMT_05, 
+			        SUM(SUPP_AMT_06) AS SUPP_AMT_06, 
+			        SUM(SUPP_AMT_10) AS SUPP_AMT_10, 
+			        SUM(SUPP_AMT_12) AS SUPP_AMT_12,  
+			        SUM(SUPP_AMT_ETC) AS SUPP_AMT_ETC, 
+			        SUM(SUPP_AMT_30) AS SUPP_AMT_30,
+			        SUM(AID_AMT_01) AS AID_AMT_01, 
+			        SUM(AID_AMT_02) AS AID_AMT_02, 
+			        SUM(AID_AMT_04) AS AID_AMT_04,
+			        SUM(AID_AMT_05) AS AID_AMT_05, 
+			        SUM(AID_AMT_10) AS AID_AMT_10, 
+			        SUM(AID_AMT_12) AS AID_AMT_12,
+			        SUM(AID_AMT_ETC) AS AID_AMT_ETC,
+			        SUM(AID_AMT_20) AS AID_AMT_20, 
+			        SUM(CASE WHEN REAL_SUPP_AMT>=0 THEN REAL_SUPP_AMT ELSE 0 END ) AS REAL_SUPP_AMT,
+			        SUM(CASE WHEN REAL_SUPP_AMT<0 THEN REAL_SUPP_AMT ELSE 0 END) AS UNCOLLECT_AMT
+			    FROM (
+			        SELECT ROWNUM AS NUM, 
+			            RACER_PERIO_NO, RACER_NO, RACER_NM,
+			            SUPP_AMT_01,SUPP_AMT_02,SUPP_AMT_31, SUPP_AMT_03, SUPP_AMT_05, SUPP_AMT_06, SUPP_AMT_10, SUPP_AMT_12,  SUPP_AMT_ETC, SUPP_AMT_30,
+			            AID_AMT_01, AID_AMT_02, AID_AMT_04, AID_AMT_05, AID_AMT_10, AID_AMT_12,AID_AMT_ETC,AID_AMT_20, REAL_SUPP_AMT
+			        FROM (
+			            SELECT 
+			                TRM.RACER_PERIO_NO, TRM.RACER_NO, TRM.NM_KOR AS RACER_NM,
+			                SUPP_AMT_01,SUPP_AMT_02,SUPP_AMT_31, SUPP_AMT_03,  SUPP_AMT_05, SUPP_AMT_06, SUPP_AMT_10, SUPP_AMT_12, 
+			                SUPP_AMT_30 - (SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_05 + SUPP_AMT_06 + SUPP_AMT_10 + SUPP_AMT_12) AS SUPP_AMT_ETC,
+			                SUPP_AMT_30,
+			                AID_AMT_01, AID_AMT_02, AID_AMT_04, AID_AMT_05, AID_AMT_10, AID_AMT_12,
+			                AID_AMT_20 - (AID_AMT_01 +  AID_AMT_02 + AID_AMT_04 + AID_AMT_05 + AID_AMT_10 + AID_AMT_12) AS AID_AMT_ETC,
+			                AID_AMT_20,
+			                REAL_SUPP_AMT
+			            FROM TBEG_MONTH_PAY TMP, TBEC_RACER_MASTER TRM
+			            WHERE TMP.RACER_NO = TRM.RACER_NO
+			            AND STND_YEAR = ?
+			            AND PAY_MONTH = TO_NUMBER(?)
+			            AND TRM.NM_KOR LIKE '%'||?||'%'
+			            AND PAY_TPE=1
+			            ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO), TRM.RACER_NO
+			        )
+			    )
+			    GROUP BY ROLLUP (RACER_PERIO_NO, RACER_NO)
+			)
+			ORDER BY ORD_TPE, TO_NUMBER(RACER_PERIO_NO), RACER_NO
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_list_ff002" desc="기타 지급 대장 조회 " fetchSize="10">
+        <![CDATA[
+        	-- 기타지급 대장 조회 
+			SELECT 
+			    NUM,    -- 일련번호 
+			    TPE,	-- roollup 유형 
+			    RACER_NO,   -- 선수 번호 
+			    RACER_PERIO_NO, -- 기수 
+			    RACER_NM,   -- 선수명
+			    SUPP_AMT_01,    -- 성적상금 
+			    SUPP_AMT_02,    -- 출전수당
+			    SUPP_AMT_31,    -- 이벤트수당
+			    SUPP_AMT_03,    -- 안전수당
+			    SUPP_AMT_05,    -- 무사고상금
+			    SUPP_AMT_06,    -- 연승상금
+			    SUPP_AMT_10,    -- 식대 
+			    SUPP_AMT_12,    -- 선수연금(사업자부담)
+			    SUPP_AMT_ETC,   -- 기타수당
+			    SUPP_AMT_30,    -- 지급총액
+			    AID_AMT_01,     -- 소득세 
+			    AID_AMT_02,     -- 주민세
+			    AID_AMT_04,     -- 선수회비
+			    AID_AMT_05,     -- 선수연금(본인부담)
+			    AID_AMT_10,     -- 식대 
+			    AID_AMT_12,     -- 선수연금(사업자부담)
+			    AID_AMT_ETC,    -- 기타공제
+			    AID_AMT_20,     -- 공제총액
+			    REAL_SUPP_AMT,  -- 실지급액 
+			    UNCOLLECT_AMT	-- 미수금 
+			FROM (
+			    SELECT 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  ''
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN ''
+			             ELSE ''||MIN(NUM) END  AS NUM, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  ''
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN ''
+			             ELSE RACER_NO END  AS RACER_NO, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  RACER_PERIO_NO||'기 계'
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN '총계'
+			             ELSE MIN(RACER_NM) END  AS RACER_NM ,
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  1   -- 소계 
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN 0    -- 총계
+			             ELSE 1 END  ORD_TPE, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  1   -- 소계 
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN 0    -- 총계
+			             ELSE 2 END  TPE , 
+			        MIN(RACER_PERIO_NO) AS RACER_PERIO_NO,
+			        SUM(SUPP_AMT_01) AS SUPP_AMT_01,
+			        SUM(SUPP_AMT_02) AS SUPP_AMT_02, 
+			        SUM(SUPP_AMT_31) AS SUPP_AMT_31,
+			        SUM(SUPP_AMT_03) AS SUPP_AMT_03, 
+			        SUM(SUPP_AMT_05) AS SUPP_AMT_05, 
+			        SUM(SUPP_AMT_06) AS SUPP_AMT_06, 
+			        SUM(SUPP_AMT_10) AS SUPP_AMT_10, 
+			        SUM(SUPP_AMT_12) AS SUPP_AMT_12,  
+			        SUM(SUPP_AMT_ETC) AS SUPP_AMT_ETC, 
+			        SUM(SUPP_AMT_30) AS SUPP_AMT_30,
+			        SUM(AID_AMT_01) AS AID_AMT_01, 
+			        SUM(AID_AMT_02) AS AID_AMT_02, 
+			        SUM(AID_AMT_04) AS AID_AMT_04,
+			        SUM(AID_AMT_05) AS AID_AMT_05, 
+			        SUM(AID_AMT_10) AS AID_AMT_10, 
+			        SUM(AID_AMT_12) AS AID_AMT_12,
+			        SUM(AID_AMT_ETC) AS AID_AMT_ETC,
+			        SUM(AID_AMT_20) AS AID_AMT_20, 
+			        SUM(CASE WHEN REAL_SUPP_AMT>=0 THEN REAL_SUPP_AMT ELSE 0 END ) AS REAL_SUPP_AMT,
+			        SUM(CASE WHEN REAL_SUPP_AMT<0 THEN REAL_SUPP_AMT ELSE 0 END) AS UNCOLLECT_AMT
+			    FROM (
+			        SELECT ROWNUM AS NUM, 
+			            RACER_PERIO_NO, RACER_NO, RACER_NM,
+			            SUPP_AMT_01,SUPP_AMT_02,SUPP_AMT_31, SUPP_AMT_03, SUPP_AMT_05, SUPP_AMT_06, SUPP_AMT_10, SUPP_AMT_12,  SUPP_AMT_ETC, SUPP_AMT_30,
+			            AID_AMT_01, AID_AMT_02, AID_AMT_04, AID_AMT_05, AID_AMT_10, AID_AMT_12,AID_AMT_ETC,AID_AMT_20, REAL_SUPP_AMT
+			        FROM (
+			            SELECT 
+			                TRM.RACER_PERIO_NO, TRM.RACER_NO, TRM.NM_KOR AS RACER_NM,
+			                SUPP_AMT_01,SUPP_AMT_02,SUPP_AMT_31, SUPP_AMT_03,  SUPP_AMT_05, SUPP_AMT_06, SUPP_AMT_10, SUPP_AMT_12, 
+			                SUPP_AMT_30 - (SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_05 + SUPP_AMT_06 + SUPP_AMT_10 + SUPP_AMT_12) AS SUPP_AMT_ETC,
+			                SUPP_AMT_30,
+			                AID_AMT_01, AID_AMT_02, AID_AMT_04, AID_AMT_05, AID_AMT_10, AID_AMT_12,
+			                AID_AMT_20 - (AID_AMT_01 +  AID_AMT_02 + AID_AMT_04 + AID_AMT_05 + AID_AMT_10 + AID_AMT_12) AS AID_AMT_ETC,
+			                AID_AMT_20,
+			                REAL_SUPP_AMT
+			            FROM TBEG_MONTH_PAY TMP, TBEC_RACER_MASTER TRM
+			            WHERE TMP.RACER_NO = TRM.RACER_NO
+			            AND STND_YEAR = ?
+			            AND PAY_MONTH = TO_NUMBER(?)
+			            AND TRM.NM_KOR LIKE '%'||?||'%'
+			            AND PAY_TPE=6
+			            ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO), TRM.RACER_NO
+			        )
+			    )
+			    GROUP BY ROLLUP (RACER_PERIO_NO, RACER_NO)
+			)
+			ORDER BY ORD_TPE, TO_NUMBER(RACER_PERIO_NO), RACER_NO
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_list_ff003" desc="상금대장 + 지급 대장 조회 " fetchSize="10">
+        <![CDATA[
+        	-- 상금대장 + 지급 대장 조회 
+			SELECT 
+			    NUM,    -- 일련번호 
+			    TPE,	-- roollup 유형 
+			    RACER_NO,   -- 선수 번호 
+			    RACER_PERIO_NO, -- 기수 
+			    RACER_NM,   -- 선수명
+			    SUPP_AMT_01,    -- 성적상금 
+			    SUPP_AMT_02,    -- 출전수당
+			    SUPP_AMT_31,    -- 이벤트수당
+			    SUPP_AMT_03,    -- 안전수당
+			    SUPP_AMT_05,    -- 무사고상금
+			    SUPP_AMT_06,    -- 연승상금
+			    SUPP_AMT_10,    -- 식대 
+			    SUPP_AMT_12,    -- 선수연금(사업자부담)
+			    SUPP_AMT_ETC,   -- 기타수당
+			    SUPP_AMT_30,    -- 지급총액
+			    AID_AMT_01,     -- 소득세 
+			    AID_AMT_02,     -- 주민세
+			    AID_AMT_04,     -- 선수회비
+			    AID_AMT_05,     -- 선수연금(본인부담)
+			    AID_AMT_10,     -- 식대 
+			    AID_AMT_12,     -- 선수연금(사업자부담)
+			    AID_AMT_ETC,    -- 기타공제
+			    AID_AMT_20,     -- 공제총액
+			    REAL_SUPP_AMT,  -- 실지급액 
+			    UNCOLLECT_AMT	-- 미수금 
+			FROM (
+			    SELECT 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  ''
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN ''
+			             ELSE ''||MIN(NUM) END  AS NUM, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  ''
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN ''
+			             ELSE RACER_NO END  AS RACER_NO, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  RACER_PERIO_NO||'기 계'
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN '총계'
+			             ELSE MIN(RACER_NM) END  AS RACER_NM ,
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  1   -- 소계 
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN 0    -- 총계
+			             ELSE 1 END  ORD_TPE, 
+			        CASE WHEN RACER_PERIO_NO IS NOT NULL AND RACER_NO IS NULL THEN  1   -- 소계 
+			             WHEN RACER_PERIO_NO IS NULL AND RACER_NO IS NULL THEN 0    -- 총계
+			             ELSE 2 END  TPE , 
+			        MIN(RACER_PERIO_NO) AS RACER_PERIO_NO,
+			        SUM(SUPP_AMT_01) AS SUPP_AMT_01,
+			        SUM(SUPP_AMT_02) AS SUPP_AMT_02, 
+			        SUM(SUPP_AMT_31) AS SUPP_AMT_31,
+			        SUM(SUPP_AMT_03) AS SUPP_AMT_03, 
+			        SUM(SUPP_AMT_05) AS SUPP_AMT_05, 
+			        SUM(SUPP_AMT_06) AS SUPP_AMT_06, 
+			        SUM(SUPP_AMT_10) AS SUPP_AMT_10, 
+			        SUM(SUPP_AMT_12) AS SUPP_AMT_12,  
+			        SUM(SUPP_AMT_ETC) AS SUPP_AMT_ETC, 
+			        SUM(SUPP_AMT_30) AS SUPP_AMT_30,
+			        SUM(AID_AMT_01) AS AID_AMT_01, 
+			        SUM(AID_AMT_02) AS AID_AMT_02, 
+			        SUM(AID_AMT_04) AS AID_AMT_04,
+			        SUM(AID_AMT_05) AS AID_AMT_05, 
+			        SUM(AID_AMT_10) AS AID_AMT_10, 
+			        SUM(AID_AMT_12) AS AID_AMT_12,
+			        SUM(AID_AMT_ETC) AS AID_AMT_ETC,
+			        SUM(AID_AMT_20) AS AID_AMT_20, 
+			        SUM(CASE WHEN REAL_SUPP_AMT>=0 THEN REAL_SUPP_AMT ELSE 0 END ) AS REAL_SUPP_AMT,
+			        SUM(CASE WHEN REAL_SUPP_AMT<0 THEN REAL_SUPP_AMT ELSE 0 END) AS UNCOLLECT_AMT
+			    FROM (
+			        SELECT ROWNUM AS NUM, 
+			            RACER_PERIO_NO, RACER_NO, RACER_NM,
+			            SUPP_AMT_01,SUPP_AMT_02,SUPP_AMT_31, SUPP_AMT_03, SUPP_AMT_05, SUPP_AMT_06, SUPP_AMT_10, SUPP_AMT_12,  SUPP_AMT_ETC, SUPP_AMT_30,
+			            AID_AMT_01, AID_AMT_02, AID_AMT_04, AID_AMT_05, AID_AMT_10, AID_AMT_12,AID_AMT_ETC,AID_AMT_20, REAL_SUPP_AMT
+			        FROM (
+			            SELECT 
+			                TRM.RACER_PERIO_NO, TRM.RACER_NO, TRM.NM_KOR AS RACER_NM,
+			                SUPP_AMT_01,SUPP_AMT_02,SUPP_AMT_31, SUPP_AMT_03,  SUPP_AMT_05, SUPP_AMT_06, SUPP_AMT_10, SUPP_AMT_12, 
+			                SUPP_AMT_30 - (SUPP_AMT_01 + SUPP_AMT_02 + SUPP_AMT_31 + SUPP_AMT_03 + SUPP_AMT_05 + SUPP_AMT_06 + SUPP_AMT_10 + SUPP_AMT_12) AS SUPP_AMT_ETC,
+			                SUPP_AMT_30,
+			                AID_AMT_01, AID_AMT_02, AID_AMT_04, AID_AMT_05, AID_AMT_10, AID_AMT_12,
+			                AID_AMT_20 - (AID_AMT_01 +  AID_AMT_02 + AID_AMT_04 + AID_AMT_05 + AID_AMT_10 + AID_AMT_12) AS AID_AMT_ETC,
+			                AID_AMT_20,
+			                REAL_SUPP_AMT
+			            FROM TBEG_MONTH_PAY TMP, TBEC_RACER_MASTER TRM
+			            WHERE TMP.RACER_NO = TRM.RACER_NO
+			            AND STND_YEAR = ?
+			            AND PAY_MONTH = TO_NUMBER(?)
+			            AND TRM.NM_KOR LIKE '%'||?||'%'
+			            ORDER BY TO_NUMBER(TRM.RACER_PERIO_NO), TRM.RACER_NO
+			        )
+			    )
+			    GROUP BY ROLLUP (RACER_PERIO_NO, RACER_NO)
+			)
+			ORDER BY ORD_TPE, TO_NUMBER(RACER_PERIO_NO), RACER_NO
+        ]]>
+    </query> 
+    
+    
+    
+    <query id="tbeg_month_pay_list_ff010" desc="은행 이체 내역" fetchSize="10">
+        <![CDATA[
+        	-- 은행 이체 내역  
+        	SELECT ROWNUM AS NUM, T1.* FROM (
+				SELECT 
+				    TMP.RACER_NO, -- 선수번호 
+				    TRM.NM_KOR AS RACER_NM,  -- 선수명  
+				    GET_DEC(TRD.RES_NO) RES_NO, -- 주민등록 번호 
+				    TMP.BK_CD, -- 은행 코드 
+				    (SELECT CD_NM FROM TBEA_SPEC_CD  TSC WHERE TSC.GRP_CD='E00023' AND TSC.CD = TMP.BK_CD) AS BK_NM, -- 은행켱 
+				    GET_DEC(TMP.BK_ACCUNT) BK_ACCUNT,  -- 계좌 번호 
+				    TMP.REAL_SUPP_AMT -- 차인지급액  
+				FROM TBEG_MONTH_PAY TMP, TBEC_RACER_MASTER TRM, TBEC_RACER_DETAIL TRD
+				WHERE TMP.RACER_NO = TRM.RACER_NO
+				AND TMP.RACER_NO = TRD.RACER_NO
+				AND TMP.STND_YEAR=?
+				AND TMP.PAY_MONTH=TO_NUMBER(?)
+				AND TMP.PAY_TPE='1'
+				AND TRM.NM_KOR LIKE '%'||?||'%'
+				ANd TMP.REAL_SUPP_AMT>0
+				ORDER BY RACER_NO
+			)T1
+			
+        ]]>
+    </query> 
+    
+    <query id="tbeg_month_pay_list_ff011" desc="월별 선수 상금 미수 현황 " fetchSize="10">
+        <![CDATA[
+        	-- 월별 선수 상금 미수 현황   
+			SELECT /* tbeg_month_pay_list_ff011 */
+			       ROWNUM AS NUM, T1.*, '' AS RMK 
+			FROM (
+			    SELECT 
+			        TRM.RACER_NO,     -- 선수 번호 
+			        CASE WHEN TRM.RACER_NO IS NULL THEN '계' ELSE MIN(TRM.NM_KOR) END AS RACER_NM,        -- 선수명 
+			        SUM(CASE WHEN PAY_MONTH = 1 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_01,        -- 1월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 2 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_02,        -- 2월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 3 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_03,        -- 3월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 4 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_04,        -- 4월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 5 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_05,        -- 5월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 6 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_06,        -- 6월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 7 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_07,        -- 7월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 8 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_08,        -- 8월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 9 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_09,        -- 9월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 10 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_10,    -- 10월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 11 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_11,    -- 11월 미수금 
+			        SUM(CASE WHEN PAY_MONTH = 12 THEN UNCOLLECT_AMT ELSE 0 END) AS UNCOLLECT_AMT_12,    -- 12월 미수금 
+			        SUM(UNCOLLECT_AMT) AS UNCOLLECT_AMT_TOT,                                                --  미수금  총계 
+			        SUM(CASE WHEN PAY_MONTH = 1 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_01,        -- 1월 수금액  
+			        SUM(CASE WHEN PAY_MONTH = 2 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_02,        -- 2월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 3 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_03,        -- 3월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 4 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_04,        -- 4월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 5 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_05,        -- 5월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 6 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_06,        -- 6월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 7 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_07,        -- 7월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 8 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_08,        -- 8월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 9 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_09,        -- 9월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 10 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_10,    -- 10월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 11 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_11,    -- 11월 수금액 
+			        SUM(CASE WHEN PAY_MONTH = 12 THEN COLLECT_AMT ELSE 0 END) AS COLLECT_AMT_12,    -- 12월 수금액 
+			        SUM(COLLECT_AMT) AS COLLECT_AMT_TOT,                                                --  수금액  총계 
+			        SUM(UNCOLLECT_AMT) + SUM(COLLECT_AMT) AS REMAIN_AMT_TOT
+			    FROM (
+			        SELECT * FROM (
+			            -- 상금대장 미수금액 
+			            SELECT STND_YEAR,  
+                               CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+                                    ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END AS PAY_MONTH,
+                               RACER_NO, REAL_SUPP_AMT AS UNCOLLECT_AMT, 0 AS COLLECT_AMT
+			            FROM  TBEG_MONTH_PAY 
+			            WHERE STND_YEAR = ?
+			            AND   PAY_TPE     = '1'
+			            AND   REAL_SUPP_AMT < 0
+			            --- 미수금액 수금 
+			            UNION ALL
+			            SELECT A.STND_YEAR,   
+                               CASE WHEN A.STND_YEAR||TRIM(TO_CHAR(A.PAY_MONTH,'00')) < '201408' THEN A.PAY_MONTH
+                                    ELSE TO_NUMBER(SUBSTR(B.PMT_DT,5,2)) END AS PAY_MONTH,
+                               RACER_NO, 0 AS UNCOLLECT_AMT, COLL_AMT AS COLLECT_AMT
+			            FROM  TBEG_UNCOLLECTED A, TBEG_MONTH_PAY_BAC B 
+			            WHERE A.STND_YEAR = ?
+			            AND   A.PAY_TPE = '1'
+                        AND   A.STND_YEAR = B.STND_YEAR(+)
+                        AND   A.PAY_MONTH = B.PAY_MONTH(+)
+			        )
+			    )TMP, TBEC_RACER_MASTER TRM
+			    WHERE TMP.RACER_NO = TRM.RACER_NO
+			    AND TRM.NM_KOR LIKE '%'||?||'%'
+			    GROUP BY rollup(TRM.RACER_NO)
+			    ORDER BY RACER_NO
+			)T1		
+
+        ]]>
+    </query>
+    
+    
+    <query id="tbeg_month_pay_list_ff012" desc="개인별 사업(기타)소득 현황  " fetchSize="10">
+        <![CDATA[
+        	-- 개인별 사업(기타)소득 현황  
+			SELECT  /* tbeg_month_pay_list_ff012 */
+			    NUM, RACER_NO, RACER_NM, 
+			    CASE WHEN PAY_TPE = '1' THEN '사업소득' ELSE '기타소득' END PAY_TPE_NM,
+			    SUPP_AMT_01, SUPP_AMT_02, SUPP_AMT_03, SUPP_AMT_04,SUPP_AMT_05, SUPP_AMT_06,
+			    SUPP_AMT_07, SUPP_AMT_08, SUPP_AMT_09, SUPP_AMT_10, SUPP_AMT_11, SUPP_AMT_12, SUPP_AMT_TOT ,'' AS RMK
+			FROM (
+			    -- 사업  소득 
+			    SELECT ROWNUM AS NUM, 1 AS PAY_TPE, T1.* FROM (
+			        SELECT  
+			            TRM.RACER_NO, 
+			            CASE WHEN TRM.RACER_NO IS NULL THEN '계' ELSE MIN(TRM.NM_KOR) END AS RACER_NM,
+			            SUM(CASE WHEN PAY_MONTH = 1 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_01,
+			            SUM(CASE WHEN PAY_MONTH = 2 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_02,
+			            SUM(CASE WHEN PAY_MONTH = 3 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_03,
+			            SUM(CASE WHEN PAY_MONTH = 4 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_04,
+			            SUM(CASE WHEN PAY_MONTH = 5 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_05,
+			            SUM(CASE WHEN PAY_MONTH = 6 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_06,
+			            SUM(CASE WHEN PAY_MONTH = 7 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_07,
+			            SUM(CASE WHEN PAY_MONTH = 8 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_08,
+			            SUM(CASE WHEN PAY_MONTH = 9 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_09,
+			            SUM(CASE WHEN PAY_MONTH = 10 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_10,
+			            SUM(CASE WHEN PAY_MONTH = 11 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_11,
+			            SUM(CASE WHEN PAY_MONTH = 12 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_12,
+			            SUM(SUPP_AMT_30) AS SUPP_AMT_TOT
+			        FROM TBEC_RACER_MASTER TRM, 
+                         (
+                         SELECT STND_YEAR,  
+                                CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+                                         ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END AS PAY_MONTH,
+                                RACER_NO,
+                                SUPP_AMT_30
+                         FROM TBEG_MONTH_PAY
+                         )  TMP
+			        WHERE  TRM.RACER_NO = TMP.RACER_NO
+			        AND ? = TMP.STND_YEAR
+			        AND TRM.NM_KOR LIKE '%'||?||'%'
+			        GROUP BY ROLLUP (TRM.RACER_NO) 
+			        ORDER BY RACER_NO
+			    )T1    
+			    -- 기타 사업 소득 
+			    UNION ALL
+			    SELECT ROWNUM AS NUM, 2 AS PAY_TPE, T2.* FROM (
+		            SELECT  
+		                 TRM.RACER_NO, 
+		                 CASE WHEN TRM.RACER_NO IS NULL THEN '계' ELSE MIN(TRM.RACER_NM) END AS RACER_NM,
+		                 SUM(CASE WHEN PAY_MONTH = 1 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_01,
+		                 SUM(CASE WHEN PAY_MONTH = 2 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_02,
+		                 SUM(CASE WHEN PAY_MONTH = 3 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_03,
+		                 SUM(CASE WHEN PAY_MONTH = 4 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_04,
+		                 SUM(CASE WHEN PAY_MONTH = 5 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_05,
+		                 SUM(CASE WHEN PAY_MONTH = 6 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_06,
+		                 SUM(CASE WHEN PAY_MONTH = 7 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_07,
+		                 SUM(CASE WHEN PAY_MONTH = 8 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_08,
+		                 SUM(CASE WHEN PAY_MONTH = 9 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_09,
+		                 SUM(CASE WHEN PAY_MONTH = 10 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_10,
+		                 SUM(CASE WHEN PAY_MONTH = 11 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_11,
+				        SUM(CASE WHEN PAY_MONTH = 12 THEN SUPP_AMT_30 ELSE 0 END) AS SUPP_AMT_12,
+				        SUM(SUPP_AMT_30) AS SUPP_AMT_TOT
+				    FROM 
+				    (
+				    	SELECT 
+			                TRM.RACER_NO, RACER_NM, GET_DEC(RES_NO) RES_NO
+			            FROM (
+			                   SELECT DISTINCT TRM.RACER_NO, NM_KOR AS RACER_NM 
+			                   FROM TBEC_RACER_MASTER TRM, 
+			                        (
+			                         SELECT STND_YEAR,  
+			                                CASE WHEN STND_YEAR||TRIM(TO_CHAR(PAY_MONTH,'00')) < '201408' THEN PAY_MONTH
+			                                         ELSE TO_NUMBER(SUBSTR(PAY_DT,5,2)) END AS PAY_MONTH,
+			                                RACER_NO,
+			                                SUPP_AMT_30
+			                         FROM TBEG_MONTH_PAY
+			                         ) TMP 
+			                   WHERE TRM.RACER_NO = TMP.RACER_NO 
+			                   AND TMP.STND_YEAR=? 
+			                  ) TRM, 
+			                  TBEC_RACER_DETAIL TRD 
+			            WHERE TRM.RACER_NO = TRD.RACER_NO
+            		) TRM, 
+				    (
+					    SELECT 
+					    	SUBSTR(REVERT_YM,0,4) AS STND_YEAR, 
+					    	SUBSTR(REVERT_YM,5,2) AS PAY_MONTH,  
+					    	REPLACE(JUMIN_NO,'-') AS RES_NO, 
+					    	PAY_TAMT AS SUPP_AMT_30 
+					    FROM ACCT2007.VWAZ_ETC_INCOME_BOAT@FNC_LINK
+					    WHERE REVERT_YM LIKE ?||'%'
+				    ) TMP
+				    WHERE  TRM.RES_NO = TMP.RES_NO(+)
+				    AND ? = TMP.STND_YEAR(+)
+				    AND TRM.RACER_NM LIKE '%'||?||'%'
+				    GROUP BY ROLLUP (TRM.RACER_NO) 
+				    ORDER BY RACER_NO
+				)T2   
+			)
+			ORDER BY RACER_NO, PAY_TPE
+
+        ]]>
+    </query>
+    
+    
+    
+    <query id="tbeg_month_pay_list_ff013" desc="개인별기타소득 원천징수 현황  " fetchSize="10">
+        <![CDATA[
+        	-- 개인별기타소득 원천징수 현황
+			SELECT /* tbeg_month_pay_list_ff013 */
+			       * 
+			FROM (
+				  SELECT  
+				        CASE WHEN RACER_NO IS NULL THEN NULL ELSE FLOOR((RANK() OVER ( ORDER BY RACER_NO))/2)+1  END AS NUM,
+				        RACER_NO,
+				        TAX_TPE, 
+				        CASE WHEN TAX_TPE = '1' THEN '소득세' ELSE '주민세' END TAX_TPE_NM,
+				        CASE WHEN RACER_NO IS NULL AND TAX_TPE IS NULL  THEN 3
+				              WHEN RACER_NO IS NOT NULL AND TAX_TPE IS NULL THEN  2
+				              ELSE 1
+				        END ROLLUP_TPE,
+				        CASE WHEN RACER_NO IS NULL THEN '계' ELSE MIN(RACER_NM) END AS RACER_NM,
+				        SUM(CASE WHEN PAY_MONTH = 1 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 1 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_01,
+				        SUM(CASE WHEN PAY_MONTH = 2 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 2 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_02,
+				        SUM(CASE WHEN PAY_MONTH = 3 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 3 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_03,
+				        SUM(CASE WHEN PAY_MONTH = 4 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 4 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_04,
+				        SUM(CASE WHEN PAY_MONTH = 5 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 5 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_05,
+				        SUM(CASE WHEN PAY_MONTH = 6 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 6 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_06,
+				        SUM(CASE WHEN PAY_MONTH = 7 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 7 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_07,
+				        SUM(CASE WHEN PAY_MONTH = 8 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 8 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_08,
+				        SUM(CASE WHEN PAY_MONTH = 9 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 9 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_09,
+				        SUM(CASE WHEN PAY_MONTH = 10 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 10 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_10,
+				        SUM(CASE WHEN PAY_MONTH = 11 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 11 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_11,
+				        SUM(CASE WHEN PAY_MONTH = 12 AND TAX_TPE=1 THEN AID_AMT_01 WHEN PAY_MONTH = 12 AND TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_12,
+				        SUM(CASE WHEN TAX_TPE=1 THEN AID_AMT_01 WHEN  TAX_TPE=2  THEN AID_AMT_02 ELSE 0 END) AS TAX_AMT_TOT
+				  FROM (
+					        SELECT NUM, TAX_TPE, SUBSTR(REVERT_YM,0,4) AS STND_YEAR, TO_NUMBER(SUBSTR(REVERT_YM,5,2)) AS PAY_MONTH, 
+					               RACER_NO, RACER_NM,  TAX_INCOME_AMT AS AID_AMT_01,   TAX_JUMIN_AMT AS AID_AMT_02
+					        FROM   ACCT2007.VWAZ_ETC_INCOME_BOAT@FNC_LINK WEIB,
+						           (
+						            SELECT ROWNUM AS NUM, T1.* 
+						            FROM (
+							                SELECT TRM.RACER_NO, RACER_NM, GET_DEC(RES_NO) RES_NO
+							                FROM  (
+								                       SELECT DISTINCT TRM.RACER_NO, NM_KOR AS RACER_NM 
+								                       FROM   TBEC_RACER_MASTER TRM, TBEG_MONTH_PAY TMP 
+								                       WHERE  TRM.RACER_NO = TMP.RACER_NO 
+								                       AND    TMP.STND_YEAR = ? 
+							                       ) TRM, TBEC_RACER_DETAIL TRD 
+							                WHERE TRM.RACER_NO = TRD.RACER_NO
+							                ORDER BY TRM.RACER_NO
+							              )T1
+							       ) TRD, 
+							       (SELECT ROWNUM AS TAX_TPE FROM TBEC_RACER_MASTER WHERE ROWNUM<3) TP
+					        WHERE REPLACE(WEIB.JUMIN_NO,'-') =  TRD.RES_NO
+					        AND   REVERT_YM LIKE ?||'%'
+					        AND   TRD.RACER_NM LIKE '%'||?||'%'
+					        ORDER BY TRD.RACER_NO , TP.TAX_TPE
+				        )
+				  GROUP BY ROLLUP (TAX_TPE, RACER_NO)
+				  )
+			WHERE ROLLUP_TPE <3
+			ORDER BY RACER_NO, TAX_TPE
+        ]]>
+    </query>
+   
+</queryMap>

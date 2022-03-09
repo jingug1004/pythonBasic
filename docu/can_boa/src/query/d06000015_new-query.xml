@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="학과평가_New"> 
+
+       <query id="tbdn_wrt_exam_se001" desc="학과일자 조회" fetchSize="10">
+        <![CDATA[
+			SELECT '0' AS CHK, 
+		           RACER_PERIO_NO, 
+		           ROUND, 
+		           DT
+			FROM TBDN_DT_WRTN_ESTM_NEW
+			WHERE 1=1
+		           AND RACER_PERIO_NO = ?
+			GROUP BY RACER_PERIO_NO, ROUND, DT
+		    ORDER BY RACER_PERIO_NO, ROUND DESC, DT DESC
+		]]>
+    </query>
+
+    <query id="tbdn_wrt_exam_detail_se001" desc="학과일자별 세부학과 평가조회" fetchSize="10">
+        <![CDATA[
+			SELECT NVL(B.RACER_PERIO_NO, ?) AS RACER_PERIO_NO,
+		           NVL(B.ROUND, ?) AS ROUND,
+		           NVL(B.DT, ?) AS DT,
+		  		   A.CAND_NO,
+		           A.NM_KOR,
+		           NVL(B.SCR01, 0) SCR01,
+		           NVL(B.SCR03, 0) SCR03,
+		           NVL(B.SCR04, 0) SCR04,
+		           (NVL(B.SCR01, 0) + NVL(B.SCR03, 0) + NVL(B.SCR04, 0)) AS TOTAL_SCR,
+		           DECODE((NVL(B.SCR01, 0) + NVL(B.SCR03, 0) + NVL(B.SCR04, 0)), 0, 999, RANK() OVER (ORDER BY (NVL(B.SCR01, 0) + NVL(B.SCR03, 0) + NVL(B.SCR04, 0)) DESC)) AS RANK,
+		           CASE WHEN (NVL(B.SCR01, 0) + NVL(B.SCR03, 0) + NVL(B.SCR04, 0)) = 0 THEN 0
+		           ELSE ROUND((NVL(B.SCR01, 0) + NVL(B.SCR03, 0) + NVL(B.SCR04, 0)) / 3, 1) END AS AVG_SCR  
+			FROM TBDN_CAND_IDENT A, TBDN_DT_WRTN_ESTM_NEW B       
+			WHERE 1=1
+		          AND A.RACER_PERIO_NO = B.RACER_PERIO_NO(+)
+		          AND A.CAND_NO = B.CAND_NO(+)
+		          AND NVL(A.DEL_YN, 'N') = 'N'
+		          AND A.RACER_PERIO_NO = ?
+		          AND B.ROUND(+) = ?  
+		          AND B.DT(+) = ? 
+		          AND A.CAND_NO NOT IN (SELECT CAND_NO
+		                                             FROM TBDN_TEMP_ABS
+		                                             WHERE 1=1
+		                                                   AND RACER_PERIO_NO = ?
+		                                                   AND GEN_DT < ?
+		                                                   AND GBN IN ('001', '003'))
+			ORDER BY A.CAND_NO  
+		]]>
+    </query>  
+
+    <query id="tbdn_wrt_exam_canlist_se001" desc="일자별 학과집계 조회" fetchSize="10">
+        <![CDATA[
+			SELECT RACER_PERIO_NO,
+	               CAND_NO,
+	               FC_GET_CANDNAME(CAND_NO) AS NM_KOR,
+	               ROUND(AVG(NVL(SCR01, 0)), 1) AS AVG_SCR01,
+	               ROUND(AVG(NVL(SCR03, 0)), 1) AS AVG_SCR03,
+	               ROUND(AVG(NVL(SCR04, 0)), 1) AS AVG_SCR04
+			FROM TBDN_DT_WRTN_ESTM_NEW
+			WHERE RACER_PERIO_NO = ? 
+			GROUP BY RACER_PERIO_NO, CAND_NO  
+		]]>
+    </query>  
+
+    <query id="tbdn_wrt_exam_round_se001" desc="차수별 학과집계 조회" fetchSize="10">
+        <![CDATA[
+			SELECT RACER_PERIO_NO,
+	               ROUND,
+               	   RANK() OVER (PARTITION BY RACER_PERIO_NO, ROUND ORDER BY CAND_NO) AS SEQ,	               
+	               CAND_NO,
+	               FC_GET_CANDNAME(CAND_NO) AS NM_KOR,
+	               DECODE((SUM(NVL(SCR01, 0)) +  SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0))), 0, 999, 
+	                       RANK() OVER (PARTITION BY RACER_PERIO_NO, ROUND ORDER BY (SUM(NVL(SCR01, 0)) +  SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0))) DESC)) AS RANK,
+	               (SUM(NVL(SCR01, 0)) + SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0))) AS TOTAL_SCR,
+	               CASE WHEN (SUM(NVL(SCR01, 0)) + SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0))) = 0 THEN 0
+	                       ELSE ROUND((SUM(NVL(SCR01, 0)) +  SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0))) / 3, 1) END AS AVG_SCR,
+	               SUM(NVL(SCR01, 0)) AS SCR01,
+	               SUM(NVL(SCR03, 0)) AS SCR03,
+	               SUM(NVL(SCR04, 0)) AS SCR04
+			FROM TBDN_DT_WRTN_ESTM_NEW
+			WHERE RACER_PERIO_NO = ? 
+			GROUP BY RACER_PERIO_NO, ROUND, CAND_NO
+			ORDER BY RACER_PERIO_NO, ROUND, CAND_NO
+		]]>
+    </query> 
+
+    <query id="tbdn_wrt_exam_total_se001" desc="학과총계 조회" fetchSize="10">
+        <![CDATA[
+			SELECT RACER_PERIO_NO,
+                   CAND_NO,
+                   FC_GET_CANDNAME(CAND_NO) AS NM_KOR,
+                   DECODE(SUM(TOTAL_SCR), 0, 999, RANK() OVER (ORDER BY SUM(TOTAL_SCR) DESC)) AS RANK,
+                   MIN(DECODE(ROUND, 1, NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0))) AS TOTAL_SCR1,
+                   MIN(DECODE(ROUND, 2, NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0))) AS TOTAL_SCR2,
+                   MIN(DECODE(ROUND, 3, NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0))) AS TOTAL_SCR3,
+                   ROUND(MIN(DECODE(ROUND, 1, (NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)))/3), 1) AS AVG_SCR1,
+                   ROUND(MIN(DECODE(ROUND, 2, (NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)))/3), 1) AS AVG_SCR2,
+                   ROUND(MIN(DECODE(ROUND, 3, (NVL(SCR01, 0) + NVL(SCR03, 0) + NVL(SCR04, 0)))/3), 1) AS AVG_SCR3,
+                   MIN(DECODE(ROUND, 1, NVL(SCR01, 0))) AS SCR01_1,
+                   MIN(DECODE(ROUND, 2, NVL(SCR01, 0))) AS SCR01_2,
+                   MIN(DECODE(ROUND, 3, NVL(SCR01, 0))) AS SCR01_3,
+                   MIN(DECODE(ROUND, 1, NVL(SCR03, 0))) AS SCR03_1,
+                   MIN(DECODE(ROUND, 2, NVL(SCR03, 0))) AS SCR03_2,
+                   MIN(DECODE(ROUND, 3, NVL(SCR03, 0))) AS SCR03_3,
+                   MIN(DECODE(ROUND, 1, NVL(SCR04, 0))) AS SCR04_1,
+                   MIN(DECODE(ROUND, 2, NVL(SCR04, 0))) AS SCR04_2,
+                   MIN(DECODE(ROUND, 3, NVL(SCR04, 0))) AS SCR04_3
+			FROM ( SELECT     RACER_PERIO_NO,
+	                          ROUND,
+	                          CAND_NO,
+	                          SUM(NVL(SCR01, 0)) +  SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0)) AS TOTAL_SCR,
+	                          CASE WHEN (SUM(NVL(SCR01, 0)) + SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0))) = 0 THEN 0
+	                                  ELSE ROUND((SUM(NVL(SCR01, 0)) +  SUM(NVL(SCR03, 0)) +  SUM(NVL(SCR04, 0))) / 3, 1) END AS AVG_SCR,
+	                          SUM(NVL(SCR01, 0)) AS SCR01,
+	                          SUM(NVL(SCR03, 0)) AS SCR03,
+	                          SUM(NVL(SCR04, 0)) AS SCR04
+			           FROM TBDN_DT_WRTN_ESTM_NEW
+			           WHERE RACER_PERIO_NO = ? 
+			           GROUP BY RACER_PERIO_NO, ROUND, CAND_NO)
+			GROUP BY RACER_PERIO_NO, CAND_NO
+			ORDER BY RACER_PERIO_NO, CAND_NO
+		]]>
+    </query>     
+
+    <query id="tbdn_wrt_exam_date_se001" desc="후보생 일자별기록 조회" fetchSize="10">
+        <![CDATA[
+			SELECT RACER_PERIO_NO,
+	               DT,
+	               NVL(SCR01, 0) AS SCR01,
+	               NVL(SCR03, 0) AS SCR03,
+	               NVL(SCR04, 0) AS SCR04
+			FROM TBDN_DT_WRTN_ESTM_NEW
+			WHERE 1=1
+		          AND RACER_PERIO_NO = ? 
+		          AND CAND_NO = ?
+			ORDER BY RACER_PERIO_NO, DT
+		]]>
+    </query>
+
+    <query id="tbdn_wrt_exam_detail_de001" desc="일자별 학과평가 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE FROM TBDN_DT_WRTN_ESTM_NEW 
+			WHERE RACER_PERIO_NO = ?
+				  AND ROUND = ?	
+				  AND DT = ?
+		]]>
+    </query>
+
+   <query id="tbdn_wrtn_estm_detail_mer001" desc="일자별 학과평가 수정" fetchSize="10">
+        <![CDATA[
+				MERGE INTO TBDN_DT_WRTN_ESTM_NEW A
+				USING DUAL
+				ON (A.RACER_PERIO_NO = ?
+				      AND A.CAND_NO = ?
+				      AND A.ROUND = ?
+				      AND DT = ?)
+				WHEN MATCHED THEN
+				UPDATE SET 	 A.SCR01 = ?,
+			                 A.SCR03 = ?,
+			                 A.SCR04 = ?,
+			                 A.UPDT_ID = ?,
+			                 A.UPDT_DTM = SYSDATE
+				WHEN NOT MATCHED THEN
+				INSERT (RACER_PERIO_NO,
+			            CAND_NO,                 
+			            ROUND,
+			            DT,
+			            SCR01,
+			            SCR03,
+			            SCR04,
+			            INST_ID,
+			            INST_DTM)
+				VALUES  (  ?,
+			               ?,
+			               ?,
+			               ?,
+			               ?,
+			               ?,
+			               ?,
+			               ?,
+			               SYSDATE)
+		]]>
+    </query> 
+
+    
+   <query id="tbdn_wrtn_estm_detail_in001" desc="일자별 학과평가 수정" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBDN_DT_WRTN_ESTM_NEW (RACER_PERIO_NO,
+											   CAND_NO,
+											   ROUND,
+											   DT,
+											   SCR01,
+											   SCR03,
+											   SCR04,
+											   INST_ID,
+											   INST_DTM)
+			VALUES( ?,
+			        ?,
+			        ?,
+			        ?,
+			        ?,
+			        ?,
+			        ?,
+			        ?,
+			        SYSDATE)
+		]]>
+    </query> 
+
+    <query id="tbdn_wrtn_estm_detail_up001" desc="일자별 학과평가 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBDN_DT_WRTN_ESTM_NEW 
+			SET
+					 SCR01			= ?
+					,SCR03			= ?
+					,SCR04			= ?
+					,UPDT_ID        = ?
+					,UPDT_DTM       = SYSDATE
+			WHERE	RACER_PERIO_NO	= ?
+			AND		CAND_NO			= ?
+			AND		ROUND			= ?
+			AND		DT				= ?
+		]]>
+    </query>    
+      
+</queryMap>

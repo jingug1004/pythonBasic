@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_mail_noti(메일통보)">
+    <query id="tbeb_mail_noti_fb001" desc="메일통보 조회" fetchSize="10">
+        <![CDATA[
+			SELECT   TNMM.STND_YEAR                                                                                  -- 기준년도
+			       , TNMM.SEQ                                                                            -- 순번
+			       , TNMM.TITLE                                                                                    -- 공지사항
+			       , TNMM.SENDER                                                                                    -- 공지사항
+			       , NVL(TNMM.MAIL_SEND_REQ_DAY, TO_CHAR(SYSDATE, 'YYYYMMDD')) MAIL_SEND_REQ_DAY                    -- 메일발송요청일
+			       , TNMM.NOTICE                                                                                    -- 공지사항
+			       , NVL(TNMM.MAIL_SEND_FLAG, 'I') MAIL_SEND_FLAG                                                    -- 발송구분
+			       , TNMM.EMS_WORK_DAY
+			       , TNMM.EMS_SEQ_NO
+			       , NVL(CNT.CNT,0) CNT 
+			  FROM   TBEB_NOTICE_MAIL_MASTER TNMM
+				   , (SELECT   TNMD.STND_YEAR
+				             , TNMD.SEQ
+				             , COUNT(*) CNT
+				        FROM   TBEB_NOTICE_MAIL_MASTER TNMM
+						     , TBEB_NOTICE_MAIL_DETAIL TNMD
+					   WHERE   TNMM.STND_YEAR = TNMD.STND_YEAR
+			             AND   TNMM.SEQ       = TNMD.SEQ
+			             AND   TNMM.STND_YEAR = ? 
+					  GROUP BY TNMD.STND_YEAR
+							 , TNMD.SEQ ) CNT
+			 WHERE   TNMM.STND_YEAR       = CNT .STND_YEAR(+)
+			   AND   TNMM.SEQ             = CNT .SEQ(+)
+			   AND   TNMM.STND_YEAR = ? 
+		  ORDER BY   TNMM.STND_YEAR
+			       , TNMM.SEQ DESC
+        ]]>
+    </query> 
+    <query id="tbeb_mail_noti_fb002" desc="메일통보 발송명단 및 결과확인" fetchSize="10">
+        <![CDATA[
+            SELECT   EMS.STND_YEAR
+                   , EMS.SEQ
+                   , DECODE(NVL(EMS.ERROR_CODE,''), '00', '0', '1') CHK
+                   , EMS.RACER_NO
+                   , EMS.RACER_NM
+                   , EMS.EMAIL_ADDR
+                   , EMS.CELPON_NO
+                   , EMS.SEND_TIME
+                   , EMS.DELIVER_TIME
+                   , EMS.OPEN_TIME
+                   , EMS.OPEN_CNT
+                   , EMS.ERROR_NM
+                   , EMS.RESPONSE_DTM
+                   , NVL(EMS.MAPPING,'') MAPPING
+                   , '' MAPPING_YEAR
+                   , 0 MAPPING_SEQ
+              FROM  (
+                     SELECT   TNMM.STND_YEAR
+	            			, TNMM.SEQ
+                            , TNMD.RACER_NO
+                            , TRM .NM_KOR RACER_NM
+                            , TRD .CELPON_NO
+                            , DECODE(NVL(EMS.ERROR_CODE,''), '00', NVL(TNMD.EMAIL_ADDR, TRM.EMAIL_ADDR), TRM.EMAIL_ADDR) EMAIL_ADDR
+                            , EMS .SEND_TIME
+                            , EMS .DELIVER_TIME
+                            , EMS .OPEN_TIME
+                            , EMS .OPEN_CNT
+							, EMS.ERROR_CODE
+                            , DECODE(NVL(EMS.ERROR_CODE,''), '','발송중', '00','정상', '50','수신거부', '60','용량초과', '주소오류') ERROR_NM
+							, TNMD.RESPONSE_DTM
+                            , EMS.MAPPING
+                       FROM   TBEB_NOTICE_MAIL_MASTER TNMM
+                            , TBEB_NOTICE_MAIL_DETAIL TNMD
+                            , TBEC_RACER_MASTER TRM
+                            , TBEC_RACER_DETAIL TRD
+                            , (SELECT * 
+                                 FROM EMSUSER_MBR.AUTO160 EMS
+                                WHERE EMS.WORKDAY = ? 
+                                  AND EMS.MAPPING LIKE ?||'|'||?||'%') EMS
+                      WHERE   TNMM.STND_YEAR    = TNMD.STND_YEAR
+                        AND   TNMM.SEQ          = TNMD.SEQ
+                        AND   TNMM.EMS_WORK_DAY = EMS.WORKDAY
+                        AND   TNMM.EMS_SEQ_NO   = EMS.SEQNO
+                        AND   TNMD.RACER_NO     = EMS.MEMBER_ID
+                        AND   TNMD.RACER_NO     = TRM.RACER_NO
+                        AND   TNMD.RACER_NO     = TRD.RACER_NO
+                        AND   TNMM.STND_YEAR    = ?
+                        AND   TNMM.SEQ          = ?
+                    ) EMS
+            ORDER BY RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_mail_noti_fb003" desc="메일통보 대상자" fetchSize="10">
+        <![CDATA[
+            SELECT   '' STND_YEAR
+                   , 0 SEQ
+                   , '1' CHK
+                   , TRM.RACER_NO
+                   , TRM.NM_KOR RACER_NM
+                   , TRM.EMAIL_ADDR EMAIL_ADDR
+                   , TRD.CELPON_NO
+                   , '' SEND_TIME
+                   , '' DELIVER_TIME
+                   , '' OPEN_TIME
+                   , 0 OPEN_CNT
+                   , '' ERROR_NM
+                   , '' RESPONSE_DTM
+                   , '' MAPPING
+                   , '' MAPPING_YEAR
+                   , 0 MAPPING_SEQ
+              FROM   TBEC_RACER_MASTER TRM
+	               , TBEC_RACER_DETAIL TRD
+             WHERE   TRM.RACER_NO        = TRD.RACER_NO
+               AND   TRM.RACER_STAT_CD	!= '003'
+            ORDER BY RACER_NO
+        ]]>
+    </query> 
+    <query id="tbeb_mail_noti_ib001" desc="이메일 통보 저장" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_NOTICE_MAIL_MASTER
+			(
+			         STND_YEAR							-- 기준년도    
+			       , SEQ								-- 순번    
+			       , TITLE								-- 메일제목
+			       , SENDER								-- 발신자
+			       , NOTICE								-- 공지사항
+			       , MAIL_SEND_REQ_DAY					-- 메일발송요청일
+			       , MAIL_SEND_FLAG						-- 메일발송구분
+			       , INST_ID							-- 작성자ID    
+			       , INST_DTM							-- 작성일시    
+			) 
+			SELECT
+			         ?									-- 기준년도    
+			       , NVL(MAX(SEQ),0)+1					--  순번    
+			       , ?									-- 메일제목
+			       , ?									-- 발신자
+			       , ?									-- 공지사항
+			       , ?									-- 메일발송요청일
+			       , 'N'								-- 메일발송구분
+			       , ?									-- 작성자ID    
+			       , SYSDATE							-- 작성일시
+			  FROM   TBEB_NOTICE_MAIL_MASTER
+			 WHERE   STND_YEAR			= ?				-- 기준년도    
+        ]]>
+    </query> 
+    <query id="tbeb_mail_noti_ib002" desc="이메일 통보 목록 저장" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_NOTICE_MAIL_DETAIL
+			(
+			         STND_YEAR							-- 기준년도    
+			       , SEQ								-- 순번    
+			       , RACER_NO							-- 선수등록번호
+			       , EMAIL_ADDR							-- 이메일주소
+			) 
+			SELECT
+			         ?									-- 기준년도    
+			       , NVL(MAX(SEQ),1)					-- 순번    
+			       , ?									-- 선수등록번호
+			       , ?									-- 이메일주소
+			  FROM   TBEB_NOTICE_MAIL_MASTER
+			 WHERE   STND_YEAR			= ?				-- 기준년도    
+        ]]>
+    </query> 
+</queryMap>

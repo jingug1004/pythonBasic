@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="출주표"> 
+    <query id="d07000010_s01" desc="훈련선수명단 조회" fetchSize="10">
+		<![CDATA[
+			SELECT /* d07000010_s01 */
+                     TTAR.RACER_NO
+                   , TRM.NM_KOR
+                   , TRM.RACER_GRD_CD       -- 선수등급코드
+            FROM    MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , MRASYS.TBEB_TRNG_ASK TTA
+            WHERE  TTA.TRNG_ASK_SEQ = TTAR.TRNG_ASK_SEQ
+            AND    TTAR.RACER_NO = TRM.RACER_NO
+            AND    TTA.TRNG_ASK_STR_DT BETWEEN ? AND ?
+            AND    TRM.NM_KOR LIKE ?||'%'
+            GROUP BY TTAR.RACER_NO, TRM.NM_KOR, TRM.RACER_GRD_CD
+            ORDER BY TTAR.RACER_NO
+
+	    ]]>
+    </query>
+
+    <query id="d07000010_s02" desc="개인별 훈련결과  조회" fetchSize="10">
+		<![CDATA[
+			SELECT  /* d07000010_s02 */
+                     TTA.TRNG_ASK_STR_DT
+                   , TTA.TRNG_ASK_END_DT
+                   , TTA.TRNG_ASK_DD_NUM
+                   , TRM.NM_KOR             -- 선수명
+                   , TTER.TRNG_RSN_CD        -- 훈련사유코드
+                   , TTAR.TRNG_EXPT_SEQ      -- 훈련예정일련번호
+                   , TTAR.RMK                -- 비고
+                   --, DECODE(TTAR.MENTO_YN, '1', '003', DECODE(NVL(TTAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT), 0, '001', NVL(TTAR.TRNG_FEE_PAY_YN, '002')))  AS TRNG_FEE_PAY_YN     -- 교육비 납부여부
+                   --, DECODE(TTAR.MENTO_YN, '1', '003', TTAR.TRNG_FEE_PAY_MTHD) AS TRNG_FEE_PAY_MTHD	-- 교육비 납부방법코드
+                   --, DECODE(TTAR.MENTO_YN, '1', 0, NVL(TTAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT)) AS  TRNG_FEE_AMT -- 교육비
+                   , DECODE(NVL(TTAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT), 0, '003', DECODE(NVL(TTAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT), 0, '001', NVL(TTAR.TRNG_FEE_PAY_YN, '002')))  AS TRNG_FEE_PAY_YN     -- 교육비 납부여부
+                   , DECODE(NVL(TTAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT), 0, '003', TTAR.TRNG_FEE_PAY_MTHD) AS TRNG_FEE_PAY_MTHD	-- 교육비 납부방법코드
+                   , NVL(TTAR.TRNG_FEE_AMT, TRC.ROOM_CHRG_AMT) AS  TRNG_FEE_AMT -- 교육비
+                   , TTAR.MENTO_GRP_NO		-- 멘토그룹번호
+                   , TTAR.MENTO_YN			-- 멘토여부
+                   , TTAR.TRNG_RMK			-- 훈련메모 
+                   , TTER.COMP_EDU_CD		-- 의무훈련코드
+                   , TTAR.COMMUTE_YN        -- 출퇴근 여부 
+                   , CMPL_YN                -- 훈련이수 여부
+                   , TRTR.PER_TURN
+                   , TRTR.FORM_TURN
+                   , TRTR.FORM_TURN_3
+                   , TRTR.FORM_TURN_1
+                   , TRTR.ST
+                   , TRTR.IMIT_RACE
+                   , TRTR.BOAT_TIME
+                   , TRTR.BOAT_TIME_GRD
+                   , TRTR.MOTOR_MNT
+                   , TRTR.BODY_TRNG
+                   , TRTR.VIDEO
+                   , TRTR.PRIZ_PENAL
+                   , TRTR.CMPL_YN
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , MRASYS.TBEB_TRNG_EXPT_RACER TTER
+                   , MRASYS.TBEB_TRNG_ASK TTA
+                   , TBDN_TRNG_ROOM_CHRG TRC
+                   , TBDO_RACER_TRNG_RSLT TRTR
+            WHERE  TTAR.RACER_NO        = TRM.RACER_NO
+            AND    TTAR.TRNG_EXPT_SEQ   = TTER.TRNG_EXPT_SEQ(+)
+            AND    TTAR.TRNG_ASK_SEQ = TTA.TRNG_ASK_SEQ            
+            AND    TTA.TRNG_ASK_STR_DT BETWEEN ? AND ?
+            AND    TTAR.RACER_NO = ?
+            AND    TTA.TRNG_ASK_STR_DT BETWEEN TRC.APLY_STR_DT AND TRC.APLY_END_DT
+            AND    TTA.TRNG_ASK_DD_NUM = TRC.TRNG_DAYS
+            AND    NVL(TTER.COMP_EDU_CD,'000') = NVL(TRC.COMP_EDU_CD,'000')    
+            AND    NVL(TTAR.COMMUTE_YN,'0') = NVL(TRC.COMMUTE_YN,'0')            
+            AND    DECODE(TTER.TRNG_RSN_CD,'004','Y','N') = DECODE(TRC.TRNG_RSN_CD, '004','Y','N')
+            AND    TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO = TRTR.RACER_NO(+)
+            ORDER BY TTAR.RACER_NO
+	    ]]>
+    </query>
+
+</queryMap>

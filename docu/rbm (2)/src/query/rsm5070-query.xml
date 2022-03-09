@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="rsm5070(기타소득세 확정)">
+    <query id="rsm5070_s01" desc="기타소득세 추가" fetchSize="10">
+      <![CDATA[
+            SELECT	/* rsm5070_s01 */
+                     A.MEET_CD        --경륜장코드
+					,A.SELL_CD        --운영처
+					,A.TSN            --경주권번호
+					,A.PAY_YEAR       --지급년도
+					,A.PAY_MM         --지급월					
+					,A.PERF_NO        --퍼포먼스번호
+					,A.COMM_NO        --발매지점
+					,CC.CD_NM AS BRNC_NM	--발매지점 이름	
+					,A.DIV_NO         --투표소
+					,A.REFUND         --환급금액
+					,A.SELL_AMT       --판매금액					
+					,A.JIGEUP_AMT     --지급금액
+					,A.COST           --필요경비
+					,A.GITA1          --소득세
+					,A.GITA2          --주민세
+					,A.GITA_PAY       --차인지급액					
+					,A.JIGEUP_DT      --지금일자					
+              FROM  TBJI_PC_GITA A, TBRD_GITA_CFM_CNTNT B,
+              		(
+                    SELECT CD,CD_NM
+                         FROM 
+                         	TBRK_SPEC_CD C                      
+                         WHERE  1=1    
+                         	AND C.GRP_CD IN ('018')
+                    )CC
+             WHERE  1=1
+               AND  A.MEET_CD  = B.MEET_CD
+               AND  A.SELL_CD  = B.SELL_CD
+--               AND  A.TSN      = B.TSN_NO
+               AND  A.PAY_YEAR = B.PAY_YEAR
+               AND  A.PAY_MM   = B.PAY_MM
+               AND  A.COMM_NO = CC.CD(+)          
+               AND  A.PAY_YEAR = ?
+               AND  A.PAY_MM   = ?
+               AND  B.CFM_CD   = '001'
+               AND  A.MEET_CD  = ?
+               AND  A.SELL_CD  = ?
+               AND  A.COMM_NO  = ?          
+        ]]>
+    </query>
+    <query id="rsm5070_s02" desc="기타소득세 목록(그룹)" fetchSize="10">
+      <![CDATA[
+      		SELECT /* rsm5070_s02 */
+			         MEET_CD    			--경륜장코드
+			        , CASE WHEN MEET_CD = '003' AND COMM_NO = '06' THEN '03' ELSE SELL_CD END AS SELL_CD    		--운영처                    
+			        , PAY_YEAR    		--지급년도
+			        , PAY_MM    			--지급월 
+			        , COMM_NO     		--발매지점
+			        , CC.CD_NM AS BRNC_NM	--발매지점 이름	
+			        , REFUND       --환급금액
+			        , SELL_AMT   	--판매금액                    
+			        , JIGEUP_AMT   --지급금액
+			        , COST			--필요경비
+			        , GITA1  		--소득세
+			        , GITA2		--주민세
+			        , GITA_PAY   	--차인지급액
+			        , CNT			--갯수	
+			FROM 
+			(
+	            SELECT	/* rsm5070_s02 */
+	                     A.MEET_CD    AS MEET_CD    			--경륜장코드
+	                    ,A.SELL_CD    AS SELL_CD    		--운영처                    
+	                    ,A.PAY_YEAR   AS PAY_YEAR    		--지급년도
+	                    ,A.PAY_MM     AS PAY_MM    			--지급월 
+	                    ,DECODE(A.SELL_CD, '03', '98', A.COMM_NO)    AS COMM_NO     		--발매지점
+	                    ,SUM(A.REFUND)  	AS REFUND       --환급금액
+	                    ,SUM(A.SELL_AMT)    AS SELL_AMT   	--판매금액                    
+	                    ,SUM(A.JIGEUP_AMT)  AS JIGEUP_AMT   --지급금액
+	                    ,SUM(A.COST)        AS COST			--필요경비
+	                    ,SUM(A.GITA1)       AS GITA1  		--소득세
+	                    ,SUM(A.GITA2)       AS GITA2		--주민세
+	                    ,SUM(A.GITA_PAY)    AS GITA_PAY   	--차인지급액
+	                    ,COUNT(A.TSN)		AS CNT			--갯수	
+	              FROM  TBJI_PC_GITA A, TBRD_GITA_CFM_CNTNT B
+	             WHERE  1=1
+	               AND  A.PAY_YEAR = ?
+	               AND  A.PAY_MM   = ?
+	               AND  A.MEET_CD LIKE '%' || NVL(?, A.MEET_CD) || '%'
+	               AND  A.SELL_CD LIKE '%' || NVL(?, A.SELL_CD) || '%'
+	               AND  A.MEET_CD  = B.MEET_CD
+	               AND  A.SELL_CD  = B.SELL_CD
+	               AND  A.PAY_YEAR = B.PAY_YEAR
+	               AND  A.PAY_MM   = B.PAY_MM             
+	               AND  B.CFM_CD   = '001'               
+	          GROUP BY A.MEET_CD, A.SELL_CD,A.PAY_YEAR ,A.PAY_MM ,DECODE(A.SELL_CD, '03', '98', A.COMM_NO)
+	          )A,
+			(
+			SELECT CD,CD_NM
+			     FROM 
+			     	TBRK_SPEC_CD C                      
+			     WHERE  1=1    
+			     	AND C.GRP_CD IN ('018')
+			)CC
+			WHERE 1=1
+			AND A.COMM_NO=CC.CD(+)          
+	        ORDER BY A.MEET_CD, A.SELL_CD, A.COMM_NO ASC
+        ]]>
+    </query>  
+</queryMap>

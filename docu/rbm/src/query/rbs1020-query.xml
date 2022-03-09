@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS1020(사업계획상세등록)">
+    
+    
+    <query id="rbs1020_s01" desc="사업계획상세등록 조회" fetchSize="10">
+        <![CDATA[
+                   
+			SELECT   /* rbs1020_s01 */
+        			 A.PREP_AMT_CD,      -- 시개금코드
+        			 
+        			 A.DPRT_CD,          -- 부서코드 
+        			 
+        			 A.BUSI_YEAR,        -- 사업년도
+        			 (
+			             SELECT   GROUP_NAME
+			             FROM     V_GROUP DEPT
+			             WHERE    GROUP_ID = A.DPRT_CD
+			         ) AS DPRT_NAME,     -- 부서명
+			         
+			         A.MNG_ID,           -- 담당자ID 
+        			 (
+			             SELECT   USER_NM
+			             FROM     TBRK_USER
+			             WHERE    USER_ID = A.MNG_ID 
+        			 ) AS MNG_NAME,      -- 담당자 이름
+        			 
+			         A.ACC_BGN_CD,       -- 회계구분코드
+			         (SELECT CD_NM FROM TBRK_SPEC_CD WHERE GRP_CD='050' AND CD =  A.ACC_BGN_CD) ACC_BGN_NM,     -- 회계구분명
+			         A.BUSI_NM,          -- 사업명
+			         
+			         A.BUSI_CNTNT_PRPS,  -- 사업내용목적
+			         A.BUSI_CNTNT_SMRY,  -- 사업내용개요
+			         
+			         DECODE(NVL(A.BUSI_DT_STR,''),'','',A.BUSI_DT_STR || '01') AS BUSI_DT_STR,   -- 사업일자 시작
+			         DECODE(NVL(A.BUSI_DT_END,''),'','', A.BUSI_DT_END || '01') AS BUSI_DT_END,   -- 사업일자 종료        
+			                             
+			         NVL(A.QUAR_1, 0) AS QUAR_1,   -- 1분기
+			         NVL(A.QUAR_2, 0) AS QUAR_2,   -- 2분기
+			         NVL(A.QUAR_3, 0) AS QUAR_3,   -- 3분기
+			         NVL(A.QUAR_4, 0) AS QUAR_4,   -- 4분기
+			         NVL(A.QUAR_1, 0) + NVL(A.QUAR_2, 0) + NVL(A.QUAR_3, 0) + NVL(A.QUAR_4, 0) AS Q_SUM, -- 분기 합
+			         NVL(A.CONFIRM_AMT, 0) AS CONFIRM_AMT,  -- 승인금액 
+			         NVL(A.TRANS_AMT,    0) AS TRANS_AMT,     -- 이월금액         
+			         NVL(A.ASS_PRO_AMT,  0) AS ASS_PRO_AMT,   -- 자산취득금액
+			         NVL(A.FAC_MANA_AMT, 0) AS FAC_MANA_AMT,  -- 시설관리금액
+			         
+			         A.INPT_END_CD,      -- 입력상태코드
+			         A.ATT_FILE_KEY      -- 첨부파일키 	
+			         		  
+			FROM     TBRE_BUSI_PLAN A               
+			WHERE    A.BUSI_YEAR = ?      -- 1. 년도
+			AND      A.ACC_BGN_CD LIKE '%' || NVL(?, A.ACC_BGN_CD) || '%'	-- 회계구분코드
+			AND      A.DPRT_CD    LIKE '%' || NVL(?, A.DPRT_CD)    || '%'	-- 부서코드
+			ORDER BY A.PREP_AMT_CD
+			
+        ]]>
+    </query>       
+    <query id="rbs1020_s02" desc="사업계획등록된 부서목록 조회" fetchSize="10">
+        <![CDATA[
+        
+        
+       		  SELECT 
+                         '' 		AS DPRT_ID
+                       	,'전체' 	AS DPRT_NAME
+                FROM 	DUAL      
+                UNION ALL               
+                SELECT
+                        B.GROUP_ID        AS DPRT_ID
+                       ,B.GROUP_NAME   AS DPRT_NAME    
+                 FROM     
+                     (
+                     SELECT 
+                               DISTINCT DPRT_CD 
+                       FROM    TBRE_BUSI_PLAN
+                     ) A  ,V_GROUP B
+                WHERE 1=1
+                  AND A.DPRT_CD=B.GROUP_ID 
+			
+        ]]>
+    </query>  
+<!-- 20111019_ 장한너울 ( query id="rbs1020_s01" 에서 한번에 조회함. )-->
+<!--    <query id="rbs1020_s02" desc="사업계획상세등록 상세조회" fetchSize="10">-->
+<!--        <![CDATA[-->
+<!--                   -->
+<!--			SELECT   /* rbs1020_s02 */-->
+<!--			         A.PREP_AMT_CD,    시개금코드-->
+<!--			         -->
+<!--			         A.DPRT_CD,        부서코드                 -->
+<!--			         (-->
+<!--			          SELECT   GROUP_NAME-->
+<!--			          FROM     V_GROUP DEPT-->
+<!--			          WHERE    GROUP_ID = A.DPRT_CD-->
+<!--			         )  AS DPRT_NAME,   부서명-->
+<!--			         -->
+<!--			         A.MNG_ID,         담당자ID            -->
+<!--			         (-->
+<!--			          SELECT   USER_NM-->
+<!--			          FROM     TBRK_USER-->
+<!--			          WHERE    USER_ID = A.MNG_ID -->
+<!--			         ) AS MNG_NAME,  담당자 이름-->
+<!--			                  -->
+<!--			         A.ACC_BGN_CD,        회계구분코드         -->
+<!--			         A.BUSI_NM,           사업명-->
+<!--			         -->
+<!--			         A.BUSI_CNTNT_PRPS,   사업내용목적-->
+<!--			         A.BUSI_CNTNT_SMRY,   사업내용개요-->
+<!--			         -->
+<!--			         A.BUSI_DT_STR || '01' AS BUSI_DT_STR,     사업일자 시작-->
+<!--			         A.BUSI_DT_END || '01' AS BUSI_DT_END,     사업일자 종료-->
+<!--			         -->
+<!--			         NVL(A.QUAR_1, 0) AS QUAR_1,    1분기-->
+<!--			         NVL(A.QUAR_2, 0) AS QUAR_2,    2분기-->
+<!--			         NVL(A.QUAR_3, 0) AS QUAR_3,    3분기-->
+<!--			         NVL(A.QUAR_4, 0) AS QUAR_4,    4분기-->
+<!--			         NVL(A.QUAR_1, 0) + NVL(A.QUAR_2, 0) + NVL(A.QUAR_3, 0) + NVL(A.QUAR_4, 0) AS Q_SUM,  분기 합 -->
+<!--			         -->
+<!--			         NVL(A.TRANS_AMT,    0) AS TRANS_AMT,      이월금액         	-->
+<!--			         NVL(A.ASS_PRO_AMT,  0) AS ASS_PRO_AMT,    자산취득금액	-->
+<!--			         NVL(A.FAC_MANA_AMT, 0) AS FAC_MANA_AMT,   시설관리금액	-->
+<!--			         			         -->
+<!--			         A.INPT_END_CD,       입력상태코드-->
+<!--			         A.ATT_FILE_KEY       첨부파일키 -->
+<!--			         			         -->
+<!--			FROM     TBRE_BUSI_PLAN A -->
+<!--			WHERE    A.PREP_AMT_CD = ?     1. 시개금코드 -->
+<!--        ]]>-->
+<!--    </query>       -->
+<!---->
+<!-- -->
+    
+    <query id="rbs1020_i01" desc="사업계획상세등록 수정" fetchSize="10">
+        <![CDATA[
+			INSERT INTO   /* rbs1020_i01 */
+			         TBRE_BUSI_PLAN (
+			         PREP_AMT_CD, BUSI_YEAR, CONFIRM_TMS, ACC_BGN_CD, BUSI_NM, 
+			         CONFIRM_AMT, DPRT_CD, MNG_ID, BUSI_CNTNT_PRPS, BUSI_CNTNT_SMRY, 
+			         BUSI_DT_STR, BUSI_DT_END, QUAR_1, QUAR_2, QUAR_3, 
+			         QUAR_4, TRANS_AMT, ASS_PRO_AMT, FAC_MANA_AMT, ATT_FILE_KEY, 
+			         INST_ID, INST_DT)
+			VALUES (
+			         ( SELECT   NVL(LPAD(MAX(TO_NUMBER(PREP_AMT_CD)) + 1, 8, '0'), '00000001')  
+			           FROM     TBRE_BUSI_PLAN ), ?, NVL(?,0), ?, ?
+			        ,NVL(?,0), ?, ?, ?, ?
+			        ,SUBSTR(?,1,6), SUBSTR(?,1,6), ?, ?, ?
+			        ,?, ?, ?, ?, ?
+			        ,?, SYSDATE			
+					)          
+        ]]>
+    </query>
+    
+    <query id="rbs1020_u01" desc="사업계획상세등록 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rbs1020_u01 */
+			         TBRE_BUSI_PLAN 
+			
+			SET      DPRT_CD         = ?,                 -- 1.부서코드
+			         MNG_ID          = ?,                 -- 2.담당자ID
+			         ACC_BGN_CD      = ?,                 -- 3.회계구분코드
+			         BUSI_NM         = ?,                 -- 4.사업명      
+			         
+			         BUSI_CNTNT_PRPS = ?,                 -- 5.사업내용목적
+			         BUSI_CNTNT_SMRY = ?,                 -- 6. 사업내용개요
+			         
+			         BUSI_DT_STR     = SUBSTR(?, 0, 6),   -- 7. 사업일자 시작
+			         BUSI_DT_END     = SUBSTR(?, 0, 6),   -- 8. 사업일자 종료
+			         
+			         QUAR_1          = ?,                 -- 9. 1분기
+			         QUAR_2          = ?,                 -- 10. 2분기
+			         QUAR_3          = ?,                 -- 11. 3분기
+			         QUAR_4          = ?,                 -- 12. 4분기
+			         
+			         TRANS_AMT       = ?,                 -- 13. 이월금액
+			         
+			         ASS_PRO_AMT     = ?,                 -- 14. 자산취득비                  
+			         FAC_MANA_AMT    = ?,                 -- 15. 시설관리 유지비
+			         
+			         ATT_FILE_KEY    = ?,                 -- 16. 첨부파일키                               
+			         UPDT_ID         = ?,                 -- 17. 사용자 ID    
+			         UPDT_DT         = SYSDATE
+			        
+			WHERE    PREP_AMT_CD     = ?                  -- 18. 시개금코드
+
+        ]]>
+    </query>
+    
+    
+    <query id="rbs1020_d01" desc="사업계획상세계획 삭제" fetchSize="10">
+        <![CDATA[
+			DELETE  /* rbs1020_d01 */
+			        FROM TBRE_BUSI_PLAN
+			WHERE   PREP_AMT_CD = ?          
+        ]]>
+    </query>
+    
+     <query id="rbs1020_s_file" desc="첨부파일    조회" fetchSize="10">
+     	<![CDATA[
+ 			SELECT   /* rbs1020_s_file */
+				     '0' AS CHK,
+				     ATT_FILE_KEY,
+				     SEQ,
+				     TBL_NM,
+				     FILE_NM,
+				     FILE_PATH,
+				     REAL_FILE_NM,
+				     INST_ID,
+				     INST_DT
+			
+			FROM  TBRK_FILE_MANA
+
+			WHERE ATT_FILE_KEY   = ?
+						
+        ]]>
+    </query>       
+    
+    
+	<query id="rbs1020_s_filekey" desc="첨부파일 KEY 조회" fetchSize="10">
+    	<![CDATA[
+ 			SELECT /* rbs1020_s_filekey */
+				SQ_TBRK_FILE_MANA.NEXTVAL ATT_FILE_KEY
+			FROM DUAL						
+        ]]>
+    </query>    
+
+
+  <query id="rbs1020_i_file" desc="첨부파일  입력" fetchSize="10">
+
+			INSERT INTO TBRK_FILE_MANA (  /* rbs1020_i_file */
+
+				 ATT_FILE_KEY
+				,SEQ
+				,TBL_NM
+				,FILE_NM				
+				,FILE_PATH				
+				
+				,REAL_FILE_NM
+				,INST_ID
+				,INST_DT
+				
+
+			) VALUES (
+			
+				  ?             -- ATT_FILE_KEY
+				, (SELECT		-- SEQ
+			    		NVL(MAX(SEQ),0) + 1
+			    		FROM  TBRK_FILE_MANA	
+			    		WHERE 	ATT_FILE_KEY = ? 	
+			      )            
+				, ?             -- TBL_NM
+				, ?             -- FILE_NM
+				, ?             -- FILE_PATH
+				
+				, ?             -- REAL_FILE_NM				
+				, ?             -- INST_ID	    
+			    , SYSDATE		-- INST_DT
+
+			)
+   
+
+    </query> 
+
+    <query id="rbs1020_u_file" desc=" 첨부파일  수정" fetchSize="10">
+
+        <![CDATA[
+
+			UPDATE TBRK_FILE_MANA SET  /* rbs1020_u_file */
+				 TBL_NM  = ?
+				,FILE_NM  = ?
+				
+				,FILE_PATH  = ?
+				,REAL_FILE_NM  = ?
+				
+			WHERE ATT_FILE_KEY = ?
+				AND SEQ = ?
+
+        ]]>
+
+    </query>    
+
+
+
+    <query id="rbs1020_d_file" desc="첨부파일  삭제" fetchSize="10">
+
+        <![CDATA[
+
+			DELETE TBRK_FILE_MANA   /* rsy4011_d02 */	
+
+			WHERE ATT_FILE_KEY = ?
+				AND SEQ = ?
+
+        ]]>
+
+    </query>
+        
+</queryMap>

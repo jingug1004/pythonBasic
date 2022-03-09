@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbeb_trng_expt_racer(훈련련예정선수)">
+    <query id="tbeb_trng_ask_racer_rslt_fb001" desc="훈련요청 기간조회" fetchSize="10">
+        <![CDATA[
+			SELECT   /* tbeb_trng_ask_racer_rslt_fb001 */
+			         TRNG_DD
+                   , TO_CHAR(TRNG_DATE, 'YYYY-MM-DD') || '(' || TO_CHAR(TRNG_DATE, 'DY') || ')' TRNG_DATE
+			FROM   (
+			
+            			SELECT
+            			         TTARR.TRNG_DD
+            			       , TO_DATE(TTARR.TRNG_DD, 'YYYYMMDD') TRNG_DATE
+            			FROM     TBEB_TRNG_ASK_RACER_RSLT TTARR
+            			       , TBEB_TRNG_ASK            TRA
+            			WHERE  TRA  .TRNG_ASK_SEQ  = TTARR.TRNG_ASK_SEQ
+            			AND    TRA  .TRNG_PLC_CD   = ?
+            			AND    TTARR.TRNG_DD BETWEEN ?
+            			                         AND ?
+            			GROUP BY TTARR.TRNG_DD
+            			ORDER BY TTARR.TRNG_DD
+                   )
+        ]]>
+    </query>
+    <query id="tbeb_trng_ask_racer_rslt_fb002" desc="훈련요청선수조회" fetchSize="10">
+        <![CDATA[
+            SELECT  /* tbeb_trng_ask_racer_rslt_fb002 */
+                   NM_KOR || EXPT NM_KOR
+            FROM   (
+            			SELECT
+            			         TRM .RACER_NO
+            			       , TRM .NM_KOR
+            			       , (
+                			        SELECT DECODE(TRNG_RSN_CD, '005', '(_)', '(*)') 
+            			            FROM TBEB_TRNG_EXPT_RACER TTER 
+            			            WHERE TTER.TRNG_EXPT_SEQ = TTAR.TRNG_EXPT_SEQ 
+            			            AND   TTER.TRNG_RSN_CD   IN ('001', '002', '005')
+                                 ) EXPT
+                        FROM     TBEB_TRNG_ASK            TRA
+                               , TBEB_TRNG_ASK_RACER      TTAR
+                               , TBEB_TRNG_ASK_RACER_RSLT TTARR
+            			       , TBEC_RACER_MASTER        TRM
+                        WHERE  TRA  .TRNG_ASK_SEQ  = TTAR .TRNG_ASK_SEQ
+                        AND    TTAR .TRNG_ASK_SEQ  = TTARR.TRNG_ASK_SEQ
+                        AND    TTAR .RACER_NO      = TTARR.RACER_NO
+            			AND    TTAR.RACER_NO       = TRM  .RACER_NO
+                        AND    TRA  .TRNG_PLC_CD   = ?
+            			AND    TTARR.TRNG_DD       = ?
+            			ORDER BY TTARR.TRNG_DD
+            			       , TTAR.TRNG_EXPT_SEQ DESC
+            			       , TTAR.RACER_NO
+                   )
+            ORDER BY EXPT DESC
+                   , RACER_NO
+        ]]>
+    </query>
+    <query id="tbeb_trng_ask_racer_rslt_fb003" desc="훈련요청선수중훈련예정선수조회" fetchSize="10">
+        <![CDATA[
+			SELECT  /* tbeb_trng_ask_racer_rslt_fb003 */
+			         TTER.TRNG_EXPT_SEQ      -- 훈련예정일련번호
+			       , TRM .NM_KOR             -- 선수명
+			       , TRM .RACER_GRD_CD       -- 선수등급코드
+			       , TTER.RACER_NO           -- 선수등록번호    
+			       , TTER.TRNG_RSN_CD        -- 훈련사유코드    
+			       , TTER.STND_YEAR          -- 기준년도        
+			       , TTER.SANC_ISSUE_NO      -- 제재발급번호    
+			       , TTER.TRNG_RQST_DD_NUM   -- 훈련요구일수
+			       , TTER.TRNG_EXPT_STAT_CD  -- 훈련예정상태코드
+			       , TTER.RMK                -- 비고            
+                   , TRS .SANC_ISSUE_NO      -- 발급번호      
+                   , TRS .SANC_BASIS_CD      -- 양정코드      
+                   , DECODE(TTER.TRNG_RSN_CD, '001', '출전정지 ' || TRS .SANC_TERM || (SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00116' AND CD = TRS .UNIT)) SANC_TERM         -- 제제처분기간  
+                   , TRS .SANC_RSN_CD        -- 사유코드      
+                   , TRS .SANC_RSN           -- 사유          
+                   , TRS .SANC_ACT_DT        -- 처분일자      
+                   , TRS .SANC_OBJECTION     -- 이의신청      
+                   , TRS .UNIT               -- 제재처분단위  
+                   , TRS .HOMEPAGE_NOTI_SDT  -- 공지시작일    
+                   , TRS .HOMEPAGE_NOTI_EDT  -- 공지종료일    
+                   , TRS .SMRY               -- 관련근거      
+			       , TTER.INST_ID            -- 작성자ID        
+			       , TO_CHAR(TTER.INST_DTM, 'YYYYMMDD') INST_DTM           -- 작성일시        
+			       , TTER.UPDT_ID            -- 수정자ID        
+			       , TTER.UPDT_DTM           -- 수정일시 
+			       , GET_CD_NM('E00071',TRS.SANC_RSN_CD) AS SANC_RSN_CD_NM
+			FROM     TBEB_TRNG_EXPT_RACER TTER
+			       , TBEC_RACER_MASTER    TRM
+			       , TBEE_RACER_SANC      TRS
+			WHERE  TTER.RACER_NO             = TRS.RACER_NO     (+)
+			AND    TTER.SANC_ISSUE_NO        = TRS.SANC_ISSUE_NO(+)
+			AND    TTER.RACER_NO             = TRM.RACER_NO
+			AND    TTER.TRNG_RSN_CD          = '001'
+            AND    TTER.TRNG_EXPT_SEQ       IN (
+                                                    SELECT
+                                                           TTAR.TRNG_EXPT_SEQ
+                                                    FROM     TBEB_TRNG_ASK            TRA
+                                                           , TBEB_TRNG_ASK_RACER      TTAR
+                                                           , TBEB_TRNG_ASK_RACER_RSLT TTARR
+                                                    WHERE  TRA  .TRNG_ASK_SEQ  = TTAR .TRNG_ASK_SEQ
+                                                    AND    TTAR .TRNG_ASK_SEQ  = TTARR.TRNG_ASK_SEQ
+                                                    AND    TTAR .RACER_NO      = TTARR.RACER_NO
+                                                    AND    TRA  .TRNG_PLC_CD   = ?
+                                                    AND    TTARR.TRNG_DD BETWEEN ?
+                                                                             AND ?
+                                               )
+			ORDER BY TTER.RACER_NO
+        ]]>
+    </query>
+    <query id="tbeb_trng_ask_racer_rslt_ib001" desc="훈련요청선수결과저장" fetchSize="10">
+        <![CDATA[
+			INSERT INTO TBEB_TRNG_ASK_RACER_RSLT
+			(
+			         TRNG_ASK_SEQ       -- 훈련요청일련번호
+			       , RACER_NO           -- 선수번호
+			       , TRNG_DD            -- 훈련일
+			       , TRNG_STAT_CD       -- 훈련상태코드
+			       , RMK                -- 비고
+			       , INST_ID            -- 작성자ID        
+			       , INST_DTM           -- 작성일시        
+			       , UPDT_ID            -- 수정자ID        
+			       , UPDT_DTM           -- 수정일시        
+			) VALUES (
+			         ?                  -- 훈련요청일련번호
+			       , ?                  -- 선수번호
+			       , ?                  -- 훈련일
+			       , ?                  -- 훈련상태코드
+			       , ?                  -- 비고
+			       , ?                  -- 작성자ID        
+			       , SYSDATE            -- 작성일시        
+			       , ?                  -- 수정자ID        
+			       , SYSDATE            -- 수정일시        
+			)
+        ]]>
+    </query>
+    <query id="tbeb_trng_ask_racer_rslt_ub001" desc="훈련요청선수결과수정" fetchSize="10">
+        <![CDATA[
+			UPDATE TBEB_TRNG_ASK_RACER_RSLT SET
+			         TRNG_STAT_CD  = NVL(?, TRNG_STAT_CD)  -- 훈련예정일련번호
+			       , RMK           = ?                     -- 비고
+			       , UPDT_ID       = ?                     -- 수정자ID        
+			       , UPDT_DTM      = SYSDATE               -- 수정일시        
+			WHERE  TRNG_ASK_SEQ    = ?                     -- 훈련요청일련번호
+			AND    RACER_NO        = ?                     -- 선수번호
+			AND    TRNG_DD         = ?                     -- 훈련일
+        ]]>
+    </query> 
+    <query id="tbeb_trng_ask_racer_rslt_db001" desc="훈련요청선수결과삭제" fetchSize="10">
+        <![CDATA[
+			DELETE
+			FROM   TBEB_TRNG_ASK_RACER_RSLT
+			WHERE  TRNG_ASK_SEQ    = ?                -- 훈련예정일련번호
+			AND    RACER_NO        = NVL(?, RACER_NO) -- 선수번호
+        ]]>
+    </query>
+    
+    
+    <query id="tbdo_racer_trng_rslt_fo001" desc="선수훈련결과 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* tbdo_racer_trng_rslt_fo001 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , TTAR.MENTO_YN
+                   , TTAR.MENTO_GRP_NO
+                   , TRTR.PER_TURN
+                   , TRTR.FORM_TURN
+                   , TRTR.FORM_TURN_3
+                   , TRTR.FORM_TURN_1
+                   , TRTR.ST
+                   , TRTR.IMIT_RACE
+                   , TRTR.BOAT_TIME
+                   , TRTR.BOAT_TIME_GRD
+                   , TRTR.MOTOR_MNT
+                   , TRTR.MOTOR_MNT_PELLER
+                   , TRTR.BODY_TRNG
+                   , TRTR.VIDEO
+                   , TRTR.PRIZ_PENAL
+                   , TRTR.CMPL_YN
+                   , TRTR.DETL_EDU_CNTN
+                   , TRTA.COL01
+                   , TRTA.COL02
+                   , TRTA.COL03
+                   , TRTA.COL04
+                   , TRTA.COL05
+                   , TRTA.COL06
+                   , TRTA.COL07
+                   , TTA.TRNG_ASK_DD_NUM AS TRNG_DAY_CNT
+            FROM    MRASYS.TBEB_TRNG_ASK TTA 
+                 LEFT JOIN MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                      ON      TTA.TRNG_ASK_SEQ = TTAR.TRNG_ASK_SEQ
+                 LEFT JOIN MRASYS.TBEC_RACER_MASTER    TRM
+                      ON      TTAR.RACER_NO     = TRM .RACER_NO
+                 LEFT OUTER JOIN (
+                        SELECT *
+                        FROM   USCANBOA.TBDO_RACER_TRNG_RSLT TRTR
+                        WHERE  TRTR.TRNG_ASK_SEQ = ?
+                        ) TRTR
+                      ON      TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ
+                         AND  TTAR.RACER_NO     = TRTR.RACER_NO
+                  LEFT OUTER JOIN (
+	                        SELECT 
+	                                 DT
+	                               , RACER_NO
+	                               , DECODE(VIOL_CNTNT, '003', COUNT(*)) COL01 --신호위반
+	                               , DECODE(VIOL_CNTNT, '002', COUNT(*)) COL02 --낙수
+	                               , DECODE(VIOL_CNTNT, '001', COUNT(*)) COL03 --전복
+	                               , DECODE(VIOL_CNTNT, '004', COUNT(*)) COL04 --항주곤란
+	                               , DECODE(VIOL_CNTNT, '110', COUNT(*)) COL05 --F
+	                               , DECODE(VIOL_CNTNT, '120', COUNT(*)) COL06 --L
+	                               , DECODE(VIOL_CNTNT, '', COUNT(*)) COL07 --기타
+	                        FROM   USCANBOA.TBDO_RACER_TRNG_ACDNT
+	                        GROUP BY DT, RACER_NO
+	                               , VIOL_CNTNT
+	                     ) TRTA
+	                   ON      TTAR.RACER_NO     = TRTA.RACER_NO 
+                           AND TRTA.DT BETWEEN TTA.TRNG_ASK_STR_DT AND TTA.TRNG_ASK_END_DT
+            WHERE  TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.MENTO_GRP_NO, NVL(TTAR.MENTO_YN,'0') DESC, TTAR.RACER_NO
+	    ]]>
+    </query> 
+    
+    <query id="tbdo_racer_trng_rslt_fo002" desc="선수훈련결과(스타트측정) 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* tbdo_racer_trng_rslt_fo002 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , NVL(TRTS.ESTI_DT, ?) ESTI_DT
+                   , TRTS.RSLT1
+                   , TRTS.RSLT2
+                   , TRTS.RSLT3
+                   , TRTS.RSLT4
+                   , TRTS.RSLT5
+                   , TRTS.RSLT6
+                   , TRTS.RSLT
+                   , TRTS.ESTIER
+                   , FC_GET_USERNAME(TRTS.ESTIER) AS ESTIER_NM
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , USCANBOA.TBDO_RACER_TRNG_START       TRTS
+            WHERE  1=1
+            AND    TTAR.RACER_NO     = TRM .RACER_NO
+            AND    TTAR.TRNG_ASK_SEQ = TRTS.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO     = TRTS.RACER_NO    (+)
+            AND    TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.RACER_NO
+	    ]]>
+    </query> 
+    
+    <query id="tbdo_racer_trng_rslt_fo003" desc="선수훈련결과(정비기술) 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* tbdo_racer_trng_rslt_fo003 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , NVL(TRTT.ESTI_DT, ?) ESTI_DT
+                   , TRTT.ITEM1
+                   , TRTT.ITEM2
+                   , TRTT.ITEM3
+                   , TRTT.ITEM4
+                   , TRTT.ITEM5
+                   , TRTT.DISQUAL
+                   , TRTT.RSLT
+                   , TRTT.ESTIER
+                   , FC_GET_USERNAME(TRTT.ESTIER) AS ESTIER_NM
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , USCANBOA.TBDO_RACER_TRNG_MNGTECH     TRTT
+            WHERE  1=1
+            AND    TTAR.RACER_NO     = TRM .RACER_NO
+            AND    TTAR.TRNG_ASK_SEQ = TRTT.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO     = TRTT.RACER_NO    (+)
+            AND    TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.RACER_NO
+	    ]]>
+    </query> 
+
+    <query id="tbdo_racer_trng_rslt_fo004" desc="선수훈련결과(모터보트 조종실기) 조회" fetchSize="10">
+		<![CDATA[
+            SELECT   /* tbdo_racer_trng_rslt_fo004 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM.NM_KOR
+                   , NVL(TRTM.ESTI_DT, ?) ESTI_DT
+                   , TRTM.ITEM1
+                   , TRTM.ITEM2
+                   , TRTM.ITEM3
+                   , TRTM.ITEM4
+                   , TRTM.ITEM5
+                   , TRTM.ITEM6
+                   , TRTM.ITEM7
+                   , TRTM.DISQUAL
+                   , TRTM.RSLT
+                   , TRTM.ESTIER
+                   , FC_GET_USERNAME(TRTM.ESTIER) AS ESTIER_NM
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR
+                   , MRASYS.TBEC_RACER_MASTER    TRM
+                   , USCANBOA.TBDO_RACER_TRNG_MANIEX      TRTM
+            WHERE  1=1
+            AND    TTAR.RACER_NO     = TRM .RACER_NO
+            AND    TTAR.TRNG_ASK_SEQ = TRTM.TRNG_ASK_SEQ(+)
+            AND    TTAR.RACER_NO     = TRTM.RACER_NO    (+)
+            AND    TTAR.TRNG_ASK_SEQ = ?
+            ORDER BY TTAR.RACER_NO
+	    ]]>
+    </query> 
+
+    <query id="tbdo_racer_trng_rslt_fo005" desc="선수훈련결과 조회" fetchSize="10">
+		<![CDATA[
+		SELECT   /* tbdo_racer_trng_rslt_fo005 */
+                     TTAR.TRNG_ASK_SEQ
+                   , TTAR.RACER_NO
+                   , TRM .NM_KOR
+                   , TRTR.TRNG_DT TRNG_DT
+                   , TRTR.PER_TURN
+                   , TRTR.FORM_TURN
+                   , TRTR.ST
+                   , TRTR.IMIT_RACE
+                   , TRTR.BOAT_TIME
+                   , TRTR.MOTOR_MNT
+                   , TRTR.BODY_TRNG
+                   , TRTR.VIDEO
+                   , TRTR.PRIZ_PENAL
+                   , TRTR.CMPL_YN
+                   , TRTR.DETL_EDU_CNTN
+                   , TRTA.COL01
+                   , TRTA.COL02
+                   , TRTA.COL03
+                   , TRTA.COL04
+                   , TRTA.COL05
+                   , TRTA.COL06
+                   , TRTA.COL07
+            FROM     MRASYS.TBEB_TRNG_ASK_RACER  TTAR LEFT JOIN
+                         MRASYS.TBEC_RACER_MASTER    TRM
+                         ON (           TTAR.RACER_NO     = TRM .RACER_NO)
+                        LEFT OUTER JOIN 
+                                USCANBOA.TBDO_RACER_TRNG_RSLT TRTR
+                        ON  (           TTAR.TRNG_ASK_SEQ = TRTR.TRNG_ASK_SEQ
+                                AND    TTAR.RACER_NO     = TRTR.RACER_NO)
+                         LEFT OUTER JOIN                         
+                                (
+                                SELECT 
+                                         RACER_NO
+                                       , DT
+                                       , DECODE(VIOL_CNTNT, '003', COUNT(*)) COL01 --신호위반
+                                       , DECODE(VIOL_CNTNT, '002', COUNT(*)) COL02 --낙수
+                                       , DECODE(VIOL_CNTNT, '001', COUNT(*)) COL03 --전복
+                                       , DECODE(VIOL_CNTNT, '004', COUNT(*)) COL04 --항주곤란
+                                       , DECODE(VIOL_CNTNT, '110', COUNT(*)) COL05 --F
+                                       , DECODE(VIOL_CNTNT, '120', COUNT(*)) COL06 --L
+                                       , DECODE(VIOL_CNTNT, '', COUNT(*)) COL07 --기타
+                                FROM   USCANBOA.TBDO_RACER_TRNG_ACDNT
+                                GROUP BY RACER_NO, DT, VIOL_CNTNT
+                             ) TRTA
+                        ON      (      TTAR.RACER_NO     = TRTA.RACER_NO
+                                   AND TRTR.TRNG_DT      = TRTA.DT   )
+        WHERE    TTAR.TRNG_ASK_SEQ =  ? 
+            AND    TTAR.RACER_NO =  ?
+            ORDER BY TRTR.TRNG_DT
+	    ]]>
+    </query> 
+     
+</queryMap>

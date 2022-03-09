@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+<queryMap desc="tbee_race_analysis(경주분석결과등록)">
+    <query id="tbee_race_analysis_fe001" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   TR.STND_YEAR
+			       , TR.TMS
+			       , TR.DAY_ORD
+			       , TR.RACE_NO
+			       , SUBSTR(TR.STRT_TIME,1,2)||':'||SUBSTR(TR.STRT_TIME,3,2) STRT_TIME                            -- 경주시작시간
+			       , (SELECT RMK FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00005' AND CD = TR.RACE_DGRE_CD) RACE_DGRE  -- 경주등급
+			       , SUBSTR(TRDO.RACE_DAY,1,4)||'년 '||SUBSTR(TRDO.RACE_DAY,5,2)||'월 '||SUBSTR(TRDO.RACE_DAY,7,2)||'일' RACE_DAY
+			       , DECODE(TO_CHAR(TO_DATE(TRDO.RACE_DAY,'yyyymmdd'),'d'),'1','일','2','월','3','화','4','수','5','목','6','금','토')||'요일('||(SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00030' AND CD = TR.WEATH_CD)||')' WEATHER
+			       , '온도 : '||TR.TEMPT||'℃'||',  풍속 : '||TR.WIND_SPD||'m/s'||',  풍향 : '||(SELECT CD_NM FROM TBEA_SPEC_CD WHERE GRP_CD = 'E00031' AND CD = TR.WIND_DIRC_CD) WIND
+			       , '단 : '||POOL1||',  연 : '||POOL2_1||' / '||POOL2_2||',  쌍 : '||POOL4||',  복 : '||POOL5||',  삼복 : '||POOL6 SDL  -- 확정배당율(단/연/쌍/복/삼복)
+			       , TRA.R1_1T_1
+			       , TRA.R1_1T_2
+			       , TRA.R1_2T_1
+			       , TRA.R1_2T_2
+			       , TRA.R2_1T_1
+			       , TRA.R2_1T_2
+			       , TRA.R2_2T_1
+			       , TRA.R2_2T_2
+			       , TRA.R3_1T_1
+			       , TRA.R3_1T_2
+			       , TRA.R3_2T_1
+			       , TRA.R3_2T_2
+			       , TRA.IMG_DESC
+			       , '' IMG_1_UPDATE
+			       , TRA.IMG_1
+			       , '' IMG_2_UPDATE
+			       , TRA.IMG_2
+			       , '' IMG_3_UPDATE
+			       , TRA.IMG_3
+			       , '' IMG_4_UPDATE
+			       , TRA.IMG_4
+			FROM	 TBEB_RACE TR
+			       , TBEB_RACE_DAY_ORD TRDO
+			       , (SELECT   STND_YEAR
+			                 , TMS
+			                 , DAY_ORD
+			                 , RACE_NO
+			                 , SUM(DECODE(POOL_CD,'001',PAYOFF,0)) POOL1
+			                 , SUM(DECODE(POOL_CD,'002',DECODE(RS_SEQ,1,PAYOFF,0),0)) POOL2_1
+			                 , SUM(DECODE(POOL_CD,'002',DECODE(RS_SEQ,2,PAYOFF,0),0)) POOL2_2
+			                 , SUM(DECODE(POOL_CD,'004',PAYOFF,0)) POOL4
+			                 , SUM(DECODE(POOL_CD,'005',PAYOFF,0)) POOL5
+			                 , SUM(DECODE(POOL_CD,'006',PAYOFF,0)) POOL6
+			            FROM   USRBM.TBES_SDL_RS
+			           WHERE   MEET_CD   = '003'
+			             AND   STND_YEAR = ?
+			             AND   TMS       LIKE NVL(?, TMS)
+			             AND   DAY_ORD   LIKE NVL(?, DAY_ORD)
+			             AND   RACE_NO   LIKE NVL(?, RACE_NO)
+			        GROUP BY   STND_YEAR
+			                 , TMS
+			                 , DAY_ORD
+			                 , RACE_NO
+			         ) TSR
+			       , TBEE_RACE_ANALYSIS TRA
+			 WHERE   TR.STND_YEAR = TRDO.STND_YEAR
+			   AND   TR.MBR_CD    = TRDO.MBR_CD
+			   AND   TR.TMS       = TRDO.TMS
+			   AND   TR.DAY_ORD   = TRDO.DAY_ORD
+			   AND   TR.STND_YEAR = TSR.STND_YEAR
+			   AND   TR.TMS       = TSR.TMS
+			   AND   TR.DAY_ORD   = TSR.DAY_ORD
+			   AND   TR.RACE_NO   = TSR.RACE_NO
+			   AND   TR.STND_YEAR = TRA.STND_YEAR(+)
+			   AND   TR.MBR_CD    = TRA.MBR_CD(+)
+			   AND   TR.TMS       = TRA.TMS(+)
+			   AND   TR.DAY_ORD   = TRA.DAY_ORD(+)
+			   AND   TR.RACE_NO   = TRA.RACE_NO(+)
+			   AND   TR.MBR_CD    = '001'
+			   AND   TR.STND_YEAR = ?
+			   AND   TR.TMS     LIKE NVL(?, TR.TMS)
+			   AND   TR.DAY_ORD LIKE NVL(?, TR.DAY_ORD)
+			   AND   TR.RACE_NO LIKE NVL(?, TR.RACE_NO)
+			ORDER BY TR.TMS DESC
+			       , TR.DAY_ORD DESC
+			       , TR.RACE_NO DESC     
+        ]]>
+    </query>
+    <query id="tbee_race_analysis_fe002" desc="조회" fetchSize="10">
+        <![CDATA[
+			SELECT   TOR.STND_YEAR
+			       , TOR.TMS
+			       , TOR.DAY_ORD
+			       , TOR.RACE_NO
+			       , TOR.RACE_REG_NO      -- 정번
+			       , TOR.RACER_NO         -- 선수번호
+			       , TRM.NM_KOR RACER_NM  -- 선수명
+			       , TOR.INTRO_RUN_TM     -- 소개항주T
+			       , SUBSTR(TOR.RACE_TM,1,1)||'분'||SUBSTR(TOR.RACE_TM,2,2)||'초'||SUBSTR(TOR.RACE_TM,4,3) RACE_TM  -- 주행시간
+			       , TOR.MOT_NO           -- 모터번호
+			       , TO_NUMBER(SUBSTR(TOR.MOT_NO, 6, 3))||' 번  '||TRD.MOT_HIGH_RANK_RATIO||'%' MOT
+			       , TOR.BOAT_NO          -- 보트번호
+			       , TO_NUMBER(SUBSTR(TOR.BOAT_NO, 6, 3))||' 번  '||TRD.BOAT_HIGH_RANK_RATIO||'%' BOAT
+			       , TOR.ENTRY_COURSE||'코스' ENTRY_COURSE   -- 진입코스
+			       , TRD.BF_DD_RECD
+			       , TOR.RANK||'착'     RANK      -- 착순
+			  FROM   TBEB_ORGAN TOR
+			       , TBEC_RACER_MASTER TRM
+			       , TBEB_RACE_DOC TRD
+			 WHERE   TOR.RACER_NO      = TRM.RACER_NO
+			   AND   TOR.STND_YEAR     = TRD.STND_YEAR
+			   AND   TOR.MBR_CD        = TRD.MBR_CD
+			   AND   TOR.TMS           = TRD.TMS
+			   AND   TOR.DAY_ORD       = TRD.DAY_ORD
+			   AND   TOR.RACE_NO       = TRD.RACE_NO
+			   AND   TOR.RACE_REG_NO   = TRD.RACE_REG_NO
+			   AND   TRD.ORGAN_STAT_CD = '002'
+			   AND   TOR.MBR_CD        = '001'
+			   AND   TOR.STND_YEAR     = ?
+			   AND   TOR.TMS           = ?
+			   AND   TOR.DAY_ORD       = ?
+			   AND   TOR.RACE_NO       = ?
+			ORDER BY TOR.RACE_REG_NO
+        ]]>
+    </query>
+    <query id="tbee_race_analysis_ie001" desc="저장" fetchSize="10">
+        <![CDATA[
+			MERGE INTO TBEE_RACE_ANALYSIS TRA
+			USING   DUAL
+			ON		(
+					STND_YEAR 			= ?			--기준년도
+			AND		MBR_CD 				= '001'		--경정장코드
+			AND		TMS 				= ?  		--회차  
+			AND		DAY_ORD 			= ? 		--일차
+			AND		RACE_NO 			= ? 		--경주번호
+					)
+            WHEN MATCHED THEN
+				UPDATE	SET
+						R1_1T_1		   	= ?,		--1주회 1턴 분석1    
+						R1_1T_2		   	= ?,		--1주회 1턴 분석2    
+						R1_2T_1		   	= ?,		--1주회 2턴 분석1    
+						R1_2T_2		   	= ?,		--1주회 2턴 분석2    
+						R2_1T_1		   	= ?,		--2주회 1턴 분석1    
+						R2_1T_2		   	= ?,		--2주회 1턴 분석2    
+						R2_2T_1		   	= ?,		--2주회 2턴 분석1    
+						R2_2T_2		   	= ?,		--2주회 2턴 분석2    
+						R3_1T_1		   	= ?,		--3주회 1턴 분석1    
+						R3_1T_2		   	= ?,		--3주회 1턴 분석2    
+						R3_2T_1		   	= ?,		--3주회 2턴 분석1    
+						R3_2T_2		   	= ?,		--3주회 2턴 분석2    
+						IMG_DESC	   	= ?,		--사진설명    
+						IMG_1   		= ?,		--사진1    
+						IMG_2   		= ?,		--사진2    
+						IMG_3   		= ?,		--사진3    
+						IMG_4   		= ?,		--사진4    
+						UPDT_ID			= ?,		--수정자ID    
+						UPDT_DTM		= SYSDATE	--수정일시 
+			WHEN NOT MATCHED THEN
+				INSERT
+					(	 
+						STND_YEAR, 					--기준년도
+						MBR_CD,						--경정장코드
+						TMS,						--회차
+						DAY_ORD, 					--일차
+						RACE_NO, 					--경주번호
+						R1_1T_1,					--1주회 1턴 분석1    
+						R1_1T_2,					--1주회 1턴 분석2    
+						R1_2T_1,					--1주회 2턴 분석1    
+						R1_2T_2,					--1주회 2턴 분석2    
+						R2_1T_1,					--2주회 1턴 분석1    
+						R2_1T_2,					--2주회 1턴 분석2    
+						R2_2T_1,					--2주회 2턴 분석1    
+						R2_2T_2,					--2주회 2턴 분석2    
+						R3_1T_1,					--3주회 1턴 분석1    
+						R3_1T_2,					--3주회 1턴 분석2    
+						R3_2T_1,					--3주회 2턴 분석1    
+						R3_2T_2,					--3주회 2턴 분석2    
+						IMG_DESC,					--사진설멍
+						IMG_1,						--사진1
+						IMG_2,						--사진2
+						IMG_3,						--사진3
+						IMG_4,						--사진4
+						INST_ID,					--입력자   
+						INST_DTM					--작성일시
+					)
+					VALUES
+					(
+						?, 							--기준년도
+						'001',						--경정장코드
+						?,							--회차
+						?, 							--일차
+						?, 							--경주번호
+						?,							--1주회 1턴 분석1    
+						?,							--1주회 1턴 분석2    
+						?,							--1주회 2턴 분석1    
+						?,							--1주회 2턴 분석2    
+						?,							--2주회 1턴 분석1    
+						?,							--2주회 1턴 분석2    
+						?,							--2주회 2턴 분석1    
+						?,							--2주회 2턴 분석2    
+						?,							--3주회 1턴 분석1    
+						?,							--3주회 1턴 분석2    
+						?,							--3주회 2턴 분석1    
+						?,							--3주회 2턴 분석2    
+						?, 							--사진설명
+						?,							--사진1
+						?,							--사진2
+						?,							--사진3
+						?,							--사진4
+						?,							--입력자   
+						SYSDATE						--작성일시
+					)
+        ]]>
+    </query> 
+</queryMap>

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+
+<queryMap desc="REV2030(서비스평가)">
+    
+    <query id="rev2030_s01" desc="해당부서조회" fetchSize="10">
+        <![CDATA[		
+        	SELECT   /* rev2030_s01 */
+        	         SVR_FST_SND 
+        	FROM     TBRF_EV_EMP
+            WHERE    1 = 1    
+            AND      ESTM_YEAR = ?
+            AND      ESTM_NUM = ?
+            AND      DEPT_CD = ?
+            AND      EMP_NO = ?
+            AND      PERM_TEMP_GBN = '001' 
+            AND      SVR_FST_SND IS NOT NULL 
+        ]]>
+    </query>
+
+	<query id="rev2030_s02" desc="해당부서조회" fetchSize="10">
+        <![CDATA[		
+        	SELECT   /* rev2030_s02 */  
+                     A.ESTM_YEAR,  
+                     A.ESTM_NUM,  
+                     A.EMP_NO,  
+                     A.ESTM_DEPT,  
+                     A.EMP_NO,  
+                     C.EMP_NM, 
+                     C.ESTM_WK_JOB, 
+                     (SELECT WK_JOB_NM FROM TBRF_EV_WORK_JOB WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND WK_JOB_CD = C.ESTM_WK_JOB) AS WK_JOB_NM,  
+                     NVL(A.ESTM_SCR,(SELECT MAX(STND_SCR)   
+                                        FROM TBRF_EV_LARGE_ITEM  
+                                       WHERE 1 = 1 
+                                         AND ESTM_YEAR = A.ESTM_YEAR  
+                                         AND ESTM_NUM = A.ESTM_NUM  
+                                         AND ESTM_ITEM_CD = '3'  
+                                         AND CNTR_ITM_CD =  ( SELECT CNTR_ITM_CD  
+                                                                 FROM TBRF_EV_JOB_ITM_DTL  
+                                                                WHERE 1 = 1 
+                                                                  AND ESTM_YEAR = A.ESTM_YEAR  
+                                                                  AND ESTM_NUM  = A.ESTM_NUM  
+                                                                  AND ESTM_ITEM_CD = '3' 
+                                                                  AND CNTR_ITM_DTL = C.ESTM_WK_JOB)  
+                                    GROUP BY STND_SCR )) AS ESTM_SCR,
+                     DECODE(SIGN((SELECT COUNT(F1.ATT_FILE_KEY)
+                                    FROM TBRF_EV_WK_SRV_DT D1,
+                                         TBRK_FILE_MANA F1
+                                   WHERE 1=1
+                                     AND D1.ESTM_YEAR    = A.ESTM_YEAR
+                                     AND D1.ESTM_NUM     = A.ESTM_NUM
+                                     AND D1.ESTM_DEPT    = A.ESTM_DEPT
+                                     AND D1.EMP_NO       = A.EMP_NO
+                                     AND D1.ATT_FILE_KEY = F1.ATT_FILE_KEY)),1,'유','') AS FILE_CNT                                  
+                     FROM     TBRF_EV_WK_SRV A  
+                             ,TBRF_EV_EMP C 
+            WHERE    1 = 1      
+            AND      A.ESTM_YEAR = C.ESTM_YEAR 
+            AND      A.ESTM_NUM = C.ESTM_NUM 
+            AND      A.ESTM_DEPT = C.ESTM_DEPT 
+            AND      A.EMP_NO = C.EMP_NO 
+            AND      A.ESTM_YEAR = ?
+            AND      A.ESTM_NUM = ?
+            AND      A.ESTM_DEPT = ?
+            /* AND      DECODE( ?, 1, "ESTM_FST_EMP", 2, "ESTM_SND_EMP") = ? */
+        ]]>
+    </query>
+    
+    <query id="rev2030_s03" desc="해당부서조회" fetchSize="10">
+        <![CDATA[		
+            SELECT   /* rev2030_s03 */
+            	     A.ESTM_YEAR,
+					 A.ESTM_NUM,
+					 A.EMP_NO,
+					 A.ESTM_EMP,
+					 A.ESTM_DEPT,
+                     B.ESTM_LITEM_CD,
+                     B.ESTM_LITEM_NM,
+                     B.ESTM_SCR,
+                     B.FST_SND_GBN,
+                     A.CNT,
+                     B.HI_CNT,
+                     B.BEST_SCR,
+                     B.STND_SCR,
+                     A.ATT_FILE_KEY,
+                     DECODE(SIGN((SELECT COUNT(*) FROM TBRK_FILE_MANA WHERE ATT_FILE_KEY = A.ATT_FILE_KEY)),1,'유','') AS FILE_CNT
+            FROM     TBRF_EV_WK_SRV_DT A,
+                     TBRF_EV_LARGE_ITEM B
+            WHERE    A.ESTM_YEAR = B.ESTM_YEAR 
+            AND      A.ESTM_NUM = B.ESTM_NUM
+            AND      A.ESTM_LITEM_CD = B.ESTM_LITEM_CD
+            AND      B.ESTM_ITEM_CD = '3'	
+            AND      A.ESTM_YEAR = ?
+            AND      A.ESTM_NUM = ?
+            AND      A.ESTM_DEPT = ?
+            AND      A.EMP_NO = ?
+            ORDER BY B.ESTM_LITEM_CD
+        ]]>
+    </query>
+    
+    <query id="rev2030_u01" desc="평가보직분야 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev2030_u01 */
+			         TBRF_EV_WK_SRV_DT
+			SET      CNT = ?,
+			         UPDT_ID   = ?,		-- 3. 사용자 ID		
+					 UPDT_DT   = SYSDATE
+			WHERE    ESTM_YEAR    = ?     -- 7.평가년도
+			AND      ESTM_NUM     = ?     -- 8.평가회차
+			AND      EMP_NO      = ?
+			AND      ESTM_DEPT   = ?
+			and      ESTM_LITEM_CD = ?
+        ]]>
+    </query>
+    
+    <query id="rev2030_u02" desc="평가보직분야 수정" fetchSize="10">
+        <![CDATA[
+			UPDATE   /* rev2030_u02 */
+			         TBRF_EV_WK_SRV
+			SET      ESTM_SCR = ?,
+			         UPDT_ID   = ?,		-- 3. 사용자 ID		
+					 UPDT_DT   = SYSDATE
+			WHERE    ESTM_YEAR    = ?     -- 7.평가년도
+			AND      ESTM_NUM     = ?     -- 8.평가회차
+			AND      EMP_NO      = ?
+			AND      ESTM_DEPT   = ?
+        ]]>
+    </query>
+    <query id="rev2030_u03" desc="첨부파일  정보 수정" fetchSize="10">
+        <![CDATA[
+            UPDATE  TBRF_EV_WK_SRV_DT   /* rev2030_u03 */
+               SET
+                    ATT_FILE_KEY = ?                
+                   ,UPDT_ID      = ?                
+                   ,UPDT_DT      = SYSDATE
+             WHERE  1=1
+               AND  ESTM_YEAR     = ?
+               AND  ESTM_NUM      = ?
+               AND  ESTM_DEPT     = ?
+               AND  ESTM_LITEM_CD = ?
+               AND  ESTM_EMP      = ?
+               AND  EMP_NO        = ?
+        ]]>
+    </query>
+    
+</queryMap>

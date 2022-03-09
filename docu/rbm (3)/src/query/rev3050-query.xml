@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="REV3050(부서별승인현황)">
+	<query id="rev3050_s01" desc="부서별 승인현황 조회" fetchSize="10">
+		<![CDATA[
+ 			SELECT /* rev3050_s01 */
+ 				    A.ESTM_YEAR 
+		           ,A.ESTM_NUM 
+		           ,A.APRV_SEQ 
+		           ,DECODE(A.APRV_SEQ, 1, '부서별평가자선정', 2, '근무실적평가', 3, '서비스평가', 4, '대상자확정') AS APRV_GBN  
+		           ,A.APRV_DEPT 
+		           ,(SELECT DEPT_NM FROM TBRF_EV_DEPT WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM AND DEPT_CD = A.APRV_DEPT) AS APRV_DEPT_NM 
+		           ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM  AND EMP_NO = A.APRV_OFIR_NO) AS APRV_OFIR_NM 
+		           ,(SELECT EMP_NM FROM TBRF_EV_EMP WHERE ESTM_YEAR = A.ESTM_YEAR AND ESTM_NUM = A.ESTM_NUM  AND EMP_NO = A.APRV_REQ_NO) AS APRV_REQ_NM 
+		           ,A.APRV_STAS 
+		           ,FC_CODE_NM('099', A.APRV_STAS) AS  APRV_STAS_NM 
+		           ,A.APRV_DT 
+		      FROM TBRF_EV_APRV A
+                  ,(SELECT ESTM_YEAR
+                           ,ESTM_NUM
+                           ,ESTM_DEPT AS DEPT_CD  
+                       FROM TBRF_EV_EMP
+                      WHERE 1 = 1
+                        AND ESTM_ESC_GBN = 'Y'
+                      GROUP BY  ESTM_YEAR
+                               ,ESTM_NUM
+                               ,ESTM_DEPT) B 
+                            
+		     WHERE 1 = 1  
+               AND A.ESTM_YEAR = B.ESTM_YEAR
+               AND A.ESTM_NUM = B.ESTM_NUM
+               AND A.APRV_DEPT = B.DEPT_CD 
+		       AND A.ESTM_YEAR = ?
+		       AND A.ESTM_NUM  = ? 
+		       AND DECODE(?, '', '1', A.APRV_DEPT )   = DECODE(?, '', '1', ?)
+		       AND DECODE(?, '', '1', A.APRV_STAS )   = DECODE(?, '', '1', ?)
+		       AND A.APRV_SEQ IN (1, 2, 3, 4) 
+		      ORDER BY APRV_DEPT, DECODE(APRV_SEQ, 4, 1, 1, 2, 2, 3, 3, 4)  
+        ]]>
+	</query>
+</queryMap>

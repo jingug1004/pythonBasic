@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RBS9320(적발건수 관리)">
+        
+    <query id="rbs9320_s01" desc="적발건수 지점별 조회" fetchSize="10">
+        <![CDATA[
+			SELECT BRNC_CD,
+			       STND_YEAR,
+			       STND_MM,
+			       INSPECTION_CNT,
+			       TOT_EXPOSE_CNT,
+			       PRSN_CNT,
+			       AUTO_CNT,
+			       ETC_CNT,
+			       TOT_CNT,
+			       MANAGE_VIOLATION,
+			       BASIC_ORDER_VIOLATION,
+			       (TOT_CNT + MANAGE_VIOLATION + BASIC_ORDER_VIOLATION) / INSPECTION_CNT AS TIMS_TOT_CNT,
+                   (TOT_CNT + MANAGE_VIOLATION) /INSPECTION_CNT AS TIMS_NOTBASIC_CNT,
+                   MEET_CD
+			  FROM TBRE_NGCC_INSPECTION
+			 WHERE 1 = 1
+			   AND STND_YEAR = NVL(?, STND_YEAR)
+			   AND STND_MM = NVL(?, STND_MM)
+			   AND BRNC_CD = NVL(?, BRNC_CD)
+			   AND MEET_CD = NVL(?, MEET_CD)
+			ORDER BY STND_YEAR, STND_MM, BRNC_CD
+        ]]>
+    </query>   
+    
+    <query id="rbs9320_s02" desc="적발건수 월별 조회" fetchSize="10">
+        <![CDATA[
+			SELECT STND_YEAR,
+			       STND_MM,
+			       SUM(INSPECTION_CNT) AS INSPECTION_CNT,
+			       SUM(TOT_EXPOSE_CNT) AS TOT_EXPOSE_CNT,
+			       SUM(PRSN_CNT) AS PRSN_CNT,
+			       SUM(AUTO_CNT) AS AUTO_CNT,
+			       SUM(ETC_CNT) AS ETC_CNT,
+			       SUM(TOT_CNT) AS TOT_CNT,
+			       SUM(MANAGE_VIOLATION) AS MANAGE_VIOLATION,
+			       SUM(BASIC_ORDER_VIOLATION) AS BASIC_ORDER_VIOLATION,
+			       (SUM(TOT_CNT) + SUM(MANAGE_VIOLATION) + SUM(BASIC_ORDER_VIOLATION)) / SUM(INSPECTION_CNT) AS TIMS_TOT_CNT,
+                   (SUM(TOT_CNT) + SUM(MANAGE_VIOLATION)) / SUM(INSPECTION_CNT) AS TIMS_NOTBASIC_CNT,
+             	   --FILE_NM,
+             	   --FILE_PATH,
+             	   MEET_CD
+			  FROM TBRE_NGCC_INSPECTION
+			 WHERE 1 = 1
+			   AND STND_YEAR = NVL(?, STND_YEAR)
+			   AND STND_MM = NVL(?, STND_MM)
+			   AND MEET_CD = NVL(?, MEET_CD)
+			GROUP BY STND_YEAR, STND_MM, MEET_CD--, FILE_NM, FILE_PATH, 
+			ORDER BY STND_YEAR, STND_MM, MEET_CD
+        ]]>
+    </query>   
+    
+    <query id="rbs9320_s03" desc="적발건수 연도별 조회" fetchSize="10">
+        <![CDATA[
+			SELECT STND_YEAR, --년도
+			       MEET_CD, --구분
+			       INSPECTION_CNT, --점검횟수
+			       TOT_EXPOSE_CNT, --적발건수
+			       TIMS_TOT_CNT, --1회 점검당 적발건수
+			       (SELECT SUM(TOT_EXPOSE_CNT)
+			          FROM TBRE_NGCC_INSPECTION
+			         WHERE STND_YEAR = SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),0,4)) AS EXPOSE_CNT --현재 적발건수
+			    FROM (
+			        SELECT STND_YEAR,
+			               MEET_CD,
+			               SUM(INSPECTION_CNT) AS INSPECTION_CNT,
+			               SUM(TOT_EXPOSE_CNT) - SUM(BASIC_ORDER_VIOLATION) AS TOT_EXPOSE_CNT,
+			               ROUND((SUM(TOT_EXPOSE_CNT) - SUM(BASIC_ORDER_VIOLATION)) / SUM(INSPECTION_CNT),2) AS TIMS_TOT_CNT
+			          FROM TBRE_NGCC_INSPECTION
+			         WHERE STND_YEAR = ?
+			           AND MEET_CD = NVL(?, MEET_CD)
+			        GROUP BY STND_YEAR, MEET_CD
+			        UNION ALL
+			        SELECT STND_YEAR,
+			               MEET_CD,
+			               SUM(INSPECTION_CNT) AS INSPECTION_CNT,
+			               SUM(TOT_EXPOSE_CNT) - SUM(BASIC_ORDER_VIOLATION) AS TOT_EXPOSE_CNT,
+			               ROUND((SUM(TOT_EXPOSE_CNT) - SUM(BASIC_ORDER_VIOLATION)) / SUM(INSPECTION_CNT),2) AS TIMS_TOT_CNT
+			          FROM TBRE_NGCC_INSPECTION
+			         WHERE STND_YEAR = ? - 1
+			           AND MEET_CD = NVL(?, MEET_CD)
+			        GROUP BY STND_YEAR, MEET_CD
+			        UNION ALL
+			        SELECT STND_YEAR,
+			               MEET_CD,
+			               SUM(INSPECTION_CNT) AS INSPECTION_CNT,
+			               SUM(TOT_EXPOSE_CNT) - SUM(BASIC_ORDER_VIOLATION) AS TOT_EXPOSE_CNT,
+			               ROUND((SUM(TOT_EXPOSE_CNT) - SUM(BASIC_ORDER_VIOLATION)) / SUM(INSPECTION_CNT),2) AS TIMS_TOT_CNT
+			          FROM TBRE_NGCC_INSPECTION
+			         WHERE STND_YEAR = ? - 2
+			           AND MEET_CD = NVL(?, MEET_CD) 
+			        GROUP BY STND_YEAR, MEET_CD
+			       )
+			ORDER BY MEET_CD, STND_YEAR DESC
+
+        ]]>
+    </query>    
+
+     
+</queryMap>

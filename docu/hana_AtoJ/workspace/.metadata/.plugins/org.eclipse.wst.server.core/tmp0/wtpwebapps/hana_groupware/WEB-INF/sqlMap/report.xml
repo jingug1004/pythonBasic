@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+  * @파일명 : report.xml
+  * @메뉴명 : 내가올린문서
+  * @최초작성일 : 2015/02/10            
+  * @author : Jung.Jin.Muk(pc123pc@irush.co.kr)                  
+  * @수정내역 :	
+-->
+<mapper namespace="report"> 
+
+	<select id="getReportList" parameterType="hashmap" resultType="com.hanaph.gw.ea.report.vo.ReportVO">
+		-- 내가올린문서 리스트를 가져온다 / getReportList / @ report.xml / 전자결재 - 내가올린문서
+		<if test="page != null">
+			SELECT *
+			FROM (SELECT 
+					T0.*, FLOOR((ROWNUM - 1) / #{perPageRow,jdbcType=INTEGER} + 1) PAGE
+				FROM (
+		</if>
+				SELECT AM.APPROVAL_SEQ, ED.DOCU_NM, ED.DOCU_CD, AM.SUBJECT, TO_CHAR (AM.MAKE_DT, 'YYYY-MM-DD') MAKE_DT, AM.STEP_STATE,
+				       ORAGMP.F_GW_GET_LAST_LINE_NM(AM.APPROVAL_SEQ) LAST_LINE_NM, AM.STATE,
+				       F_GW_GET_CD_NM(AM.STATE) STATE_NM, AM.REQ_DT, AM.DOCU_SEQ, ORAGMP.F_GET_EMP_KO_NM (AM.CREATE_NO) CREATE_NO 
+				  FROM GW_EA_APPROVAL_MASTER AM, GW_EA_DOCU ED
+				 WHERE AM.DELETE_YN = 'N'
+				   AND AM.DOCU_SEQ = ED.DOCU_SEQ
+                   AND AM.CREATE_NO = #{emp_no}
+                <if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">
+           		   AND AM.MAKE_DT BETWEEN TO_DATE (#{search_start_ymd}, 'yyyy-mm-dd')
+		           AND TO_DATE (#{search_end_ymd}, 'yyyy-mm-dd') + 0.99999
+				</if>
+		       	<if test="search_docu_state != 'all'">
+		       	   AND AM.STATE = #{search_docu_state}
+		       	</if>
+		       	<if test="search_docu_kind != 'all'">
+		       	    AND ED.DOCU_CD = #{search_docu_kind}
+		       	</if>
+				<if test="searchKeyword != ''">
+					<choose>
+						<when test="searchType == 'approval_seq'">
+							AND AM.APPROVAL_SEQ LIKE '%' || #{searchKeyword} || '%'
+						</when>
+						<when test="searchType == 'subject'">
+							AND AM.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+						</when>
+					</choose>
+				</if>
+
+				<if test='checkMustOpinion == "N"'>
+					AND AM.MUSTOPINION = 'N'
+				</if>
+				<if test='checkMustOpinion == "Y"'>
+					AND AM.MUSTOPINION = 'Y'
+				</if>
+
+				ORDER BY AM.MAKE_DT DESC
+		<if test="page != null">
+					) T0
+				)
+			WHERE PAGE = #{page,jdbcType=INTEGER}
+		</if>
+	</select>
+
+	<select id="getReportCount" parameterType="hashmap" resultType="int">
+		-- 내가올린문서 총 갯수를 가져온다 / getReportCount / @ report.xml / 전자결재 - 내가올린문서
+		SELECT COUNT(*)
+		  FROM GW_EA_APPROVAL_MASTER AM, GW_EA_DOCU ED
+		 WHERE AM.DELETE_YN = 'N'
+		   AND AM.DOCU_SEQ = ED.DOCU_SEQ
+           AND AM.CREATE_NO = #{emp_no}
+        <if test="(search_start_ymd != null and search_start_ymd !='') and (search_end_ymd != null and search_end_ymd !='')">
+		   AND (AM.MAKE_DT BETWEEN TO_CHAR(TO_DATE (#{search_start_ymd}, 'yyyy-mm-dd'),'yyyymmdd')
+	       AND TO_CHAR(TO_DATE (#{search_end_ymd}, 'yyyy-mm-dd'),'yyyymmdd')
+	        OR AM.REQ_DT IS NOT NULL 
+	        OR AM.REQ_DT IS NULL)
+	    </if>
+       	<if test="search_docu_state != 'all'">
+       	   AND AM.STATE = #{search_docu_state}
+       	</if>
+       	<if test="search_docu_kind != 'all'">
+       	   AND ED.DOCU_CD = #{search_docu_kind}
+       	</if>
+		<if test="searchKeyword != ''">
+			<choose>
+				<when test="searchType == 'approval_seq'">
+					AND AM.APPROVAL_SEQ LIKE '%' || #{searchKeyword} || '%'
+				</when>
+				<when test="searchType == 'subject'">
+					AND AM.SUBJECT LIKE '%' || #{searchKeyword} || '%'
+				</when>
+			</choose>
+		</if>
+
+		<if test='checkMustOpinion == "N"'>
+			AND AM.MUSTOPINION = 'N'
+		</if>
+		<if test='checkMustOpinion == "Y"'>
+			AND AM.MUSTOPINION = 'Y'
+		</if>
+
+ 	</select>
+ 	
+ 	<select id="getMainReportCnt" parameterType="hashmap" resultType="com.hanaph.gw.ea.newReport.vo.ApprovalMasterVO">
+		SELECT TB.CD STATE, TB.CD_NM STATE_NM, nvl(CNT,0) cnt
+		  FROM (SELECT STATE ,COUNT(*) CNT
+		          FROM GW_EA_APPROVAL_MASTER 
+		         WHERE CREATE_NO = #{emp_no}
+		           AND DELETE_YN = 'N'
+		         GROUP BY STATE) TA, GW_CO_CODE TB     
+		 WHERE TB.CD = TA.STATE(+) 
+		   AND TB.M_CD = 'E02'
+		   AND TB.CD != 'E02000'
+		 ORDER BY TB.CD ASC
+ 	</select>
+	
+</mapper>

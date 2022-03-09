@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding='EUC-KR'?>
+
+<queryMap desc="RSM3040(회차별 매출액)">
+    <query id="rsm3040_s01" desc="회차별 매출액(경륜, 전체지점)" fetchSize="10">
+        <![CDATA[
+			SELECT  /* rsm3040_s01 */                                                                                 
+			     A.MEET_CD,		-- 경륜장 구분코드 
+			     A.STND_YEAR,	-- 기준년도
+			     DECODE(GROUPING(A.TMS),0,TO_NUMBER(A.TMS)||'','TOTAL') TMS,	-- 회차
+			     SUM(DECODE(A.RACE_YOIL,'MON',DIV_TOTAL,0)) MON_SUM,					-- 월요일 매출액
+			     TO_CHAR(                                                                             
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'MON',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 
+			     ) MON_PER,											-- 월요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'TUE',DIV_TOTAL,0)) TUE_SUM,					-- 화요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'TUE',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0'	                
+			     ) TUE_PER,                                                                           	-- 화요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'WED',DIV_TOTAL,0)) WED_SUM,					-- 수요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'WED',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100),'990.0'   	                
+			     ) WED_PER,                                                                           	-- 수요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'THU',DIV_TOTAL,0)) THU_SUM,					-- 목요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'THU',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) THU_PER,                                                                           	-- 목요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'FRI',DIV_TOTAL,0)) FRI_SUM,					-- 금요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'FRI',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) FRI_PER,                                                                           	-- 금요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'SAT',DIV_TOTAL,0)) SAT_SUM,					-- 토요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'SAT',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) SAT_PER,                                                                           	-- 토요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'SUN',DIV_TOTAL,0)) SUN_SUM,					-- 일요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'SUN',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) SUN_PER,                                                                           	-- 일요일 점유율
+			     SUM(A.DIV_TOTAL) DIV_SUM									-- 전체 매출액 합계
+			 FROM                                                                                     
+			 (                                                                                        
+			     SELECT                                                                               
+			         A.MEET_CD,                                                                       
+			         A.STND_YEAR,                                                                     
+			         A.TMS,                                                                           
+			         B.RACE_YOIL,                                                                     
+			         SUM(A.DIV_TOTAL) DIV_TOTAL                                                       
+			     FROM                                                                                 
+			         VW_SDL_DT A,            -- 지점                                                          
+			         VW_SDL_INFO B             -- 경주일 정보                                                       
+			     WHERE 1 = 1                                                                          
+			         AND B.MEET_CD = ?			-- 0:MEET_CD 경륜 구분 코드
+			         AND B.RACE_DAY >= ?		-- 1:RACE_DAY_ST 검색 기간 시작일                                        
+			         AND B.RACE_DAY <= ?    	-- 2:RACE_DAY_END 검색 기간 종료일                              
+			         AND B.STND_YEAR LIKE SUBSTR(?,1,4)||'%'  -- 3:RACE_DAY_ST 검색 기준년도
+			         AND A.STND_YEAR LIKE SUBSTR(?,1,4)||'%'  -- 4:RACE_DAY_ST 검색 기준년도
+			         AND A.MEET_CD = B.MEET_CD                                                        
+			         AND A.STND_YEAR = B.STND_YEAR                                                    
+			         AND A.TMS = B.TMS                                                                
+			         AND A.DAY_ORD = B.DAY_ORD
+			
+			
+			     GROUP BY A.MEET_CD, A.STND_YEAR, A.TMS, B.RACE_YOIL                                  
+			 ) A                                                                                      
+			 WHERE 1 = 1                                                                              
+			 GROUP BY A.MEET_CD, A.STND_YEAR
+			 ,	A.TMS
+			 -- , ROLLUP(A.TMS) -- 최종 레코드의  TOTAL, SUM 생성용                                           
+			 ORDER BY A.MEET_CD, A.STND_YEAR, GROUPING(A.TMS), A.TMS
+        ]]>
+    </query>
+    
+    <query id="rsm3040_select01" desc="회차별 매출액(SELECT)" fetchSize="10">
+        <![CDATA[
+			SELECT  /* rsm3040_select01 */                                                                                 
+			     A.MEET_CD,		-- 경륜장 구분코드 
+			     A.STND_YEAR,	-- 기준년도
+			     DECODE(GROUPING(A.TMS),0,TO_NUMBER(A.TMS)||'','TOTAL') TMS,	-- 회차
+			     SUM(DECODE(A.RACE_YOIL,'MON',DIV_TOTAL,0)) MON_SUM,					-- 월요일 매출액
+			     TO_CHAR(                                                                             
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'MON',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 
+			     ) MON_PER,											-- 월요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'TUE',DIV_TOTAL,0)) TUE_SUM,					-- 화요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'TUE',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0'	                
+			     ) TUE_PER,                                                                           	-- 화요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'WED',DIV_TOTAL,0)) WED_SUM,					-- 수요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'WED',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100),'990.0'   	                
+			     ) WED_PER,                                                                           	-- 수요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'THU',DIV_TOTAL,0)) THU_SUM,					-- 목요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'THU',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) THU_PER,                                                                           	-- 목요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'FRI',DIV_TOTAL,0)) FRI_SUM,					-- 금요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'FRI',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) FRI_PER,                                                                           	-- 금요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'SAT',DIV_TOTAL,0)) SAT_SUM,					-- 토요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'SAT',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) SAT_PER,                                                                           	-- 토요일 점유율
+			     SUM(DECODE(A.RACE_YOIL,'SUN',DIV_TOTAL,0)) SUN_SUM,					-- 일요일 매출액
+			     TO_CHAR(                                                                             	                
+			         ROUND(DECODE(SUM(A.DIV_TOTAL),0,0,SUM(DECODE(A.RACE_YOIL,'SUN',DIV_TOTAL,0))/SUM(A.DIV_TOTAL))*100,1),'990.0' 	                
+			     ) SUN_PER,                                                                           	-- 일요일 점유율
+			     SUM(A.DIV_TOTAL) DIV_SUM									-- 전체 매출액 합계
+			 
+        ]]>
+    </query>
+    
+    <query id="rsm3040_from01" desc="회차별 매출액(FROM)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_from01 */
+			 FROM                                                                                     
+			 (                                                                                        
+			     SELECT                                                                               
+			         A.MEET_CD,                                                                       
+			         A.STND_YEAR,                                                                     
+			         A.TMS,                                                                           
+			         B.RACE_YOIL,                                                                     
+			         SUM(A.DIV_TOTAL) DIV_TOTAL                                                       
+			     FROM                                                                                 
+			         VW_SDL_DT_SUM A,            -- 지점                                                          
+			         VW_SDL_INFO B             -- 경주일 정보                                                       
+			     WHERE 1 = 1                                                                          
+			         AND B.MEET_CD = ?			-- 0:MEET_CD 경륜 구분 코드
+			         AND B.RACE_DAY >= ?		-- 1:RACE_DAY_ST 검색 기간 시작일                                        
+			         AND B.RACE_DAY <= ?    	-- 2:RACE_DAY_END 검색 기간 종료일                              
+			         AND B.STND_YEAR = SUBSTR(?,1,4)  -- 3:RACE_DAY_ST 검색 기준년도
+			         AND A.MEET_CD = B.MEET_CD                                                        
+			         AND A.STND_YEAR = B.STND_YEAR                                                    
+			         AND A.TMS = B.TMS                                                                
+			         AND A.DAY_ORD = B.DAY_ORD
+			
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm3040_from02" desc="회차별 매출액(FROM)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_from02 전체 선택일 경우 */
+			 FROM                                                                                     
+			 (                                                                                        
+			     SELECT                                                                               
+			         A.MEET_CD,                                                                       
+			         A.STND_YEAR,                                                                     
+			         A.TMS,                                                                           
+			         B.RACE_YOIL,                                                                     
+			         SUM(A.POOL_TOTAL) DIV_TOTAL                                                       
+			     FROM                                                                                 
+			         VW_SDL_PT A,            -- 지점                                                          
+			         VW_SDL_INFO B             -- 경주일 정보                                                       
+			     WHERE 1 = 1                                                                          
+			         AND B.MEET_CD = ?			-- 0:MEET_CD 경륜 구분 코드
+			         AND B.RACE_DAY >= ?		-- 1:RACE_DAY_ST 검색 기간 시작일                                        
+			         AND B.RACE_DAY <= ?    	-- 2:RACE_DAY_END 검색 기간 종료일                              
+			         AND B.STND_YEAR = SUBSTR(?,1,4)  -- 3:RACE_DAY_ST 검색 기준년도
+			         AND A.MEET_CD = B.MEET_CD                                                        
+			         AND A.STND_YEAR = B.STND_YEAR                                                    
+			         AND A.TMS = B.TMS                                                                
+			         AND A.DAY_ORD = B.DAY_ORD
+			
+			
+        ]]>
+    </query>
+    
+    
+    <query id="rsm3040_from03" desc="회차별 매출액(FROM)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_from03 */
+			 FROM                                                                                     
+			 (                                                                                        
+			     SELECT                                                                               
+			         A.MEET_CD,                                                                       
+			         A.STND_YEAR,                                                                     
+			         A.TMS,                                                                           
+			         B.RACE_YOIL,                                                                     
+			         SUM(A.DIV_TOTAL) DIV_TOTAL                                                       
+			     FROM                                                                                 
+			         VW_SDL_DT_SUM_GSUM A,     -- 지점별 매출액(그린카드 포함)                                                          
+			         VW_SDL_INFO B             -- 경주일 정보                                                       
+			     WHERE 1 = 1                                                                          
+			         AND B.MEET_CD = ?			-- 0:MEET_CD 경륜 구분 코드
+			         AND B.RACE_DAY >= ?		-- 1:RACE_DAY_ST 검색 기간 시작일                                        
+			         AND B.RACE_DAY <= ?    	-- 2:RACE_DAY_END 검색 기간 종료일                              
+			         AND B.STND_YEAR = SUBSTR(?,1,4)  -- 3:RACE_DAY_ST 검색 기준년도
+			         AND A.MEET_CD = B.MEET_CD                                                        
+			         AND A.STND_YEAR = B.STND_YEAR                                                    
+			         AND A.TMS = B.TMS                                                                
+			         AND A.DAY_ORD = B.DAY_ORD
+			
+        ]]>
+    </query>
+    
+    
+    
+    <query id="rsm3040_where01" desc="회차별 매출액 광명/미사리 본장 (WHERE)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_from01 광명/미사리 본장  */
+        	AND A.SELL_CD = DECODE(?,'003','03','01')  -- 4:MEET_CD 경륜 경정 구분 코드
+			AND A.COMM_NO IN ('01','02','03','04','08')
+			
+        ]]>
+    </query>
+    
+    <query id="rsm3040_where02" desc="회차별 매출액 교차 (WHERE)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_where02 교차  */
+			AND A.SELL_CD NOT IN ('01','03')
+        ]]>
+    </query>
+    
+    <query id="rsm3040_where03" desc="회차별 매출액 지점 (WHERE)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_where03 지점 */							
+			AND A.COMM_NO		= ?		-- 6:지점코드
+        ]]>
+    </query>
+    
+    <query id="rsm3040_where04" desc="회차별 매출액 지점 (WHERE)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_where04 공동활용본장  */			
+             AND A.SELL_CD = DECODE(?,'003','01','03')
+             AND A.COMM_NO IN ('01','02','03','04','08') 
+        ]]>
+    </query>
+    
+    <query id="rsm3040_groupby01" desc="회차별 매출액(GROUP BY)" fetchSize="10">
+        <![CDATA[
+        	/* rsm3040_groupby01 */
+			     GROUP BY A.MEET_CD, A.STND_YEAR, A.TMS, B.RACE_YOIL                                  
+			 ) A                                                                                      
+			 WHERE 1 = 1                                                                              
+			 GROUP BY A.MEET_CD, A.STND_YEAR
+			 ,	A.TMS
+			 -- , ROLLUP(A.TMS) -- 최종 레코드의  TOTAL, SUM 생성용                                           
+			 ORDER BY A.MEET_CD, A.STND_YEAR, GROUPING(A.TMS), A.TMS
+        ]]>
+    </query>
+    
+    <query id="rsm3040_s02" desc="요일 조회" fetchSize="10">
+        <![CDATA[
+        	SELECT 
+			    B.RACE_YOIL -- 요일
+			FROM VW_SDL_INFO B
+			WHERE 1=1
+			  AND B.MEET_CD		= ?		-- 0:MEET_CD:개최지 코드							     
+			  AND B.RACE_DAY	>= ?    -- 1:RACE_DAY:검색 시작 일                                     		     
+			  AND B.RACE_DAY	<= ?    -- 2:RACE_DAY:검색 마지막 일                           
+			GROUP BY RACE_YOIL 
+        ]]>
+    </query>
+    
+    
+</queryMap>
